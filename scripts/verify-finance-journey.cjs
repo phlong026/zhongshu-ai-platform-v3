@@ -144,3 +144,53 @@ test('definitive refusal after timeout releases only after the server confirms a
  assert.match(page.data.paymentNotice,/作废/);assert.equal(writes,2);
  page.openRegister(event('payment'));assert.equal(page.data.registerType,'payment');
 });
+
+for(const type of ['refund','expense-refund']) {
+ const method=type==='refund'?'registerRefund':'registerExpenseRefund';
+ const source=type==='refund'?'receiptId':'paymentId';
+ const endpoint=type==='refund'?'refunds':'expense-refunds';
+ test(type+' timeout retries the original uploaded voucher, correction, amount and idempotency key',async()=>{
+  const {page,api,http}=harness(), bodies=[];let uploads=0;
+  http.currentPostId=()=>type+'-retry';
+  api.uploadVoucher=async()=>String(++uploads);
+  api[method]=async(body,key)=>{bodies.push(JSON.stringify({body,key}));if(bodies.length===1)throw {code:-1};return {refundId:'9223372036854775000'};};
+  http.get=async(path,args)=>{assert.equal(path,'/franchise/finance/'+endpoint+'/registration-result');assert.equal(args.key,'sticky-key');return {state:'NOT_REGISTERED'};};
+  page.openRegister(event(type));
+  Object.assign(page.data.registerForm,{[source]:'9007199254740999',amount:'12',date:'2026-11-17',voucherPath:'local',replacesId:'9007199254741001',reason:'更正'});
+  await page.submitRegister();assert.equal(page.data.paymentPending,true);
+  page.data.registerForm.amount='25';page.data.registerForm.voucherPath='different-local';
+  page.cancelRegister();assert.equal(page.data.registerType,type);
+  await page.retryPendingPayment();
+  assert.equal(uploads,1);assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);
+  assert.equal(JSON.parse(bodies[1]).body.replacesId,'9007199254741001');
+  assert.equal(page.data.journeyResult.id,'9223372036854775000');
+  assert.equal(page.data.journeyResult.amount,'12.00');assert.equal(page.data.registerBusy,false);
+ });
+ test(type+' survives process reload and keeps an accepted response isolated from another account',async()=>{
+  const first=harness(), storage=new Map();let release,writes=0,lookups=0;
+  const storageApi={setStorageSync:(k,v)=>storage.set(k,JSON.parse(JSON.stringify(v))),getStorageSync:k=>storage.get(k),removeStorageSync:k=>storage.delete(k)};
+  Object.assign(first.wx,storageApi);first.http.currentPostId=()=>type+'-persist';
+  first.api.uploadVoucher=async()=> '9007199254742001';
+  first.api[method]=(body)=>{writes++;assert.equal(body.voucherFileId,'9007199254742001');return new Promise(resolve=>{release=resolve;});};
+  first.page.openRegister(event(type));Object.assign(first.page.data.registerForm,{[source]:'9007199254742003',amount:'10',date:'2026-11-17',voucherPath:'local'});
+  const flight=first.page.submitRegister();await new Promise(setImmediate);first.page.__disposed=true;
+  delete require.cache[require.resolve('../miniprogram/pages/admin/finance-desk/payment-recovery')];
+  const second=harness();Object.assign(second.wx,storageApi);second.http.currentPostId=()=> 'another-post';
+  second.http.get=async(path)=>{lookups++;assert.equal(path,'/franchise/finance/'+endpoint+'/registration-result');return {refundId:'9007199254742005'};};
+  await second.page.resumePayment();assert.equal(lookups,0);assert.equal(second.page.data.journeyResult,undefined);
+  second.http.currentPostId=()=>type+'-persist';await second.page.resumePayment();
+  assert.equal(second.page.data.journeyResult.id,'9007199254742005');assert.equal(storage.size,0);
+  release({refundId:'9007199254742005'});await flight;
+  assert.equal(writes,1);assert.equal(first.page.data.journeyResult,null);
+ });
+ test(type+' releases a rejected frozen request only after confirmed absence',async()=>{
+  const {page,api,http}=harness();let writes=0,offline=false;
+  http.currentPostId=()=>type+'-reject';
+  api[method]=async()=>{writes++;if(writes===1)throw {code:-1};offline=true;throw {code:1102000050,message:'原单已作废'};};
+  http.get=async()=>{if(offline)throw Error('offline');return {state:'NOT_REGISTERED'};};
+  page.openRegister(event(type));Object.assign(page.data.registerForm,{[source]:'123',amount:'12',date:'2026-11-17'});
+  await page.submitRegister();await page.retryPendingPayment();assert.equal(page.data.paymentPending,true);
+  offline=false;await page.retryPendingPayment();assert.equal(page.data.paymentPending,false);assert.equal(writes,2);
+  assert.match(page.data.registerError,/作废/);
+ });
+}

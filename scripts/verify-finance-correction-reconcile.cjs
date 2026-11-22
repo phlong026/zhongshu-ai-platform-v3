@@ -23,6 +23,7 @@ const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const modalQueue = [];
 const toasts = [];
 globalThis.wx = {
+  getStorageSync: () => '',
   showModal: opt => { modalQueue.push(opt); },
   showToast: opt => toasts.push(opt)
 };
@@ -38,8 +39,8 @@ function fakePage(data) {
   const calls = { voids: [], refunds: [], expense: [], recon: [] };
   const api = {
     voidRefund(id, reason, idem) { calls.voids.push({ id, reason, idem }); return Promise.resolve({}); },
-    registerRefund(body, idem) { calls.refunds.push({ body, idem }); return Promise.resolve({}); },
-    registerExpenseRefund(body, idem) { calls.expense.push({ body, idem }); return Promise.resolve({}); },
+    registerRefund(body, idem) { calls.refunds.push({ body, idem }); return Promise.resolve({refundId:'new-refund'}); },
+    registerExpenseRefund(body, idem) { calls.expense.push({ body, idem }); return Promise.resolve({refundId:'new-expense-refund'}); },
     idemKey: type => 'idem-' + type
   };
   attach(page, api, PF);

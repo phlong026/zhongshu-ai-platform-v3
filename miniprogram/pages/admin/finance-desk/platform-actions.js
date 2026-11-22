@@ -114,6 +114,7 @@ module.exports = function attach(page, financeApi, PF) {
     // R1 P2-1：更正作废挂起中（busy）同样不许发起新登记——双向互斥防表单互相覆盖
     if (this.data.registerBusy || this.data.busy) return;
     const type = snapshot?.form ? snapshot.type : this.data.registerType;
+    const recoverable = ['payment', 'refund', 'expense-refund'].includes(type);
     const form = snapshot?.form || { ...this.data.registerForm };
     const fail = msg => this.setData({ registerError: msg });
     const amount = PF.toCents(form.amount);
@@ -175,11 +176,11 @@ module.exports = function attach(page, financeApi, PF) {
     return withVoucher
       .then(() => {
         if (!alive()) return;
-        if (type === 'payment') return this.dispatchPreparedPayment(body, idem, form);
+        if (recoverable) return this.dispatchPreparedPayment(body, idem, form, type);
         return call(body, idem);
       })
       .then(result => {
-        if (type === 'payment' || !alive()) return; // 身份/代次过期不得清理新表单
+        if (recoverable || !alive()) return; // 恢复模块持有原请求；身份/代次过期不得清理新表单
         if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
         wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
