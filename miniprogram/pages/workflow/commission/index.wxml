@@ -5,18 +5,22 @@
  <view class="commission-body">
   <view wx:if="{{error && view!=='admin' && !(primary||canReturn)}}" class="commission-error" role="alert">{{error}}</view>
   <block wx:if="{{view==='admin'}}">
+   <view wx:if="{{error}}" class="commission-error" role="alert">{{error}}</view>
    <view class="admin-greeting"><text>你好，{{adminName}}</text><text class="hint">{{adminDate}}</text></view>
    <view class="admin-metrics"><button wx:for="{{metrics}}" wx:key="label" class="admin-metric" data-filter="{{item.filter}}" bindtap="openMetric"><view class="admin-metric-top"><image src="{{item.icon}}" mode="aspectFit"/><view class="chevron"/></view><text class="admin-metric-label">{{item.label}}</text><view><text class="admin-metric-value">{{item.value}}</text><text class="admin-metric-unit"> 项</text></view></button></view>
+   <view wx:if="{{countsError}}"><text class="commission-error">{{countsError}}</text><button class="commission-file" bindtap="retryWorkbenchCounts">重试统计</button></view>
+   <text wx:elif="{{countsLoading}}" class="hint">统计加载中…</text>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">今日待办</text></view>
-    <text wx:if="{{error}}" class="commission-error">{{error}}</text><text wx:elif="{{platformStatus==='loading'}}" class="hint">待办加载中…</text>
+    <view wx:if="{{todosError}}"><text class="commission-error">{{todosError}}</text><button class="commission-file" bindtap="retryTodos">重试</button></view>
+    <text wx:elif="{{todosLoading}}" class="hint">待办加载中…</text>
     <todo-preview id="today-todos" rows="{{tasks}}" bind:activate="openTask"/>
-    <view wx:if="{{!tasks.length&&platformStatus==='ready'}}" class="sales-empty">今日暂无设计待办</view>
+    <view wx:if="{{!tasks.length&&todosReady&&!todosLoading&&!todosError}}" class="sales-empty">今日暂无设计待办</view>
    </view>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">最近办理</text></view>
     <button wx:for="{{recent}}" wx:key="id" class="admin-list-row" data-url="{{item.url}}" bindtap="openTask"><view class="admin-initial">{{item.initial}}</view><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.recentWhen}} · {{item.recentText}}</text></view><text class="admin-light-action">查看记录</text><view class="chevron"/></button>
     <view wx:if="{{recentError}}"><text class="commission-error">{{recentError}}</text><button class="commission-file" bindtap="retryRecent">重试</button></view>
     <text wx:elif="{{recentLoading}}" class="hint">加载中…</text>
-    <view wx:elif="{{!recent.length&&platformStatus==='ready'}}" class="sales-empty">暂无办理记录</view>
+    <view wx:elif="{{!recent.length&&recentReady}}" class="sales-empty">暂无办理记录</view>
    </view>
   </block>
   <block wx:elif="{{view==='projects'}}">

@@ -1,7 +1,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const {createRequire}=require('node:module');
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 function fixture(){
- const file=path.resolve('miniprogram/pages/workflow/commission/index.js'),real=createRequire(file),calls=[],guards={};
+ const file=path.resolve('miniprogram/pages/workflow/commission/index.js'),real=createRequire(file),calls=[],guards={},routes=[];
  let p,post={postId:'hq-a',orgId:'1',orgType:'headquarters',roleCode:'hq-design-admin'},gen=1,loggedIn=true;
  const data=Array.from({length:237},(_,i)=>({commission:{id:String(9007199254740993n+BigInt(i)),customerId:String(i+1),customerName:'客户'+String(i+1).padStart(3,'0'),status:i%2?'DESIGN_COMPLETED':'DESIGNING'},commissionId:String(9007199254740993n+BigInt(i)),allowedActions:[i%2?'design-dispatch':'design-complete']}));
  const requests={counts:0,recent:0,todos:0};
@@ -11,9 +12,10 @@ function fixture(){
    return {list:list.slice((number-1)*size,number*size),total:list.length};
  }}};
  const todos={items:data.map(r=>({key:'franchise:design-complete:'+r.commissionId,title:r.commission.customerName,actionable:true,appPath:'/pages/workflow/commission/index?commissionId='+r.commissionId})),failedDomains:[]};
- vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:d=>p=d,require:id=>id.endsWith('/api/http')?http:id.endsWith('/api/auth')?{currentApiPost:()=>post}:id.endsWith('/api/franchise/commission')?api:id.endsWith('/api/todos')?{list:async()=>{requests.todos++;return todos;}}:id.endsWith('/organization')?{apiContext:p=>({role:p.roleCode,orgType:p.orgType})}:id==='./payment-flow'?()=>({}):real(id),wx:{pageScrollTo(){}}});
+ const todosApi={list:async()=>{requests.todos++;return todos;}};
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:d=>p=d,require:id=>id.endsWith('/api/http')?http:id.endsWith('/api/auth')?{currentApiPost:()=>post}:id.endsWith('/api/franchise/commission')?api:id.endsWith('/api/todos')?todosApi:id.endsWith('/page-navigation')?{open:url=>routes.push(url)}:id.endsWith('/organization')?{apiContext:p=>({role:p.roleCode,orgType:p.orgType})}:id==='./payment-flow'?()=>({}):real(id),wx:{pageScrollTo(){}}});
  p.data=structuredClone(p.data);p.setData=patch=>Object.assign(p.data,patch);p.onLoad({view:'projects'});
- return {p,api,http,calls,todos,data,requests,switchPost:()=>{post={...post,postId:'hq-b',orgId:'2'};gen++;},logout:()=>{loggedIn=false;gen++;}};
+ return {p,api,http,calls,todos,todosApi,data,requests,routes,switchPost:()=>{post={...post,postId:'hq-b',orgId:'2'};gen++;},logout:()=>{loggedIn=false;gen++;}};
 }
 test('237 records load through twelve server pages without loss or duplicate and large IDs remain exact',async()=>{
  const {p,calls}=fixture();await p.refresh();
@@ -167,4 +169,67 @@ test('inline project retry continues a failed next page without discarding the p
  assert.ok(rendered(p).some(n=>n.attrs?.bindtap==='retryProjects'));
  api.commissions.page=readPage;await p.retryProjects();
  assert.equal(calls.at(-1).number,2);assert.equal(p.data.projectRows.length,40);assert.equal(p.data.projectError,'');
+});
+
+for(const failed of ['counts','todos'])for(const recentFirst of [true,false])test(failed+' failure preserves recent handling returned '+(recentFirst?'before':'after')+' the failure; retry reads only that block',async()=>{
+ const {p,api,todosApi,requests,routes}=fixture();p.view='admin';
+ const failure=deferred(),recent=deferred(),readCounts=api.commissions.workbenchCounts,readTodos=todosApi.list;
+ api.commissions.workbenchRecent=()=>{requests.recent++;return recent.promise;};
+ if(failed==='counts')api.commissions.workbenchCounts=()=>{requests.counts++;return failure.promise;};
+ else todosApi.list=()=>{requests.todos++;return failure.promise;};
+ const pending=p.refresh();
+ if(recentFirst){recent.resolve([recentRecord()]);await new Promise(setImmediate);assert.equal(p.data.recent.length,1);failure.reject(Error('offline'));}
+ else{failure.reject(Error('offline'));await new Promise(setImmediate);recent.resolve([recentRecord()]);}
+ await pending;
+ assert.equal(p.data.recent.length,1);assert.equal(p.data.recentError,'');assert.equal(p.data.error,'');
+ assert.equal(failed==='counts'?p.data.taskCount:p.data.metrics.at(-1).value,237);
+ assert.ok(p.data[failed+'Error']);assert.ok(rendered(p).some(n=>n.attrs?.bindtap===(failed==='counts'?'retryWorkbenchCounts':'retryTodos')));
+ assert.ok(!rendered(p).some(n=>n.text==='暂无办理记录'||failed==='todos'&&n.text==='今日暂无设计待办'));
+ const button=rendered(p).find(n=>n.attrs?.class==='admin-list-row');p.openTask({currentTarget:{dataset:{url:button.attrs['data-url']}}});
+ assert.match(routes[0],/commissionId=9007199254741229/);
+ const retained=JSON.stringify({recent:p.data.recent,other:failed==='counts'?p.data.tasks:p.data.metrics});
+ api.commissions.workbenchCounts=readCounts;todosApi.list=readTodos;
+ await p[failed==='counts'?'retryWorkbenchCounts':'retryTodos']();
+ assert.equal(p.data[failed+'Error'],'');assert.equal(JSON.stringify({recent:p.data.recent,other:failed==='counts'?p.data.tasks:p.data.metrics}),retained);
+ assert.deepEqual(requests,{counts:failed==='counts'?2:1,todos:failed==='todos'?2:1,recent:1});
+});
+test('pending or partially failed todos never display a false empty result while other home blocks are usable',async()=>{
+ const {p,api,todosApi,todos}=fixture();p.view='admin';const pendingTodos=deferred();
+ api.commissions.workbenchRecent=async()=>[recentRecord()];todosApi.list=()=>pendingTodos.promise;
+ const loading=p.refresh();await new Promise(setImmediate);
+ assert.equal(p.data.metrics.at(-1).value,237);assert.equal(p.data.recent.length,1);assert.equal(p.data.todosLoading,true);
+ assert.ok(!rendered(p).some(n=>n.text==='今日暂无设计待办'));
+ pendingTodos.resolve({items:todos.items,failedDomains:['franchise']});await loading;
+ assert.ok(p.data.todosError);assert.equal(p.data.recent.length,1);assert.equal(p.data.metrics.at(-1).value,237);
+ assert.ok(!rendered(p).some(n=>n.text==='今日暂无设计待办'));
+ todosApi.list=async()=>({items:[],failedDomains:[]});await p.retryTodos();
+ assert.ok(rendered(p).some(n=>n.text==='今日暂无设计待办'));assert.equal(p.data.recent.length,1);
+});
+test('late success and failure from an older home refresh cannot overwrite any newer block',async()=>{
+ const {p,api,todosApi,todos}=fixture();p.view='admin';const counts=deferred(),tasks=deferred(),recent=deferred();
+ api.commissions.workbenchCounts=()=>counts.promise;todosApi.list=()=>tasks.promise;api.commissions.workbenchRecent=()=>recent.promise;
+ const older=p.refresh();
+ api.commissions.workbenchCounts=async()=>({DESIGNING:3});todosApi.list=async()=>({items:todos.items.slice(0,1),failedDomains:[]});
+ api.commissions.workbenchRecent=async()=>[recentRecord('9007199254741230','COMPLETE','新记录')];await p.refresh();
+ const newest=JSON.stringify(p.data);
+ counts.reject(Error('旧统计超时'));tasks.resolve(todos);recent.resolve([recentRecord()]);await older;
+ assert.equal(JSON.stringify(p.data),newest);assert.equal(p.data.taskCount,1);assert.equal(p.data.metrics.at(-1).value,3);
+});
+for(const leave of ['switchPost','logout','unload','projects'])test(leave+' prevents late home block responses from clearing or refilling the next screen',async()=>{
+ const {p,api,todosApi,todos,switchPost,logout}=fixture();p.view='admin';api.commissions.workbenchRecent=async()=>[recentRecord()];await p.refresh();
+ const counts=deferred(),tasks=deferred(),recent=deferred();
+ api.commissions.workbenchCounts=()=>counts.promise;todosApi.list=()=>tasks.promise;api.commissions.workbenchRecent=()=>recent.promise;
+ const older=p.refresh();
+ api.commissions.workbenchCounts=async()=>({});todosApi.list=async()=>({items:[],failedDomains:[]});api.commissions.workbenchRecent=async()=>[];
+ if(leave==='switchPost'){
+  switchPost();const next=p.refresh();assert.equal(p.data.recent.length,0);assert.equal(p.data.tasks.length,0);assert.ok(p.data.metrics.every(row=>row.value==='—'));await next;
+ }else if(leave==='logout'){
+  logout();p.refresh();assert.equal(p.data.recent.length,0);assert.equal(p.data.tasks.length,0);assert.equal(p.data.metrics.length,0);
+ }else if(leave==='projects'){
+  await p.openMetric({currentTarget:{dataset:{filter:'设计与修改'}}});await new Promise(setImmediate);assert.equal(p.data.projectRows.length,20);
+ }else p.onUnload();
+ const current=JSON.stringify(p.data),lateWrites=[];const setData=p.setData;p.setData=patch=>{lateWrites.push(patch);setData(patch);};
+ counts.reject(Error('旧首页统计超时'));tasks.resolve(todos);recent.resolve([recentRecord()]);await older;
+ assert.deepEqual(lateWrites,[]);assert.equal(JSON.stringify(p.data),current);
+ if(leave==='projects'){assert.equal(p.data.view,'projects');assert.equal(p.data.projectRows.length,20);}
 });
