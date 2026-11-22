@@ -55,7 +55,7 @@ export interface HandoverItem {
   label: string
   inFlight: number
   transferred: number
-  status: 'HANDED_OVER' | 'NONE' | 'PENDING_UNASSIGNED' | 'NOT_INTEGRATED' | 'SCAN_FAILED'
+  status: 'HANDED_OVER' | 'NONE' | 'ORGANIZATION_SHARED' | 'PENDING_UNASSIGNED' | 'NOT_INTEGRATED' | 'SCAN_FAILED'
 }
 
 export interface HandoverResult {
@@ -75,6 +75,12 @@ export interface PendingRow {
   domainLabel: string
   inFlight: number
   createTime: string
+}
+
+export interface HandoverSource {
+  userId: PlatformId
+  name: string
+  mobile: string
 }
 
 export const sendStaffSms = (mobile: string) =>
@@ -132,6 +138,11 @@ export const emergencyRevokeStaff = (data: { orgId: PlatformId; userId: Platform
   request.post<HandoverResult>({ url: `${orgBase}/staff-emergency-revoke`, data })
 export const getHandoverPending = (orgId: PlatformId) =>
   request.get<PendingRow[]>({ url: `${orgBase}/handover-pending`, params: { orgId } })
+export const getHandoverSources = (orgId: PlatformId, keyword: string, pageNo = 1) =>
+  request.get<{ items: HandoverSource[]; hasMore: boolean }>({
+    url: `${orgBase}/handover-sources`,
+    params: { orgId, keyword, pageNo }
+  })
 
 // ===== P1 批2：员工批量导入（B-only 端点；legacy 进程不注册） =====
 

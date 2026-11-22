@@ -54,6 +54,7 @@ public class DepartureHandoverService {
     /** 清单条目状态：已交接 / 无在途对象 / 待分配（紧急撤权未转移）/ 域未接入 / 扫描失败（待分配行 in_flight=-1） */
     public static final String ST_HANDED_OVER = "HANDED_OVER";
     public static final String ST_NONE = "NONE";
+    public static final String ST_ORGANIZATION_SHARED = "ORGANIZATION_SHARED";
     public static final String ST_PENDING_UNASSIGNED = "PENDING_UNASSIGNED";
     public static final String ST_NOT_INTEGRATED = "NOT_INTEGRATED";
     public static final String ST_SCAN_FAILED = "SCAN_FAILED";
@@ -93,6 +94,37 @@ public class DepartureHandoverService {
     @Resource
     @Lazy
     private DepartureHandoverService self;
+
+    /** 普通单岗撤销：不能跳过员工仍承担的责任，提交后复用现有残留复核。 */
+    public void revokePost(long postId, long operatorUserId) {
+        StaffPostDO post = self.revokePostInNewTransaction(postId, operatorUserId);
+        if (!verifyResidualAfterCommit(post.getOrgId(), post.getUserId(), operatorUserId)) {
+            throw exception(PlatformOrgErrorCodes.STAFF_POST_REVOKED_VERIFY_REQUIRED);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public StaffPostDO revokePostInNewTransaction(long postId, long operatorUserId) {
+        StaffPostDO post = staffPostService.validateRevokePost(postId);
+        Map<String, DepartureHandoverPort> byDomain = portsByDomainOrThrow();
+        if (!byDomain.keySet().containsAll(KNOWN_DOMAINS.stream().map(KnownDomain::domain).toList())) {
+            throw exception(PlatformOrgErrorCodes.STAFF_HANDOVER_UNCONFIRMED);
+        }
+        // Port 的现有边界是员工/组织，兼岗时保守核验该员工全部在途责任，不猜测岗位归属。
+        for (DepartureHandoverPort port : byDomain.values()) {
+            long inFlight;
+            try {
+                inFlight = port.scanInFlight(post.getUserId(), post.getOrgId());
+            } catch (Exception error) {
+                log.warn("[revokePost][在途核验失败 postId={} domain={}]", postId, port.domain(), error);
+                throw exception(PlatformOrgErrorCodes.STAFF_HANDOVER_UNCONFIRMED);
+            }
+            if (inFlight < 0) throw exception(PlatformOrgErrorCodes.STAFF_HANDOVER_UNCONFIRMED);
+            if (inFlight > 0) throw exception(PlatformOrgErrorCodes.STAFF_HANDOVER_REQUIRED);
+        }
+        staffPostService.revokePost(postId, operatorUserId);
+        return post;
+    }
 
     // ===================== 正常离职交接（含补交接） =====================
 
@@ -158,31 +190,31 @@ public class DepartureHandoverService {
         return new HandoverResult(MODE_NORMAL, orgId, fromUserId, toUserId, revokedPostIds, List.copyOf(items));
     }
 
-    /** 提交后残留复核（只读+落 OPEN 行，容错：复核故障不影响已提交的交接本身） */
-    private void verifyResidualAfterCommit(long orgId, long fromUserId, long operatorUserId) {
+    /** 提交后残留复核：逐域独立扫描；失败也落待核行，不回滚已提交的撤权/交接。 */
+    private boolean verifyResidualAfterCommit(long orgId, long fromUserId, long operatorUserId) {
+        boolean confirmed = true;
         try {
             for (DepartureHandoverPort port : portsByDomainOrThrow().values()) {
-                long residual = port.scanInFlight(fromUserId, orgId);
-                if (residual > 0) {
+                HandoverItem residual = scanDomainIsolated(port, orgId, fromUserId, operatorUserId);
+                if (ST_SCAN_FAILED.equals(residual.status())) confirmed = false;
+                if (residual.inFlight() > 0) {
                     log.warn("[handover][提交后残留复核 orgId={} from={} domain={} residual={}] 残留已落待分配行（补交接承接）",
-                            orgId, fromUserId, port.domain(), residual);
-                    try {
-                        upsertOpenPending(orgId, fromUserId, port.domain(), residual, operatorUserId);
-                    } catch (Exception conflict) {
-                        log.warn("[handover][残留待分配行落地冲突（已有 OPEN 行或已核销，跳过）] {}", conflict.getMessage());
-                    }
+                            orgId, fromUserId, port.domain(), residual.inFlight());
                 }
             }
         } catch (Exception e) {
-            log.warn("[handover][提交后残留复核失败（不影响已提交交接，待分配可经 listPending 补查）] {}", e.getMessage());
+            log.warn("[handover][提交后残留复核失败（已提交撤权，需查历史员工补交接）] {}", e.getMessage());
+            return false;
         }
+        return confirmed;
     }
 
-    /** 单域转移：inFlight==0 报 NONE；转移数≠快照数抛 022 整体回滚（残留不得报已交接） */
+    /** 仅组织共享的域明确报告；转移数≠快照数抛 022 整体回滚（残留不得报已交接）。 */
     private HandoverItem transferDomain(DepartureHandoverPort port, long orgId,
                                         long fromUserId, long toUserId, long operatorUserId, long inFlight) {
         if (inFlight == 0) {
-            return new HandoverItem(port.domain(), port.label(), 0, 0, ST_NONE);
+            return new HandoverItem(port.domain(), port.label(), 0, 0,
+                    port.organizationShared() ? ST_ORGANIZATION_SHARED : ST_NONE);
         }
         int transferred = port.bulkTransfer(fromUserId, toUserId, orgId, operatorUserId);
         if (transferred != inFlight) {
@@ -239,7 +271,9 @@ public class DepartureHandoverService {
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public HandoverItem scanDomainInNewTransaction(long orgId, long userId, DepartureHandoverPort port, long operatorUserId) {
         long inFlight = port.scanInFlight(userId, orgId);
-        String status = inFlight > 0 ? ST_PENDING_UNASSIGNED : ST_NONE;
+        if (inFlight < 0) throw new IllegalStateException("在途扫描未返回已确认数量: " + port.domain());
+        String status = inFlight > 0 ? ST_PENDING_UNASSIGNED
+                : port.organizationShared() ? ST_ORGANIZATION_SHARED : ST_NONE;
         if (inFlight != 0) { // 有遗留（>0）才落待分配行；确认为零的域不留待办
             upsertOpenPending(orgId, userId, port.domain(), inFlight, operatorUserId);
         }
@@ -257,7 +291,7 @@ public class DepartureHandoverService {
         try {
             return self.scanDomainInNewTransaction(orgId, userId, port, operatorUserId);
         } catch (Exception e) {
-            log.warn("[handover][紧急撤权扫描失败 orgId={} userId={} domain={}] {}", orgId, userId,
+            log.warn("[handover][交接责任扫描失败 orgId={} userId={} domain={}] {}", orgId, userId,
                     port.domain(), e.getMessage());
             try {
                 self.persistUnknownPendingInNewTransaction(orgId, userId, port.domain(), operatorUserId);

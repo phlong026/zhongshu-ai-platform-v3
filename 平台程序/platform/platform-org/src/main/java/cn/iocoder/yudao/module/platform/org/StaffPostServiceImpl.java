@@ -93,6 +93,20 @@ public class StaffPostServiceImpl implements StaffPostService {
     }
 
     private void revokePost(long postId, long operatorUserId, boolean headquarters) {
+        StaffPostDO post = lockRevocablePost(postId, headquarters);
+        staffPostMapper.updateById(new StaffPostDO().setId(postId).setStatus(StaffPostDO.STATUS_REVOKED)
+                .setRevokedAt(OffsetDateTime.now()).setRevokedBy(operatorUserId));
+        syncUserRoles(post.getUserId());
+        walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(post.getUserId(), List.of(post.getOrgId())));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public StaffPostDO validateRevokePost(long postId) {
+        return lockRevocablePost(postId, false);
+    }
+
+    private StaffPostDO lockRevocablePost(long postId, boolean headquarters) {
         StaffPostDO probe = staffPostMapper.selectById(postId);
         if (probe == null) {
             throw exception(POST_NOT_FOUND);
@@ -105,10 +119,7 @@ public class StaffPostServiceImpl implements StaffPostService {
         StaffPostDO post = activePosts.stream().filter(p -> p.getId() == postId).findFirst()
                 .orElseThrow(() -> exception(POST_NOT_FOUND));
         requireRevocable(org, activePosts, List.of(post), headquarters);
-        staffPostMapper.updateById(new StaffPostDO().setId(postId).setStatus(StaffPostDO.STATUS_REVOKED)
-                .setRevokedAt(OffsetDateTime.now()).setRevokedBy(operatorUserId));
-        syncUserRoles(post.getUserId());
-        walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(post.getUserId(), List.of(post.getOrgId())));
+        return post;
     }
 
     @Override

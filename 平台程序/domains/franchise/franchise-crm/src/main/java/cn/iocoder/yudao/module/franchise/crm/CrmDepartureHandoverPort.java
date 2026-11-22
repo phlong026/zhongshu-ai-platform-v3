@@ -14,7 +14,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
  *
  * <p>线索（待转）不在此 Port 内：待转线索经 {@code LeadService.listPending} 对全线负责人与老板
  * 可见，离职员工的线索天然进负责人待分配池（M01.md 场景 3 的「待分配」语义），无需转移。
- * 设计委托无独立责任人字段、随客户走（客户转移后委托查询权限自动跟随），由清单层如实标注。
+ * 设计委托的业务归属随客户走；当前待接收移交包的独立工程责任由设计委托 Port 承接。
  */
 @Component
 public class CrmDepartureHandoverPort implements DepartureHandoverPort {

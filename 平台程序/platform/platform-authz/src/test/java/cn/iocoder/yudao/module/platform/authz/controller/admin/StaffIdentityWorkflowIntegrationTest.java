@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.OrgServiceImpl;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.StaffPostServiceImpl;
+import cn.iocoder.yudao.module.platform.org.DepartureHandoverPort;
+import cn.iocoder.yudao.module.platform.org.DepartureHandoverService;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.annotation.Resource;
@@ -53,7 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * standalone MockMvc 不组装 Spring Method Security，因此本类验证真实 CurrentPost/组织范围，
  * 不将 {@code @PreAuthorize("@post.has(...)")} 声明为已通过。
  */
-@Import({OrgServiceImpl.class, StaffPostServiceImpl.class, CommandLogImpl.class, TeamCommandService.class,
+@Import({OrgServiceImpl.class, StaffPostServiceImpl.class, DepartureHandoverService.class, CommandLogImpl.class, TeamCommandService.class,
         StaffIdentityWorkflowIntegrationTest.Config.class})
 class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
 
@@ -69,6 +71,18 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
         WorkflowDirectory workflowDirectory() {
             return new WorkflowDirectory();
         }
+
+        // 本模块只验证身份 HTTP 旅程；无业务表。真实四域责任在加盟域集成回归中覆盖。
+        @Bean DepartureHandoverPort emptyCrm() { return new EmptyPort("franchise-crm", "客户"); }
+        @Bean DepartureHandoverPort emptyCommission() { return new EmptyPort("franchise-commission", "设计委托"); }
+        @Bean DepartureHandoverPort emptyEngineering() { return new EmptyPort("franchise-engineering", "工程任务"); }
+        @Bean DepartureHandoverPort emptyFinance() { return new EmptyPort("franchise-finance", "财务账款"); }
+    }
+
+    record EmptyPort(String domain, String label) implements DepartureHandoverPort {
+        @Override public long scanInFlight(long fromUserId, long orgId) { return 0; }
+        @Override public void validateReceiver(long toUserId, long orgId) { }
+        @Override public int bulkTransfer(long fromUserId, long toUserId, long orgId, long operatorUserId) { return 0; }
     }
 
     static final class WorkflowDirectory extends FakeSystemDirectoryForOnboard {
@@ -84,6 +98,8 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
     private OrgService orgService;
     @Resource
     private StaffPostService staffPostService;
+    @Resource
+    private DepartureHandoverService handoverService;
     @Resource
     private TeamCommandService teamCommandService;
     @Resource
@@ -116,6 +132,7 @@ class StaffIdentityWorkflowIntegrationTest extends PlatformPgIntegrationTest {
         ReflectionTestUtils.setField(staffController, "orgService", orgService);
         ReflectionTestUtils.setField(staffController, "teamCommandService", teamCommandService);
         ReflectionTestUtils.setField(staffController, "systemDirectory", directory);
+        ReflectionTestUtils.setField(staffController, "handoverService", handoverService);
 
         MyPostController postController = new MyPostController();
         ReflectionTestUtils.setField(postController, "staffPostService", staffPostService);

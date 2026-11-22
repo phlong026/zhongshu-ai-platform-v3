@@ -48,6 +48,8 @@ class StaffOrgAdminControllerTest {
     @Mock
     private cn.iocoder.yudao.module.platform.org.DepartureHandoverService handoverService;
     @Mock
+    private cn.iocoder.yudao.module.platform.org.StaffHandoverHistoryQuery handoverHistory;
+    @Mock
     private TeamCommandService teamCommandService;
 
     private StaffOrgAdminController controller;
@@ -73,6 +75,7 @@ class StaffOrgAdminControllerTest {
         ReflectionTestUtils.setField(controller, "orgService", orgService);
         ReflectionTestUtils.setField(controller, "systemDirectory", systemDirectory);
         ReflectionTestUtils.setField(controller, "handoverService", handoverService);
+        ReflectionTestUtils.setField(controller, "handoverHistory", handoverHistory);
         ReflectionTestUtils.setField(controller, "teamCommandService", teamCommandService);
     }
 
@@ -99,7 +102,9 @@ class StaffOrgAdminControllerTest {
 
         controller.setStatus(new StaffOrgAdminController.StaffStatusReqVO(5L, false));
 
-        org.mockito.Mockito.verify(staffPostService).revokeAllInOrg(5L, STORE_ORG, BOSS_USER);
+        org.mockito.Mockito.verify(handoverService).emergencyRevoke(STORE_ORG, 5L, BOSS_USER);
+        org.mockito.Mockito.verify(staffPostService, org.mockito.Mockito.never())
+                .revokeAllInOrg(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong());
         org.mockito.Mockito.verify(systemDirectory, org.mockito.Mockito.never()).setUserActive(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
@@ -262,6 +267,26 @@ class StaffOrgAdminControllerTest {
         assertThatThrownBy(() -> controller.revokePost(31L))
                 .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                         e -> assertThat(e.getCode()).isEqualTo(ORG_SCOPE_FORBIDDEN.getCode()));
+    }
+
+    @Test
+    void singleRevocationUsesTheHandoverResponsibilityCheck() {
+        loginAsBossAt(STORE_ORG);
+        when(staffPostService.getPost(31L)).thenReturn(Optional.of(post(31L, 5L, STORE_ORG, "sales")));
+        assertThat(controller.revokePost(31L).getData()).isTrue();
+        org.mockito.Mockito.verify(handoverService).revokePost(31L, BOSS_USER);
+        org.mockito.Mockito.verify(staffPostService, org.mockito.Mockito.never()).revokePost(31L, BOSS_USER);
+    }
+
+    @Test
+    void historicalSourceSearchKeepsCurrentOrganizationScopeAndPagination() {
+        loginAsBossAt(STORE_ORG);
+        var page = new cn.iocoder.yudao.module.platform.org.StaffHandoverHistoryQuery.Page(List.of(), false);
+        when(handoverHistory.search(STORE_ORG, "陈新", 2)).thenReturn(page);
+        assertThat(controller.handoverSources(STORE_ORG, "陈新", 2).getData()).isEqualTo(page);
+        assertThatThrownBy(() -> controller.handoverSources(999L, "陈新", 2))
+                .isInstanceOfSatisfying(ServiceException.class, e -> assertThat(e.getCode()).isEqualTo(ORG_SCOPE_FORBIDDEN.getCode()));
+        org.mockito.Mockito.verify(handoverHistory, org.mockito.Mockito.never()).search(999L, "陈新", 2);
     }
 
     @Test

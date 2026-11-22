@@ -3,6 +3,7 @@ import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.Import;
@@ -16,6 +17,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.*;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.FINANCE;
+import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
+import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes.*;
 
 @Import({FinWorkbenchService.class,FinReceiptService.class,FinPaymentService.class,FinRefundService.class,
  FranchiseCommands.class,CommandLogImpl.class,FinRefundThreeDirectionIntegrationTest.Config.class})
@@ -24,6 +27,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource FinPaymentService payments;
  @Resource FinRefundService refunds;
  @Resource JdbcTemplate jdbc;
+ @Resource StaffPostService staffPosts;
  PostSnapshot post;
  @BeforeEach void prepare(){
   var store=fixture.store();post=fixture.post(store.orgId(),FINANCE,null);
@@ -240,6 +244,63 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
     .noneMatch(item->item.key().contains(":reimburse:"));
   assertThat(((Number)workbench.reimbursements(post.orgId()).get(0).get("recovered_cents")).longValue()).isEqualTo(50000);
   assertThatThrownBy(()->workbench.recoverEmployee(post,reimbursement,"extra-recovery",new FinWorkbenchService.Recovery(1,LocalDate.now(),"现金",null,null))).isInstanceOf(RuntimeException.class);
+ }
+
+ @Test void departedEmployeeHistoryRemainsWhileAnotherFinanceSettlesTheOriginalAdvance(){
+  var day=LocalDate.now();
+  var replacement=fixture.post(post.orgId(),FINANCE,null);
+  var manager=fixture.post(post.orgId(),"boss",null);
+  var other=fixture.post(fixture.store().orgId(),FINANCE,null);
+  currentPost.use(post);
+  long receipt=workbench.register(post,"departure-old-receipt",new FinWorkbenchService.EntryCommand(
+      "company","receipt","历史往来收款","往来",1000,day,"往来方","公司银行",null,null));
+  long advance=workbench.register(post,"departure-advance",new FinWorkbenchService.EntryCommand(
+      "company","expense","现场差旅","差旅",10000,day,"交通服务方","员工个人账户",null,null,"EMPLOYEE",post.userId(),"原垫付员工"));
+  long sourcePayable=jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,advance);
+  long debt=Long.parseLong((String)workbench.reimbursements(post.orgId()).get(0).get("payable_id"));
+
+  // Use the real post revocation service; the four-domain departure orchestration is tested separately.
+  currentPost.use(manager);
+  staffPosts.revokeAllInOrg(post.userId(),post.orgId(),manager.userId());
+  assertThat(staffPosts.findActivePost(post.userId(),post.postId())).isEmpty();
+  assertThat(staffPosts.findActivePost(replacement.userId(),replacement.postId())).isPresent();
+  currentPost.use(replacement);
+  var todos=new cn.iocoder.yudao.module.franchise.finance.todo.WorkbenchTodoProvider(workbench,jdbc);
+  assertThat(workbench.reimbursements(replacement.orgId())).singleElement().satisfies(row->{
+   assertThat(row.get("payable_id")).isEqualTo(String.valueOf(debt));
+   assertThat(row.get("payer_name")).isEqualTo("原垫付员工");
+  });
+  assertThat(todos.list(replacement)).anyMatch(item->item.key().equals("fr-fin-workbench:reimburse:"+debt));
+
+  currentPost.use(other);
+  assertThat(workbench.reimbursements(other.orgId())).isEmpty();
+  assertThat(todos.list(other)).isEmpty();
+  assertError(()->payments.register(other,"departure-cross-payment",
+      new FinPaymentService.PaymentCommand(debt,10000,day,null,null)),PAYABLE_NOT_FOUND);
+  assertError(()->workbench.recoverEmployee(other,debt,"departure-cross-recovery",
+      new FinWorkbenchService.Recovery(3000,day,"公司银行",null,null)),ORG_MISMATCH);
+
+  currentPost.use(replacement);
+  long paid=payments.register(replacement,"departure-reimburse",new FinPaymentService.PaymentCommand(debt,10000,day,null,null));
+  assertThat(todos.list(replacement)).noneMatch(item->item.key().equals("fr-fin-workbench:reimburse:"+debt));
+  refunds.registerExpense(replacement,"departure-refund",new FinRefundService.ExpenseRefundCommand(
+      advance,3000,"供应商退回垫付款",day,null,null,null,"EMPLOYEE"));
+  assertThat(todos.list(replacement)).anyMatch(item->item.key().equals("fr-fin-workbench:reimburse:"+debt));
+  long recovered=workbench.recoverEmployee(replacement,debt,"departure-returned",
+      new FinWorkbenchService.Recovery(3000,day,"公司银行",null,null));
+  assertThat(todos.list(replacement)).noneMatch(item->item.key().equals("fr-fin-workbench:reimburse:"+debt));
+  assertThat(workbench.reimbursements(replacement.orgId())).singleElement().satisfies(row->{
+   assertThat(((Number)row.get("eligible_cents")).longValue()).isEqualTo(7000);
+   assertThat(((Number)row.get("reimbursed_cents")).longValue()).isEqualTo(10000);
+   assertThat(((Number)row.get("recovered_cents")).longValue()).isEqualTo(3000);
+  });
+  assertThat(jdbc.queryForMap("SELECT payer_user_id,operator_user_id,payer_name FROM fr_fin_payment WHERE id=?",advance))
+      .containsAllEntriesOf(Map.of("payer_user_id",post.userId(),"operator_user_id",post.userId(),"payer_name","原垫付员工"));
+  assertThat(jdbc.queryForObject("SELECT registrar_user_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(post.userId());
+  assertThat(jdbc.queryForObject("SELECT operator_user_id FROM fr_fin_payment WHERE id=?",Long.class,paid)).isEqualTo(replacement.userId());
+  assertThat(jdbc.queryForObject("SELECT registrar_user_id FROM fr_fin_receipt WHERE id=?",Long.class,recovered)).isEqualTo(replacement.userId());
+  assertError(()->payments.register(replacement,"departure-new-advance",new FinPaymentService.PaymentCommand(
+      sourcePayable,100,day,null,null,"EMPLOYEE",post.userId(),"原垫付员工",null)),FIN_SOURCE_FORBIDDEN);
  }
 
  @RepeatedTest(3)
