@@ -63,8 +63,10 @@ function entries(a) {
 
 module.exports = function (tabIndex) {
   return {
-    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', unread: 0, progress: { completed: 0, total: 8, percent: 0 }, courseImage: A.courseImage, courseTitle: 'AI短视频获客实战', courseId: 'ai-video', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
+    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, progress: { completed: 0, total: 8, percent: 0 }, courseImage: A.courseImage, courseTitle: 'AI短视频获客实战', courseId: 'ai-video', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
     logout() { return require('../../utils/session-actions').logout(); },
+    onHide() { this.__profileGeneration = (this.__profileGeneration || 0) + 1; },
+    onUnload() { this.onHide(); },
     onShow() {
       const s = A.load(), c = A.company(s), a = A.access.context(s);
       // 联合调试修复（2026-11-08）：登录态必须含 API 会话——纯 API 登录（微信一键/短信）下
@@ -88,7 +90,7 @@ module.exports = function (tabIndex) {
         showAdminMap: canViewAllStores(apiPost),
         entries: entries(actor),
         ownerProfile, managementEntries: managementEntries(actor),
-        name: apiLoggedIn ? (apiPost.name || s.profile.name) : s.profile.name, avatar: s.profile.avatar,
+        name: s.profile.name, avatar: s.profile.avatar, profileLoading: !!http.token(), profileError: '',
         role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
         unread: apiLoggedIn ? (this.apiUnread || 0) : M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
@@ -98,14 +100,16 @@ module.exports = function (tabIndex) {
       if (http.token()) {
         // 姓名真源（2026-11-09）：posts/mine 不含 name——apiPost.name 恒空，此前只显示登录前旧缓存；
         // 经 profile/mine 同步后端最新 nickname（后台改名即生效，与 account 身份页同模式）
-        const profileAlive = http.requestGuard('profile');
+        const profileSessionAlive = http.requestGuard('profile'), profileGeneration = this.__profileGeneration || 0;
+        const profileAlive = () => profileSessionAlive() && profileGeneration === (this.__profileGeneration || 0);
+        const profileUserId = http.currentUserId();
         http.get('/platform/profile/mine').then(remote => {
           if (!profileAlive()) return;
           const PP = require('../../utils/platform-profile');
-          const profile = PP.mergeProfile(A.load().profile, remote);
+          const profile = PP.mergeProfile(A.load().profile, remote, profileUserId);
           A.mutate(s => { s.profile = profile; });
-          this.setData({ name: profile.name, avatar: profile.avatar });
-        }).catch(() => {});
+          this.setData({ name: profile.name, avatar: profile.avatar, profileLoading: false, profileError: '' });
+        }).catch(error => { if (profileAlive() && !(error && error.silent)) this.setData({ profileLoading: false, profileError: '资料暂未加载，请进入个人资料重试' }); });
         const unreadAlive = http.requestGuard('unread');
         http.get('/platform/messages/center/summary').then(r => {
           if (!unreadAlive()) return;

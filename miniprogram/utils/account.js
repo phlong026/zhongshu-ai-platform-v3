@@ -1,6 +1,7 @@
 const X=require('./access');
 const KEY = require('./storage-keys').account;
 const clone = require('./clone');
+const Profile = require('./platform-profile');
 const stamp = () => new Date().toISOString();
 const localDate=(value=Date.now())=>new Date(new Date(value).getTime()+8*3600000).toISOString().slice(0,10);
 const displayTime=value=>typeof value==='string'?value.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g,x=>new Date(Date.parse(x)+8*3600000).toISOString().slice(0,16).replace('T',' ')):value;
@@ -9,8 +10,24 @@ const chapters = require('./learning-catalog').chapters['ai-video'];
 const courseImage = '/assets/account-course.jpg';
 const planImage = '/pages/account/assets/service-plan.jpg';
 function emptyState(){return { version: 1, session: { loggedIn: false, staffId: '', userId: '', companyId: '', role: '', roleSchemaVersion: 5 }, profile: { name: '访客', phone: '', avatar: '/assets/account-avatar.jpg' }, companies: [], learning: {}, messages: [], feedback: [], favorites: [], drafts: {}, orders: [], procurements: [] };}
-function load(){const value=wx.getStorageSync(KEY),s=value&&value.version===1?clone(value):emptyState();if(s.session.roleSchemaVersion!==5){s.session.role=({manager:'engineer','engineering-lead':'project-manager'})[s.session.role]||s.session.role;s.session.roleSchemaVersion=5;}if(s.session.loggedIn)for(const c of s.companies||[]){const person=X.rawBook(c.id)?.staff.find(p=>p.id===s.session.staffId);c.roles=person?.active===false?[]:(person?.roles||[]).filter(r=>require('./organization').enabled(c.type||(c.id==='headquarters'?'headquarters':'store'),r));}return s;}
+function load(){
+ const value=wx.getStorageSync(KEY),s=value&&value.version===1?clone(value):emptyState();
+ if(s.session.roleSchemaVersion!==5){s.session.role=({manager:'engineer','engineering-lead':'project-manager'})[s.session.role]||s.session.role;s.session.roleSchemaVersion=5;}
+ const http=require('../api/http');
+ if(http.token()){
+  const userId=http.currentUserId();
+  if(!Profile.belongsTo(s.profile,userId)){s.profile=Profile.emptyProfile(userId);if(value)save(s);}
+ }else if((s.profile&&Object.prototype.hasOwnProperty.call(s.profile,'apiUserId'))||!s.session.loggedIn){
+  // 包括旧版本无归属资料：访客不保留上一账号的姓名、电话或头像；合法离线登录资料继续使用。
+  const visitor=emptyState().profile;
+  if(JSON.stringify(s.profile)!==JSON.stringify(visitor)){s.profile=visitor;if(value)save(s);}
+ }
+ if(s.session.loggedIn)for(const c of s.companies||[]){const person=X.rawBook(c.id)?.staff.find(p=>p.id===s.session.staffId);c.roles=person?.active===false?[]:(person?.roles||[]).filter(r=>require('./organization').enabled(c.type||(c.id==='headquarters'?'headquarters':'store'),r));}
+ return s;
+}
 function save(state){wx.setStorageSync(KEY,state);return state;}
+/** 只清当前资料，业务草稿与演示数据仍沿用原有生命周期。 */
+function resetProfile(userId){const value=wx.getStorageSync(KEY);if(!value||value.version!==1)return;const state=clone(value);state.profile=userId===undefined?emptyState().profile:Profile.emptyProfile(userId);save(state);}
 function mutate(fn){const s=clone(load());const result=fn(s);save(s);return result;}
 function company(s){return s.companies.find(c=>c.id===s.session.companyId)||null;}
 const roles=X.roles;
@@ -49,4 +66,4 @@ o.events.push({text:{'demo-plan':'方案已提交','confirm-plan':'当前版本�
 }
 const services=[{id:'store',name:'店招形象设计',image:'/pages/account/assets/service-store.jpg',desc:'按需求报价'},{id:'showroom',name:'展厅空间设计',image:'/pages/account/assets/service-showroom.jpg',desc:'按需求报价'},{id:'brand',name:'品牌宣传册设计',image:'/pages/account/assets/service-brand.jpg',desc:'宣传册 · 名片 · 海报'},{id:'card',name:'名片设计',image:'/pages/account/assets/service-card.jpg',desc:'按需求报价'}];
 services.forEach(s=>{s.items=s.id==='store'?['店招视觉方案','尺寸与配色建议','定稿设计文件']:s.id==='showroom'?['展厅空间方案','布局与材料建议','定稿设计文件']:s.id==='brand'?['宣传册视觉方案','页数与版式建议','印刷设计文件']:['名片视觉方案','信息与版式核对','印刷设计文件'];s.photoLabel=s.id==='store'?'门头全景':s.id==='showroom'?'空间现场':'参考资料';});
-module.exports={courseChapters,logout,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,load,save,mutate,company,roles,permitted,scoped,markMessageRead,markAllMessagesRead,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};
+module.exports={courseChapters,resetProfile,logout,visible,access:X,KEY,localDate,displayTime,displayOrder,clone,load,save,mutate,company,roles,permitted,scoped,markMessageRead,markAllMessagesRead,visibleOrders,order,draftKey,progress,chapters,courseImage,planImage,completeChapter,switchIdentity,submitRequest,transition,services};

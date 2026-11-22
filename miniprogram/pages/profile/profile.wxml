@@ -3,8 +3,9 @@
 <button class="profile-card profile-menu" data-action="{{loggedIn?'profile':'login'}}" bindtap="open">
   <image class="profile-avatar {{!loggedIn?'guest-avatar':''}}" src="{{loggedIn?avatar:'/assets/account-guest-avatar.jpg'}}" mode="aspectFill"/>
   <view class="profile-info">
-    <view class="profile-name-row"><text class="profile-name">{{loggedIn?name:'欢迎来到众墅之家'}}</text><text wx:if="{{loggedIn&&identityRole}}" class="profile-role-label">{{identityRole}}</text></view>
+    <view class="profile-name-row"><text class="profile-name">{{loggedIn?(name||(profileLoading?'资料加载中…':'个人资料')):'欢迎来到众墅之家'}}</text><text wx:if="{{loggedIn&&identityRole}}" class="profile-role-label">{{identityRole}}</text></view>
     <text wx:if="{{loggedIn}}" class="profile-organization">{{identityOrganization}}</text>
+    <text wx:if="{{loggedIn&&profileError}}" class="profile-organization">{{profileError}}</text>
   </view>
   <view wx:if="{{loggedIn}}" class="profile-action"><text class="profile-link">个人资料</text><view class="chevron"/></view><text wx:else class="profile-link login-link">登录</text>
 </button>

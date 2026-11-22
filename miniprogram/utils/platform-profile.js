@@ -11,16 +11,33 @@ function normalizeNickname(input) {
   return { ok: true, value: name };
 }
 
-/**
- * 后端 Profile（GET/PUT data：{id,nickname,mobile,avatar}）合入本地 profile。
- * 姓名/手机号以后端为真源；头像：后端 URL 非空即覆盖（上传通道就绪后后端为真源），
- * 后端 null（未设置）保留本地——可能是 wx.saveFile 本机路径或已有 URL。
- */
-function mergeProfile(local, remote) {
-  const next = Object.assign({}, local);
-  if (remote && typeof remote.nickname === 'string' && remote.nickname) next.name = remote.nickname;
-  if (remote && typeof remote.mobile === 'string' && remote.mobile) next.phone = remote.mobile;
-  if (remote && typeof remote.avatar === 'string' && remote.avatar) next.avatar = remote.avatar;
+const DEFAULT_AVATAR = '/assets/account-avatar.jpg';
+
+function emptyProfile(userId) {
+  return { apiUserId: userId == null ? '' : String(userId), name: '', phone: '', avatar: DEFAULT_AVATAR };
+}
+
+/** 旧的无归属缓存、其它用户资料都不能作为当前账号的展示或编辑初值。 */
+function belongsTo(profile, userId) {
+  return userId != null && String(userId) !== '' && !!profile && profile.apiUserId === String(userId);
+}
+
+function forUser(profile, userId) {
+  return belongsTo(profile, userId) ? Object.assign({}, profile) : emptyProfile(userId);
+}
+
+/** GET/PUT 完整资料以服务端为准；null 头像/手机号表示明确清空。 */
+function mergeProfile(local, remote, userId) {
+  const owner = userId == null ? '' : String(userId);
+  if (owner && remote && remote.id != null && String(remote.id) !== owner) {
+    throw new Error('资料账号不一致，请重新登录');
+  }
+  // 旧令牌若缺登录 userId，只允许展示本次已认证响应，不从旧缓存猜测归属。
+  const next = forUser(local, owner || (remote && remote.id));
+  if (!remote) return next;
+  next.name = typeof remote.nickname === 'string' ? remote.nickname : '';
+  next.phone = typeof remote.mobile === 'string' ? remote.mobile : '';
+  next.avatar = typeof remote.avatar === 'string' && remote.avatar ? remote.avatar : DEFAULT_AVATAR;
   return next;
 }
 
@@ -39,4 +56,4 @@ function compactIdentity(company, role) {
   return [organization, shortRole].filter(Boolean).join(' · ');
 }
 
-module.exports = { normalizeNickname, mergeProfile, maskPhone, compactIdentity };
+module.exports = { normalizeNickname, emptyProfile, belongsTo, forUser, mergeProfile, maskPhone, compactIdentity };

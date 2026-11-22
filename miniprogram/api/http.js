@@ -7,6 +7,7 @@ const TOKEN_KEY = 'zs-api-token-v1';
 const POST_KEY = 'zs-api-post-v1';
 const TENANT_KEY = 'zs-api-tenant-v1';
 const RESUME_KEY = 'zs-api-resume-v1';
+const USER_KEY = 'zs-api-user-v1';
 // 基址单源 config/env.js（B 独立公网域名）；storage `zs-api-base` 仅在开发者工具作本地联调覆写。
 // 未配置任何基址时显式失败，绝不静默回落 127.0.0.1 之类的本地地址。
 const DEFAULT_BASE = require('../config/env').API_BASE;
@@ -21,6 +22,7 @@ let postInvalidRecovering = false; // 恢复流进行中：并发岗位失效去
 let sessionGen = 0; // 会话代次：saveSession/clearSession 时 +1；401 处理前校验，防旧请求 401 清掉新会话
 let transientToken = null;
 let transientResume = null;
+let transientUserId = '';
 let refreshFlight = null;
 
 function expiryMillis(value) {
@@ -47,23 +49,42 @@ function currentPostId() {
   return wx.getStorageSync(POST_KEY) || '';
 }
 
+/** 来自登录结果的账号标识；兼容已有自动登录凭据，不使用任职或昵称缓存推测。 */
+function currentUserId() {
+  if (!token()) return '';
+  const saved = resumeCredentials();
+  const id = transientToken !== null ? transientUserId : wx.getStorageSync(USER_KEY) || (saved && saved.userId);
+  return id == null ? '' : String(id);
+}
+
+function resetProfile(userId) {
+  try { require('../utils/account').resetProfile(userId); } catch (_) { /* 读缓存时仍校验账号归属。 */ }
+}
+
 function tenantId() {
   return wx.getStorageSync(TENANT_KEY) || '1';
 }
 
 function saveSession(next) {
   if (next.token) {
+    // 真正重新登录不继承旧资料；续期和同账号切岗不走这一分支。
+    const userId = next.userId == null ? '' : String(next.userId);
+    resetProfile(userId);
     transientToken = null;
     transientResume = null;
+    transientUserId = '';
     wx.removeStorageSync(RESUME_KEY);
+    wx.removeStorageSync(USER_KEY);
     const credentials = next.refreshToken && next.userId !== undefined
       ? { refreshToken: next.refreshToken, userId: next.userId, expiresAt: expiryMillis(next.expiresTime) } : null;
     if (next.remember === false) {
       wx.removeStorageSync(TOKEN_KEY);
       transientToken = next.token;
       transientResume = credentials;
+      transientUserId = userId;
     } else {
       wx.setStorageSync(TOKEN_KEY, next.token);
+      if (userId) wx.setStorageSync(USER_KEY, userId);
       if (credentials) wx.setStorageSync(RESUME_KEY, credentials);
     }
   }
@@ -76,10 +97,13 @@ function clearSession() {
   try { require('../utils/design-case-images').clear(); } catch (_) { /* Cache cleanup is best effort. */ }
   transientToken = null;
   transientResume = null;
+  transientUserId = '';
   wx.removeStorageSync(TOKEN_KEY);
   wx.removeStorageSync(RESUME_KEY);
+  wx.removeStorageSync(USER_KEY);
   wx.removeStorageSync(POST_KEY);
   sessionGen += 1;
+  resetProfile();
 }
 
 /** 当前会话代次（页面加载请求据此做有效性校验） */
@@ -347,6 +371,7 @@ module.exports = {
   base,
   token,
   currentPostId,
+  currentUserId,
   tenantId,
   sessionGeneration,
   sessionGuard,

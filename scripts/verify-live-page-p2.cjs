@@ -76,7 +76,7 @@ test('LIVE-11 expired materials entry returns to login with its destination and 
 test('LIVE-07 API employees may open their account information without demo login', () => {
   const redirects = [];
   const state = { session: { loggedIn: false }, profile: {}, drafts: {}, messages: [], feedback: [] };
-  const post = { postId: 'p', orgId: 'o', roleCode: 'sales' };
+  const post = { postId: 'p', userId: 'u', orgId: 'o', roleCode: 'sales' };
   const account = { load: () => state, company: () => ({ roles: [] }), access: { context: () => ({}) },
     permitted: () => false, services: [{}], order() {}, visible: () => ({}),
     displayOrder() {}, scoped: () => [], roles: {}, courseChapters: {}, chapters: [] };
@@ -84,7 +84,7 @@ test('LIVE-07 API employees may open their account information without demo logi
     '../../utils/view-container': { routeValue: v => v || '' },
     '../../utils/account-login': { defaultAccount: () => null },
     '../../api/auth': { currentApiPost: () => post, apiPosts: () => [post] },
-    '../../api/http': { token: () => 'session' }, '../../api/org': {},
+    '../../api/http': { token: () => 'session', currentUserId: () => 'u' }, '../../api/org': {},
     '../../utils/organization': { roles: {}, has: () => false }, '../../utils/sample-files': {},
     './procurement': {}, '../../utils/account': account,
     '../../utils/platform-messages': { totalUnread: () => 0 }

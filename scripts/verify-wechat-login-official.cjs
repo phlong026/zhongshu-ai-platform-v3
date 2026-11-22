@@ -13,7 +13,7 @@ const wxml = read('miniprogram/pages/account/index.wxml');
 const js = read('miniprogram/pages/account/index.js');
 const http = read('miniprogram/api/http.js');
 const wxss = read('miniprogram/pages/account/index.wxss');
-const profile = read('miniprogram/utils/platform-profile.js');
+const profile = require('../miniprogram/utils/platform-profile');
 
 // 1) 登录按钮：官方绿底 + 官方图标；绑定由登录后的同账号接口完成
 assert(wxml.includes('bindtap="wechatLogin"') && wxml.includes('open-type="getPhoneNumber"'), '首次微信登录使用官方手机号授权');
@@ -44,15 +44,23 @@ assert(!layout.includes('.login-card>.solid{margin:32rpx 0 15rpx}'), '按钮老�
 
 // 3) 上传链：http.upload 契约 + 头像落库（PUT avatar URL，后端 08 文档 avatar 键语义）
 assert(http.includes("name: 'file'") && http.includes('formData'), 'http.upload 为 multipart file 字段封装');
-assert(http.includes("function upload(path, filePath, formData)"), 'http.upload 已导出');
-assert(http.includes("handleUnauthorized(requestSessionGen, null, reject)"), '上传 401 与 request 同契约处理');
+assert.equal(typeof require('../miniprogram/api/http').upload, 'function', 'http.upload 已导出');
+const uploadSource = http.slice(http.indexOf('function upload('), http.indexOf('module.exports'));
+const requestSource = http.slice(http.indexOf('function request('), http.indexOf('function upload('));
+const sharedUnauthorized = 'retryUnauthorized(requestSessionGen, sentToken, opts,';
+assert(uploadSource.includes(sharedUnauthorized) && requestSource.includes(sharedUnauthorized)
+  && uploadSource.includes('res.statusCode === 401') && uploadSource.includes('body && body.code === 401'),
+  '上传 HTTP/body 401 与 request 复用同一续期及失效处理');
 assert(js.includes("http.upload('/infra/file/upload'"), '头像经底座上传通道获取 URL');
 assert(js.includes("{nickname:name,avatar:url}"), '头像 URL 随姓名一并 PUT /platform/profile/mine');
 assert(js.includes('saveAvatarLocal(temp)'), '未登录时头像仅本机保存（不静默丢弃）');
 assert(js.includes('String(url).length>512') && js.includes('头像地址无效'), '头像 URL 非法或超长时拒绝保存');
 
-// 4) mergeProfile：后端 avatar URL 为真源；后端 null 保留本地
-assert(profile.includes("if (remote && typeof remote.avatar === 'string' && remote.avatar) next.avatar = remote.avatar;"), '后端头像 URL 非空即合入（真源口径）');
+// 4) mergeProfile：完整后端资料为真源；null 表示未设置，恢复默认头像。
+const cached = { apiUserId: '7', name: '当前用户', phone: '13800000000', avatar: 'https://cdn/old.png' };
+const remote = { id: 7, nickname: '当前用户', mobile: '13800000000', avatar: 'https://cdn/new.png' };
+assert.equal(profile.mergeProfile(cached, remote, 7).avatar, remote.avatar, '后端头像 URL 合入同用户资料');
+assert.equal(profile.mergeProfile(cached, { ...remote, avatar: null }, 7).avatar, '/assets/account-avatar.jpg', '后端空头像不保留旧头像');
 
 console.log('verify-wechat-login-official ✔  全部断言通过（官方图标登录 + 头像昵称官方能力 + 上传链契约完整）');
 assert(wxml.includes('login-consent-panel') && !wxml.includes('login-agreement'), '协议改为两通道共用弹窗');

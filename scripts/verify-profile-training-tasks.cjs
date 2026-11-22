@@ -19,8 +19,9 @@ const franchiseCourses = {
 
 async function setup(role, handler=()=>undefined) {
   const runtime=await connect(),auth=require('../miniprogram/api/auth');
-  const post={postId:'post-'+role,orgId:'store',orgType:role==='hq-design-admin'?'headquarters':'store',roleCode:role,orgName:'合家美宅-江西南昌-高新区合家美宅-裴火荣'};
-  auth.saveLogin({accessToken:'test-token'});auth.savePosts([post]);auth.switchPost(post.postId);
+  const post={postId:'post-'+role,userId:7,orgId:'store',orgType:role==='hq-design-admin'?'headquarters':'store',roleCode:role,orgName:'合家美宅-江西南昌-高新区合家美宅-裴火荣'};
+  auth.saveLogin({accessToken:'test-token',userId:7});auth.savePosts([post]);auth.switchPost(post.postId);
+  const profile={id:7,nickname:'裴火荣',mobile:'13800000000',avatar:'https://example.com/old.png'};
   const calls=[];
   wx.request=options=>{
     const url=new URL(options.url).pathname.replace('/admin-api','');calls.push({url,method:options.method,data:options.data});
@@ -34,7 +35,14 @@ async function setup(role, handler=()=>undefined) {
       else if(url==='/training/app/materials')data=resources;
       else if(url.startsWith('/training/app/courses/')){const id=url.split('/').at(-1),c=allowed.find(c=>c.id===id);data=c?{...brief(c),lessons:Learning.chapters[id].map((title,i)=>({id:id+'-'+i,title,chapter:'岗位实操',attachments:[],completed:false})),attachments:resources.filter(r=>r.courseId===id)}:{__error:'当前岗位无此学习内容权限'};}
     }
-    if(data===undefined)data=url==='/platform/profile/mine'?{nickname:'裴火荣',mobile:'13800000000',avatar:'https://example.com/old.png'}:url==='/platform/messages/unread-count'?{count:0}:[];
+    if(data===undefined&&url==='/platform/profile/mine'){
+      if(options.method==='PUT'){
+        profile.nickname=options.data.nickname.trim();
+        if(Object.prototype.hasOwnProperty.call(options.data,'avatar'))profile.avatar=options.data.avatar||null;
+      }
+      data={...profile}; // 后端 GET/PUT 均返回完整、已持久化的本人资料。
+    }
+    if(data===undefined)data=url==='/platform/messages/unread-count'?{count:0}:[];
     setImmediate(()=>options.success({statusCode:200,data:data&&data.__error?{code:403,msg:data.__error,data:null}:{code:0,data}}));
   };
   return {runtime,auth,post,calls,async open(url){await runtime.callWxMethod('navigateTo',{url});await flush();return getCurrentPages().at(-1);}};

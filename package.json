@@ -17,7 +17,7 @@
     "check:engineering-ledger-entry": "node --test scripts/verify-engineering-project-ledger-entry.cjs",
     "check:company-points": "node --test scripts/verify-company-points.cjs scripts/verify-profile-services.cjs",
     "check:profile-training": "node --test scripts/verify-profile-training-tasks.cjs",
-    "check:profile-navigation": "node --test scripts/verify-profile-navigation.cjs",
+    "check:profile-navigation": "node --test scripts/verify-profile-navigation.cjs scripts/verify-profile-cache-isolation.cjs",
     "check:task-order": "node scripts/verify-task-order.cjs && node scripts/verify-sales-todo-order.cjs && node scripts/verify-design-todo-order.cjs && node scripts/verify-engineering-todo-order.cjs && node scripts/verify-finance-todo-order.cjs",
     "check:packages": "node scripts/verify-design-package.cjs && node scripts/verify.cjs",
     "check:guest-home": "node scripts/verify-guest-home-role-nav.cjs",

@@ -57,9 +57,10 @@ function reset(role) {
   pages = []; transitions = []; navigation = []; requests = []; toasts = [];
   failNavigation = false;
   if (!role) return;
-  http.saveSession({ token: 'profile-navigation-fixture', postId: '42' });
-  auth.savePosts([{ postId: 42, orgId: 7, roleCode: role,
+  auth.saveLogin({ accessToken: 'profile-navigation-fixture', userId: 701 });
+  auth.savePosts([{ postId: 42, userId: 701, orgId: 7, roleCode: role,
     orgType: role === 'hq-design-admin' ? 'headquarters' : 'store', lead: role.endsWith('-lead') }]);
+  auth.switchPost(42);
   account.mutate(state => { state.profile.name = '缓存姓名'; });
 }
 
@@ -187,12 +188,13 @@ const roles = [
 ];
 
 for (const [role, label] of roles) {
-  test(role + ': 我的在请求未完成时直接显示岗位与缓存资料，不离开原生页', () => {
+  test(role + ': 我的在请求未完成时直接显示岗位与同用户缓存资料，不离开原生页', () => {
     reset(role);
     const page = show('/pages/profile/index');
     settleNavigation();
     assert.equal(navigation.length, 0, 'native profile must not redirect into a legacy role shell');
     assert.equal(page.data.role, label);
+    assert.equal(account.load().profile.apiUserId, '701', '缓存归属来自当前登录用户');
     assert.equal(page.data.name, '缓存姓名');
     assert.equal(page.data.loggedIn, true);
     assert.equal(page.data.showStoreServices, role !== 'hq-design-admin');
@@ -309,7 +311,7 @@ test('我的页未读数响应带会话守卫：换会话后迟到响应不回�
   settleNavigation();
   const unreadReq = requests.filter(r => r.url.endsWith('/platform/messages/center/summary')).at(-1);
   assert.ok(unreadReq, '未读数请求已发出');
-  http.saveSession({ token: 'profile-navigation-fixture-next', postId: '42' }); // 新会话代次
+  http.saveSession({ token: 'profile-navigation-fixture-next', userId: 702, postId: '43' }); // 新会话代次
   unreadReq.success({ statusCode: 200, data: { code: 0, data: { count: 7 } } });
   await new Promise(r => setImmediate(r)); // 等 promise 链落地
   assert.equal(page.data.unread, 0, '迟到响应不得更新未读角标');
@@ -317,8 +319,8 @@ test('我的页未读数响应带会话守卫：换会话后迟到响应不回�
 
 test('未知岗位 roleCode：workbench-nav 回退本地导航并告警一次', () => {
   reset(null);
-  http.saveSession({ token: 'profile-navigation-fixture', postId: '42' });
-  auth.savePosts([{ postId: 42, orgId: 7, roleCode: 'brand-new-role', orgType: 'store', lead: false }]);
+  http.saveSession({ token: 'profile-navigation-fixture', userId: 701, postId: '42' });
+  auth.savePosts([{ postId: 42, userId: 701, orgId: 7, roleCode: 'brand-new-role', orgType: 'store', lead: false }]);
   const warnings = [];
   const originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args.join(' '));
