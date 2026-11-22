@@ -193,4 +193,56 @@ for(const type of ['refund','expense-refund']) {
   offline=false;await page.retryPendingPayment();assert.equal(page.data.paymentPending,false);assert.equal(writes,2);
   assert.match(page.data.registerError,/作废/);
  });
+ for(const originalFirst of [true,false])test(type+' keeps one frozen request when '+(originalFirst?'registration arrives before confirmation':'confirmation arrives before registration'),async()=>{
+  const {page,api,http,wx}=harness(),sent=[],events=[],storage=new Map();
+  let originalArrived=false,finishRetry,uploads=0,keys=0;
+  const key='arrival-'+type+'-'+originalFirst,result={refundId:'9223372036854775000'};
+  http.currentPostId=()=>key;
+  Object.assign(wx,{
+   setStorageSync:(scope,value)=>storage.set(scope,JSON.parse(JSON.stringify(value))),
+   getStorageSync:scope=>storage.get(scope),removeStorageSync:scope=>storage.delete(scope)
+  });
+  api.idemKey=()=>{keys++;return key;};
+  api.uploadVoucher=async()=>{uploads++;return '9007199254742001';};
+  // Model transport order and confirmation visibility only; database uniqueness is covered by backend integration tests.
+  api[method]=(body,idem)=>{
+   sent.push(JSON.parse(JSON.stringify({body,key:idem})));
+   if(sent.length===1)return Promise.reject({code:-1,message:'request:fail timeout'});
+   return new Promise(resolve=>{finishRetry=resolve;});
+  };
+  http.get=async(path,args)=>{
+   assert.equal(path,'/franchise/finance/'+endpoint+'/registration-result');assert.equal(args.key,key);
+   events.push('confirmation');return originalArrived?result:{state:'NOT_REGISTERED'};
+  };
+  const deliverOriginal=()=>{originalArrived=true;events.push('registration');};
+  page.openRegister(event(type));
+  Object.assign(page.data.registerForm,{[source]:'9007199254740999',amount:'12.34',date:'2026-11-17',
+   voucherPath:'original-voucher',voucherName:'原凭据.jpg',replacesId:'9007199254741001',
+   reason:'原始退款原因',transactionNo:'ORIGINAL-'+type,refundFundingType:'COMPANY'});
+  await page.submitRegister();
+  const frozen=JSON.stringify([...storage.values()][0]);
+  assert.equal(page.data.paymentPending,true);assert.equal(page.data.registerBusy,true);
+  if(originalFirst)deliverOriginal();
+  await page.resumePayment();
+  if(!originalFirst){
+   assert.equal(page.data.paymentPending,true);assert.equal(page.data.registerBusy,true);
+   assert.equal(page.registerIdem,key);assert.equal(JSON.stringify([...storage.values()][0]),frozen);
+   assert.match(page.data.paymentNotice,/尚未查到原单/);
+   page.cancelRegister();page.openRegister(event('receipt'));await page.submitRegister();
+   assert.equal(page.data.registerType,type);assert.equal(page.data.registerForm.amount,'12.34');
+   assert.equal(page.data.registerForm.voucherPath,'original-voucher');assert.equal(sent.length,1);
+   page.data.registerForm.amount='99';page.data.registerForm.voucherPath='different-voucher';
+   const retry=page.retryPendingPayment();await new Promise(setImmediate);
+   assert.equal(sent.length,2);assert.deepEqual(sent[1],sent[0]);
+   assert.equal(JSON.stringify([...storage.values()][0]),frozen);
+   assert.equal(page.data.paymentPending,true);assert.equal(page.data.registerBusy,true);
+   deliverOriginal();finishRetry(result);await retry;
+  }
+  assert.equal(events[0],originalFirst?'registration':'confirmation');
+  assert.equal(sent.length,originalFirst?1:2);assert.equal(keys,1);assert.equal(uploads,1);
+  assert.equal(sent[0].body.amountCents,1234);assert.equal(sent[0].body.voucherFileId,'9007199254742001');
+  assert.equal(sent[0].body.replacesId,'9007199254741001');
+  assert.equal(page.data.journeyResult.id,result.refundId);assert.equal(page.data.journeyResult.amount,'12.34');
+  assert.equal(page.data.paymentPending,false);assert.equal(page.data.registerBusy,false);assert.equal(storage.size,0);
+ });
 }
