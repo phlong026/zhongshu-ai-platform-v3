@@ -234,6 +234,98 @@ test('门店添加岗位不提供boss/owner，总部旧模板保持可用', asyn
   assert.equal(hq.page.data.apiRoleOptionsForAdd.some(role => role.id === 'owner'), true);
 });
 
+async function createMemberPage(rows, overrides = {}) {
+  const commands = [];
+  const org = {
+    orgTeams: async () => [], orgStaff: async () => rows, handoverPending: async () => [],
+    revokePost: async postId => { commands.push({ action: 'revoke', postId }); },
+    setStaffStatus: async userId => { commands.push({ action: 'suspend', userId }); },
+    staffHandover: async payload => { commands.push({ action: 'handover', ...payload }); return { items: [] }; },
+    staffEmergencyRevoke: async payload => { commands.push({ action: 'emergency', ...payload }); return { items: [] }; }
+  };
+  const env = createPage({ http: { token: () => 'token', sessionGuard: () => () => true }, org,
+    wx: { showModal: options => options.success({ confirm: true }) }, ...overrides });
+  env.page.data.view = 'api-members';
+  await env.page.loadApiMembers();
+  return { ...env, org, commands };
+}
+
+for (const roleCode of ['boss', 'owner']) test('门店 '+roleCode+' 兼岗也不能通过四个成员入口撤权，页面说明由总部办理', async () => {
+  const rows = [
+    { postId: 'employee-post', userId: 'u1', name: '兼岗成员', roleCode: 'sales', active: true },
+    { postId: 'reserved-post', userId: 'u1', name: '兼岗成员', roleCode, active: true },
+    { postId: 'receiver-post', userId: 'u2', name: '员工', roleCode: 'sales', active: true }
+  ];
+  const env = await createMemberPage(rows);
+  assert.equal(env.page.data.apiStaffRows[0].revokeBlockedReason, '', '单独撤普通岗位仍可办理');
+  assert.match(env.page.data.apiStaffRows[0].suspendBlockedReason, /总部/);
+  assert.match(env.page.data.apiStaffRows[1].revokeBlockedReason, /总部/);
+  env.page.revokeRow({ currentTarget: { dataset: { postId: 'reserved-post', name: '兼岗成员' } } });
+  env.page.toggleActiveRow({ currentTarget: { dataset: { userId: 'u1', name: '兼岗成员', active: true } } });
+  env.page.pickHandoverLeaver({ detail: { value: 0 } });
+  env.page.pickHandoverTarget({ detail: { value: 0 } });
+  assert.match(env.page.data.handoverSource.removalBlockedReason, /总部/);
+  env.page.confirmHandover();
+  env.page.confirmEmergency();
+  assert.deepEqual(env.commands, [], '受保护身份不会发出普通撤权命令');
+  assert.match(env.page.data.error, /总部/);
+
+  env.page.revokeRow({ currentTarget: { dataset: { postId: 'employee-post', name: '兼岗成员' } } });
+  await flush();
+  assert.deepEqual(env.commands, [{ action: 'revoke', postId: 'employee-post' }]);
+});
+
+test('老板仍可作为普通员工的交接接收人，总部成员页保留自身任职操作', async () => {
+  const rows = [
+    { postId: 'boss-post', userId: 'u1', name: '老板', roleCode: 'boss', active: true },
+    { postId: 'sales-post', userId: 'u2', name: '员工', roleCode: 'sales', active: true }
+  ];
+  const store = await createMemberPage(rows);
+  store.page.pickHandoverLeaver({ detail: { value: 1 } });
+  store.page.pickHandoverTarget({ detail: { value: 0 } });
+  store.page.confirmHandover();
+  await flush();
+  assert.deepEqual(store.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'u2', toUserId: 'u1' }]);
+
+  const hq = await createMemberPage(rows, { currentPost: { postId: 'hq', orgId: 'hq', orgType: 'headquarters', roleCode: 'boss' } });
+  assert.equal(hq.page.data.apiStaffRows[0].revokeBlockedReason, '');
+  hq.page.revokeRow({ currentTarget: { dataset: { postId: 'boss-post', name: '总部成员' } } });
+  await flush();
+  assert.deepEqual(hq.commands, [{ action: 'revoke', postId: 'boss-post' }]);
+});
+
+test('弹窗确认期间成员新增总部保留身份时，停用和紧急撤权须重新检查', async () => {
+  for (const method of ['toggleActiveRow', 'confirmEmergency']) {
+    let modal;
+    const rows = [
+      { postId: 'sales-post', userId: 'u1', name: '员工甲', roleCode: 'sales', active: true },
+      { postId: 'receiver-post', userId: 'u2', name: '员工乙', roleCode: 'sales', active: true }
+    ];
+    const env = await createMemberPage(rows, { wx: { showModal: options => { modal = options; } } });
+    env.page.pickHandoverLeaver({ detail: { value: 0 } });
+    env.page[method]({ currentTarget: { dataset: { userId: 'u1', name: '员工甲', active: true } } });
+    assert.ok(modal);
+    rows.push({ postId: 'new-boss', userId: 'u1', name: '员工甲', roleCode: 'boss', active: true });
+    await env.page.loadApiMembers();
+    modal.success({ confirm: true });
+    assert.deepEqual(env.commands, []);
+    assert.match(env.page.data.error, /总部/);
+  }
+});
+
+test('最后管理岗位由后端实时判断，页面显示明确拒绝原因并保留成员', async () => {
+  const env = await createMemberPage([{ postId: 'manager-post', userId: 'u1', name: '管理员', roleCode: 'custom-manager', active: true }]);
+  env.org.revokePost = async () => { throw new Error('不能移除本组织最后一个有效管理岗位，请先安排接任管理人员'); };
+  env.page.revokeRow({ currentTarget: { dataset: { postId: 'manager-post', name: '管理员' } } });
+  await flush();
+  assert.match(env.page.data.error, /最后一个有效管理岗位/);
+  assert.equal(env.page.data.apiStaffRows.length, 1);
+  const wxml = fs.readFileSync(path.join(__dirname, '../miniprogram/pages/account/index.wxml'), 'utf8');
+  assert.ok(wxml.includes('wx:if="{{!item.revokeBlockedReason}}"'));
+  assert.ok(wxml.includes('wx:if="{{!item.suspendBlockedReason}}"'));
+  assert.ok(wxml.includes('disabled="{{handoverBusy||apiMembersBusy||handoverSource.removalBlockedReason}}"'));
+});
+
 test('账号交付仅在剪贴板成功后提示复制成功', () => {
   const toasts = [], failures = [];
   const env = createPage({ wx: { setClipboardData: options => options.fail(), showToast: options => toasts.push(options.title) } });
