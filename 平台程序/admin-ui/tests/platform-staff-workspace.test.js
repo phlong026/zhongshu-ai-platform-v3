@@ -787,6 +787,69 @@ test('Web 普通停职展示四域清单，扫描失败仍刷新待核记录', a
   assert.match(state.resultTitle.value, /仍需人工核对/)
 })
 
+test('Web 按真实在途类别选择不同接收人，不要求销售与工长兼岗', async () => {
+  const calls = []
+  const source = { postId: '11', userId: '9007199254741001', name: '原员工', roleCode: 'sales', active: true }
+  const sales = { postId: '12', userId: '9007199254741002', name: '接任销售', roleCode: 'sales', active: true }
+  const engineer = { postId: '13', userId: '9007199254741003', name: '接任工长', roleCode: 'engineer', active: true }
+  const items = [
+    { domain: 'franchise-crm', label: '客户', inFlight: 2, transferred: 0, status: 'PENDING_UNASSIGNED' },
+    { domain: 'franchise-engineering', label: '工程任务', inFlight: 1, transferred: 0, status: 'PENDING_UNASSIGNED' },
+    { domain: 'franchise-commission', label: '设计委托', inFlight: 0, transferred: 0, status: 'NONE' },
+    { domain: 'franchise-finance', label: '财务账款', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }
+  ]
+  const state = loadOrgStaffView({ api: {
+    getHandoverPreview: async (orgId, fromUserId) => { calls.push({ orgId, fromUserId }); return items },
+    handoverStaff: async (payload) => { calls.push(payload); return { mode: 'NORMAL', items, receivers: payload.receivers } }
+  } })
+  state.staff.value = [source, sales, engineer]
+  await state.openHandover(source)
+  assert.deepEqual(Array.from(state.handoverRequirements.value, row => row.domain), ['franchise-crm', 'franchise-engineering'])
+  state.handoverForm.receivers['franchise-crm'] = sales.userId
+  await state.saveHandover()
+  assert.equal(calls.length, 1, '有在途工程却未选接收人时不得提交')
+  state.handoverForm.receivers['franchise-engineering'] = engineer.userId
+  await state.saveHandover()
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1])), {
+    orgId: '1001', fromUserId: source.userId,
+    receivers: { 'franchise-crm': sales.userId, 'franchise-engineering': engineer.userId }
+  })
+  assert.equal(state.resultDialog.value, true)
+})
+
+test('Web 交接预览失败保持关闭提交，原地重试成功后才允许办理', async () => {
+  let attempts = 0, writes = 0
+  const state = loadOrgStaffView({ api: {
+    getHandoverPreview: async () => { if (++attempts === 1) throw Error('offline'); return [] },
+    handoverStaff: async () => { writes++; return { mode: 'NORMAL', items: [], receivers: {} } }
+  } })
+  await state.openPendingHandover({ fromUserId: '2' })
+  assert.match(state.handoverPreviewError.value, /重试/)
+  await state.saveHandover()
+  assert.equal(writes, 0)
+  await state.loadHandoverPreview()
+  await state.saveHandover()
+  assert.equal(writes, 1, '成功确认零在途时不强求接收人')
+})
+
+test('Web 换来源或关闭弹窗后不接收迟到的交接预览', async () => {
+  let release
+  const state = loadOrgStaffView({ api: {
+    getHandoverPreview: async (_org, user) => user === '1' ? new Promise(resolve => { release = resolve }) :
+      [{ domain: 'franchise-engineering', label: '工程任务', inFlight: 1, status: 'PENDING_UNASSIGNED' }]
+  } })
+  const first = state.openHistoricalHandover({ userId: '1', name: '前一员工' })
+  await state.openHistoricalHandover({ userId: '2', name: '后一员工' })
+  release([{ domain: 'franchise-crm', label: '客户', inFlight: 2, status: 'PENDING_UNASSIGNED' }])
+  await first
+  assert.equal(state.handoverRequirements.value[0].domain, 'franchise-engineering')
+  const closing = state.openHistoricalHandover({ userId: '1', name: '前一员工' })
+  state.handoverDialog.value = false
+  release([{ domain: 'franchise-crm', label: '客户', inFlight: 2, status: 'PENDING_UNASSIGNED' }])
+  await closing
+  assert.equal(state.handoverRequirements.value.length, 0)
+})
+
 test('Web 可分页选择没有待分配记录的历史员工，接收人仍来自当前有效任职', async () => {
   const calls = []
   const transfers = []
@@ -797,6 +860,7 @@ test('Web 可分页选择没有待分配记录的历史员工，接收人仍来�
       return { items: [{ userId: String(pageNo + 1), name: `原员工${pageNo}`, mobile: '' }], hasMore: pageNo === 1 }
     },
     getStaff: async () => [receiver],
+    getHandoverPreview: async () => [{ domain: 'franchise-crm', label: '客户', inFlight: 1, status: 'PENDING_UNASSIGNED' }],
     handoverStaff: async (data) => { transfers.push(data); return { items: [] } }
   } })
   state.staff.value = [receiver]
@@ -808,14 +872,14 @@ test('Web 可分页选择没有待分配记录的历史员工，接收人仍来�
   assert.equal(state.historyHasMore.value, false)
   assert.equal(state.pending.value.length, 0)
 
-  state.openHistoricalHandover(state.historyRows.value[0])
+  await state.openHistoricalHandover(state.historyRows.value[0])
   assert.equal(state.handoverForm.fromUserId, '2')
   assert.equal(state.receivers.value[0].userId, '1')
-  state.handoverForm.toUserId = '1'
+  state.handoverForm.receivers['franchise-crm'] = '1'
   await state.saveHandover()
   assert.equal(transfers[0].orgId, '1001')
   assert.equal(transfers[0].fromUserId, '2')
-  assert.equal(transfers[0].toUserId, '1')
+  assert.equal(transfers[0].receivers['franchise-crm'], '1')
 })
 
 test('Web 历史检索的旧响应不能覆盖新查询或重新写入已离开的页面', async () => {
