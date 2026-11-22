@@ -83,22 +83,28 @@ public class StaffPostServiceImpl implements StaffPostService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void revokePost(long postId, long operatorUserId) {
+        revokePost(postId, operatorUserId, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void revokePostForHeadquarters(long postId, long operatorUserId) {
+        revokePost(postId, operatorUserId, true);
+    }
+
+    private void revokePost(long postId, long operatorUserId, boolean headquarters) {
         StaffPostDO probe = staffPostMapper.selectById(postId);
         if (probe == null) {
             throw exception(POST_NOT_FOUND);
         }
-        // M01-T04/R2 撤权协议对齐：advisory 用户锁先行（与交接/首次分配/删除回收同协议，
-        // 串行化「接收人唯一岗位在交接锁内被并发单撤」的交错），再岗位行排他锁。
-        // R3 P2：锁后复查走不同 statement（selectOne wrapper），绕开同一 SqlSession 对
-        // selectById 的一级缓存——否则可能读到加锁前的旧 ACTIVE 行，覆盖他人撤销痕迹
+        // 沿用用户→组织锁序；组织锁串行化不同用户的撤权，锁查询同时清除 MyBatis 旧快照。
         staffPostMapper.lockUserAdvisoryForWrite(probe.getUserId());
         staffPostMapper.lockPostForUpdate(postId);
-        StaffPostDO post = staffPostMapper.selectOne(
-                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<StaffPostDO>()
-                        .eq(StaffPostDO::getId, postId));
-        if (post == null || !StaffPostDO.STATUS_ACTIVE.equals(post.getStatus())) {
-            throw exception(POST_NOT_FOUND);
-        }
+        OrgUnitDO org = lockRevocationOrg(probe.getOrgId());
+        List<StaffPostDO> activePosts = staffPostMapper.selectActiveByOrg(org.getDeptId());
+        StaffPostDO post = activePosts.stream().filter(p -> p.getId() == postId).findFirst()
+                .orElseThrow(() -> exception(POST_NOT_FOUND));
+        requireRevocable(org, activePosts, List.of(post), headquarters);
         staffPostMapper.updateById(new StaffPostDO().setId(postId).setStatus(StaffPostDO.STATUS_REVOKED)
                 .setRevokedAt(OffsetDateTime.now()).setRevokedBy(operatorUserId));
         syncUserRoles(post.getUserId());
@@ -187,12 +193,7 @@ public class StaffPostServiceImpl implements StaffPostService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void revokeAllInOrg(long userId, long orgId, long operatorUserId) {
-        // 09 撤权协议锁序：advisory 用户锁 → 岗位行排他锁（M01-T01 同款，串行化与首次分配/删除回收的交错）
-        staffPostMapper.lockUserAdvisoryForWrite(userId);
-        staffPostMapper.lockUserPostsForUpdate(userId);
-        List<StaffPostDO> actives = staffPostMapper.selectActiveByUser(userId).stream()
-                .filter(p -> p.getOrgId() == orgId)
-                .toList();
+        List<StaffPostDO> actives = lockRevocablePostsInOrg(userId, orgId);
         if (actives.isEmpty()) {
             return; // 本组织无有效任职：幂等返回
         }
@@ -202,6 +203,57 @@ public class StaffPostServiceImpl implements StaffPostService {
         }
         syncUserRoles(userId);
         walletSessionRevocation.ifAvailable(cb -> cb.revokeForUserOrgs(userId, List.of(orgId)));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void validateRevokeAllInOrg(long userId, long orgId) {
+        lockRevocablePostsInOrg(userId, orgId);
+    }
+
+    private List<StaffPostDO> lockRevocablePostsInOrg(long userId, long orgId) {
+        staffPostMapper.lockUserAdvisoryForWrite(userId);
+        staffPostMapper.lockUserPostsForUpdate(userId);
+        OrgUnitDO org = lockRevocationOrg(orgId);
+        List<StaffPostDO> activePosts = staffPostMapper.selectActiveByOrg(orgId);
+        List<StaffPostDO> removed = activePosts.stream().filter(p -> p.getUserId() == userId).toList();
+        requireRevocable(org, activePosts, removed, false);
+        return removed;
+    }
+
+    private OrgUnitDO lockRevocationOrg(long orgId) {
+        if (orgUnitMapper.lockOrgForUpdate(orgId) == null) {
+            throw exception(ORG_NOT_FOUND);
+        }
+        OrgUnitDO org = orgUnitMapper.selectById(orgId);
+        if (org == null || !org.isOrg()) {
+            throw exception(ORG_NOT_FOUND);
+        }
+        return org;
+    }
+
+    private void requireRevocable(OrgUnitDO org, List<StaffPostDO> activePosts,
+                                  List<StaffPostDO> removed, boolean headquarters) {
+        if (!headquarters) {
+            removed.forEach(post -> MemberRolePolicy.requireRevocable(org.getOrgType(), post.getRoleCode()));
+        }
+        if (removed.isEmpty() || !org.isActive() || systemDirectory.deptUnavailable(org.getDeptId())) {
+            return;
+        }
+        Set<Long> removedIds = removed.stream().map(StaffPostDO::getId).collect(Collectors.toSet());
+        // 与当前岗位授权使用同一权限口径；不能把已停用用户或没有管理权限的负责人当作接任人。
+        boolean removesManager = removed.stream().anyMatch(this::isEffectiveManager);
+        boolean keepsManager = activePosts.stream().anyMatch(post -> !removedIds.contains(post.getId())
+                && isEffectiveManager(post));
+        if (removesManager && !keepsManager) {
+            throw exception(STAFF_LAST_MANAGER);
+        }
+    }
+
+    private boolean isEffectiveManager(StaffPostDO post) {
+        return postTemplateMapper.selectById(post.getRoleCode()) != null
+                && systemDirectory.roleHasPermission(post.getRoleCode(), "platform:org:manage")
+                && systemDirectory.userUsable(post.getUserId());
     }
 
     @Override
