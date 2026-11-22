@@ -33,6 +33,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.flywaydb.core.Flyway;
 import org.redisson.config.Config;
 import org.redisson.spring.data.connection.RedissonConnectionFactory;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -821,6 +822,82 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(wechatLoginService.login("wx-franchise-flow", "legacy-bound-code", null).userId()).isEqualTo(employee.userId());
         assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(after);
         verify(wechat, never()).phoneNumber(eq("wx-franchise-flow"), anyString());
+    }
+
+    @Test
+    void flywayUpgradePreservesPasswordsPreviouslyResetThroughSmsAdminAndProfile() {
+        String schema = passwordUpgradeSchema();
+        Map<String, Account> accounts = new HashMap<>();
+        Map<String, String> chosenHashes = new HashMap<>();
+        try {
+            inPasswordSchema(schema, () -> {
+                for (String channel : List.of("sms", "admin", "profile")) {
+                    Account account = createAccount(tenantId, IDS.incrementAndGet(), "legacy" + channel,
+                            0, "ACTIVE", true);
+                    jdbc.update("UPDATE pf_franchise_account SET account_type='STAFF' WHERE account_id=?",
+                            account.accountId());
+                    // Before AUTH-01, these three reset paths wrote a new BCrypt hash without clearing
+                    // require_change. Reproduce the persisted old state, not the fixed future reset hooks.
+                    String chosen = BCRYPT.encode("Chosen" + channel + "2026");
+                    jdbc.update("UPDATE system_users SET password=? WHERE id=? AND tenant_id=?",
+                            chosen, account.userId(), tenantId);
+                    accounts.put(channel, account);
+                    chosenHashes.put(channel, chosen);
+                }
+            });
+
+            Flyway upgrade = passwordUpgrade(schema);
+            upgrade.migrate(); // Discover the production pf location; never call a migration class directly.
+
+            inPasswordSchema(schema, () -> {
+                AdminAuthServiceImpl webAuth = new AdminAuthServiceImpl();
+                ReflectionTestUtils.setField(webAuth, "userService", adminUserService);
+                ReflectionTestUtils.setField(webAuth, "loginLogService", mock(LoginLogService.class));
+                ReflectionTestUtils.setField(webAuth, "passwordPolicies",
+                        passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+                for (String channel : List.of("sms", "admin", "profile")) {
+                    Account account = accounts.get(channel);
+                    assertThat(loadUser(account.userId()).getPassword()).as("existing %s reset hash", channel)
+                            .isEqualTo(chosenHashes.get(channel));
+                    assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy "
+                            + "WHERE tenant_id=? AND user_id=?", Boolean.class, tenantId, account.userId())).isFalse();
+                    assertThat(service.login(account.accountId(), "Chosen" + channel + "2026", null).userId())
+                            .isEqualTo(account.userId());
+                    when(adminUserService.getUserByUsername(channel)).thenAnswer(inv -> loadUser(account.userId()));
+                    assertThat(webAuth.authenticate(channel, "Chosen" + channel + "2026").getId())
+                            .isEqualTo(account.userId());
+                }
+            });
+            upgrade.validate();
+            assertThat(upgrade.migrate().migrationsExecuted).isZero();
+        } finally {
+            jdbc.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    /** Minimal historical schema, isolated from the shared Spring integration database. */
+    private String passwordUpgradeSchema() {
+        String schema = "password_upgrade_" + IDS.incrementAndGet();
+        jdbc.execute("CREATE SCHEMA " + schema);
+        for (String table : List.of("system_users", "pf_org_unit", "pf_staff_post", "pf_franchise_account")) {
+            jdbc.execute("CREATE TABLE " + schema + "." + table + " (LIKE " + table + " INCLUDING ALL)");
+        }
+        jdbc.execute("CREATE TABLE " + schema + ".pf_staff_password_policy "
+                + "(tenant_id BIGINT,user_id BIGINT,require_change BOOLEAN NOT NULL,PRIMARY KEY(tenant_id,user_id))");
+        return schema;
+    }
+
+    private Flyway passwordUpgrade(String schema) {
+        return Flyway.configure().dataSource(jdbc.getDataSource()).schemas(schema).defaultSchema(schema)
+                .baselineOnMigrate(true).baselineVersion("20261122.988").outOfOrder(true)
+                .locations("classpath:db/migration/pf").load();
+    }
+
+    private void inPasswordSchema(String schema, Runnable action) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            jdbc.execute("SET LOCAL search_path TO " + schema);
+            action.run();
+        });
     }
 
     @Test
