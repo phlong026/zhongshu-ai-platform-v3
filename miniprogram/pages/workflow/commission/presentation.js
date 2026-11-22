@@ -14,6 +14,9 @@ const today = () => require('../../../utils/account').localDate();
 /** 视图 → API 动作（与 api/franchise/commission.js 注释的命令枚举一致；submit 走独立提交端点） */
 const ACTIONS = { pay:'commission-simulate-pay',submit: 'commission-submit', feedback: 'commission-feedback', complete: 'design-complete', dispatch: 'design-dispatch', handover: 'packet-submit', receive: 'packet-receive' };
 const FILTERS = ['全部', Status.designing, Status.modifying, Status.pay, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
+const FILTER_STATUSES = { [Status.designing]:'DESIGNING', [Status.modifying]:'MODIFYING', '设计与修改':'DESIGNING,MODIFYING',
+  [Status.pay]:'FEE_PENDING,FEE_RETURNED', [Status.dispatch]:'DESIGN_COMPLETED', [Status.handover]:'DISPATCHED,HANDOVER_RETURNED',
+  [Status.receive]:'HANDOVER_SUBMITTED', [Status.dispatched]:'ACCEPTED' };
 const STATUS_ORDER = { [Status.modifying]: 0, [Status.designing]: 1, [Status.pay]: 2, [Status.dispatch]: 3, [Status.handover]: 4, [Status.receive]: 5, [Status.dispatched]: 6 };
 const KNOWN_VIEWS = ['pay','progress', 'submit', 'complete', 'dispatch', 'handover', 'receive'];
 
@@ -378,7 +381,7 @@ function eventTime(at) {
   if (Number.isNaN(date.getTime())) return '';
   return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
 }
-function workbench(list) {
+function workbench(list, statusCounts) {
   const rows = list.filter(c => c.commissionId).map(c => {
     const n = stateOf(c), status = statusOf(c);
     const actionable = !!(n.actionable && ['complete', 'dispatch'].indexOf(n.view) >= 0);
@@ -407,6 +410,10 @@ function workbench(list) {
   }).sort((a, b) => (STATUS_ORDER[a.status] || 0) - (STATUS_ORDER[b.status] || 0) || String(a.name).localeCompare(String(b.name), 'zh-CN'));
   const counts = {};
   FILTERS.forEach(label => { counts[label] = label === '全部' ? rows.length : rows.filter(r => r.status === label).length; });
+  if (statusCounts) FILTERS.forEach(label => {
+    counts[label] = (label === '全部' ? Object.keys(statusCounts) : FILTER_STATUSES[label].split(','))
+      .reduce((sum, status) => sum + Number(statusCounts[status] || 0), 0);
+  });
   const byRecency = rows.slice().sort((a, b) => String(b.recentAt || '').localeCompare(String(a.recentAt || '')));
   const actionable = byRecency.filter(r => r.actionable);
   const tasks = actionable.map((r, index) => ({ ...r, url: r.actionUrl, primary: index === 0 }));
@@ -415,7 +422,7 @@ function workbench(list) {
     { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
     { label: Status.pay, value: counts[Status.pay], filter: Status.pay, icon: '/assets/money.png' },
     { label: Status.dispatch, value: counts[Status.dispatch], filter: Status.dispatch, icon: '/assets/contract.png' },
-    { label: '全部项目', value: rows.length, filter: '全部', icon: '/assets/folder.png' }
+    { label: '全部项目', value: counts['全部'], filter: '全部', icon: '/assets/folder.png' }
   ];
   return { rows, counts, tasks, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };
 }
@@ -448,4 +455,4 @@ function errorMessage(err) {
   return (err && (err.message || err.msg)) || '网络异常，请稍后重试';
 }
 
-module.exports = { ACTIONS, FILTERS, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, paginate, dateLabel, errorMessage };
+module.exports = { ACTIONS, FILTERS, FILTER_STATUSES, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, paginate, dateLabel, errorMessage };

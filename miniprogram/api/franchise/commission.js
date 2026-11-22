@@ -24,8 +24,9 @@ const commissions = {
   submit: (customerId, data, idempotencyKey) =>
     http.post('/franchise/customers/' + customerId + '/commission', data, keyHeader(idempotencyKey)),
   /** 分页列表 */
-  page: (pageNo, pageSize, keyword) =>
-    http.get('/franchise/commissions', Object.assign({ pageNo, pageSize }, keyword ? { keyword } : {})),
+  page: (pageNo, pageSize, keyword, statuses) =>
+    http.get('/franchise/commissions', Object.assign({ pageNo, pageSize }, keyword ? { keyword } : {}, statuses ? { statuses } : {})),
+  workbenchCounts: () => http.get('/franchise/commissions/workbench-counts'),
   /** 详情（含 allowedActions 与显示状态） */
   get: (id) => http.get('/franchise/commissions/' + id),
   /** 老板审批费用 {approve, note} */
