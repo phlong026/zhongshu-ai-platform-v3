@@ -107,7 +107,11 @@ public class EngPlanService {
         }
     }
 
-    public record NodeCorrectCommand(LocalDate completedAt, String note, Long fileAssetId, String reason) {
+    public record NodeCorrectCommand(LocalDate completedAt, String note, Long fileAssetId, String reason,
+                                     Long replacementRecordId, Long replaceFileAssetId) {
+        public NodeCorrectCommand(LocalDate completedAt, String note, Long fileAssetId, String reason) {
+            this(completedAt, note, fileAssetId, reason, null, null);
+        }
     }
 
     // ===================== 开工准备（无门禁；保存即两期约定固化） =====================
@@ -652,9 +656,15 @@ public class EngPlanService {
     public Map<String, Object> correctNode(PostSnapshot post, long projectId, long nodeId,
                                            NodeCorrectCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "node");
-        // 重放输入=落账输入（评审十三 P1-3）：nodeId+completedAt 两处同形
-        Map<String, Object> payload = Map.of("nodeId", nodeId,
-                "completedAt", cmd.completedAt() == null ? "" : cmd.completedAt().toString());
+        // 日期、可选说明及精确换图目标共同定义本次更正，重试不能沿用同键修改凭据或原因。
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("nodeId", nodeId);
+        payload.put("completedAt", cmd.completedAt() == null ? "" : cmd.completedAt().toString());
+        payload.put("note", StrUtil.trimToEmpty(cmd.note()));
+        payload.put("reason", StrUtil.trimToEmpty(cmd.reason()));
+        payload.put("fileAssetId", cmd.fileAssetId() == null ? "" : cmd.fileAssetId().toString());
+        payload.put("replacementRecordId", cmd.replacementRecordId() == null ? "" : cmd.replacementRecordId().toString());
+        payload.put("replaceFileAssetId", cmd.replaceFileAssetId() == null ? "" : cmd.replaceFileAssetId().toString());
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
@@ -663,12 +673,38 @@ public class EngPlanService {
         FrEngPlanNodeDO node = nodes.stream().filter(n -> n.getId() == nodeId).findFirst()
                 .orElseThrow(() -> exception(NODE_ACTION_INVALID));
         if ("START".equals(node.getMilestone()) || !FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus()) || cmd.completedAt() == null
-                || StrUtil.isBlank(cmd.reason()) || StrUtil.isBlank(cmd.note()) || cmd.fileAssetId() == null) {
+                || StrUtil.isBlank(cmd.reason())) {
             throw exception(NODE_ACTION_INVALID);
         }
-        // M07-T03/I04（R1 P1 旁路封堵）：节点更正凭据同样过域侧校验——存量遗漏处
-        requireValidAsset(post, cmd.fileAssetId(),
-                java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "节点更正");
+        List<FrEngSiteRecordDO> completions = siteRecords.selectByProject(post.orgId(), projectId).stream()
+                .filter(record -> record.getNodeId() != null && record.getNodeId() == nodeId
+                        && Boolean.TRUE.equals(record.getCompletion())).toList();
+        boolean targeted = cmd.replacementRecordId() != null || cmd.replaceFileAssetId() != null;
+        if (targeted && (cmd.replacementRecordId() == null || cmd.replaceFileAssetId() == null || cmd.fileAssetId() == null)) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请选择要替换的原凭据和新凭据");
+        }
+        Long replacementRecordId = cmd.replacementRecordId();
+        String replacedAssetId = cmd.replaceFileAssetId() == null ? null : cmd.replaceFileAssetId().toString();
+        if (cmd.fileAssetId() != null) {
+            // 旧单凭据客户端仅在原记录确为一张时兼容，不能把多图隐式缩成一张。
+            if (!targeted) {
+                if (completions.size() != 1 || completionAssetIds(completions.get(0)).size() != 1) {
+                    throw exception(ENGINEERING_INPUT_INVALID, "存在多份验收凭据，请选择要替换的原凭据");
+                }
+                replacementRecordId = completions.get(0).getId();
+                replacedAssetId = completionAssetIds(completions.get(0)).get(0);
+            }
+            Long targetRecordId = replacementRecordId;
+            FrEngSiteRecordDO target = completions.stream().filter(record -> record.getId().equals(targetRecordId))
+                    .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "原验收记录已变化，请刷新后重试"));
+            List<String> originalAssets = completionAssetIds(target);
+            if (!originalAssets.contains(replacedAssetId)
+                    || (!cmd.fileAssetId().toString().equals(replacedAssetId) && originalAssets.contains(cmd.fileAssetId().toString()))) {
+                throw exception(ENGINEERING_INPUT_INVALID, "原凭据已变化或新凭据重复，请刷新后重新选择");
+            }
+            requireValidAsset(post, cmd.fileAssetId(),
+                    java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "节点更正");
+        }
         LocalDate d = cmd.completedAt();
         int index = nodes.indexOf(node);
         if (project.getActualStartAt() != null && d.isBefore(project.getActualStartAt())) {
@@ -700,18 +736,26 @@ public class EngPlanService {
         }
         String corrections = JsonList.append(node.getCorrections(), Map.of(
                 "completedAt", node.getCompletedAt() == null ? "" : node.getCompletedAt().toString(),
-                "note", node.getName() + " 完成更正", "reason", cmd.reason(),
+                "note", node.getName() + " 完成更正", "reason", StrUtil.trim(cmd.reason()),
                 "date", LocalDate.now().toString(), "actorUserId", post.userId()));
         jdbcTemplate.update("UPDATE fr_eng_plan_node SET completed_at = ?, corrections = CAST(? AS jsonb), "
                 + "update_time = now() WHERE id = ? AND company_id = ?", d, corrections, nodeId, post.orgId());
-        // 同步 completion 现场记录（蓝本 :83 同步 inspection/site/topping）
-        for (FrEngSiteRecordDO record : siteRecords.selectByProject(post.orgId(), projectId)) {
-            if (record.getNodeId() != null && record.getNodeId() == nodeId
-                    && Boolean.TRUE.equals(record.getCompletion())) {
-                jdbcTemplate.update("UPDATE fr_eng_site_record SET occurred_at = ?, note = ?, "
-                                + "file_asset_ids = CAST(? AS jsonb) WHERE id = ? AND company_id = ?",
-                        d, cmd.note(), JsonList.of(cmd.fileAssetId()), record.getId(), post.orgId());
+        // 原说明和整组凭据保存在既有更正历史；只换被明确选中的那张，其余保持原样。
+        for (FrEngSiteRecordDO record : completions) {
+            List<String> originalAssets = completionAssetIds(record);
+            String recordHistory = JsonList.append(record.getCorrections(), Map.of(
+                    "occurredAt", record.getOccurredAt() == null ? "" : record.getOccurredAt().toString(),
+                    "note", StrUtil.nullToEmpty(record.getNote()), "fileAssetIds", originalAssets,
+                    "reason", StrUtil.trim(cmd.reason()), "date", LocalDate.now().toString(),
+                    "actorUserId", Long.toString(post.userId())));
+            List<String> nextAssets = new ArrayList<>(originalAssets);
+            if (record.getId().equals(replacementRecordId)) {
+                nextAssets.set(nextAssets.indexOf(replacedAssetId), cmd.fileAssetId().toString());
             }
+            jdbcTemplate.update("UPDATE fr_eng_site_record SET occurred_at = ?, note = ?, "
+                            + "file_asset_ids = CAST(? AS jsonb), corrections = CAST(? AS jsonb) WHERE id = ? AND company_id = ?",
+                    d, StrUtil.isBlank(cmd.note()) ? record.getNote() : StrUtil.trim(cmd.note()),
+                    JsonList.of(nextAssets.toArray()), recordHistory, record.getId(), post.orgId());
         }
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
                 "eng-node-correct", payload, idempotencyKey);
@@ -741,6 +785,11 @@ public class EngPlanService {
             rows.add(row);
         }
         return rows;
+    }
+
+    private static List<String> completionAssetIds(FrEngSiteRecordDO record) {
+        return StrUtil.isBlank(record.getFileAssetIds()) ? List.of()
+                : cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(record.getFileAssetIds(), String.class);
     }
 
     // ===================== 内部 =====================

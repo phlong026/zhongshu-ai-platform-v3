@@ -108,7 +108,8 @@ public class EngPlanController {
                                                      @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(plans.correctNode(post(), id, nodeId, new EngPlanService.NodeCorrectCommand(
                 localDate(body.get("completedAt")), str(body.get("note")),
-                longOrNull(body.get("fileAssetId")), str(body.get("reason"))), requireIdem(idem)));
+                longOrNull(body.get("fileAssetId")), str(body.get("reason")),
+                longOrNull(body.get("replacementRecordId")), longOrNull(body.get("replaceFileAssetId"))), requireIdem(idem)));
     }
 
     static List<EngPlanService.NodeInput> nodeInputs(Object raw) {
