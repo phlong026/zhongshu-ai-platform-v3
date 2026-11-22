@@ -970,10 +970,13 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             assertThat(jdbc.queryForObject("SELECT checksum FROM " + schema
                     + ".flyway_schema_history WHERE version='20261122.990'", Integer.class)).isEqualTo(originalChecksum);
             assertThat(upgrade.migrate().migrationsExecuted).isZero();
+            // Assert after the expected rejection has crossed the transaction boundary and rolled back.
+            assertCode(() -> inPasswordSchema(schema,
+                    () -> service.login(accounts.get(0).accountId(), "PreviouslyChosen2026", null)),
+                    ACCOUNT_CREDENTIAL_INVALID.getCode());
             inPasswordSchema(schema, () -> {
                 Account lost = accounts.get(0), fresh = accounts.get(1);
                 assertThat(loadUser(lost.userId()).getPassword()).isEqualTo("!retired-initial-password");
-                assertCode(() -> service.login(lost.accountId(), "PreviouslyChosen2026", null), ACCOUNT_CREDENTIAL_INVALID.getCode());
                 assertThat(loadUser(fresh.userId()).getPassword()).isEqualTo(initial.get("hash"));
                 assertThat(jdbc.queryForObject("SELECT initial_password_expires_at FROM pf_staff_password_policy "
                         + "WHERE tenant_id=? AND user_id=?", java.time.OffsetDateTime.class, tenantId, fresh.userId()))
