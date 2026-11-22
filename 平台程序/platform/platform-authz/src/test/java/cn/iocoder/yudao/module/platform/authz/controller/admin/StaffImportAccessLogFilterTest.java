@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogIntercepto
 import cn.iocoder.yudao.framework.common.biz.infra.logger.ApiAccessLogCommonApi;
 import cn.iocoder.yudao.framework.common.biz.infra.logger.dto.ApiAccessLogCreateReqDTO;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.platform.org.StaffImportService;
 import cn.iocoder.yudao.framework.web.config.WebProperties;
 import cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,9 +61,14 @@ class StaffImportAccessLogFilterTest {
 
     @Test
     void submitKeepsAccessRecordButOmitsRequestBody() throws Exception {
+        String password = "FixtureOnlyInitial2026";
         try (MockedStatic<WebFrameworkUtils> ignored = mockStatic(WebFrameworkUtils.class)) {
-            filter.doFilter(request("/admin-api/platform/org/staff-import", "submit"),
-                    new MockHttpServletResponse(), (req, res) -> { });
+            MockHttpServletRequest req = request("/admin-api/platform/org/staff-import", "submit");
+            var account = new StaffImportService.AccountDelivery("account-1", "张三", "门店", "zhangsan",
+                    java.util.List.of("zhangsan", "zs"), password, false);
+            ignored.when(() -> WebFrameworkUtils.getCommonResult(req)).thenReturn(CommonResult.success(account));
+            filter.doFilter(req,
+                    new MockHttpServletResponse(), (chainRequest, chainResponse) -> { });
         }
         ArgumentCaptor<ApiAccessLogCreateReqDTO> captor =
                 ArgumentCaptor.forClass(ApiAccessLogCreateReqDTO.class);
@@ -69,7 +76,8 @@ class StaffImportAccessLogFilterTest {
         ApiAccessLogCreateReqDTO dto = captor.getValue();
         assertThat(dto.getRequestUrl()).endsWith("/platform/org/staff-import");
         assertThat(dto.getRequestParams()).isNull();
-        assertThat(JsonUtils.toJsonString(dto)).doesNotContain(MOBILE);
+        assertThat(dto.getResponseBody()).isNull();
+        assertThat(JsonUtils.toJsonString(dto)).doesNotContain(MOBILE, password);
     }
 
     @Test

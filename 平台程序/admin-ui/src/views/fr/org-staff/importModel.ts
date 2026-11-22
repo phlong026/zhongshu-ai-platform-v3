@@ -40,6 +40,7 @@ export interface StaffImportResultRow {
   postId?: number | string | null
   userId?: number | string | null
   note?: string | null
+  account?: import('@/api/platform/staff').StaffImportAccountDelivery | null
 }
 
 export interface StaffImportResult {

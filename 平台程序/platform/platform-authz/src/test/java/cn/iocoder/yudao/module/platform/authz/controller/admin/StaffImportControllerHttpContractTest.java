@@ -5,15 +5,20 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator;
+import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
+import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffImportService;
+import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
+import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -51,6 +57,7 @@ class StaffImportControllerHttpContractTest {
     private final CurrentPost currentPost = mock(CurrentPost.class);
     private final SystemDirectory directory = mock(SystemDirectory.class);
     private final StaffImportService service = mock(StaffImportService.class);
+    private final StaffAccountOnboardService staffAccounts = mock(StaffAccountOnboardService.class);
 
     private final ApplicationContextRunner context = new ApplicationContextRunner()
             .withPropertyValues("platform.legacy-design-bridge.enabled=false")
@@ -59,6 +66,12 @@ class StaffImportControllerHttpContractTest {
             .withBean(SystemDirectory.class, () -> directory)
             .withBean("post", PostPermissionEvaluator.class, () -> new PostPermissionEvaluator(currentPost, directory))
             .withBean(StaffImportService.class, () -> service)
+            // Keep the normal @Resource processor active for the inline Mockito service mock.
+            .withBean(StaffPostService.class, () -> mock(StaffPostService.class))
+            .withBean(OrgUnitMapper.class, () -> mock(OrgUnitMapper.class))
+            .withBean(JdbcTemplate.class, () -> mock(JdbcTemplate.class))
+            .withBean(FranchiseAccountNaming.class, () -> mock(FranchiseAccountNaming.class))
+            .withBean(StaffAccountOnboardService.class, () -> staffAccounts)
             .withBean(StaffImportController.class);
 
     @BeforeEach
@@ -69,7 +82,8 @@ class StaffImportControllerHttpContractTest {
         when(currentPost.require()).thenReturn(BOSS);
         when(directory.roleHasPermission("boss", "platform:org:manage")).thenReturn(true);
         when(service.precheck(eq(ORG), any())).thenReturn(result("OK"));
-        when(service.submit(eq(ORG), any(), anyLong())).thenReturn(result("CREATED"));
+        when(service.submit(eq(ORG), any(), anyLong(), any(StaffImportService.RowCreator.class)))
+                .thenReturn(result("CREATED"));
     }
 
     @AfterEach
@@ -91,7 +105,9 @@ class StaffImportControllerHttpContractTest {
     private static StaffImportService.ImportResult result(String status) {
         return new StaffImportService.ImportResult(ORG, 1, 1, 0, 0,
                 List.of(new StaffImportService.RowResult(1, "张三", "13800000000", "sales", "业务一组",
-                        status, null, "", 77L, 88L, null)));
+                        status, null, "", 77L, 88L, null, "CREATED".equals(status)
+                        ? new StaffImportService.AccountDelivery("account-88", "张三", "门店", "zhangsan",
+                            List.of("zhangsan", "zs"), "RandomOnlyOnce2026", false) : null)));
     }
 
     @Test
@@ -112,8 +128,19 @@ class StaffImportControllerHttpContractTest {
                         .contentType(MediaType.APPLICATION_JSON).content(ONE_ROW))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[0].status").value("CREATED"))
-                .andExpect(jsonPath("$.data.rows[0].postId").value(77)));
-        verify(service).submit(eq(ORG), any(), eq(9L));
+                .andExpect(jsonPath("$.data.rows[0].postId").value(77))
+                .andExpect(jsonPath("$.data.rows[0].account.loginName").value("zhangsan"))
+                .andExpect(jsonPath("$.data.rows[0].account.initialPassword").value("RandomOnlyOnce2026")));
+        var creator = org.mockito.ArgumentCaptor.forClass(StaffImportService.RowCreator.class);
+        verify(service).submit(eq(ORG), any(), eq(9L), creator.capture());
+        when(staffAccounts.open(ORG, 88L, "张三", "13800000000", "sales", 70L, 9L, 21L))
+                .thenReturn(new StaffAccountOnboardService.Result(77L, 88L, "原资料姓名", "13800000000", true,
+                        "sales", 70L, "业务一组", "", "account-88", "门店", "zhangsan", List.of("zs"),
+                        null, true, "业务员", "门店"));
+        var created = creator.getValue().create(result("OK").rows().get(0), 70L);
+        org.assertj.core.api.Assertions.assertThat(created.account().name()).isEqualTo("原资料姓名");
+        org.assertj.core.api.Assertions.assertThat(created.account().initialPassword()).isNull();
+        verify(staffAccounts).open(ORG, 88L, "张三", "13800000000", "sales", 70L, 9L, 21L);
     }
 
     @Test
@@ -138,7 +165,7 @@ class StaffImportControllerHttpContractTest {
 
     @Test
     void overLimitFromServiceRendersBadRequestEnvelope() {
-        when(service.submit(eq(ORG), any(), anyLong()))
+        when(service.submit(eq(ORG), any(), anyLong(), any(StaffImportService.RowCreator.class)))
                 .thenThrow(new ServiceException(400, "单批须为 1-500 行"));
         context.run(ctx -> mvc(ctx).perform(post("/platform/org/staff-import")
                         .contentType(MediaType.APPLICATION_JSON).content(ONE_ROW))
@@ -153,6 +180,36 @@ class StaffImportControllerHttpContractTest {
                         .content("{\"orgId\":" + ORG + ",\"rows\":[null]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400)));
+    }
+
+    @Test
+    void storeManagerPermissionAloneDoesNotBypassAccountOpeningRole() {
+        var customManager = new PostSnapshot(22L, 10L, ORG, "store", "custom-manager", null, false, Set.of());
+        when(currentPost.find()).thenReturn(Optional.of(customManager));
+        when(currentPost.require()).thenReturn(customManager);
+        when(directory.roleHasPermission("custom-manager", "platform:org:manage")).thenReturn(true);
+        context.run(ctx -> mvc(ctx).perform(post("/platform/org/staff-import")
+                        .contentType(MediaType.APPLICATION_JSON).content(ONE_ROW))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1_103_000_004))
+                .andExpect(jsonPath("$.msg").value("员工账号导入仅允许门店老板或负责人操作")));
+        verifyNoInteractions(service, staffAccounts);
+    }
+
+    @Test
+    void nonStoreImportKeepsExistingDirectoryEnrollment() {
+        var owner = new PostSnapshot(31L, 19L, ORG, "factory", "factory-owner", null, false, Set.of());
+        when(currentPost.find()).thenReturn(Optional.of(owner));
+        when(currentPost.require()).thenReturn(owner);
+        when(directory.roleHasPermission("factory-owner", "platform:org:manage")).thenReturn(true);
+        when(service.submit(eq(ORG), any(), eq(19L))).thenReturn(result("SKIPPED"));
+        context.run(ctx -> mvc(ctx).perform(post("/platform/org/staff-import")
+                        .contentType(MediaType.APPLICATION_JSON).content(ONE_ROW))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows[0].status").value("SKIPPED"))
+                .andExpect(jsonPath("$.data.rows[0].account").doesNotExist()));
+        verify(service).submit(eq(ORG), any(), eq(19L));
+        verifyNoInteractions(staffAccounts);
     }
 
     @Test

@@ -16,9 +16,12 @@ export function buildStaffCredentialCopyText(
     `快捷查找：${result.aliases.join('、') || '使用完整账号'}`
   ]
   if (result.reusedUser) {
-    lines.push('密码：沿用原账号密码')
+    lines.push('密码：沿用原账号密码；也可使用小程序官方微信手机号授权登录')
   } else {
-    lines.push(`初始密码：${result.initialPassword || ''}`, '提示：首次登录后请修改初始密码')
+    lines.push(
+      `初始密码：${result.initialPassword || ''}`,
+      '提示：初始密码仅本次交付，48小时内登录并改密；微信登录后初始密码失效'
+    )
   }
   lines.push('此账号仅供该员工本人使用，请勿与其他员工共用')
   return lines.join('\n')

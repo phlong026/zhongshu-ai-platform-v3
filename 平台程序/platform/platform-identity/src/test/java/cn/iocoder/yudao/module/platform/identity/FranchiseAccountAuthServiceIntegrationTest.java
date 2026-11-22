@@ -4,12 +4,17 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.controller.admin.StoreProfileController;
+import cn.iocoder.yudao.module.platform.authz.controller.admin.StaffImportController;
 import cn.iocoder.yudao.module.platform.authz.service.FranchiseOnboardService;
 import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
 import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingMapper;
 import cn.iocoder.yudao.module.platform.identity.wechat.WechatStaffClient;
 import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.OrgServiceImpl;
+import cn.iocoder.yudao.module.platform.org.OrgService;
+import cn.iocoder.yudao.module.platform.org.StaffImportService;
+import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
+import cn.iocoder.yudao.module.platform.org.dal.PostTemplateDO;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.StaffInitialPasswordPolicy;
@@ -78,10 +83,12 @@ import static org.mockito.Mockito.*;
 
 @Import({FranchiseAccountAuthService.class, FranchiseAccountNaming.class, OrgServiceImpl.class,
         StaffPostServiceImpl.class, FranchiseOnboardService.class, StaffAccountOnboardService.class, StoreProfileController.class,
+        StaffImportService.class, StaffImportController.class,
         StaffWechatBindingServiceImpl.class, StaffWechatExplicitBindingServiceImpl.class,
         StaffWechatBindingCommitService.class, StaffWechatLoginServiceImpl.class, StaffInitialPasswordPolicy.class,
         FranchiseAccountAuthServiceIntegrationTest.RedisConfig.class})
 @TestPropertySource(properties = {
+        "platform.legacy-design-bridge.enabled=false",
         "platform.identity.wechat.apps[0].appid=wx-franchise-flow",
         "platform.identity.wechat.apps[0].secret=unused-in-test"
 })
@@ -127,6 +134,8 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     @Resource private StringRedisTemplate redis;
     @Resource private FranchiseOnboardService franchiseOnboardService;
     @Resource private StaffAccountOnboardService staffAccountOnboardService;
+    @Resource private StaffImportController staffImport;
+    @Resource private OrgService orgService;
     @Resource private StaffWechatExplicitBindingService explicitBindingService;
     @Resource private StaffWechatLoginService wechatLoginService;
     @Resource private StaffWechatBindingService bindingService;
@@ -427,6 +436,202 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         var reused = staffAccountOnboardService.open(boss.orgId(), employee.userId(), "张三", "13900108881", "journey-sales", null, boss.adminUserId(), boss.postId());
         assertThat(reused.accountId()).isEqualTo(employee.accountId());assertThat(reused.initialPassword()).isNull();
         assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(savedPassword);
+    }
+
+    @Test
+    void importAndSingleOpeningDeliverTheSameLoginChannelsAndInitialPasswordPolicy() {
+        var store = importStore("批量店", "13800107001");
+        long usersBefore = tenantUserCount();
+        var req = importRequest(store.boss().orgId(), "张三", "13900107001");
+        var preview = staffImport.precheck(req).getData();
+        assertThat(preview.rows().get(0).status()).isEqualTo("OK");
+        assertThat(preview.rows().get(0).account()).isNull();
+        assertThat(tenantUserCount()).isEqualTo(usersBefore);
+        assertThat(service.matches("zhangsan").items()).isEmpty();
+
+        var imported = staffImport.submit(req).getData().rows().get(0);
+        var single = staffAccountOnboardService.open(store.boss().orgId(), null, "张三", "13900107002",
+                "journey-sales", store.teamId(), store.boss().adminUserId(), store.boss().postId());
+        assertThat(imported.status()).isEqualTo("CREATED");
+        assertThat(imported.userId()).isNotNull();
+        var account = imported.account();
+        assertThat(account.loginName()).isEqualTo("zhangsan");
+        assertThat(single.loginName()).isEqualTo("zhangsan2");
+        assertThat(single.userId()).isNotEqualTo(imported.userId());
+        assertThat(account.aliases()).contains("zhangsan", "zs");
+        assertThat(account.initialPassword()).hasSize(16).isNotEqualTo("zhangsan123");
+        assertThat(BCRYPT.matches(account.initialPassword(), loadUser(imported.userId()).getPassword())).isTrue();
+        assertThat(service.matches(account.loginName()).items())
+                .extracting(FranchiseAccountAuthService.AccountMatch::accountId).contains(account.accountId());
+        assertThat(service.login(account.accountId(), account.initialPassword(), null).requirePasswordChange()).isTrue();
+        assertThat(service.login(single.accountId(), single.initialPassword(), null).requirePasswordChange()).isTrue();
+        var post = staffPostService.findActivePost(imported.userId(), imported.postId()).orElseThrow();
+        assertThat(post.orgId()).isEqualTo(store.boss().orgId());
+        assertThat(post.teamId()).isEqualTo(store.teamId());
+        assertThat(post.roleCode()).isEqualTo("journey-sales");
+        assertThat(jdbc.queryForObject("SELECT initial_password_expires_at BETWEEN now()+INTERVAL '47 hours' "
+                + "AND now()+INTERVAL '49 hours' FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, imported.userId())).isTrue();
+        assertThat(service.login(account.accountId(), account.initialPassword(), "ImportPersonal2026").userId())
+                .isEqualTo(imported.userId());
+        when(wechat.openid("wx-franchise-flow", "import-wechat")).thenReturn("import-openid");
+        when(wechat.phoneNumber("wx-franchise-flow", "import-phone")).thenReturn(req.rows().get(0).mobile());
+        assertThat(wechatLoginService.login("wx-franchise-flow", "import-wechat", "import-phone").userId())
+                .isEqualTo(imported.userId());
+        assertThat(service.login(account.accountId(), "ImportPersonal2026", null).userId()).isEqualTo(imported.userId());
+    }
+
+    @Test
+    void retryAndAdditionalPostDoNotReissuePasswordOrExtendActivationDeadline() {
+        var store = importStore("重试店", "13800107003");
+        var req = importRequest(store.boss().orgId(), "王五", "13900107003");
+        var first = staffImport.submit(req).getData().rows().get(0);
+        String hash = loadUser(first.userId()).getPassword();
+        var expires = jdbc.queryForObject("SELECT initial_password_expires_at FROM pf_staff_password_policy "
+                + "WHERE tenant_id=? AND user_id=?", java.time.OffsetDateTime.class, tenantId, first.userId());
+        var retry = staffImport.submit(req).getData();
+        assertThat(retry.skipped()).isEqualTo(1);
+        assertThat(retry.created()).isZero();
+        assertThat(retry.rows().get(0).account().accountId()).isEqualTo(first.account().accountId());
+        assertThat(retry.rows().get(0).account().initialPassword()).isNull();
+        assertThat(retry.rows().get(0).account().reusedUser()).isTrue();
+        jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types,line,lead) VALUES "
+                + "('import-finance','test','store','finance',FALSE) ON CONFLICT DO NOTHING");
+        directory.roleIdsByCode.put("import-finance", 503L);
+        var extra = staffImport.submit(new StaffImportController.ImportReq(store.boss().orgId(), List.of(
+                new StaffImportController.ImportRowReq(2, "王五", "13900107003", "import-finance", "业务一组")))).getData();
+        assertThat(extra.rows().get(0).userId()).isEqualTo(first.userId());
+        assertThat(extra.rows().get(0).account().initialPassword()).isNull();
+        assertThat(loadUser(first.userId()).getPassword()).isEqualTo(hash);
+        assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, first.userId())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT initial_password_expires_at FROM pf_staff_password_policy "
+                + "WHERE tenant_id=? AND user_id=?", java.time.OffsetDateTime.class, tenantId, first.userId())).isEqualTo(expires);
+        assertThat(tenantUserCount()).isEqualTo(2);
+        assertThat(first.toString()).doesNotContain(first.account().initialPassword());
+    }
+
+    @Test
+    void legacyImportedPostGetsAliasesWithoutChangingExistingUserAndCrossStoreReuseStaysScoped() {
+        var firstStore = importStore("旧导入店", "13800107004");
+        long oldPost = staffPostService.createStaffInOrg(firstStore.boss().orgId(), "原姓名", "13900107004",
+                "journey-sales", firstStore.teamId(), firstStore.boss().adminUserId());
+        long userId = staffPostService.getPost(oldPost).orElseThrow().getUserId();
+        String hash = loadUser(userId).getPassword();
+        var first = staffImport.submit(importRequest(firstStore.boss().orgId(), "导入新姓名", "13900107004"))
+                .getData().rows().get(0);
+        assertThat(first.status()).isEqualTo("SKIPPED");
+        assertThat(first.postId()).isEqualTo(oldPost);
+        assertThat(first.account().name()).isEqualTo("原姓名");
+        assertThat(first.account().reusedUser()).isTrue();
+        assertThat(first.account().initialPassword()).isNull();
+        assertThat(service.login(first.account().accountId(), "LegacySecure2026", null).userId()).isEqualTo(userId);
+        var secondStore = importStore("跨店复用", "13800107005");
+        var cross = staffImport.submit(importRequest(secondStore.boss().orgId(), "原姓名", "13900107004"))
+                .getData().rows().get(0);
+        assertThat(cross.userId()).isEqualTo(userId);
+        assertThat(cross.account().accountId()).isNotEqualTo(first.account().accountId());
+        assertThat(cross.account().orgName()).isEqualTo(secondStore.boss().orgName());
+        assertThat(cross.account().initialPassword()).isNull();
+        assertThat(loadUser(userId).getPassword()).isEqualTo(hash);
+        assertThat(staffPostService.listActivePosts(userId)).extracting(p -> p.getOrgId())
+                .containsExactlyInAnyOrder(firstStore.boss().orgId(), secondStore.boss().orgId());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Integer.class, tenantId, userId)).isZero();
+        assertCode(() -> staffImport.submit(importRequest(firstStore.boss().orgId(), "越权", "13900107006")),
+                cn.iocoder.yudao.module.platform.authz.enums.PlatformAuthzErrorCodes.ORG_SCOPE_FORBIDDEN.getCode());
+        assertThat(directory.userIdByMobile("13900107006")).isNull();
+    }
+
+    @Test
+    void skippedButDisabledUserFailsInsteadOfPretendingCredentialsWereDelivered() {
+        var store = importStore("停用复核", "13800107006");
+        long post = staffPostService.createStaffInOrg(store.boss().orgId(), "停用员工", "13900107007",
+                "journey-sales", store.teamId(), store.boss().adminUserId());
+        long user = staffPostService.getPost(post).orElseThrow().getUserId();
+        directory.setUserActive(user, false);
+        var result = staffImport.submit(importRequest(store.boss().orgId(), "停用员工", "13900107007")).getData();
+        assertThat(result.failed()).isEqualTo(1);
+        assertThat(result.skipped()).isZero();
+        assertThat(result.rows().get(0).account()).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pf_franchise_account WHERE tenant_id=? AND user_id=?",
+                Integer.class, tenantId, user)).isZero();
+    }
+
+    @Test
+    void realOnboardingRollbackKeepsOtherRowsCommittedAndDoesNotLeakFailedUserOrCredentials() {
+        var store = importStore("逐行事务", "13800107007");
+        long missingTeam = IDS.incrementAndGet();
+        OrgService staleTeams = mock(OrgService.class);
+        when(staleTeams.getUnit(store.boss().orgId())).thenReturn(orgService.getUnit(store.boss().orgId()));
+        when(staleTeams.listTeams(store.boss().orgId())).thenReturn(List.of(
+                new OrgUnitDO().setDeptId(store.teamId()), new OrgUnitDO().setDeptId(missingTeam)));
+        when(staleTeams.listPostTemplates(store.boss().orgId()))
+                .thenReturn(List.of(new PostTemplateDO().setRoleCode("journey-sales")));
+        directory.deptNames.put(missingTeam, "已删除组");
+        directory.deptTenants.put(missingTeam, tenantId);
+        var controller = new StaffImportController(currentPost,
+                new StaffImportService(staffPostService, staleTeams, directory), staffAccountOnboardService);
+        var result = controller.submit(new StaffImportController.ImportReq(store.boss().orgId(), List.of(
+                new StaffImportController.ImportRowReq(1, "先成功", "13900107008", "journey-sales", "业务一组"),
+                new StaffImportController.ImportRowReq(2, "须回滚", "13900107009", "journey-sales", "已删除组"),
+                new StaffImportController.ImportRowReq(3, "后成功", "13900107010", "journey-sales", "业务一组"))))
+                .getData();
+        assertThat(result.created()).isEqualTo(2);
+        assertThat(result.failed()).isEqualTo(1);
+        assertThat(result.rows().get(1).code())
+                .isEqualTo(cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.TEAM_NOT_IN_ORG.getCode());
+        assertThat(result.rows().get(1).account()).isNull();
+        assertThat(directory.userIdByMobile("13900107009")).isNull();
+        assertThat(tenantUserCount()).isEqualTo(3);
+        for (var row : List.of(result.rows().get(0), result.rows().get(2))) {
+            assertThat(service.login(row.account().accountId(), row.account().initialPassword(), null)
+                    .requirePasswordChange()).isTrue();
+            assertThat(result.toString()).doesNotContain(row.account().initialPassword());
+        }
+    }
+
+    @Test
+    void concurrentImportOfSamePhoneCreatesOneUserAndOnlyOneInitialCredential() throws Exception {
+        var store = importStore("并发导入", "13800107008");
+        var request = importRequest(store.boss().orgId(), "并发员工", "13900107011");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            java.util.concurrent.Callable<StaffImportService.ImportResult> call = () -> {
+                TenantContextHolder.setTenantId(tenantId);
+                try { start.await(); return staffImport.submit(request).getData(); }
+                finally { TenantContextHolder.clear(); }
+            };
+            var a = pool.submit(call); var b = pool.submit(call); start.countDown();
+            var x = a.get(); var y = b.get();
+            assertThat(x.failed() + y.failed()).isZero();
+            assertThat(x.rows().get(0).userId()).isEqualTo(y.rows().get(0).userId());
+            assertThat(x.rows().get(0).postId()).isEqualTo(y.rows().get(0).postId());
+            assertThat(x.rows().get(0).account().accountId()).isEqualTo(y.rows().get(0).account().accountId());
+            assertThat((x.rows().get(0).account().initialPassword() == null)
+                    != (y.rows().get(0).account().initialPassword() == null)).isTrue();
+            assertThat(tenantUserCount()).isEqualTo(2);
+        } finally { pool.shutdownNow(); }
+    }
+
+    private record ImportStore(FranchiseOnboardService.Result boss, long teamId) { }
+
+    private ImportStore importStore(String area, String phone) {
+        var boss = franchiseOnboardService.onboard("合家美宅", "江西", "南昌", area, "老板", phone,
+                null, null, "", 9L);
+        long team = orgService.createTeam(boss.orgId(), null, "业务一组", "sales");
+        when(currentPost.require()).thenReturn(staffPostService.findActivePost(boss.adminUserId(), boss.postId()).orElseThrow());
+        return new ImportStore(boss, team);
+    }
+
+    private StaffImportController.ImportReq importRequest(long org, String name, String phone) {
+        return new StaffImportController.ImportReq(org, List.of(
+                new StaffImportController.ImportRowReq(1, name, phone, "journey-sales", "业务一组")));
+    }
+
+    private long tenantUserCount() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM system_users WHERE tenant_id=?", Long.class, tenantId);
     }
 
     @Test

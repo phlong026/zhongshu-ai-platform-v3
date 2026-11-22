@@ -65,8 +65,11 @@
           <el-button type="primary" :disabled="saving || !postTemplates.length" @click="openStaff"
             >录入员工 / 恢复任职</el-button
           >
-          <el-button :disabled="saving || !postTemplates.length" @click="openImport"
+          <el-button :disabled="saving || !postTemplates.length || !canImportStaff" @click="openImport"
             >批量导入</el-button
+          >
+          <span v-if="isStoreOrg && !canImportStaff" class="hint"
+            >员工账号导入由门店老板或负责人办理</span
           >
         </template>
       </div>
@@ -356,7 +359,15 @@
       >
     </el-dialog>
 
-    <el-dialog v-model="importDialog" title="员工批量导入" width="880px" @closed="resetImport">
+    <el-dialog
+      v-model="importDialog"
+      title="员工批量导入"
+      width="880px"
+      :close-on-click-modal="!importBusy"
+      :close-on-press-escape="!importBusy"
+      :show-close="!importBusy"
+      @closed="resetImport"
+    >
       <div class="import-toolbar">
         <el-button @click="downloadImportTemplate">下载模板（CSV）</el-button>
         <el-button :disabled="importBusy" @click="importFileInput?.click()"
@@ -375,6 +386,17 @@
         模板列：姓名 / 手机 / 角色码 / 团队名；单批 1-{{ STAFF_IMPORT_MAX_ROWS }} 行（文件上限
         {{ STAFF_IMPORT_MAX_FILE_BYTES / 1024 / 1024 }}MB）；行号为数据行（表头不算，从 1 开始）。
       </div>
+      <el-alert
+        :title="
+          isStoreOrg
+            ? '门店导入与逐个开户使用相同账号规则。新用户交付一次性初始密码，已有用户沿用原密码；也可使用小程序官方微信手机号授权登录。'
+            : '本组织导入只建立人员与岗位，不生成门店密码账号。员工使用平台已开通的微信或短信登录方式。'
+        "
+        type="info"
+        show-icon
+        :closable="false"
+        class="import-error"
+      />
       <el-alert
         v-if="importNotice"
         :title="importNotice"
@@ -459,8 +481,45 @@
         </el-table>
       </template>
 
+      <template v-if="importAccounts.length">
+        <h3>员工账号交付（含本批此前成功行）</h3>
+        <el-alert
+          title="初始密码仅本次显示，48小时内登录并改密；微信登录后初始密码失效。重提失败行会保留已成功账号，关闭、离页、换身份或换文件会清除本页凭据。若未收到或未保存初始密码，请让员工使用小程序官方微信手机号授权登录，或联系总部核验后重置；重复导入不会重新发放密码。"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="import-error"
+        />
+        <el-table :data="importAccounts" max-height="320" size="small">
+          <el-table-column prop="name" label="员工" width="100" />
+          <el-table-column prop="orgName" label="所属门店" min-width="160" />
+          <el-table-column prop="loginName" label="登录账号" min-width="120" />
+          <el-table-column label="密码 / 登录方式" min-width="220">
+            <template #default="{ row }">
+              <strong v-if="row.initialPassword" class="credential-password">{{
+                row.initialPassword
+              }}</strong>
+              <span v-else>沿用原密码；也可官方微信手机号授权登录</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="交付" width="100">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="copyImportCredential(row)">复制账号</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-input
+          v-if="importManualCopyVisible"
+          v-model="importCredentialCopyText"
+          type="textarea"
+          :rows="8"
+          readonly
+          class="mt-16px"
+        />
+      </template>
+
       <template #footer>
-        <el-button @click="importDialog = false">关闭</el-button>
+        <el-button :disabled="importBusy" @click="importDialog = false">关闭</el-button>
         <el-button :disabled="!canPrecheckImport" :loading="importBusy" @click="runImportPrecheck"
           >预检</el-button
         >
@@ -503,6 +562,7 @@ import type {
   PendingRow,
   PostTemplate,
   StaffAccountResult,
+  StaffImportAccountDelivery,
   StaffImportResult,
   StaffRow,
   Team
@@ -532,6 +592,9 @@ const currentPost = computed(() => identity.currentPost)
 const isStoreOrg = computed(() => currentPost.value?.orgType === 'store')
 const canQuery = computed(() => identity.can('platform:org:query'))
 const canManage = computed(() => identity.can('platform:org:manage'))
+const canImportStaff = computed(
+  () => canManage.value && (!isStoreOrg.value || isRestrictedOwnerRole(currentPost.value?.roleCode || ''))
+)
 const loading = ref(false),
   saving = ref(false)
 const loadError = ref('')
@@ -566,19 +629,23 @@ const staffManualCopyVisible = ref(false)
 const staffPageActive = ref(true)
 const importFileInput = ref<HTMLInputElement>()
 const importBusy = ref(false)
+const importSubmitting = ref(false)
 const importFileName = ref('')
 const importRows = ref<StaffImportRow[]>([])
 const importParseErrors = ref<string[]>([])
 const importPrecheckResult = ref<StaffImportResult | null>(null)
 const importSubmitResult = ref<StaffImportResult | null>(null)
 const importNotice = ref('')
+const importAccounts = ref<StaffImportAccountDelivery[]>([])
+const importCredentialCopyText = ref('')
+const importManualCopyVisible = ref(false)
 const importStatusMeta: Record<
   string,
   { label: string; type: 'success' | 'warning' | 'danger' | 'info' }
 > = {
   OK: { label: '可创建', type: 'success' },
   CREATED: { label: '已创建', type: 'success' },
-  SKIPPED: { label: '已存在，跳过', type: 'info' },
+  SKIPPED: { label: '任职已存在', type: 'info' },
   FAILED: { label: '失败', type: 'danger' }
 }
 const teamForm = reactive({ name: '', line: '' })
@@ -625,9 +692,15 @@ const importRowsReady = computed(
     importParseErrors.value.length === 0 &&
     !importRows.value.some((row) => row.error)
 )
-const canPrecheckImport = computed(() => !importBusy.value && importRowsReady.value)
+const canPrecheckImport = computed(
+  () => canImportStaff.value && !importBusy.value && importRowsReady.value
+)
 const canSubmitImport = computed(
-  () => !importBusy.value && importRowsReady.value && importPrecheckResult.value !== null
+  () =>
+    canImportStaff.value &&
+    !importBusy.value &&
+    importRowsReady.value &&
+    importPrecheckResult.value !== null
 )
 const receivers = computed(() =>
   Array.from(
@@ -695,12 +768,13 @@ const resetHandoverHistory = () => {
 }
 
 const handleStaffRouteLeave = () => {
-  if (saving.value) {
-    ElMessage.warning('员工账号开通处理中，请稍候，完成后再离开页面')
+  if (saving.value || importSubmitting.value) {
+    ElMessage.warning('员工账号开通或导入处理中，请稍候，完成后再离开页面')
     return false
   }
   clearStaffAccountCredential()
   resetHandoverHistory()
+  resetImport()
   return true
 }
 
@@ -708,6 +782,7 @@ const handleStaffDeactivated = () => {
   staffPageActive.value = false
   resetHandoverHistory()
   if (!saving.value) clearStaffAccountCredential()
+  resetImport()
 }
 
 const handleStaffActivated = () => {
@@ -730,9 +805,46 @@ const copyStaffCredential = async () => {
 
 // ===== P1 批2：员工批量导入（预检→提交→失败行重提） =====
 
+const clearImportCredentials = () => {
+  for (const account of importAccounts.value) account.initialPassword = null
+  for (const row of importSubmitResult.value?.rows || []) {
+    if (row.account) row.account.initialPassword = null
+  }
+  importAccounts.value = []
+  importCredentialCopyText.value = ''
+  importManualCopyVisible.value = false
+}
+
+const keepImportAccounts = (result: StaffImportResult) => {
+  for (const row of result.rows) {
+    const account = row.account
+    if (account && !importAccounts.value.some((saved) => saved.accountId === account.accountId)) {
+      importAccounts.value.push({ ...account })
+    }
+  }
+}
+
+const copyImportCredential = async (account: StaffImportAccountDelivery) => {
+  if (!importAccounts.value.includes(account)) return
+  const generation = postGeneration()
+  importCredentialCopyText.value = buildStaffCredentialCopyText(account)
+  try {
+    await navigator.clipboard.writeText(importCredentialCopyText.value)
+    if (!isCurrentGeneration(generation) || !importAccounts.value.includes(account)) return
+    importManualCopyVisible.value = false
+    ElMessage.success('员工账号信息已复制')
+  } catch {
+    if (!isCurrentGeneration(generation) || !importAccounts.value.includes(account)) return
+    importManualCopyVisible.value = true
+    ElMessage.error('自动复制失败，请在下方文本框中手动选择复制')
+  }
+}
+
 const resetImport = () => {
   importGuard.next()
+  clearImportCredentials()
   importBusy.value = false
+  importSubmitting.value = false
   importFileName.value = ''
   importRows.value = []
   importParseErrors.value = []
@@ -742,6 +854,7 @@ const resetImport = () => {
   if (importFileInput.value) importFileInput.value.value = ''
 }
 const openImport = () => {
+  if (!canImportStaff.value) return
   resetImport()
   importDialog.value = true
 }
@@ -757,11 +870,12 @@ const downloadImportTemplate = () => {
 const onImportFile = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file || importBusy.value) return
   const generation = importGuard.next()
   importFileName.value = file.name
   importBusy.value = true
   importNotice.value = ''
+  clearImportCredentials()
   // 换文件即清空旧批次：读取/超限失败保持全空，提交按钮因 precheck=null 而禁用。
   importRows.value = []
   importParseErrors.value = []
@@ -795,6 +909,7 @@ const importPayloadRows = () =>
     teamName
   }))
 const runImportPrecheck = async () => {
+  if (importBusy.value || !canImportStaff.value) return
   if (!importRows.value.length) {
     ElMessage.warning('请先选择包含数据的 CSV 文件')
     return
@@ -838,12 +953,14 @@ const runImportPrecheck = async () => {
   }
 }
 const submitImport = async () => {
+  if (importBusy.value || !canImportStaff.value) return
   if (!importPrecheckResult.value) {
     ElMessage.warning('请先完成预检')
     return
   }
   const generation = importGuard.next()
   importBusy.value = true
+  importSubmitting.value = true
   try {
     // P2-6：代次校验与写回同一同步回合；提交结果/提示在 apply 内完成。
     await runGuardedImportRequest(
@@ -855,9 +972,11 @@ const submitImport = async () => {
       generation,
       importGuard.isCurrent,
       (value) => {
+        keepImportAccounts(value)
         importSubmitResult.value = value
         importPrecheckResult.value = null
         importBusy.value = false
+        importSubmitting.value = false
         if (value.failed === 0) {
           ElMessage.success(`导入完成：成功 ${value.created + value.skipped} 行`)
         } else {
@@ -868,7 +987,12 @@ const submitImport = async () => {
       }
     )
   } catch {
-    if (importGuard.isCurrent(generation)) ElMessage.error('提交失败，请稍后重试')
+    if (importGuard.isCurrent(generation)) {
+      ElMessage.error('提交失败，请稍后重试')
+      importNotice.value =
+        '若服务端已完成部分开户但未收到结果，重试会复用账号且不会重新发放初始密码；员工可使用官方微信手机号授权登录，或联系总部核验后重置。'
+      importSubmitting.value = false
+    }
     if (importGuard.isCurrent(generation)) importBusy.value = false
     return
   }
