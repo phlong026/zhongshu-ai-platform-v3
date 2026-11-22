@@ -54,4 +54,9 @@ function handoverPending(orgId) {
   return http.get('/platform/org/handover-pending', { orgId });
 }
 
-module.exports = { orgTeams, orgStaff, addStaff, openStaffAccount, assignPost, revokePost, setStaffStatus, staffHandover, staffEmergencyRevoke, handoverPending };
+/** 按姓名、手机号或员工编号分页查找本组织曾任职人员（含未登记待分配的旧离职员工）。 */
+function handoverSources(orgId, keyword, pageNo) {
+  return http.get('/platform/org/handover-sources', { orgId, keyword, pageNo: pageNo || 1 });
+}
+
+module.exports = { orgTeams, orgStaff, addStaff, openStaffAccount, assignPost, revokePost, setStaffStatus, staffHandover, staffEmergencyRevoke, handoverPending, handoverSources };

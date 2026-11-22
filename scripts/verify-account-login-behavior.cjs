@@ -326,6 +326,155 @@ test('最后管理岗位由后端实时判断，页面显示明确拒绝原因�
   assert.ok(wxml.includes('disabled="{{handoverBusy||apiMembersBusy||handoverSource.removalBlockedReason}}"'));
 });
 
+test('普通停用复用紧急撤权并显示四域待分配，待核域不会显示已交接', async () => {
+  const rows = [{ postId: 'employee', userId: 'u1', name: '员工', roleCode: 'sales', active: true }];
+  const env = await createMemberPage(rows);
+  const domains = ['客户', '设计委托', '工程', '账款'];
+  let legacyCalls = 0, payload;
+  env.org.setStaffStatus = async () => { legacyCalls++; };
+  env.org.staffEmergencyRevoke = async value => {
+    payload = value;
+    env.org.orgStaff = async () => [];
+    env.org.handoverPending = async () => domains.map((domainLabel, index) => ({ id: index, fromUserId: 'u1', domainLabel, inFlight: index === 3 ? -1 : 1 }));
+    return { mode: 'EMERGENCY', items: domains.map((label, index) => ({ label, inFlight: index === 3 ? -1 : 1, transferred: 0, status: index === 3 ? 'SCAN_FAILED' : 'PENDING_UNASSIGNED' })) };
+  };
+  env.page.toggleActiveRow({ currentTarget: { dataset: { userId: 'u1', name: '员工', active: true } } });
+  await flush(); await flush();
+  assert.equal(legacyCalls, 0);
+  assert.equal(payload.orgId, 'store-1');
+  assert.equal(payload.userId, 'u1');
+  assert.equal(env.page.data.handoverResult.items.length, 4);
+  assert.match(env.page.data.handoverResult.title, /停用与待交接/);
+  assert.equal(env.page.data.handoverResult.items[3].statusText, '扫描失败（待核）');
+  assert.equal(env.page.data.apiPendingRows[3].inFlightText, '数量待核');
+  assert.equal(env.page.data.handoverBusy, false);
+});
+
+test('组织共享财务在真实清单模板中显示继续处理，不渲染零项交接或补交接提示', () => {
+  const env = createPage();
+  const render = require('./role-page-runtime.cjs').render;
+  const wxmlFile = path.join(__dirname, '../miniprogram/pages/account/index.wxml');
+  const textOf = nodes => nodes.map(node => (node.text || '') + textOf(node.children || [])).join('');
+  for (const mode of ['NORMAL', 'EMERGENCY']) {
+    const result = env.page.handoverResultView({ mode, items: [
+      { domain: 'franchise-finance', label: '账款', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }
+    ] }, '原员工', '接收人');
+    assert.equal(result.items[0].rawStatus, 'ORGANIZATION_SHARED');
+    assert.equal(result.items[0].statusText, '组织共享');
+    assert.equal(result.items[0].inFlightText, '组织共享事项，需财务岗继续处理');
+    assert.equal(result.items[0].transferredText, '');
+    assert.equal(result.openCount, 0);
+    const visible = textOf(render(wxmlFile, { ...env.page.data, view: 'api-members', apiCanManage: true, handoverResult: result }));
+    assert.match(visible, /组织共享事项，需财务岗继续处理/);
+    assert.doesNotMatch(visible, /在途 0 项|已转移 0 项|无在途事项|存在转待分配事项时/);
+  }
+  const wxml = fs.readFileSync(wxmlFile, 'utf8');
+  assert.doesNotMatch(wxml, /移交客户、委托、工程和账款/);
+  assert.match(wxml, /组织共享账款由财务岗继续处理/);
+});
+
+test('混合交接清单仅把待分配域计入补交接，保留已交接和待核数量', () => {
+  const result = createPage().page.handoverResultView({ items: [
+    { label: '客户', inFlight: 2, transferred: 2, status: 'HANDED_OVER' },
+    { label: '设计委托', inFlight: -1, transferred: 0, status: 'SCAN_FAILED' },
+    { label: '工程', inFlight: 3, transferred: 0, status: 'PENDING_UNASSIGNED' },
+    { label: '账款', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }
+  ] }, '原员工', '接收人');
+  assert.equal(result.openCount, 1);
+  assert.equal(result.items[0].transferredText, '已转移 2 项');
+  assert.equal(result.items[1].inFlightText, '数量待核');
+  assert.equal(result.items[1].statusText, '扫描失败（待核）');
+  assert.equal(result.items[2].statusText, '转待分配');
+  assert.equal(result.items[3].statusText, '组织共享');
+});
+
+test('正常交接、紧急撤权和停用返回共享财务时不创建待分配提示', async () => {
+  for (const method of ['confirmHandover', 'confirmEmergency', 'toggleActiveRow']) {
+    const rows = [
+      { postId: 'old-finance', userId: 'u1', name: '原财务', roleCode: 'finance', active: true },
+      { postId: 'new-finance', userId: 'u2', name: '在岗财务', roleCode: 'finance', active: true }
+    ];
+    const env = await createMemberPage(rows), notices = [], calls = [];
+    env.wx.showToast = value => notices.push(value.title);
+    const response = async payload => {
+      calls.push(payload);
+      env.org.orgStaff = async () => rows.slice(1);
+      return { mode: method === 'confirmHandover' ? 'NORMAL' : 'EMERGENCY', items: [
+        { domain: 'franchise-finance', label: '账款', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }
+      ] };
+    };
+    env.org.staffHandover = response; env.org.staffEmergencyRevoke = response;
+    env.page.pickHandoverLeaver({ detail: { value: 0 } });
+    env.page.pickHandoverTarget({ detail: { value: 0 } });
+    env.page[method]({ currentTarget: { dataset: { userId: 'u1', name: '原财务', active: true } } });
+    await flush(); await flush();
+    assert.equal(calls.length, 1);
+    assert.equal(env.page.data.handoverResult.items[0].rawStatus, 'ORGANIZATION_SHARED');
+    assert.equal(env.page.data.handoverResult.openCount, 0);
+    assert.equal(env.page.data.apiPendingRows.length, 0);
+    assert.equal(env.page.data.handoverBusy, false);
+    assert.equal(env.page.data.apiStaffRows.length, 1);
+    assert.equal(notices.some(title => /待分配|已转移 0 项/.test(title)), false);
+  }
+});
+
+test('原员工分页检索只使用当前组织，零待分配的历史来源可以被选择并提交补交接', async () => {
+  const env = await createMemberPage([{ postId: 'boss', userId: 'u1', name: '老板', roleCode: 'boss', active: true }]);
+  const searches = [];
+  env.org.handoverSources = async (orgId, keyword, pageNo) => {
+    searches.push({ orgId, keyword, pageNo });
+    return { items: [{ userId: pageNo === 1 ? 'former1' : 'former2', name: '原员工', mobile: '13800000001' }], hasMore: pageNo === 1 };
+  };
+  env.page.inputHandoverSearch({ detail: { value: ' 原员工 ' } });
+  await env.page.searchHandoverHistory();
+  await env.page.searchHandoverHistory({ currentTarget: { dataset: { more: true } } });
+  assert.deepEqual(searches, [{ orgId: 'store-1', keyword: '原员工', pageNo: 1 }, { orgId: 'store-1', keyword: '原员工', pageNo: 2 }]);
+  assert.equal(env.page.data.handoverSearchRows.length, 2);
+  assert.equal(env.page.data.handoverSearchHasMore, false);
+  env.page.selectHandoverHistory({ currentTarget: { dataset: { userId: 'former2' } } });
+  assert.equal(env.page.data.handoverSource.fromHistory, true);
+  await env.page.loadApiMembers();
+  assert.equal(env.page.data.handoverSource.userId, 'former2', '无pending的人工选中历史来源在同组织刷新后仍可办理');
+  env.page.pickHandoverTarget({ detail: { value: 0 } });
+  env.page.confirmHandover();
+  await flush();
+  assert.deepEqual(env.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'former2', toUserId: 'u1' }]);
+});
+
+test('改查找词或离页后，迟到的历史员工响应不会写回候选与忙碌态', async () => {
+  for (const leave of [false, true]) {
+    const env = await createMemberPage([]);
+    const response = deferred();
+    env.org.handoverSources = () => response.promise;
+    env.page.inputHandoverSearch({ detail: { value: '旧查询' } });
+    const request = env.page.searchHandoverHistory();
+    if (leave) env.page.onHide();
+    else env.page.inputHandoverSearch({ detail: { value: '新查询' } });
+    response.resolve({ items: [{ userId: 'old', name: '旧员工' }], hasMore: false });
+    await request;
+    assert.equal(env.page.data.handoverSearchRows.length, 0);
+    assert.equal(env.page.data.handoverSearchBusy, false);
+    assert.equal(env.page.data.handoverSearchQuery, leave ? '' : '新查询');
+  }
+});
+
+test('单岗已撤销但复核待确认时保留服务端说明并刷新待核清单', async () => {
+  const env = await createMemberPage([{ postId: 'employee', userId: 'u1', name: '员工', roleCode: 'sales', active: true }]);
+  const notices = [];
+  env.wx.showToast = value => notices.push(value.title);
+  env.org.revokePost = async () => {
+    env.org.orgStaff = async () => [];
+    env.org.handoverPending = async () => [{ id: 1, fromUserId: 'u1', domainLabel: '客户', inFlight: -1 }];
+    throw new Error('岗位已撤销，但在途复核未完成，请核对待分配清单或查找原员工补交接');
+  };
+  env.page.revokeRow({ currentTarget: { dataset: { postId: 'employee', name: '员工' } } });
+  await flush(); await flush();
+  assert.match(env.page.data.error, /岗位已撤销.*复核未完成/);
+  assert.equal(env.page.data.apiStaffRows.length, 0);
+  assert.equal(env.page.data.apiPendingRows[0].inFlightText, '数量待核');
+  assert.deepEqual(notices, []);
+});
+
 test('账号交付仅在剪贴板成功后提示复制成功', () => {
   const toasts = [], failures = [];
   const env = createPage({ wx: { setClipboardData: options => options.fail(), showToast: options => toasts.push(options.title) } });
