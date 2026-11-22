@@ -15,6 +15,6 @@
       <text wx:else class="eng-muted">暂无项目</text>
       <view wx:if="{{eng.projectCount>1}}" class="eng-recent-footer"><button class="eng-link" data-action="projects" bindtap="openEngineering">显示更多<image class="eng-arrow" src="/assets/creation-chevron-muted.png"/></button></view>
     </view>
-    <view class="eng-section"><view class="eng-heading"><text>众墅甄选</text></view><button class="eng-store-button" data-action="store" bindtap="openEngineering" aria-label="众墅甄选，进入供应链材料商店"><image class="eng-store-banner" src="/assets/materials-banner.jpg" mode="widthFix"/></button></view>
+    <view class="eng-section"><view class="eng-heading"><text>众墅甄选</text></view><button class="eng-store-button" data-action="store" bindtap="openEngineering" aria-label="众墅甄选，进入供应链材料商店"><image class="eng-store-banner" src="/pages/build/assets/materials-banner.jpg" mode="widthFix"/></button></view>
   </view>
 </view><custom-tab-bar active-index="{{2}}" nested="{{true}}"/>

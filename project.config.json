@@ -175,6 +175,58 @@
       {
         "type": "file",
         "value": "assets/studio-publication-cover.jpg"
+      },
+      {
+        "type": "file",
+        "value": "assets/approval.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/settings.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/review.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/headset.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/shield.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/brand-support.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/training-support.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/design-support.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/delivery-support.png"
+      },
+      {
+        "type": "file",
+        "value": "assets/creation-publish.png"
+      },
+      {
+        "type": "file",
+        "value": "pages/workflow/commission/assets/alipay.png"
+      },
+      {
+        "type": "file",
+        "value": "pages/workflow/commission/assets/wechat-pay.png"
+      },
+      {
+        "type": "file",
+        "value": "pages/workflow/assets/biz-reference-plan.jpg"
       }
     ],
     "include": []

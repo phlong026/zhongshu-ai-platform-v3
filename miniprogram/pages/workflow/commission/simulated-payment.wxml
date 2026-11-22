@@ -15,8 +15,8 @@
   <button wx:if="{{view==='pay'}}" class="commission-secondary" bindtap="showProgress">查看委托进度</button>
  </block>
  <view wx:elif="{{view==='pay'&&primary}}" class="payment-options">
-  <button class="commission-secondary {{paymentChannel==='WECHAT'?'payment-selected':''}}" data-channel="WECHAT" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-wechat"><image src="assets/wechat-pay.png"/></view>微信（模拟）</button>
-  <button class="commission-secondary {{paymentChannel==='ALIPAY'?'payment-selected':''}}" data-channel="ALIPAY" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-alipay"><image src="assets/alipay.png"/></view>支付宝（模拟）</button>
+  <button class="commission-secondary {{paymentChannel==='WECHAT'?'payment-selected':''}}" data-channel="WECHAT" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-wechat"><image src="/pages/workflow/assets/commission/wechat-pay.png"/></view>微信（模拟）</button>
+  <button class="commission-secondary {{paymentChannel==='ALIPAY'?'payment-selected':''}}" data-channel="ALIPAY" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-alipay"><image src="/pages/workflow/assets/commission/alipay.png"/></view>支付宝（模拟）</button>
  </view>
  <text class="payment-disclaimer">仅模拟登记，不发生真实扣款，不计入实际收支</text>
 </view>
