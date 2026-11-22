@@ -20,7 +20,7 @@ const commandKey = action => {
 
 Page({
   ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
-  data: { recentLoading:false,recentError:'',exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
+  data: { projectLoading:false,projectReady:false,projectError:'',countsLoading:false,countsError:'',recentLoading:false,recentError:'',exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
   onLoad(options) {
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
@@ -39,7 +39,8 @@ Page({
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
     this.__recentRequest = null; this.setData({recentLoading:false,recentError:''});
-    this.__projectRequest = null; this.setData({projectLoading:false});
+    this.__projectRequest = null; this.__countsRequest = null;
+    this.setData({projectLoading:false,projectReady:false,projectError:'',countsLoading:false,countsError:''});
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
     this.__briefScope='';this.setData({ orderSheet:null,hasOrderSheet:false,exporting:false,designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,canFeeDecide: false, canFeedback: false, managerOptions: [] });
     this.setData({ platformStatus: 'degraded', error: message, customer: null, rows: [], tasks: [], taskCount: 0, metrics: this.view==='admin'&&this.post()&&this.__post&&this.__post.roleCode==='hq-design-admin'?Presentation.workbench([]).metrics.map(m=>({...m,value:'—'})):[], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, form: {}, fields: [], preview: null, primary: '', canReturn: false, budgetCard: false, isComplete: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null });
@@ -50,7 +51,8 @@ Page({
     const identity = String(post.postId) + ':' + http.sessionGeneration();
     if (this.__identity && this.__identity !== identity) {
       this.__projectRequest = null; this.__list = []; this.__projectPage = 0; this.__projectLoaded = 0;
-      this.setData({projectRows:[],projectTotal:0,projectHasMore:false,projectLoading:false,projectFilters:[],tasks:[],metrics:[],recent:[]});
+      this.__countsRequest = null;
+      this.setData({projectRows:[],projectTotal:0,projectHasMore:false,projectLoading:false,projectReady:false,projectError:'',countsLoading:false,countsError:'',projectFilters:[],tasks:[],metrics:[],recent:[]});
       this.action = ''; this.nextView = ''; this.initialized = false; this.__context = null; this.__cmdKeys = {}; this.setData({ form: {}, fields: [], rows: [], busy: false, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,primary: '', canReturn: false, canFeeDecide: false, canFeedback: false, managerOptions: [] });
     }
     if(this.__identity!==identity)this.homeProfileName='';
@@ -84,6 +86,23 @@ Page({
     }
   },
   retryRecent() { return this.refreshRecent(); },
+  async refreshWorkbenchCounts(parentAlive = () => true) {
+    const alive = http.requestGuard('commission-counts'), request = this.__countsRequest = {};
+    const identity = this.__identity, view = this.view;
+    const same = () => parentAlive() && alive() && this.__countsRequest === request && this.__identity === identity && !this.disposed && this.view === view;
+    this.setData({countsLoading:true,countsError:''});
+    try {
+      const counts = await API.commissions.workbenchCounts();
+      if (!same()) return;
+      if (!counts || typeof counts !== 'object' || Array.isArray(counts) || Object.values(counts).some(value => !Number.isSafeInteger(value) || value < 0)) throw Error('项目统计暂未加载');
+      this.setData({projectFilters:Presentation.workbench([], counts).filters});
+    } catch (error) {
+      if (same()) this.setData({countsError:'项目统计暂时没加载，请重试'});
+    } finally {
+      if (same()) this.setData({countsLoading:false});
+    }
+  },
+  retryWorkbenchCounts() { return this.refreshWorkbenchCounts(); },
   // ---- 设计行政工作台：全量指标、待办与最近办理分别读取 ----
   async refreshWorkbench(alive) {
     const actor = this.actor();
@@ -91,6 +110,10 @@ Page({
     if(this.view==='admin')this.setData({view:'admin',tasks:[],taskCount:0,recent:[],adminName:this.homeProfileName||actor.name||this.__post.name||'设计同事',adminDate:Presentation.dateLabel(),metrics:Presentation.workbench([]).metrics.map(m=>({...m,value:'—'}))});
     this.setData({ platformStatus: 'loading', error: '' });
     http.get('/platform/profile/mine').then(profile=>{if(alive()&&!this.disposed&&profile&&profile.nickname){this.homeProfileName=profile.nickname;this.setData({adminName:profile.nickname});}}).catch(()=>{});
+    if (this.view === 'projects') {
+      this.setData({title:'项目',view:'projects',platformStatus:'ready',primary:'',projectFilters:Presentation.workbench([]).filters.map(item=>({...item,count:'—'}))});
+      return Promise.all([this.refreshWorkbenchCounts(alive),this.renderAdminProjects(true)]);
+    }
     const recent = this.view === 'admin' ? this.refreshRecent(alive) : Promise.resolve();
     try {
       const [counts, todos] = await Promise.all([API.commissions.workbenchCounts(),
@@ -102,9 +125,6 @@ Page({
         const tasks = todos.items.filter(t => t.actionable && /^franchise:design-(complete|dispatch):/.test(t.key))
           .map(t => ({ key:t.key, title:t.title, url:t.appPath, clickable:true, status:t.status === 'DESIGN_COMPLETED' ? '待下发' : '设计中' }));
         this.setData({ title: '首页', view: 'admin', platformStatus: 'ready', error: '', primary: '', tasks, taskCount: tasks.length, metrics: wb.metrics, projectFilters: wb.filters, adminName: this.homeProfileName || actor.name || this.__post.name || '设计同事', adminDate: Presentation.dateLabel() });
-      } else {
-        this.setData({ title: '项目', view: 'projects', platformStatus: 'ready', error: '', primary: '', projectFilters: wb.filters });
-        return this.renderAdminProjects(true);
       }
     } catch (e) { if (!alive() || this.disposed) return; this.failState(Presentation.errorMessage(e)); }
     await recent;
@@ -281,7 +301,7 @@ Page({
     const same = () => alive() && !this.disposed && this.__projectRequest === request && this.__identity === identity && this.view === 'projects';
     if (reset) { this.__list = []; this.__projectPage = 0; this.__projectLoaded = 0; }
     const number = (this.__projectPage || 0) + 1;
-    this.setData({ projectLoading:true, error:'', ...(reset ? { projectRows:[], projectTotal:0, projectHasMore:false } : {}) });
+    this.setData({ projectLoading:true, projectError:'', error:'', ...(reset ? { projectRows:[], projectTotal:0, projectHasMore:false, projectReady:false } : {}) });
     try {
       const res = await API.commissions.page(number, 20, keyword, Presentation.FILTER_STATUSES[filter]);
       if (!same()) return;
@@ -291,13 +311,14 @@ Page({
       this.__list = [...rows.values()]; this.__projectPage = number;
       this.__projectLoaded = (this.__projectLoaded || 0) + res.list.length;
       const page = Presentation.paginate(this.__list, '', '全部', this.__list.length);
-      this.setData({ platformStatus:'ready', projectRows:page.rows, projectTotal:res.total,
+      this.setData({ platformStatus:'ready', projectReady:true, projectRows:page.rows, projectTotal:res.total,
         projectHasMore:res.list.length > 0 && this.__projectLoaded < res.total });
-    } catch (error) { if (same()) this.setData({ error:Presentation.errorMessage(error) }); }
+    } catch (error) { if (same()) this.setData({ projectError:reset?'项目暂时没加载，请重试':'更多项目暂时没加载，请重试' }); }
     finally { if (same()) this.setData({ projectLoading:false }); }
   },
   searchProjects(e) { this.setData({ keyword: e.detail.value }); return this.renderAdminProjects(true); },
   selectProjectFilter(e) { this.setData({ projectFilter: e.currentTarget.dataset.filter }); return this.renderAdminProjects(true); },
+  retryProjects() { return this.renderAdminProjects(!(this.__projectPage > 0)); },
   loadMoreProjects() { if (!this.data.projectHasMore) return; return this.renderAdminProjects(false); },
   onReachBottom() { if (this.view === 'projects') this.loadMoreProjects(); },
   openMetric(e) { this.tabStates = this.tabStates || {}; this.tabStates.admin = { keyword: this.data.keyword, projectFilter: this.data.projectFilter }; this.view = 'projects'; this.setData({ title: '项目', view: 'projects', keyword: '', projectFilter: e.currentTarget.dataset.filter || '全部' }); this.renderAdminProjects(true); wx.pageScrollTo({ scrollTop: 0, duration: 0 }); },
