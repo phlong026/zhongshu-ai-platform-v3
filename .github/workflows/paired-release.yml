@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      frontend_sha:
+        description: Exact 40-character lowercase frontend commit, or leave empty to use this run's commit
+        required: false
+        default: ''
+        type: string
       backend_sha:
         description: Exact backend commit, or backend-main to freeze at checkout
         required: true
@@ -21,5 +26,5 @@ jobs:
     # Update this pinned workflow only after the corresponding backend workflow is merged.
     uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@15662356f3b1abdc40e57dadcf6d0f204ddc3024
     with:
-      frontend_sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      frontend_sha: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_sha || github.event.pull_request.head.sha || github.sha }}
       backend_sha: ${{ inputs.backend_sha || 'backend-main' }}
