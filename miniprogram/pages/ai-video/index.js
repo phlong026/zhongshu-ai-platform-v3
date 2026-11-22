@@ -71,23 +71,31 @@ const scope=this.actorScope,storageKey=studio.scopedKey('zs-video-draft-v2:'+key
 this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialDirty:this.__legacyDraft,
   valid:()=>this.__draftSession()&&scope===studio.scope(),
   getForm:()=>this.videoForm(),
-  applyForm:draft=>this.applyVideoForm(draft),
-  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>this.setData({draftStatus})});
+  applyForm:draft=>{if(this.videoAlive())this.applyVideoForm(draft);},
+  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>{if(this.videoAlive())this.setData({draftStatus});}});
 }
 const draft=this.__draft;
 return draft.start().then(ready=>{
   if(this.videoAlive()&&this.data.editingTaskId)this.setData({taskDraftBlocked:!ready||draft.conflicted()});
+  if(ready&&this.videoAlive())this.saveDraft();
   return ready;
 }).catch(()=>false);
 },
 onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.__draftSession&&!this.__draftSession())wx.redirectTo({url:'/pages/ai-video/index'+(this.data.editingTaskId?'?task='+encodeURIComponent(this.data.editingTaskId):'')});},
-onHide() { this.saveDraft(); },
-onUnload() { this.__closed=true;this.saveDraft();if(this.__draft)this.__draft.stop(); },
-saveDraft() {
-  if(!studio.allowed()||this.actorScope!==studio.scope()||this.data.invalidMessage||this.data.taskLoading)return;
-  if(this.__draft)return this.__draft.save().catch(()=>{});
+onHide() { this.cancelDraftSave();return this.saveDraft(); },
+onUnload() { this.__closed=true;this.cancelDraftSave();return this.saveDraft(true); },
+cancelDraftSave(){if(this.__draftTimer!=null){clearTimeout(this.__draftTimer);this.__draftTimer=null;}},
+queueDraftSave(){
+  if(!this.videoAlive()||!this.__draft)return;
+  this.__draft.cache();this.cancelDraftSave();
+  this.__draftTimer=setTimeout(()=>{this.__draftTimer=null;if(this.videoAlive())this.saveDraft();},500);
 },
-videoAlive(){return !this.__closed&&!!http.token()&&this.actorScope===studio.scope()&&(!this.__draftSession||this.__draftSession());},
+saveDraft(final=false) {
+  if(!studio.allowed()||!this.videoSessionValid()||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked){if(final&&this.__draft)this.__draft.stop();return;}
+  if(this.__draft)return (final?this.__draft.finish():this.__draft.save()).catch(()=>{});
+},
+videoSessionValid(){return !!http.token()&&this.actorScope===studio.scope()&&(!this.__draftSession||this.__draftSession());},
+videoAlive(){return !this.__closed&&this.videoSessionValid();},
 videoForm(){
 const {mode,description,firstFrame,lastFrame,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;
 return {mode,description,firstFrame,lastFrame,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(item=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
@@ -96,29 +104,31 @@ saveVideoDraftSnapshot(key,draft){
 const {revision,...form}=draft;
 if(form.references.some(item=>!['image','video','audio'].includes(item.type)))return Promise.reject(Error('参考素材类型无效，请移除后重新选择'));
 const send=prepared=>{
-  if(!this.videoAlive())throw Error('工作身份已变化或页面已关闭，草稿已存本机');
+  if(!this.videoSessionValid())throw Error('工作身份已变化，草稿已存本机');
   return contentApi.drafts.saveVideoDraft({draftKey:key,revision,mode:prepared.mode,description:prepared.description,parameters:prepared.parameters,
     firstFrameAssetId:prepared.firstFrameAssetId||null,lastFrameAssetId:prepared.lastFrameAssetId||null,references:P.mapReferences(prepared.references)})
     .then(result=>({...result,form:prepared}));
 };
 const needsUpload=['firstFrame','lastFrame'].some(field=>form[field]&&!form[field+'AssetId'])||form.references.some(item=>!item.assetId);
 if(!needsUpload)return send(form);
-this.setData({draftStatus:'正在上传素材，草稿暂存本机…'});
-return this.prepareVideoMedia(form).then(send);
+if(this.videoAlive())this.setData({draftStatus:'正在上传素材，草稿暂存本机…'});
+return this.prepareVideoMedia(form,true).then(send);
 },
-async prepareVideoMedia(form){
-const prepared=JSON.parse(JSON.stringify(form)),alive=()=>this.videoAlive();
+async prepareVideoMedia(form,allowClosed=false){
+const prepared=JSON.parse(JSON.stringify(form)),alive=()=>allowClosed?this.videoSessionValid():this.videoAlive();
 const check=()=>{if(!alive())throw Error('工作身份已变化或页面已关闭');};
 check();
 const upload=path=>{
   if(!path)throw Error('参考素材缺少可用文件，请移除后重新选择');
   this.__mediaUploads=this.__mediaUploads||new Map();
-  if(!this.__mediaUploads.has(path))this.__mediaUploads.set(path,media.upload(path,alive).then(id=>{check();if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(path);throw error;}));
+  // The final draft may share an upload begun by generation; each caller checks its own page lifetime.
+  const uploadAlive=()=>this.videoSessionValid();
+  if(!this.__mediaUploads.has(path))this.__mediaUploads.set(path,media.upload(path,uploadAlive).then(id=>{if(!uploadAlive())throw Error('工作身份已变化');if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(path);throw error;}));
   return this.__mediaUploads.get(path);
 };
 for(const field of ['firstFrame','lastFrame'])if(prepared[field]&&!prepared[field+'AssetId']){
   const id=await upload(prepared[field]);check();prepared[field+'AssetId']=id;
-  if(this.data[field]===form[field]&&assetId(this.data[field+'AssetId'])===assetId(form[field+'AssetId'])){
+  if(this.videoAlive()&&this.data[field]===form[field]&&assetId(this.data[field+'AssetId'])===assetId(form[field+'AssetId'])){
     this.setData({[field+'AssetId']:id});this.__draft?.cache();
   }
 }
@@ -127,7 +137,7 @@ for(const item of prepared.references){
   if(item.assetId)continue;
   const id=await upload(item.path);check();item.assetId=id;
   const current=this.data.references.find(row=>row.id===item.id&&row.path===item.path&&!assetId(row.assetId));
-  if(current){this.setData({references:this.data.references.map(row=>row===current?{...row,assetId:id}:row)});this.__draft?.cache();}
+  if(current&&this.videoAlive()){this.setData({references:this.data.references.map(row=>row===current?{...row,assetId:id}:row)});this.__draft?.cache();}
 }
 return prepared;
 },
@@ -153,7 +163,7 @@ await Promise.all(jobs.map(async job=>{
 if(alive())this.setData({mediaLoading:false,mediaError:errors.filter(error=>error.current()).map(error=>error.message).join('；')});
 },
 retryDraft(){
-  if(!this.__draft)return;
+  if(!this.__draft||!this.videoAlive())return;
   if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0)
     .then(()=>{if(this.videoAlive())this.setData({taskDraftBlocked:false});})
     .catch(e=>{if(this.videoAlive())this.setData({draftStatus:e.message});})});
@@ -168,16 +178,16 @@ async useOriginalTask(){
   return this.generateOnline(original);
 },
 syncRatio() { this.setData({ratioAutomatic:this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame||this.data.firstFrameAssetId||this.data.lastFrameAssetId):this.data.references.some(r=>r.type==='image'||r.type==='video')}); },
-switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode });this.syncRatio(); },
-inputDescription(e) { this.setData({ description: e.detail.value }); },
+switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode });this.syncRatio();this.queueDraftSave(); },
+inputDescription(e) { this.setData({ description: e.detail.value });this.queueDraftSave(); },
 inputDuration(e) {
 const value=String(e.detail.value||''),valid=/^\d+$/.test(value)&&Number(value)>=4&&Number(value)<=15;
 this.setData({durationInput:value,durationError:valid?'':'请输入 4–15 的整数秒'});
-if(valid){const index=this.data.parameters.findIndex(p=>p.key==='duration');this.setData({['parameters['+index+'].value']:Number(value)+' 秒'});}
+if(valid){const index=this.data.parameters.findIndex(p=>p.key==='duration');this.setData({['parameters['+index+'].value']:Number(value)+' 秒'});this.queueDraftSave();}
 },
 changeParameter(e) {
 const index = Number(e.currentTarget.dataset.index), value = Number(e.detail.value), parameter = this.data.parameters[index];
-if (parameter && parameter.options && Number.isInteger(value) && value >= 0 && value < parameter.options.length) this.setData({ ['parameters[' + index + '].value']: value });
+if (parameter && parameter.options && Number.isInteger(value) && value >= 0 && value < parameter.options.length) {this.setData({ ['parameters[' + index + '].value']: value });this.queueDraftSave();}
 },
 chooseFrame(e) {
 const target = e.currentTarget.dataset.target;

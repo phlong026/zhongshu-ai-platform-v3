@@ -8,6 +8,7 @@ const P=moduleP.exports;
 const taskInput=(taskId,description,extra={})=>({taskId,kind:'ai_video',mode:'frames',description,firstFrameAssetId:'',lastFrameAssetId:'',references:[],parameters:{duration:8,resolution:'768P',ratio:'9:16'},...extra});
 function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,download,preview,create}={}){
   let definition,valid=true;const writes=[],submissions=[],uploads=[],downloads=[],toasts=[],inputReads=[],draftReads=[];
+  let nextTimer=0;const timers=new Map();
   const state={tasks:[]};
   const originals=new Map([['101',taskInput('101','history A')],['102',taskInput('102','history B')]]);
   const api={drafts:{videoDraft:async key=>{draftReads.push(key);return read?read(key):structuredClone(cloud.get(key)||{exists:false,revision:0});},saveVideoDraft:async body=>{
@@ -18,10 +19,10 @@ function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,dow
   const media={upload:async(path,alive)=>{uploads.push(path);return upload?upload(path,alive):String(100+uploads.length);},source:async(id,alive,options={})=>{await api.assets.downloadUrl(id);if(!alive())throw Error('身份已切换');return preview?preview(id,options):options.type==='image'?(options.localPath||'/authorized/'+id+'.png'):'';}};
   const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':media,'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
   const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast:o=>toasts.push(o.title),navigateTo(){},redirectTo(){}};
-  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/ai-video/index'),'utf8'),{Page:d=>definition=d,require:p=>{assert(p in modules,p);return modules[p]},wx,getCurrentPages:()=>[],console,Date});
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/ai-video/index'),'utf8'),{Page:d=>definition=d,require:p=>{assert(p in modules,p);return modules[p]},wx,getCurrentPages:()=>[],console,Date,setTimeout:fn=>{const id=++nextTimer;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)});
   const page={...definition,data:structuredClone(definition.data),setData(values){for(const[k,v]of Object.entries(values)){if(k.startsWith('parameters[')){const i=Number(k.match(/\d+/)[0]);this.data.parameters[i].value=v;}else this.data[k]=v;}}};
   page.onLoad(task?{task}:{});
-  return{page,disk,cloud,writes,submissions,uploads,downloads,toasts,inputReads,draftReads,state,wx,invalidate:()=>valid=false};
+  return{page,disk,cloud,writes,submissions,uploads,downloads,toasts,inputReads,draftReads,state,wx,invalidate:()=>valid=false,flushAutosave:async()=>{const jobs=[...timers.values()];timers.clear();jobs.forEach(job=>job());await tick();}};
 }
 test('exit before cloud load makes no default write and ignores late response',async()=>{
   const read=later(),h=harness({read:()=>read.promise});h.page.onHide();h.page.onUnload();
@@ -354,4 +355,67 @@ test('an explicit initial task rejection allows correcting the form while an ide
   assert.equal(attempts[1].body.description,'更正后的文案');assert.notEqual(attempts[0].key,attempts[1].key);
   const stale=harness({create:async()=>{throw Error('timeout');}});await tick();stale.page.inputDescription({detail:{value:'待确认'}});await stale.page.generate();
   stale.invalidate();await stale.page.generateOnline();assert.equal(stale.submissions.length,1);
+});
+
+test('pausing after edits autosaves the latest form and coalesces consecutive input',async()=>{
+  const h=harness();await tick();h.page.inputDescription({detail:{value:'第一版'}});h.page.inputDescription({detail:{value:'最新一版'}});
+  assert.equal(h.writes.length,0);await h.flushAutosave();assert.equal(h.writes.length,1);assert.equal(h.writes[0].description,'最新一版');
+  h.page.inputDuration({detail:{value:'11'}});await h.flushAutosave();assert.equal(h.writes[1].parameters.duration,11);
+});
+
+test('direct unload saves the latest edit for a fresh device without updating the closed page',async()=>{
+  const h=harness();await tick();h.page.inputDescription({detail:{value:'直接返回前的修改'}});
+  const setData=h.page.setData;h.page.setData=function(values){assert.equal(this.__closed,false,'closed pages must not receive save callbacks');setData.call(this,values);};
+  await h.page.onUnload();await tick();assert.equal(h.writes.length,1);assert.equal(h.writes[0].description,'直接返回前的修改');
+  const fresh=harness({cloud:h.cloud});await tick();assert.equal(fresh.page.data.description,'直接返回前的修改');
+});
+
+test('unload drains an in-flight save and then writes the final newer snapshot exactly once',async()=>{
+  const ack=later(),cloud=new Map();let saves=0;
+  const h=harness({cloud,save:async body=>{if(++saves===1)await ack.promise;const revision=body.revision+1;cloud.set(body.draftKey,{...body,exists:true,revision});return{revision};}});await tick();
+  h.page.inputDescription({detail:{value:'保存中的旧文案'}});const first=h.page.saveDraft();
+  h.page.inputDescription({detail:{value:'退出时的最新文案'}});const closing=h.page.onUnload();ack.resolve();await first;await closing;await tick();
+  assert.equal(h.writes.length,2);assert.deepEqual(h.writes.map(write=>write.revision),[0,1]);
+  assert.equal(cloud.get('new').description,'退出时的最新文案');
+});
+
+test('a media upload started before unload finishes the cloud draft without late page writes',async()=>{
+  const upload=later(),h=harness({upload:()=>upload.promise});await tick();
+  h.page.setData({description:'含图片的最终稿',firstFrame:'/saved/new.png'});h.page.onHide();
+  const setData=h.page.setData;h.page.setData=function(values){assert.equal(this.__closed,false);setData.call(this,values);};
+  const closing=h.page.onUnload();upload.resolve('9007199254740993');await closing;await tick();
+  assert.equal(h.uploads.length,1);assert.equal(h.writes.length,1);assert.equal(h.writes[0].firstFrameAssetId,'9007199254740993');
+  assert.equal(h.disk.get('actor:zs-video-draft-v2:new').form.firstFrameAssetId,'9007199254740993');
+  const fresh=harness({cloud:h.cloud});await tick();assert.equal(fresh.page.data.firstFrameAssetId,'9007199254740993');assert.equal(fresh.page.data.description,'含图片的最终稿');
+});
+
+test('final draft reuses a generation upload while the initial cloud read finishes after unload',async()=>{
+  const remote=later(),upload=later();
+  const h=harness({read:()=>remote.promise,upload:async(path,alive)=>{await upload.promise;if(!alive())throw Error('上传已失效');return '9007199254740993';}});
+  h.page.setData({firstFrame:'/saved/generating.png'});h.page.inputDescription({detail:{value:'生成前最后填写'}});
+  const generating=h.page.generate();await tick();assert.equal(h.uploads.length,1);assert.equal(h.writes.length,0);
+  const setData=h.page.setData;h.page.setData=function(values){assert.equal(this.__closed,false,'closed pages must not receive upload callbacks');setData.call(this,values);};
+  const closing=h.page.onUnload();remote.resolve({exists:false,revision:0});await tick();upload.resolve();
+  await generating;await closing;await tick();
+  assert.equal(h.uploads.length,1);assert.equal(h.submissions.length,0,'closing cancels generation even though the final draft can finish');
+  assert.equal(h.writes.length,1);assert.equal(h.writes[0].firstFrameAssetId,'9007199254740993');
+  assert.equal(h.writes[0].description,'生成前最后填写');
+  const fresh=harness({cloud:h.cloud});await tick();assert.equal(fresh.page.data.description,'生成前最后填写');assert.equal(fresh.page.data.firstFrameAssetId,'9007199254740993');
+});
+
+test('unload can finish a deliberate edit after its initial draft read without overwriting a newer remote draft',async()=>{
+  for(const exists of [false,true]){
+    const remote=later(),h=harness({read:()=>remote.promise});h.page.inputDescription({detail:{value:'退出前的新填写'}});
+    const closing=h.page.onUnload();remote.resolve({exists,revision:exists?3:0,mode:'frames',description:'已有云端新版',parameters:{duration:8,resolution:'768P',ratio:'9:16'}});await closing;await tick();
+    assert.equal(h.writes.length,exists?0:1);assert.equal(h.disk.get('actor:zs-video-draft-v2:new').form.description,'退出前的新填写');
+    if(exists)assert.equal(h.disk.get('actor:zs-video-draft-v2:new').conflict,true);
+  }
+});
+
+test('identity changes cancel a final upload or any remaining queued cloud save',async()=>{
+  const upload=later(),h=harness({upload:()=>upload.promise});await tick();h.page.setData({description:'旧身份草稿',firstFrame:'/saved/new.png'});
+  const closing=h.page.onUnload();h.invalidate();upload.resolve('901');await closing;await tick();assert.equal(h.writes.length,0);
+  const ack=later(),pending=harness({save:()=>ack.promise});await tick();pending.page.inputDescription({detail:{value:'已发送的旧版本'}});
+  const first=pending.page.saveDraft();pending.page.inputDescription({detail:{value:'不得用新身份保存'}});const finishing=pending.page.onUnload();pending.invalidate();ack.resolve({revision:1});
+  await first;await finishing;await tick();assert.equal(pending.writes.length,1);
 });

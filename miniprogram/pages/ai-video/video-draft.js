@@ -9,7 +9,9 @@ const signature=value=>{
   return JSON.stringify(form);
 };
 const CONFLICT=1114000011;
-function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,initialDirty=false}) {
+function create({api,storage,storageKey,key,getForm:readPageForm,applyForm,valid,onStatus,initialDirty=false}) {
+  let finalForm=null,finishing=null;
+  const getForm=()=>finalForm||readPageForm();
   let ready=false,stopped=false,conflict=false,revision=null,observed=null,flight=null,loading=null;
   let saved=signature(getForm()),cached,dirty=initialDirty;
   const owner=Date.now()+'-'+Math.random();let claimed=false;
@@ -42,12 +44,13 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
     dirty=dirty||current!==saved;
     if(!dirty)return;
     cache();if(!ready||stopped||conflict)return;
-    if(flight)return flight;
+    if(flight){await flight;return save();}
     const sent=copy(getForm()),expected=revision;
     flight=(async()=>{
       try{
         const result=await api.save(key,{...sent,revision:expected});check();
         if(Number(result.revision)!==expected+1)throw Error('草稿保存结果待确认');
+        if(finalForm&&result.form&&signature(finalForm)===signature(sent))finalForm=copy(result.form);
         revision=Number(result.revision);observed=revision;saved=signature(result.form||sent);dirty=signature(getForm())!==saved;cache();status(dirty?'保存中…':'草稿已保存');
       }catch(e){if(Number(e.code)===CONFLICT)conflict=true;cache();status(conflict?'云端草稿有更新，点此处理':'已存本机，点此重试');throw e;}
       finally{flight=null;}
@@ -63,6 +66,14 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
     if(useLocal){dirty=true;cache();await save();}
     else {applyForm(remote.exists?remote:{mode:'frames',description:'',parameters:{resolution:'768P',duration:8,ratio:'9:16'}});saved=signature(getForm());dirty=false;cache();status('已恢复云端草稿');}
   }
-  return{start,save,resolve,cache,stop:()=>{stopped=true;},conflicted:()=>conflict};
+  function finish(){
+    if(finishing)return finishing;
+    finalForm=copy(getForm());cache();
+    finishing=(async()=>{
+      try{check();if(dirty&&!ready)await start();await save();}
+      finally{stopped=true;}
+    })();return finishing;
+  }
+  return{start,save,finish,resolve,cache,stop:()=>{stopped=true;},conflicted:()=>conflict};
 }
 module.exports={create};
