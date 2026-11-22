@@ -20,7 +20,7 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
   const status=text=>{if(!stopped&&valid())onStatus(text);};
   function cache(){if(valid())try{dirty=dirty||signature(getForm())!==saved;const current=storage.getStorageSync(storageKey);if(claimed&&current&&current.owner&&current.owner!==owner)return;storage.setStorageSync(storageKey,{owner,form:copy(getForm()),saved,dirty,revision,conflict,observed});claimed=true;}catch(_){status('本机保存失败，请保持页面打开后重试');}}
   async function start(){
-    if(ready)return;if(loading)return loading;cache();
+    if(ready)return true;if(loading)return loading;cache();
     loading=(async()=>{
       try{
         const remote=await api.read(key);check();if(stopped)return;
@@ -32,7 +32,7 @@ function create({api,storage,storageKey,key,getForm,applyForm,valid,onStatus,ini
         if(conflict||((dirty||edited)&&remote.exists&&revision!==observed))conflict=true;
         else if(!dirty&&!edited){if(remote.exists&&(!cached||revision!==observed))applyForm(remote);saved=signature(getForm());revision=observed;}
         else revision=observed;
-        ready=true;dirty=dirty||edited;cache();status(conflict?'云端草稿有更新，点此处理':'');
+        ready=true;dirty=dirty||edited;cache();status(conflict?'云端草稿有更新，点此处理':'');return true;
       }catch(e){status('云端草稿读取失败，点此重试');throw e;}
       finally{loading=null;}
     })();return loading;

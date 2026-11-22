@@ -13,7 +13,7 @@ return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -43,7 +43,8 @@ if(this.data.taskLoading)return;
 const id=this.data.editingTaskId;
 if(!/^[1-9]\d{0,18}$/.test(id)){this.setData({invalidMessage:'任务编号无效，请返回任务中心。'});return;}
 if(!http.token()){this.setData({invalidMessage:'请先登录后再读取原任务。'});return;}
-this.setData({taskLoading:true,invalidMessage:''});
+this.__originalTaskForm=null;
+this.setData({taskLoading:true,taskDraftBlocked:true,invalidMessage:''});
 try{
   const input=await contentApi.tasks.editableInput(id);
   if(!this.videoAlive())return;
@@ -51,6 +52,7 @@ try{
     ||!['frames','reference'].includes(input.mode)||!Array.isArray(input.references)
     ||!['resolution','duration','ratio'].every(key=>input.parameters&&input.parameters[key]!=null))throw Error('原任务输入无法完整恢复');
   this.applyVideoForm(input);
+  this.__originalTaskForm=JSON.parse(JSON.stringify(this.videoForm()));
   // Authorize the original task before considering any local or cloud task-specific edits.
   await this.restoreRemoteDraft();
 }catch(error){if(this.videoAlive())this.setData({invalidMessage:'原任务输入读取失败：'+P.degradeMessage(error)+'。请重试或返回任务中心。'});}
@@ -63,7 +65,7 @@ this.setData({mode:draft.mode==='reference'?'reference':'frames',description:Str
 this.syncRatio();this.restoreMediaPreviews();
 },
 restoreRemoteDraft() {
-if(this.__draft)return this.__draft.start().catch(()=>{});
+if(!this.__draft){
 const key=this.data.editingTaskId?'task:'+this.data.editingTaskId:'new';
 const scope=this.actorScope,storageKey=studio.scopedKey('zs-video-draft-v2:'+key);
 this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialDirty:this.__legacyDraft,
@@ -71,7 +73,12 @@ this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialD
   getForm:()=>this.videoForm(),
   applyForm:draft=>this.applyVideoForm(draft),
   api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>this.setData({draftStatus})});
-return this.__draft.start().catch(()=>{});
+}
+const draft=this.__draft;
+return draft.start().then(ready=>{
+  if(this.videoAlive()&&this.data.editingTaskId)this.setData({taskDraftBlocked:!ready||draft.conflicted()});
+  return ready;
+}).catch(()=>false);
 },
 onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.__draftSession&&!this.__draftSession())wx.redirectTo({url:'/pages/ai-video/index'+(this.data.editingTaskId?'?task='+encodeURIComponent(this.data.editingTaskId):'')});},
 onHide() { this.saveDraft(); },
@@ -147,8 +154,17 @@ if(alive())this.setData({mediaLoading:false,mediaError:errors.filter(error=>erro
 },
 retryDraft(){
   if(!this.__draft)return;
-  if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0).catch(e=>this.setData({draftStatus:e.message}))});
-  this.__draft.start().then(()=>this.__draft.save()).catch(()=>{});
+  if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0)
+    .then(()=>{if(this.videoAlive())this.setData({taskDraftBlocked:false});})
+    .catch(e=>{if(this.videoAlive())this.setData({draftStatus:e.message});})});
+  return this.restoreRemoteDraft().then(ready=>{if(ready)return this.__draft.save();}).catch(()=>{});
+},
+async useOriginalTask(){
+  const original=this.__originalTaskForm,id=this.data.editingTaskId;
+  if(!original||!this.data.taskDraftBlocked||this.data.taskLoading||this.data.generating||!this.videoAlive())return;
+  const result=await new Promise(resolve=>wx.showModal({title:'用原任务另建',content:'将使用原任务的文案和素材创建新任务，按当前规则计费。尚未读取的修改稿会保留。',confirmText:'用原任务',success:resolve,fail:()=>resolve({confirm:false})}));
+  if(!result.confirm||!this.videoAlive()||id!==this.data.editingTaskId||original!==this.__originalTaskForm||!this.data.taskDraftBlocked)return;
+  return this.generateOnline(original);
 },
 syncRatio() { this.setData({ratioAutomatic:this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame||this.data.firstFrameAssetId||this.data.lastFrameAssetId):this.data.references.some(r=>r.type==='image'||r.type==='video')}); },
 switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode });this.syncRatio(); },
@@ -229,7 +245,7 @@ if (!http.token()) return wx.showToast({ title: '请先登录后再优化提示�
 wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面描述', icon: 'none' });
 },
 generate() {
-if (this.data.invalidMessage||this.data.taskLoading) return;
+if (this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked) return;
 if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
@@ -237,14 +253,15 @@ this.saveDraft();
 if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务
 wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none' });
 },
-async generateOnline() {
-if(this.data.generating||this.data.invalidMessage||this.data.taskLoading)return;
-if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
+async generateOnline(originalForm) {
+const useOriginal=!!originalForm&&originalForm===this.__originalTaskForm;
+if(this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal)return;
+if(!useOriginal&&(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15)){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
 try {
-const current=this.videoForm();
+const current=useOriginal?JSON.parse(JSON.stringify(originalForm)):this.videoForm();
 // Mode switches retain both drafts, but only the visible mode's media participates in this task.
 const selected=current.mode==='frames'?{...current,references:[]}:{...current,firstFrame:'',lastFrame:'',firstFrameAssetId:'',lastFrameAssetId:''};
 const form=await this.prepareVideoMedia(selected);if(!alive())return;
