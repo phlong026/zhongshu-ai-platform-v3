@@ -118,7 +118,7 @@
     "transparent": false
   },
   {
-    "asset": "materials-banner.jpg",
+    "asset": "../pages/build/assets/materials-banner.jpg",
     "source": "engineering",
     "crop": [
       30,

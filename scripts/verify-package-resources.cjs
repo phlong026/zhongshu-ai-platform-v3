@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert/strict');
+const PACKAGE_BUDGET = 2 * 1024 * 1024;
+const MINIMUM_HEADROOM = 128 * 1024;
 
 function verifyPackageResources(projectRoot = path.resolve(__dirname, '..')) {
   const config = JSON.parse(fs.readFileSync(path.join(projectRoot, 'project.config.json'), 'utf8'));
@@ -39,17 +41,25 @@ function verifyPackageResources(projectRoot = path.resolve(__dirname, '..')) {
     if (file.endsWith('.js')) for (const match of source.matchAll(/require\(['"]([./][^'"]+)['"]\)/g)) resource(file, match[1], true);
     if (file.endsWith('.wxml')) {
       for (const match of source.matchAll(/<(?:import|include|wxs)\b[^>]*\bsrc=['"]([^'"{}]+)['"]/g)) resource(file, match[1], true);
-      for (const match of source.matchAll(/<image\b[^>]*\bsrc="([^"]+)"/g)) {
-        for (const image of match[1].matchAll(/(?<![\w/.-])\/(?:[\w-]+\/)*assets\/[\w-]+\.(?:png|jpe?g|webp|gif|svg)/g)) resource(file, image[0], true);
+      for (const match of source.matchAll(/<image\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1/g)) {
+        const src = match[2].trim();
+        if (src && !src.includes('{{') && !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(src)) resource(file, src, true);
+        else for (const image of src.matchAll(/(?<![\w/.-])\/(?:[\w-]+\/)*assets\/[\w-]+\.(?:png|jpe?g|webp|gif|svg)/g)) resource(file, image[0], true);
       }
     }
     if (file.endsWith('.wxss')) for (const match of source.matchAll(/@import\s*['"]([^'"]+)['"]/g)) resource(file, match[1], true);
     if (file.endsWith('.json')) for (const component of Object.values(JSON.parse(source).usingComponents || {})) resource(file, component, true);
   }
   const total = Object.values(sizes).reduce((a, b) => a + b, 0);
-  for (const [name, size] of Object.entries(sizes)) if (size > 2 * 1024 * 1024) failures.push(`${name}: ${size} bytes exceeds the 2 MiB project budget`);
+  const headroom = {};
+  for (const [name, size] of Object.entries(sizes)) {
+    headroom[name] = PACKAGE_BUDGET - size;
+    if (size > PACKAGE_BUDGET) failures.push(`${name}: ${size} bytes exceeds the 2 MiB project budget`);
+    else if (headroom[name] < MINIMUM_HEADROOM) failures.push(`${name}: only ${headroom[name]} bytes of headroom; the project requires at least ${MINIMUM_HEADROOM} bytes (128 KiB) for growth`);
+  }
   assert.equal(failures.length, 0, failures.join('\n'));
-  return { result: 'passed', resourceReferences: references.size, totalBytes: total, packages: sizes };
+  return { result: 'passed', resourceReferences: references.size, totalBytes: total, packages: sizes,
+    packageBudgetBytes: PACKAGE_BUDGET, minimumHeadroomBytes: MINIMUM_HEADROOM, headroomBytes: headroom };
 }
 module.exports = verifyPackageResources;
 if (require.main === module) console.log(JSON.stringify(verifyPackageResources(), null, 2));
