@@ -97,7 +97,7 @@ function loadOrgStaffView(overrides = {}) {
           getTeams: async () => [],
           getPostTemplates: async () => [],
           getStaff: async () => [],
-          getPendingHandovers: async () => [],
+          getHandoverPending: async () => [],
           ...overrides.api
         },
         '@/utils': { generateUUID: () => require('node:crypto').randomUUID() },
@@ -621,7 +621,8 @@ test('组织人员页面覆盖现有真实接口并明确交接结果', () => {
     '/staff-status',
     '/staff-handover',
     '/staff-emergency-revoke',
-    '/handover-pending'
+    '/handover-pending',
+    '/handover-sources'
   ])
     assert.match(api, new RegExp(endpoint.replaceAll('/', '\\/')))
   for (const state of [
@@ -761,4 +762,112 @@ test('Web 保留角色保护不限制独立撤员工兼岗或作为接收人，�
   hq.staff.value = [boss]
   assert.equal(hq.isReservedRole(boss), false)
   assert.equal(hq.hasReservedRole('1'), false)
+})
+
+test('Web 普通停职展示四域清单，扫描失败仍刷新待核记录', async () => {
+  const calls = []
+  const items = ['crm', 'commission', 'engineering', 'finance'].map((domain, i) => ({
+    domain, label: domain, inFlight: i === 3 ? -1 : 1, transferred: 0,
+    status: i === 3 ? 'SCAN_FAILED' : 'PENDING_UNASSIGNED'
+  }))
+  const result = { mode: 'EMERGENCY', orgId: '1001', fromUserId: '2', revokedPostIds: ['22'], items }
+  const state = loadOrgStaffView({ api: {
+    setStaffStatus: async () => assert.fail('普通停职必须取得交接清单'),
+    emergencyRevokeStaff: async (data) => { calls.push(data); return result },
+    getHandoverPending: async () => items.map((item) => ({ ...item, fromUserId: '2' }))
+  } })
+  await state.stopInOrg({ postId: '22', userId: '2', name: '原员工', roleCode: 'sales' })
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].orgId, '1001')
+  assert.equal(calls[0].userId, '2')
+  assert.equal(state.resultDialog.value, true)
+  assert.equal(state.handoverResult.value.items.length, 4)
+  assert.equal(state.pending.value[3].inFlight, -1)
+  assert.match(state.resultTitle.value, /仍需人工核对/)
+})
+
+test('Web 可分页选择没有待分配记录的历史员工，接收人仍来自当前有效任职', async () => {
+  const calls = []
+  const transfers = []
+  const receiver = { postId: '11', userId: '1', name: '老板', roleCode: 'boss', active: true }
+  const state = loadOrgStaffView({ api: {
+    getHandoverSources: async (orgId, keyword, pageNo) => {
+      calls.push([orgId, keyword, pageNo])
+      return { items: [{ userId: String(pageNo + 1), name: `原员工${pageNo}`, mobile: '' }], hasMore: pageNo === 1 }
+    },
+    getStaff: async () => [receiver],
+    handoverStaff: async (data) => { transfers.push(data); return { items: [] } }
+  } })
+  state.staff.value = [receiver]
+  state.historyQuery.value = ' 原员工 '
+  await state.searchHandoverHistory()
+  await state.searchHandoverHistory(true)
+  assert.deepEqual(calls, [['1001', '原员工', 1], ['1001', '原员工', 2]])
+  assert.equal(state.historyRows.value.length, 2)
+  assert.equal(state.historyHasMore.value, false)
+  assert.equal(state.pending.value.length, 0)
+
+  state.openHistoricalHandover(state.historyRows.value[0])
+  assert.equal(state.handoverForm.fromUserId, '2')
+  assert.equal(state.receivers.value[0].userId, '1')
+  state.handoverForm.toUserId = '1'
+  await state.saveHandover()
+  assert.equal(transfers[0].orgId, '1001')
+  assert.equal(transfers[0].fromUserId, '2')
+  assert.equal(transfers[0].toUserId, '1')
+})
+
+test('Web 历史检索的旧响应不能覆盖新查询或重新写入已离开的页面', async () => {
+  let release
+  const state = loadOrgStaffView({ api: {
+    getHandoverSources: async () => new Promise((resolve) => { release = resolve })
+  } })
+  const oldResult = { items: [{ userId: '2', name: '旧结果', mobile: '' }], hasMore: false }
+  state.historyQuery.value = '原员工'
+  const first = state.searchHandoverHistory()
+  state.historyQuery.value = '新员工'
+  state.invalidateHandoverHistory()
+  release(oldResult)
+  await first
+  assert.equal(state.historyRows.value.length, 0)
+  assert.equal(state.historyBusy.value, false)
+
+  const second = state.searchHandoverHistory()
+  state.handleStaffDeactivated()
+  release(oldResult)
+  await second
+  assert.equal(state.historyQuery.value, '')
+  assert.equal(state.historyRows.value.length, 0)
+  assert.equal(state.historyBusy.value, false)
+})
+
+test('Web 单岗撤销复核失败后刷新任职和待核清单，不暗示原岗位仍在', async () => {
+  const state = loadOrgStaffView({ api: {
+    revokePost: async () => { throw new Error('岗位已撤销，但在途复核未完成') },
+    getStaff: async () => [],
+    getHandoverPending: async () => [{ fromUserId: '2', domain: 'finance', inFlight: -1 }]
+  } })
+  const employee = { postId: '22', userId: '2', name: '原员工', roleCode: 'sales', active: true }
+  state.staff.value = [employee]
+  await state.revoke(employee)
+  assert.equal(state.staff.value.length, 0)
+  assert.equal(state.pending.value[0].inFlight, -1)
+  assert.match(state.actionError.value, /岗位已撤销.*查找原员工补交接/)
+})
+
+test('Web 将已确认的组织共享财务与未知或个人交接区分展示', () => {
+  const state = loadOrgStaffView()
+  state.handoverResult.value = { mode: 'NORMAL', items: [
+    { domain: 'franchise-crm', inFlight: 1, transferred: 1, status: 'HANDED_OVER' },
+    { domain: 'franchise-finance', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }
+  ] }
+  assert.equal(state.resultHasShared.value, true)
+  assert.equal(state.resultHasUnknown.value, false)
+  assert.match(state.resultTitle.value, /需财务岗继续处理/)
+  assert.equal(state.statusMeta.ORGANIZATION_SHARED.label, '组织共享事项，需财务岗继续处理')
+  state.handoverResult.value.items[1].status = 'NOT_INTEGRATED'
+  assert.equal(state.resultHasShared.value, false)
+  assert.equal(state.resultHasUnknown.value, true)
+  assert.match(state.resultTitle.value, /仍需人工核对/)
 })

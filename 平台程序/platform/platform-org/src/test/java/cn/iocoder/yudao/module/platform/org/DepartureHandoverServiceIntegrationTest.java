@@ -206,6 +206,12 @@ class DepartureHandoverServiceIntegrationTest extends PlatformPgIntegrationTest 
     }
 
     @Test
+    void singlePostRevocationCannotAssumeUnregisteredDomainsHaveNoWork() {
+        assertError(() -> handoverService.revokePost(fromPostId, 99L), STAFF_HANDOVER_UNCONFIRMED);
+        assertThat(postStatus(fromPostId)).isEqualTo(StaffPostDO.STATUS_ACTIVE);
+    }
+
+    @Test
     void handoverRevokesOnlyTheTargetOrgAndKeepsOtherOrgPosts() {
         long keptPostId = staffPostService.assignPost(fromUser, otherOrgId, "t-sales", null, 99L);
 

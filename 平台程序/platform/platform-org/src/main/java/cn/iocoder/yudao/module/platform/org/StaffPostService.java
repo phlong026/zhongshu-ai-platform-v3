@@ -17,6 +17,9 @@ public interface StaffPostService {
     /** 成员管理撤销任职；保护门店总部保留角色及最后有效管理岗位。 */
     void revokePost(long postId, long operatorUserId);
 
+    /** 普通单岗撤销的前置校验；返回锁定后的任职，用户/组织锁持有至调用方事务提交。 */
+    StaffPostDO validateRevokePost(long postId);
+
     /**
      * 总部交接专用：调用方必须已完成总部管理员授权，允许调整门店保留角色，仍保护最后管理岗位。
      * 交接时应在同一事务内先建立接任人的管理岗位，再调用本方法撤旧岗位。

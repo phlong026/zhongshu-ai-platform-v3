@@ -121,10 +121,12 @@
 
       <div class="zs-table-card">
         <h2>待分配事项</h2>
-        <el-table :data="pending" empty-text="暂无紧急撤权后的待分配事项">
+        <el-table :data="pending" empty-text="暂无待分配事项">
           <el-table-column prop="domainLabel" label="业务域" />
           <el-table-column prop="fromUserId" label="原负责人ID" />
-          <el-table-column prop="inFlight" label="待分配数量" />
+          <el-table-column label="待分配数量">
+            <template #default="{ row }">{{ row.inFlight < 0 ? '数量待核' : row.inFlight }}</template>
+          </el-table-column>
           <el-table-column prop="createTime" label="生成时间" min-width="180" />
           <el-table-column v-if="canManage" label="操作"
             ><template #default="{ row }"
@@ -134,6 +136,39 @@
             ></el-table-column
           >
         </el-table>
+      </div>
+
+      <div v-if="canManage" class="zs-table-card">
+        <h2>查找原员工补交接</h2>
+        <p>按姓名、手机号或员工编号查找本组织有任职记录的人员，补交接会重新核验其在途事项。</p>
+        <div class="toolbar">
+          <el-input
+            v-model="historyQuery"
+            placeholder="姓名、手机号或员工编号"
+            maxlength="64"
+            clearable
+            @input="invalidateHandoverHistory"
+            @keyup.enter="searchHandoverHistory()"
+          />
+          <el-button :loading="historyBusy" @click="searchHandoverHistory()">查找</el-button>
+        </div>
+        <el-alert v-if="historyError" :title="historyError" type="warning" show-icon />
+        <el-table
+          v-if="historyPage > 0"
+          :data="historyRows"
+          empty-text="未找到本组织有任职记录的人员"
+        >
+          <el-table-column prop="name" label="员工" />
+          <el-table-column prop="mobile" label="手机号" />
+          <el-table-column prop="userId" label="员工编号" />
+          <el-table-column label="操作">
+            <template #default="{ row }">
+              <el-text v-if="hasReservedRole(row.userId)" type="info" size="small">{{ reservedRoleReason }}</el-text>
+              <el-button v-else link type="primary" @click="openHistoricalHandover(row)">补交接</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button v-if="historyHasMore" :loading="historyBusy" @click="searchHandoverHistory(true)">加载更多</el-button>
       </div>
     </template>
 
@@ -302,15 +337,16 @@
     <el-dialog v-model="resultDialog" title="交接结果" width="680px">
       <el-alert
         :title="resultTitle"
-        :type="resultHasUnknown ? 'warning' : 'success'"
+        :type="resultHasUnknown ? 'warning' : resultHasShared ? 'info' : 'success'"
         show-icon
         class="mb-16px"
       />
       <el-table :data="handoverResult?.items || []"
-        ><el-table-column prop="label" label="业务域" /><el-table-column
-          prop="inFlight"
-          label="在途"
-        /><el-table-column prop="transferred" label="已转移" /><el-table-column label="结果"
+        ><el-table-column prop="label" label="业务域" /><el-table-column label="需承接"
+          ><template #default="{ row }">{{ row.status === 'ORGANIZATION_SHARED' ? '—' : row.inFlight < 0 ? '数量待核' : row.inFlight }}</template
+        ></el-table-column><el-table-column label="已转移"
+          ><template #default="{ row }">{{ row.status === 'ORGANIZATION_SHARED' ? '—' : row.transferred }}</template
+        ></el-table-column><el-table-column label="结果" min-width="270"
           ><template #default="{ row }"
             ><el-tag :type="statusMeta[row.status]?.type">{{
               statusMeta[row.status]?.label || row.status
@@ -463,6 +499,7 @@ import { usePermissionStore } from '@/store/modules/permission'
 import * as api from '@/api/platform/staff'
 import type {
   HandoverResult,
+  HandoverSource,
   PendingRow,
   PostTemplate,
   StaffAccountResult,
@@ -563,6 +600,13 @@ const handoverForm = reactive({
   toUserId: undefined as PlatformId | undefined
 })
 const handoverResult = ref<HandoverResult | null>(null)
+const historyQuery = ref('')
+const historyRows = ref<HandoverSource[]>([])
+const historyPage = ref(0)
+const historyHasMore = ref(false)
+const historyBusy = ref(false)
+const historyError = ref('')
+let historyGeneration = 0
 let loadGeneration = 0
 const importGuard = createImportGenerationGuard()
 let staffAccountGeneration = 0
@@ -600,9 +644,10 @@ const statusMeta: Record<
 > = {
   HANDED_OVER: { label: '已交接', type: 'success' },
   NONE: { label: '无在途事项', type: 'info' },
+  ORGANIZATION_SHARED: { label: '组织共享事项，需财务岗继续处理', type: 'info' },
   PENDING_UNASSIGNED: { label: '已转待分配', type: 'warning' },
   NOT_INTEGRATED: { label: '业务域未接入', type: 'warning' },
-  SCAN_FAILED: { label: '扫描失败', type: 'danger' }
+  SCAN_FAILED: { label: '扫描失败（待核）', type: 'danger' }
 }
 const resultHasUnknown = computed(
   () =>
@@ -610,8 +655,17 @@ const resultHasUnknown = computed(
       ['PENDING_UNASSIGNED', 'NOT_INTEGRATED', 'SCAN_FAILED'].includes(item.status)
     ) || false
 )
+const resultHasShared = computed(() =>
+  handoverResult.value?.items.some((item) => item.status === 'ORGANIZATION_SHARED') || false
+)
 const resultTitle = computed(() =>
-  resultHasUnknown.value ? '人员权限已处理，部分业务事项仍需人工核对。' : '交接与撤权已完成。'
+  resultHasUnknown.value
+    ? '人员权限已处理，部分业务事项仍需人工核对。'
+    : resultHasShared.value
+      ? '本组织权限已处理；财务为组织共享事项，需财务岗继续处理。'
+      : handoverResult.value?.mode === 'EMERGENCY'
+        ? '本组织权限已撤销，未发现待交接事项。'
+        : '交接与撤权已完成。'
 )
 const orgId = () => {
   if (!currentPost.value) throw new Error('当前工作身份已失效')
@@ -627,17 +681,32 @@ const clearStaffAccountCredential = () => {
   staffAccountDialog.value = false
 }
 
+const invalidateHandoverHistory = () => {
+  ++historyGeneration
+  historyRows.value = []
+  historyPage.value = 0
+  historyHasMore.value = false
+  historyBusy.value = false
+  historyError.value = ''
+}
+const resetHandoverHistory = () => {
+  invalidateHandoverHistory()
+  historyQuery.value = ''
+}
+
 const handleStaffRouteLeave = () => {
   if (saving.value) {
     ElMessage.warning('员工账号开通处理中，请稍候，完成后再离开页面')
     return false
   }
   clearStaffAccountCredential()
+  resetHandoverHistory()
   return true
 }
 
 const handleStaffDeactivated = () => {
   staffPageActive.value = false
+  resetHandoverHistory()
   if (!saving.value) clearStaffAccountCredential()
 }
 
@@ -863,6 +932,7 @@ const resetTransientState = () => {
   resultDialog.value = false
   importDialog.value = false
   resetImport()
+  resetHandoverHistory()
   handoverResult.value = null
   actionError.value = ''
   loadError.value = ''
@@ -939,7 +1009,47 @@ const openPendingHandover = (row: PendingRow) => {
   })
   handoverDialog.value = true
 }
+const openHistoricalHandover = (row: HandoverSource) => {
+  if (!canManage.value || blockReservedRemoval(hasReservedRole(row.userId))) return
+  Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name, toUserId: undefined })
+  handoverDialog.value = true
+}
 const actionScope = () => ({ generation: postGeneration(), orgId: orgId() })
+const searchHandoverHistory = async (more = false) => {
+  if (!canManage.value || historyBusy.value) return
+  const keyword = historyQuery.value.trim()
+  if (!keyword) {
+    historyError.value = '请输入姓名、手机号或员工编号'
+    return
+  }
+  const scope = actionScope()
+  const generation = ++historyGeneration
+  const pageNo = more ? historyPage.value + 1 : 1
+  const isCurrent = () =>
+    generation === historyGeneration &&
+    staffPageActive.value &&
+    isCurrentGeneration(scope.generation) &&
+    String(currentPost.value?.orgId) === String(scope.orgId)
+  historyBusy.value = true
+  historyError.value = ''
+  if (!more) {
+    historyRows.value = []
+    historyPage.value = 0
+    historyHasMore.value = false
+  }
+  try {
+    const result = await api.getHandoverSources(scope.orgId, keyword, pageNo)
+    if (!isCurrent()) return
+    historyRows.value = more ? [...historyRows.value, ...result.items] : result.items
+    historyHasMore.value = result.hasMore
+    historyPage.value = pageNo
+  } catch (error) {
+    if (isCurrent() && (error as Error)?.message !== 'STALE_POST_RESPONSE')
+      historyError.value = '历史任职查询失败，请重试'
+  } finally {
+    if (isCurrent()) historyBusy.value = false
+  }
+}
 const confirmed = (message: string, title: string) =>
   ElMessageBox.confirm(message, title, { type: 'warning' })
     .then(() => true)
@@ -1010,15 +1120,25 @@ const revoke = async (row: StaffRow) => {
   const scope = actionScope()
   if (!(await confirmed(`仅撤销 ${row.name} 的“${roleLabel(row.roleCode)}”任职？`, '撤销岗位')))
     return
-  await run(scope, () => api.revokePost(row.postId))
+  await run(scope, async () => {
+    try {
+      await api.revokePost(row.postId)
+    } catch (error) {
+      if (isCurrentGeneration(scope.generation)) await load()
+      throw error
+    }
+  }, '请按错误提示处理，并核对最新任职与待分配清单；如岗位已撤销，可查找原员工补交接。')
 }
 const stopInOrg = async (row: StaffRow) => {
   if (blockReservedRemoval(hasReservedRole(row.userId))) return
   const scope = actionScope()
-  if (!(await confirmed(`将撤销 ${row.name} 在本组织的全部任职，其他组织不受影响。`, '本组织停职')))
+  if (!(await confirmed(`将立即撤销 ${row.name} 在本组织的全部任职，并生成待交接清单。请继续处理待分配或待核事项。`, '本组织停职')))
     return
   if (blockReservedRemoval(hasReservedRole(row.userId))) return
-  await run(scope, () => api.setStaffStatus(row.userId, false))
+  await run(scope, async () => {
+    handoverResult.value = await api.emergencyRevokeStaff({ orgId: scope.orgId, userId: row.userId })
+    resultDialog.value = true
+  })
 }
 const emergency = async (row: StaffRow) => {
   if (blockReservedRemoval(hasReservedRole(row.userId))) return
@@ -1038,7 +1158,8 @@ const emergency = async (row: StaffRow) => {
 }
 const run = async (
   scope: { generation: number; orgId: PlatformId },
-  action: () => Promise<unknown>
+  action: () => Promise<unknown>,
+  errorMessage = '操作失败，服务器未确认本次变更，请核对后重试。'
 ) => {
   if (saving.value) return
   actionError.value = ''
@@ -1055,7 +1176,7 @@ const run = async (
     await load()
   } catch (error) {
     if ((error as Error)?.message !== 'STALE_POST_RESPONSE')
-      actionError.value = '操作失败，服务器未确认本次变更，请核对后重试。'
+      actionError.value = errorMessage
   } finally {
     if (isCurrentGeneration(scope.generation)) saving.value = false
   }

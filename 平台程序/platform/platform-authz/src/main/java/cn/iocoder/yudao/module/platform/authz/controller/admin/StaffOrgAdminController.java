@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.platform.org.DepartureHandoverService;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.StaffHandoverHistoryQuery;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
@@ -72,6 +73,8 @@ public class StaffOrgAdminController {
     // 字段名与 bean 名严格一致改用 name 显式指定 + 命名带域前缀。
     @Resource(name = "departureHandoverService")
     private DepartureHandoverService handoverService;
+    @Resource
+    private StaffHandoverHistoryQuery handoverHistory;
 
     public record Team(long deptId, long orgId, String name, String line) {
     }
@@ -201,7 +204,7 @@ public class StaffOrgAdminController {
     public CommonResult<Boolean> revokePost(@PathVariable("postId") long postId) {
         StaffPostDO post = staffPostService.getPost(postId).orElseThrow(() -> exception(PlatformOrgErrorCodes.POST_NOT_FOUND));
         requireScope(post.getOrgId());
-        staffPostService.revokePost(postId, currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
+        handoverService.revokePost(postId, currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
         return success(true);
     }
 
@@ -217,7 +220,8 @@ public class StaffOrgAdminController {
             if (!belongs) {
                 throw exception(PlatformOrgErrorCodes.USER_NOT_IN_ORG);
             }
-            staffPostService.revokeAllInOrg(req.userId(), post.orgId(),
+            // 保留旧接口 Boolean 契约，真实撤权/逐域扫描/待分配仍走独立事务编排。
+            handoverService.emergencyRevoke(post.orgId(), req.userId(),
                     currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId());
             return success(true);
         }
@@ -264,6 +268,17 @@ public class StaffOrgAdminController {
     public CommonResult<List<DepartureHandoverService.PendingRow>> handoverPending(@RequestParam("orgId") long orgId) {
         requireScope(orgId);
         return success(handoverService.listPending(orgId));
+    }
+
+    @GetMapping("/handover-sources")
+    @Operation(summary = "分页查找本组织曾任职员工，用于补交接历史遗留事项")
+    @PreAuthorize("@post.has('platform:org:manage')")
+    public CommonResult<StaffHandoverHistoryQuery.Page> handoverSources(
+            @RequestParam("orgId") long orgId,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo) {
+        requireScope(orgId);
+        return success(handoverHistory.search(orgId, keyword, pageNo));
     }
 
     // ===== 范围与组装 =====

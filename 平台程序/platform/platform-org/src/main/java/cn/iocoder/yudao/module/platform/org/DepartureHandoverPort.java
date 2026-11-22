@@ -11,7 +11,8 @@ package cn.iocoder.yudao.module.platform.org;
  *
  * <p>实现合同：
  * <ul>
- *   <li>{@code scanInFlight} 只读，不改数据；统计离职人在该组织名下<b>未终结</b>对象数；</li>
+ *   <li>{@code scanInFlight} 只读，不改数据；统计离职人在该组织名下仍需承接的个人责任对象数；
+ *       业务已归档但仍限制本人办理收款等后续事项的对象也须纳入；</li>
  *   <li>{@code validateReceiver} 只读校验接收人可承接<b>本域业务</b>（无对应岗位/岗位线不符抛业务
  *       异常）——编排器校验通用资格（在职/本组织/未停用），域级资格由本方法把守（Codex R1 P1-1：
  *       只有财务岗的人不得接收客户）；编排器在<b>任何转移写入前</b>对各已接入域统一调用；</li>
@@ -29,7 +30,12 @@ public interface DepartureHandoverPort {
     /** 域显示名（交接清单展示，如「客户」） */
     String label();
 
-    /** 只读扫描：离职员工在该组织的未终结在途对象数 */
+    /** 本域只有组织共享事项，无个人独占办理责任；与未接入、未知扫描明确区分。 */
+    default boolean organizationShared() {
+        return false;
+    }
+
+    /** 只读扫描：离职员工在该组织仍需承接的个人责任对象数 */
     long scanInFlight(long fromUserId, long orgId);
 
     /** 只读校验：接收人在该组织能否承接本域业务；不合格抛业务异常（先于任何转移写入） */
