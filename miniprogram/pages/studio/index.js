@@ -393,7 +393,7 @@ wx.showLoading({title:'提交生成任务',mask:true});
 return contentApi.tasks.create(attempt.payload,attempt.key).then(res=>{
 if(!alive())return;
 wx.hideLoading();
-const taskId=res&&res.taskId?String(res.taskId):'';
+const taskId=res&&res.id?String(res.id):'';
 if(!taskId)throw Error('任务创建失败，请稍后重试');
 wx.removeStorageSync(studio.scopedKey('zs-digital-attempt'));this.__digitalAttempt=null;this.__generating=false;this.setData({digitalSubmitting:false,digitalRetry:false});
 this.contentDropKey('task'); // 提交成功释放；失败保留，重试复用同键

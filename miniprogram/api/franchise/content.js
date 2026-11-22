@@ -26,8 +26,9 @@ const scripts = {
 };
 
 const tasks = {
-  /** 创建生成任务 kind=digital {voice,text,avatar,title?,subtitle?} | kind=ai_video {description,references?,resolution,duration,ratio} */
-  create: (data, key) => http.post('/franchise/content/tasks', data, idem(key, 'task')),
+  /** 创建生成任务返回统一任务 DTO {id,kind,status,...}；兼容旧 taskId 回包，Long ID 保持字符串。 */
+  create: (data, key) => http.post('/franchise/content/tasks', data, idem(key, 'task'))
+    .then(task => task && ({ ...task, id: String(task.id || task.taskId || '') })),
   /** 任务列表（?status= 过滤七态） */
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
   /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */

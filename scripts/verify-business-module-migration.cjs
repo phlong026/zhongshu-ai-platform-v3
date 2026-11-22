@@ -9,6 +9,15 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 const event = (key, value) => ({ currentTarget: { dataset: key }, detail: { value } });
 const plain = value => JSON.parse(JSON.stringify(value));
 
+function taskApi(post) {
+  const mod = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/api/franchise/content'), 'utf8'), {
+    module: mod,
+    require(name) { assert.equal(name, '../http'); return { post }; }
+  });
+  return mod.exports.tasks;
+}
+
 function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
   let linkDraft;
@@ -335,17 +344,60 @@ test('digital network retry freezes complete payload and key across page recreat
   reload.page.restoreDigitalAttempt();await reload.page.generateDigitalOnline();assert.deepEqual(requests[0],requests[2]);assert.equal(reload.page.data.script,'完整口播稿');
 });
 
-test('digital submission accepts exact local clone IDs, saves a completed task and releases its pending request', async () => {
-  const requests=[],saves=[];const h=harness('studio/index.js',{tasks:{create:async(body,key)=>{requests.push([plain(body),key]);return {taskId:'90071992547409931'};},saveWork:async(id,title)=>saves.push([id,title])}});
+test('digital submission accepts the real task DTO id and saves the same completed task', async () => {
+  const id='90071992547409931',requests=[],saves=[];
+  const h=harness('studio/index.js',{tasks:taskApi(async(url,body,headers)=>{
+    if(url==='/franchise/content/tasks'){
+      requests.push([plain(body),headers['Idempotency-Key']]);
+      return {id,kind:'digital',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
+    }
+    assert.equal(url,'/franchise/content/tasks/'+id+'/save-work');saves.push([id,body.title]);return {workId:'90071992547409932'};
+  })});
   Object.assign(h.page.data,{script:'同一人物口播',title:'张工',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
   await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.deepEqual(saves,[['90071992547409931','张工']]);
+  assert.deepEqual(h.calls,[['poll',id]]);
   assert.equal(h.page.data.digitalRetry,false);assert.equal(h.storage.size,0);assert.match(h.navigations[0],/view=tasks/);
+});
+
+test('digital retry after a lost response replays the frozen request and resumes its original task id', async () => {
+  const requests=[],saves=[],accepted=new Map();let loseResponse=true;
+  const tasks=taskApi(async(url,body,headers)=>{
+    if(url==='/franchise/content/tasks'){
+      const key=headers['Idempotency-Key'];requests.push([plain(body),key]);
+      if(!accepted.has(key))accepted.set(key,{body:plain(body),id:'90071992547409933'});
+      assert.deepEqual(plain(body),accepted.get(key).body);
+      if(loseResponse){loseResponse=false;throw {code:-1,message:'response lost after acceptance'};}
+      return {id:accepted.get(key).id,kind:'digital',status:'RUNNING'};
+    }
+    assert.equal(url,'/franchise/content/tasks/90071992547409933/save-work');saves.push(plain(body));return {workId:'90071992547409934'};
+  });
+  const first=harness('studio/index.js',{tasks});Object.assign(first.page.data,{script:'原口播稿',title:'原标题',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
+  await first.page.generateDigitalOnline();assert.equal(first.page.data.digitalRetry,true);assert.equal(first.navigations.length,0);
+  const retry=harness('studio/index.js',{tasks},'sales-lead',{storage:first.storage});
+  retry.page.restoreDigitalAttempt();retry.page.data.script='重试不应替换原稿';await retry.page.generateDigitalOnline();
+  assert.deepEqual(requests[0],requests[1]);assert.equal(accepted.size,1);
+  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.deepEqual(saves,[{title:'原标题'}]);
+  assert.equal(retry.page.data.digitalRetry,false);assert.equal(retry.storage.size,0);assert.match(retry.navigations[0],/view=tasks/);
+});
+
+test('task create normalizes the legacy taskId response without replacing the canonical id', async () => {
+  const responses=[{taskId:'90071992547409935',status:'QUEUED'},{id:'90071992547409936',taskId:'old-id',status:'RUNNING'}];
+  const tasks=taskApi(async()=>responses.shift());
+  assert.equal((await tasks.create({kind:'digital'},'legacy-key')).id,'90071992547409935');
+  assert.equal((await tasks.create({kind:'digital'},'canonical-key')).id,'90071992547409936');
+});
+
+test('a digital create response without any task id keeps the pending request for recovery', async () => {
+  const h=harness('studio/index.js',{tasks:taskApi(async()=>({kind:'digital',status:'QUEUED'}))});
+  Object.assign(h.page.data,{script:'原口播稿',avatarCloneId:'31',voiceCloneId:'32'});
+  await h.page.generateDigitalOnline();
+  assert.equal(h.page.data.digitalRetry,true);assert.equal(h.storage.size,1);assert.equal(h.navigations.length,0);assert.equal(h.calls.length,0);
 });
 
 test('late digital response cannot navigate or save after a session switch', async () => {
   const pending=deferred(),saves=[];const h=harness('studio/index.js',{tasks:{create:()=>pending.promise,saveWork:async()=>saves.push('saved')}});
   Object.assign(h.page.data,{script:'旧岗位稿件',title:'旧人物',avatarCloneId:'31',voiceCloneId:'32'});
-  const run=h.page.generateDigitalOnline();h.changeScope();pending.resolve({taskId:'old-task'});await run;
+  const run=h.page.generateDigitalOnline();h.changeScope();pending.resolve({id:'old-task',kind:'digital',status:'QUEUED'});await run;
   assert.equal(h.navigations.length,0);assert.deepEqual(saves,[]);
 });
 

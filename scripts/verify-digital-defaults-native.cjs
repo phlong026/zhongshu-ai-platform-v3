@@ -28,7 +28,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    else if(/\/franchise\/content\/clones\/\d+\/default$/.test(route)){
     const id=route.split('/').slice(-2)[0],row=state.clones.find(row=>row.id===id);
     state.clones.filter(item=>item.kind===row.kind).forEach(item=>{item.isDefault=item.id===id;});data=row;
-   }else if(route==='/franchise/content/tasks'&&options.method==='POST'){state.submittedDefaultPayload=body;data={taskId:'901'};}
+   }else if(route==='/franchise/content/tasks'&&options.method==='POST'){state.submittedDefaultPayload=body;data={id:'901',kind:'digital',status:'QUEUED'};}
    else if(route==='/franchise/content/tasks/901')data={id:'901',kind:'digital',status:'SUCCEEDED',resultUrl:'https://example.test/not-played.mp4'};
    else if(route==='/franchise/content/tasks/901/save-work')data={workId:'902'};
    setTimeout(()=>options.success&&options.success({statusCode:200,data:{code:0,data},header:{}}),15);return{abort(){}};
@@ -51,6 +51,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   await until(()=>mp.evaluate(()=>!!getApp().globalData.fixture.submittedDefaultPayload));
   const payload=await mp.evaluate(()=>getApp().globalData.fixture.submittedDefaultPayload);
   assert.equal(payload.avatarCloneId,'33');assert.equal(payload.voiceCloneId,'34');checks.push('生成页自动带出默认资源，提交使用默认分身和声音的准确编号');
+  await until(async()=>(await data()).view==='tasks');checks.push('真实 id 回包进入任务中心');
   assert.equal(errors.length,0,JSON.stringify(errors));
   fs.writeFileSync(path.join(output,'digital-defaults-native-results.json'),JSON.stringify({passed:true,checks,errors,fixture:true,paidGeneration:false},null,2));console.log(JSON.stringify({passed:true,checks}));
  }finally{
