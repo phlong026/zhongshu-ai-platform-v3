@@ -78,6 +78,17 @@ class ArtifactVerifierTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("version", result.stderr)
 
+    def test_includes_java_migration_in_the_packaged_checksum_manifest(self):
+        resource = "db/migration/pf/V20261122_989__preserve_changed_staff_passwords.class"
+        result = self.check(extra_resource=resource)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(resource, result.stdout)
+
+    def test_rejects_java_migration_version_collision_with_sql(self):
+        result = self.check(extra_resource="db/migration/pf/V1__collision.class")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate Flyway version", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

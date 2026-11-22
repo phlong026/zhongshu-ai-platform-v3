@@ -48,7 +48,10 @@ def verify(path):
                 if "cn.iocoder.yudao.server." in factories:
                     raise ValueError(f"Fusion environment processor in {origin}")
             for migration_root in ("db/migration/", "db/migration-undo/"):
-                if not resource.startswith(migration_root) or not resource.endswith(".sql"):
+                if not resource.startswith(migration_root) or not resource.endswith((".sql", ".class")):
+                    continue
+                # Inner classes belong to their enclosing Java migration, not another Flyway version.
+                if resource.endswith(".class") and "$" in resource.rsplit("/", 1)[1]:
                     continue
                 location = resource[len(migration_root):].split("/", 1)[0]
                 if location not in LOCATIONS:
