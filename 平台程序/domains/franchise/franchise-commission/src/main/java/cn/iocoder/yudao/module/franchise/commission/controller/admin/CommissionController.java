@@ -142,6 +142,12 @@ public class CommissionController {
         return success(commissionService.workbenchCounts(currentPost.require()));
     }
 
+    @GetMapping("/commissions/workbench-recent")
+    @PreAuthorize("@post.has('franchise:commission:query')")
+    public CommonResult<java.util.List<CommissionService.RecentHandling>> workbenchRecent() {
+        return success(commissionService.workbenchRecent(currentPost.require()));
+    }
+
     @GetMapping("/commissions/{id}")
     @Operation(summary = "委托详情（含提交版本、设计记录、移交版本、费用审批、allowedActions 与显示状态）")
     @PreAuthorize("@post.has('franchise:commission:query')")

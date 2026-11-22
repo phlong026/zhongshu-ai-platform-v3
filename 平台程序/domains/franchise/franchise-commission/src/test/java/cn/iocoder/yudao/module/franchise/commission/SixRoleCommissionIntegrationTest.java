@@ -94,6 +94,71 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         }
     }
 
+    @Test @org.springframework.transaction.annotation.Transactional
+    void recentHandlingUsesLatestEventsAcrossAllVisibleCommissions() throws Exception {
+        var store=fixture.store();var outside=fixture.store();
+        var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
+        var colleague=fixture.post(design.orgId(),"hq-design-admin",null);
+        var finance=fixture.post(design.orgId(),"finance",null);
+        String prefix="recent-"+UUID.randomUUID().toString().substring(0,8)+"-";
+        var time=java.time.OffsetDateTime.parse("2099-11-22T10:00:00Z");
+        var before=as(design,()->commissions.workbenchRecent(design));
+        var ids=new java.util.ArrayList<Long>();
+        for(int i=1;i<=238;i++) {
+            long id=cn.hutool.core.util.IdUtil.getSnowflakeNextId();ids.add(id);
+            jdbc.update("INSERT INTO fr_commission(id,company_id,design_org_id,customer_id,customer_name,status,submission_version,update_time) VALUES(?,?,?,?,?,'DISPATCHED',1,?)",
+                    id,store.orgId(),i==238?outside.orgId():design.orgId(),id,prefix+i,time.minusSeconds(i));
+        }
+        var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();page.setPageSize(100);
+        assertThat(as(design,()->commissions.workbenchRecent(design))).isEqualTo(before);
+        assertThat(as(design,()->commissions.page(design,page,prefix)).getList())
+                .extracting(c->c.getId()).doesNotContain(ids.get(100),ids.get(236));
+
+        // More recent commission updates and feedback do not move an older handling event to the front.
+        recentEvent(store.orgId(),design.orgId(),ids.get(236),"COMPLETE",1,time,colleague);
+        recentEvent(store.orgId(),design.orgId(),ids.get(236),"COMPLETE",2,time.plusDays(1),colleague);
+        recentEvent(store.orgId(),design.orgId(),ids.get(236),"DISPATCH",1,time.plusDays(1),colleague);
+        recentEvent(store.orgId(),design.orgId(),ids.get(100),"COMPLETE",1,time.plusDays(1),colleague);
+        for(int i=3;i<=6;i++) recentEvent(store.orgId(),design.orgId(),ids.get(i-1),"COMPLETE",1,time.plusHours(10-i),design);
+        recentEvent(store.orgId(),design.orgId(),ids.get(6),"FEEDBACK",1,time.plusDays(2),design);
+        // Broken event ownership must not bypass the commission's own organization boundary.
+        recentEvent(outside.orgId(),design.orgId(),ids.get(1),"COMPLETE",1,time.plusDays(2),design);
+        recentEvent(store.orgId(),outside.orgId(),ids.get(1),"DISPATCH",1,time.plusDays(2),design);
+        recentEvent(store.orgId(),design.orgId(),ids.get(237),"COMPLETE",1,time.plusDays(2),design);
+
+        var recent=as(design,()->commissions.workbenchRecent(design));
+        var expected=java.util.List.of(ids.get(100),ids.get(236),ids.get(2),ids.get(3),ids.get(4))
+                .stream().map(String::valueOf).toList();
+        assertThat(recent).extracting(CommissionService.RecentHandling::commissionId).containsExactlyElementsOf(expected);
+        assertThat(recent.get(0).customerName()).isEqualTo(prefix+"101");
+        assertThat(recent.get(1).kind()).isEqualTo("DISPATCH");
+        assertThat(java.time.OffsetDateTime.parse(recent.get(1).handledAt())).isEqualTo(time.plusDays(1));
+        assertThat(as(design,()->commissions.workbenchRecent(design))).isEqualTo(recent);
+        assertError(()->as(finance,()->commissions.workbenchRecent(finance)),COMMISSION_FORBIDDEN);
+        var boss=fixture.post(store.orgId(),"boss",null);
+        assertError(()->as(boss,()->commissions.workbenchRecent(boss)),COMMISSION_FORBIDDEN);
+
+        var controller=new cn.iocoder.yudao.module.franchise.commission.controller.admin.CommissionController(commissions,handovers,currentPost);
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        currentPost.use(design);
+        try {
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/franchise/commissions/workbench-recent"))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.length()").value(5))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data[0].commissionId").value(expected.get(0)))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data[0].kind").value("COMPLETE"));
+        } finally { currentPost.clear(); }
+    }
+
+    private void recentEvent(long company,long designOrg,long commission,String kind,int seq,
+                             java.time.OffsetDateTime time,PostSnapshot actor) {
+        jdbc.update("""
+                INSERT INTO fr_commission_progress(id,company_id,design_org_id,commission_id,kind,seq,note,
+                  feedback_status,actor_user_id,actor_post_id,create_time) VALUES(?,?,?,?,?,?,'最近办理测试',?,?,?,?)
+                """,cn.hutool.core.util.IdUtil.getSnowflakeNextId(),company,designOrg,commission,kind,seq,
+                "FEEDBACK".equals(kind)?"PENDING":null,actor.userId(),actor.postId(),time);
+    }
+
     @Test void areaSubmissionFreezesPriceRejectsStaleAndRequiresBothLiveNets() {
         var store=fixture.store();
         PostSnapshot sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
