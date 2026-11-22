@@ -274,8 +274,29 @@ public class CommissionService implements DesignFeeProgressApi {
     }
 
     public PageResult<CommissionDO> page(PostSnapshot post, PageParam page, String keyword) {
+        return page(post, page, keyword, null);
+    }
+
+    public PageResult<CommissionDO> page(PostSnapshot post, PageParam page, String keyword, String statuses) {
+        var filters = statuses == null || statuses.isBlank() ? List.<String>of()
+                : java.util.Arrays.stream(statuses.split(",")).map(String::trim).distinct().toList();
+        if (!java.util.Set.of("FEE_PENDING", "FEE_RETURNED", "DESIGNING", "DESIGN_COMPLETED", "DISPATCHED",
+                "HANDOVER_SUBMITTED", "HANDOVER_RETURNED", "ACCEPTED", "MODIFYING").containsAll(filters)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        }
         return commissionMapper.selectPage(page, access.visibleTo(post,
-                visibleCustomerIds(post), managedCommissionIds(post)), keyword);
+                visibleCustomerIds(post), managedCommissionIds(post)), keyword, filters);
+    }
+
+    /** 总部设计台全量状态计数，不依赖客户端已经加载了多少页。 */
+    public java.util.Map<String,Long> workbenchCounts(PostSnapshot post) {
+        if (!FranchiseRoles.atHeadquarters(post) || !FranchiseRoles.DESIGN_ADMIN.equals(post.roleCode())) {
+            throw exception(COMMISSION_FORBIDDEN);
+        }
+        var counts = new java.util.LinkedHashMap<String,Long>();
+        jdbc.query("SELECT status, COUNT(*) AS total FROM fr_commission WHERE design_org_id=? GROUP BY status",
+                rs -> { counts.put(rs.getString("status"), rs.getLong("total")); }, post.orgId());
+        return counts;
     }
 
     /** 当前岗位可见的全部委托（待办即时计算用） */

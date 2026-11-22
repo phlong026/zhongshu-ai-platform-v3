@@ -128,11 +128,18 @@ public class CommissionController {
     @Operation(summary = "委托列表：业务按客户经办范围，老板全店，总部设计行政按设计组织，接收人含本人")
     @PreAuthorize("@post.has('franchise:commission:query')")
     public CommonResult<PageResult<CommissionSummary>> page(@Valid PageParam page,
-                                                       @RequestParam(required = false) String keyword) {
+                                                       @RequestParam(required = false) String keyword,
+                                                       @RequestParam(required = false) String statuses) {
         var post=currentPost.require();
-        var result=commissionService.page(post,page,keyword);
+        var result=commissionService.page(post,page,keyword,statuses);
         return success(new PageResult<>(result.getList().stream().map(c->new CommissionSummary(Commission.of(c),c.getId(),
                 commissionService.displayStatus(c),commissionService.allowedActions(post,c))).toList(),result.getTotal()));
+    }
+
+    @GetMapping("/commissions/workbench-counts")
+    @PreAuthorize("@post.has('franchise:commission:query')")
+    public CommonResult<java.util.Map<String,Long>> workbenchCounts() {
+        return success(commissionService.workbenchCounts(currentPost.require()));
     }
 
     @GetMapping("/commissions/{id}")
