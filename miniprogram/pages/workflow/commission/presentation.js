@@ -381,6 +381,17 @@ function eventTime(at) {
   if (Number.isNaN(date.getTime())) return '';
   return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
 }
+function recentRows(list) {
+  if (!Array.isArray(list)) throw Error('办理记录加载失败');
+  return list.map(row => {
+    if (typeof row?.commissionId !== 'string' || !/^\d+$/.test(row.commissionId)
+      || typeof row.customerName !== 'string' || typeof row.handledAt !== 'string'
+      || !['COMPLETE','DISPATCH'].includes(row.kind) || !eventTime(row.handledAt)) throw Error('办理记录加载失败');
+    return { id:row.commissionId, name:row.customerName, initial:String(row.customerName || '项').slice(0,1),
+      url:url(row.commissionId,'progress'), recentWhen:eventTime(row.handledAt),
+      recentText:row.kind === 'DISPATCH' ? '成果已下发' : '已登记设计完成' };
+  });
+}
 function workbench(list, statusCounts) {
   const rows = list.filter(c => c.commissionId).map(c => {
     const n = stateOf(c), status = statusOf(c);
@@ -455,4 +466,4 @@ function errorMessage(err) {
   return (err && (err.message || err.msg)) || '网络异常，请稍后重试';
 }
 
-module.exports = { ACTIONS, FILTERS, FILTER_STATUSES, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, paginate, dateLabel, errorMessage };
+module.exports = { ACTIONS, FILTERS, FILTER_STATUSES, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, recentRows, paginate, dateLabel, errorMessage };

@@ -20,7 +20,7 @@ const commandKey = action => {
 
 Page({
   ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
-  data: { exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
+  data: { recentLoading:false,recentError:'',exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
   onLoad(options) {
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
@@ -38,6 +38,7 @@ Page({
   cmdKey(action) { this.__cmdKeys = this.__cmdKeys || {}; if (!this.__cmdKeys[action]) this.__cmdKeys[action] = commandKey(action); return this.__cmdKeys[action]; },
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
+    this.__recentRequest = null; this.setData({recentLoading:false,recentError:''});
     this.__projectRequest = null; this.setData({projectLoading:false});
     this.action = ''; this.nextView = ''; this.initialized = false; this.__list = null;
     this.__briefScope='';this.setData({ orderSheet:null,hasOrderSheet:false,exporting:false,designBriefEnabled:false,designBrief:{},briefSummary:'',orderCustomer:{},paymentOrder:null,simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,canFeeDecide: false, canFeedback: false, managerOptions: [] });
@@ -69,13 +70,28 @@ Page({
     try{const order=await API.commissions.simulatedReceipt(this.id);if(!alive()||this.disposed)return;this.setData({platformStatus:'ready',paymentOrder:paymentView(order),customer:{name:order.customerName}});}
     catch(e){if(alive()&&!this.disposed)this.setData({platformStatus:'degraded',error:Presentation.errorMessage(e)});}
   },
-  // ---- 设计行政工作台（首页/项目）：commissions.page → 工作台视图 ----
+  async refreshRecent(parentAlive = () => true) {
+    const alive = http.requestGuard('commission-recent'), request = this.__recentRequest = {};
+    const same = () => parentAlive() && alive() && this.__recentRequest === request && !this.disposed && this.view === 'admin';
+    this.setData({recent:[],recentLoading:true,recentError:''});
+    try {
+      const recent = Presentation.recentRows(await API.commissions.workbenchRecent());
+      if (same()) this.setData({recent});
+    } catch (error) {
+      if (same()) this.setData({recentError:'办理记录加载失败'});
+    } finally {
+      if (same()) this.setData({recentLoading:false});
+    }
+  },
+  retryRecent() { return this.refreshRecent(); },
+  // ---- 设计行政工作台：全量指标、待办与最近办理分别读取 ----
   async refreshWorkbench(alive) {
     const actor = this.actor();
     if (actor.role !== 'hq-design-admin' || actor.orgType !== 'headquarters') return this.failState('当前岗位无设计行政权限');
     if(this.view==='admin')this.setData({view:'admin',tasks:[],taskCount:0,recent:[],adminName:this.homeProfileName||actor.name||this.__post.name||'设计同事',adminDate:Presentation.dateLabel(),metrics:Presentation.workbench([]).metrics.map(m=>({...m,value:'—'}))});
     this.setData({ platformStatus: 'loading', error: '' });
     http.get('/platform/profile/mine').then(profile=>{if(alive()&&!this.disposed&&profile&&profile.nickname){this.homeProfileName=profile.nickname;this.setData({adminName:profile.nickname});}}).catch(()=>{});
+    const recent = this.view === 'admin' ? this.refreshRecent(alive) : Promise.resolve();
     try {
       const [counts, todos] = await Promise.all([API.commissions.workbenchCounts(),
         this.view === 'admin' ? require('../../../api/todos').list() : Promise.resolve(null)]);
@@ -85,12 +101,13 @@ Page({
         if (!Array.isArray(todos?.items) || todos.failedDomains?.includes('franchise')) throw Error('设计待办暂未加载，请稍后刷新');
         const tasks = todos.items.filter(t => t.actionable && /^franchise:design-(complete|dispatch):/.test(t.key))
           .map(t => ({ key:t.key, title:t.title, url:t.appPath, clickable:true, status:t.status === 'DESIGN_COMPLETED' ? '待下发' : '设计中' }));
-        this.setData({ title: '首页', view: 'admin', platformStatus: 'ready', error: '', primary: '', tasks, taskCount: tasks.length, metrics: wb.metrics, recent: wb.recent, projectFilters: wb.filters, adminName: this.homeProfileName || actor.name || this.__post.name || '设计同事', adminDate: Presentation.dateLabel() });
+        this.setData({ title: '首页', view: 'admin', platformStatus: 'ready', error: '', primary: '', tasks, taskCount: tasks.length, metrics: wb.metrics, projectFilters: wb.filters, adminName: this.homeProfileName || actor.name || this.__post.name || '设计同事', adminDate: Presentation.dateLabel() });
       } else {
         this.setData({ title: '项目', view: 'projects', platformStatus: 'ready', error: '', primary: '', projectFilters: wb.filters });
         return this.renderAdminProjects(true);
       }
     } catch (e) { if (!alive() || this.disposed) return; this.failState(Presentation.errorMessage(e)); }
+    await recent;
   },
   // ---- 费用规则（policy=老板标准费用 / pricing=总部计价）：policies.current → 表单 ----
   async refreshRules(alive, reset) {
