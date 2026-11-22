@@ -438,6 +438,43 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void nodeCompletionKeepsEveryAuthorizedPhotoAndReplaysTheExactEvidence() {
+        long startAsset=insertAsset("ENG_DRAWING",true,store.orgId());
+        as(engineer,()->planService.prepare(engineer,projectId,startCmd(startAsset),idem()));
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE,end_date=CURRENT_DATE+30 WHERE project_id=?",projectId);
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER,40800000L);
+        as(engineer,()->planService.start(engineer,projectId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"实际开工",startAsset,true),idem()));
+        jdbc.update("UPDATE fr_eng_material SET status='CANCELLED' WHERE project_id=?",projectId);
+        var photos=java.util.List.of(insertAsset("ENG_SITE_PHOTO",true,store.orgId()),
+                insertAsset("ENG_SITE_PHOTO",true,store.orgId()),insertAsset("ENG_SITE_PHOTO",true,store.orgId()));
+        var bad=java.util.List.of(photos.get(0),insertAsset("ENG_SITE_PHOTO",true,fixture.store().orgId()),photos.get(2));
+        assertThatThrownBy(()->as(engineer,()->planService.completeNode(engineer,projectId,nodeId,
+                new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"三张验收照片",null,true,bad),idem())))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_site_record WHERE node_id=? AND completion=TRUE",Long.class,nodeId)).isZero();
+        for(var invalid:java.util.List.of(java.util.List.<Long>of(),java.util.Collections.nCopies(10,photos.get(0)),
+                java.util.Arrays.asList(photos.get(0),null),java.util.List.of(photos.get(0),photos.get(0)))) {
+            assertThatThrownBy(()->as(engineer,()->planService.completeNode(engineer,projectId,nodeId,
+                    new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"无效凭据数量",null,true,invalid),idem())))
+                    .isInstanceOf(ServiceException.class);
+        }
+        String key=idem();var command=new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"三张验收照片",null,true,photos);
+        as(engineer,()->planService.completeNode(engineer,projectId,nodeId,command,key));
+        as(engineer,()->planService.completeNode(engineer,projectId,nodeId,command,key));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_site_record WHERE node_id=? AND completion=TRUE",Long.class,nodeId)).isEqualTo(1);
+        var detail=as(engineer,()->projectService.detail(engineer,projectId));
+        @SuppressWarnings("unchecked") var records=(java.util.List<java.util.Map<String,Object>>)detail.get("siteRecords");
+        var saved=records.stream().filter(r->String.valueOf(r.get("node_id")).equals(Long.toString(nodeId))&&Boolean.TRUE.equals(r.get("completion"))).findFirst().orElseThrow();
+        assertThat(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(String.valueOf(saved.get("file_asset_ids")),String.class))
+                .containsExactlyElementsOf(photos.stream().map(String::valueOf).toList());
+        assertThatThrownBy(()->as(engineer,()->planService.completeNode(engineer,projectId,nodeId,
+                new EngPlanService.NodeRecordCommand(command.date(),command.note(),null,true,java.util.List.of(photos.get(0))),key)))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_eng_plan_node WHERE id=?",String.class,nodeId)).isEqualTo("DONE");
+    }
+
+    @Test
     void arrivalCorrectionAcceptsExactPlanAndReplaysWithoutAnotherCorrection() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
         jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);

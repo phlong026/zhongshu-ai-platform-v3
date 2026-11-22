@@ -101,7 +101,10 @@ public class EngPlanService {
     public record RescheduleCommand(int nodeIndex, LocalDate newStart, String note) {
     }
 
-    public record NodeRecordCommand(LocalDate date, String note, Long fileAssetId, boolean noMaterials) {
+    public record NodeRecordCommand(LocalDate date, String note, Long fileAssetId, boolean noMaterials, List<Long> fileAssetIds) {
+        public NodeRecordCommand(LocalDate date, String note, Long fileAssetId, boolean noMaterials) {
+            this(date, note, fileAssetId, noMaterials, null);
+        }
     }
 
     public record NodeCorrectCommand(LocalDate completedAt, String note, Long fileAssetId, String reason) {
@@ -477,9 +480,20 @@ public class EngPlanService {
     public Map<String, Object> completeNode(PostSnapshot post, long projectId, long nodeId,
                                             NodeRecordCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "node");
+        List<Long> assetIds = cmd.fileAssetIds() == null
+                ? (cmd.fileAssetId() == null ? List.of() : List.of(cmd.fileAssetId())) : cmd.fileAssetIds();
+        if (assetIds.isEmpty() || assetIds.size() > 9 || assetIds.stream().anyMatch(java.util.Objects::isNull)
+                || assetIds.stream().distinct().count() != assetIds.size()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请选择1至9份不同的现场验收凭据");
+        }
         // 重放输入=落账输入（评审十三 P1-3）：nodeId+原始日期两处同形
-        Map<String, Object> payload = Map.of("nodeId", nodeId,
-                "date", cmd.date() == null ? "" : cmd.date().toString());
+        Map<String, Object> payload = new LinkedHashMap<>(Map.of("nodeId", nodeId,
+                "date", cmd.date() == null ? "" : cmd.date().toString()));
+        // 新多凭据契约锁定完整意图；旧单凭据命令保留历史幂等指纹兼容。
+        if (cmd.fileAssetIds() != null) {
+            payload.put("note", StrUtil.nullToEmpty(cmd.note()));
+            payload.put("fileAssetIds", assetIds.stream().map(String::valueOf).toList());
+        }
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return projectService.detail(post, projectId);
@@ -500,7 +514,7 @@ public class EngPlanService {
             throw exception(ENGINEERING_INPUT_INVALID, "请记录现场情况");
         }
         // M07-T03/I04：现场/验收凭据资产域侧校验
-        requireValidAsset(post, cmd.fileAssetId(),
+        for (Long assetId : assetIds) requireValidAsset(post, assetId,
                 java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "现场验收");
         if (!materialReadyForNode(post, projectId, nodeId)) {
             throw exception(GATE_NOT_MET); // 本节点材料尚未合格到齐
@@ -511,7 +525,7 @@ public class EngPlanService {
                         + "VALUES (?,?,?,?,?,?,TRUE,?,?,CAST(? AS jsonb),?,now())",
                 cn.hutool.core.util.IdUtil.getSnowflakeNextId(), post.orgId(), projectId, nodeId, date,
                 cmd.note(), FrEngSiteRecordDO.RESULT_PASS, FrEngSiteRecordDO.MODE_SINGLE_PERSON,
-                JsonList.of(cmd.fileAssetId()), post.userId());
+                JsonList.of(assetIds.stream().map(String::valueOf).toArray()), post.userId());
         planNodes.updateById(new FrEngPlanNodeDO().setId(nodeId)
                 .setStatus(FrEngPlanNodeDO.STATUS_DONE).setCompletedAt(date)
                 .setResponsibleUserId(post.userId()));
