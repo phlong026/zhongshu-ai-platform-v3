@@ -17,10 +17,14 @@ public class ContentMaterialVisibility implements AssetVisibilityPort {
         // Background access is reached only through a validated persisted task and service-account mapping.
         if (actor.userId() == 0 && actor.postId() == 0) return;
         var rows = jdbc.queryForList("SELECT COALESCE(p.author_user_id,m.author_user_id) AS author,"
-                + " COALESCE(p.visibility,m.visibility) AS visibility FROM fr_content_material m"
+                + " COALESCE(p.visibility,m.visibility) AS visibility,"
+                + " (m.removed OR COALESCE(p.removed,FALSE)) AS removed FROM fr_content_material m"
                 + " LEFT JOIN fr_content_material p ON p.asset_id=m.parent_asset_id"
                 + " WHERE m.asset_id=? AND m.tenant_id=? AND m.company_id=?", id, tenant, actor.orgId());
-        if (!rows.isEmpty() && ((Number) rows.get(0).get("author")).longValue() != actor.userId()
-                && !"COMPANY".equals(rows.get(0).get("visibility"))) throw exception(RESOURCE_FORBIDDEN);
+        // Direct uploads have no library entry. Registered assets and covers require their existing live entry.
+        if (rows.isEmpty()) return;
+        var row=rows.get(0); // asset_id is the library primary key.
+        if (Boolean.TRUE.equals(row.get("removed")) || (((Number) row.get("author")).longValue() != actor.userId()
+                && !"COMPANY".equals(row.get("visibility")))) throw exception(RESOURCE_FORBIDDEN);
     }
 }
