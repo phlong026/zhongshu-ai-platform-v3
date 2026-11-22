@@ -5,21 +5,23 @@ const later=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;
 const moduleP={exports:{}};
 vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/platform-content'),'utf8'),{module:moduleP,require:()=>({}),setTimeout,Date});
 const P=moduleP.exports;
-function harness({disk=new Map(),cloud=new Map(),read,save,task,upload,download,preview}={}){
-  let definition,valid=true;const writes=[],submissions=[],uploads=[],downloads=[],toasts=[];
-  const state={tasks:[{id:'101',kind:'ai',script:'history A',configuration:{}},{id:'102',kind:'ai',script:'history B',configuration:{}}]};
-  const api={drafts:{videoDraft:read||(async key=>structuredClone(cloud.get(key)||{exists:false,revision:0})),saveVideoDraft:async body=>{
+const taskInput=(taskId,description,extra={})=>({taskId,kind:'ai_video',mode:'frames',description,firstFrameAssetId:'',lastFrameAssetId:'',references:[],parameters:{duration:8,resolution:'768P',ratio:'9:16'},...extra});
+function harness({disk=new Map(),cloud=new Map(),read,save,task,input,upload,download,preview}={}){
+  let definition,valid=true;const writes=[],submissions=[],uploads=[],downloads=[],toasts=[],inputReads=[],draftReads=[];
+  const state={tasks:[]};
+  const originals=new Map([['101',taskInput('101','history A')],['102',taskInput('102','history B')]]);
+  const api={drafts:{videoDraft:async key=>{draftReads.push(key);return read?read(key):structuredClone(cloud.get(key)||{exists:false,revision:0});},saveVideoDraft:async body=>{
     writes.push(structuredClone(body));if(save)return save(body);
     const prior=cloud.get(body.draftKey)||{revision:0};if(body.revision!==prior.revision)throw{code:1114000011};
     const result={...prior,...body,exists:true,revision:prior.revision+1};cloud.set(body.draftKey,result);return {id:'draft',mode:body.mode,revision:result.revision};
-  }},assets:{downloadUrl:async id=>{downloads.push(id);return download?download(id):{downloadUrl:'https://signed.example/'+id};}},tasks:{create:async body=>{submissions.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}};
+  }},assets:{downloadUrl:async id=>{downloads.push(id);return download?download(id):{downloadUrl:'https://signed.example/'+id};}},tasks:{editableInput:async id=>{inputReads.push(id);if(input)return input(id);if(!originals.has(id))throw Error('任务不存在或无权读取');return structuredClone(originals.get(id));},create:async body=>{submissions.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}};
   const media={upload:async(path,alive)=>{uploads.push(path);return upload?upload(path,alive):String(100+uploads.length);},source:async(id,alive,options={})=>{await api.assets.downloadUrl(id);if(!alive())throw Error('身份已切换');return preview?preview(id,options):options.type==='image'?(options.localPath||'/authorized/'+id+'.png'):'';}};
   const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':media,'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
   const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast:o=>toasts.push(o.title),navigateTo(){},redirectTo(){}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/ai-video/index'),'utf8'),{Page:d=>definition=d,require:p=>{assert(p in modules,p);return modules[p]},wx,getCurrentPages:()=>[],console,Date});
   const page={...definition,data:structuredClone(definition.data),setData(values){for(const[k,v]of Object.entries(values)){if(k.startsWith('parameters[')){const i=Number(k.match(/\d+/)[0]);this.data.parameters[i].value=v;}else this.data[k]=v;}}};
   page.onLoad(task?{task}:{});
-  return{page,disk,cloud,writes,submissions,uploads,downloads,toasts,wx,invalidate:()=>valid=false};
+  return{page,disk,cloud,writes,submissions,uploads,downloads,toasts,inputReads,draftReads,state,wx,invalidate:()=>valid=false};
 }
 test('exit before cloud load makes no default write and ignores late response',async()=>{
   const read=later(),h=harness({read:()=>read.promise});h.page.onHide();h.page.onUnload();
@@ -190,4 +192,83 @@ test('reference generation ignores an expired frame-mode file while retaining th
   h.page.setData({mode:'reference',description:'参考模式',firstFrame:'/expired/old.png',references:[{id:'r',type:'video',name:'当前视频',assetId:'902',path:''}]});
   await h.page.generateOnline();assert.equal(h.submissions.length,1);assert.deepEqual(h.submissions[0].references,[{role:'reference_video',assetId:'902',name:'当前视频'}]);
   assert.equal(h.page.data.firstFrame,'/expired/old.png');assert.equal(h.uploads.length,0);
+});
+
+test('a fresh device with no local tasks restores the authorized original input and creates a separate task',async()=>{
+  const id='9007199254740993',original=taskInput(id,'原始庭院镜头',{firstFrameAssetId:'9007199254740995',lastFrameAssetId:'9007199254740997',parameters:{duration:9,resolution:'2K',ratio:'adaptive'}});
+  const h=harness({task:id,input:async()=>structuredClone(original)});await tick();
+  assert.equal(h.state.tasks.length,0);assert.deepEqual(h.inputReads,[id]);assert.deepEqual(h.draftReads,['task:'+id]);
+  assert.equal(h.page.data.invalidMessage,'');assert.equal(h.page.data.taskLoading,false);
+  assert.equal(h.page.data.description,original.description);assert.equal(h.page.data.firstFrameAssetId,original.firstFrameAssetId);
+  assert.equal(h.page.data.lastFrameAssetId,original.lastFrameAssetId);assert.equal(h.page.data.firstFrame,'/authorized/'+original.firstFrameAssetId+'.png');
+  assert.deepEqual(JSON.parse(JSON.stringify(P.mapVideoParameters(h.page.data.parameters))),original.parameters);
+  h.page.onHide();await tick();assert.equal(h.writes.length,0,'reading the original input is not a draft edit');
+  h.page.inputDescription({detail:{value:'改为傍晚镜头'}});await h.page.saveDraft();await h.page.generate();
+  assert.equal(h.writes[0].draftKey,'task:'+id);assert.equal(h.submissions[0].description,'改为傍晚镜头');
+  assert.deepEqual(h.submissions[0].references,[{role:'first_frame',assetId:original.firstFrameAssetId},{role:'last_frame',assetId:original.lastFrameAssetId}]);
+  assert.equal('taskId' in h.submissions[0],false,'create a new task instead of modifying the original');
+  assert.equal(original.description,'原始庭院镜头');assert.equal(h.uploads.length,0);
+  const reopened=harness({task:id,cloud:h.cloud,input:async()=>structuredClone(original)});await tick();
+  assert.equal(reopened.page.data.description,'改为傍晚镜头');assert.equal(reopened.page.data.firstFrameAssetId,original.firstFrameAssetId);
+});
+
+test('reference and pure-text tasks restore the exact supported roles and generation parameters',async()=>{
+  const cases=[taskInput('201','参考镜头',{mode:'reference',references:[
+    {role:'reference_image',assetId:'901',name:'图'},{role:'reference_video',assetId:'902',name:'视频'},{role:'reference_audio',assetId:'903',name:'音频'}],parameters:{duration:12,resolution:'2K',ratio:'adaptive'}}),
+    taskInput('202','纯文生视频',{parameters:{duration:5,resolution:'768P',ratio:'21:9'}})];
+  for(const original of cases){
+    const h=harness({task:original.taskId,input:async()=>structuredClone(original)});await tick();await h.page.generate();
+    assert.equal(h.page.data.mode,original.mode);assert.equal(h.submissions[0].duration,original.parameters.duration);
+    assert.equal(h.submissions[0].ratio,original.parameters.ratio);assert.equal(h.submissions[0].resolution,original.parameters.resolution);
+    assert.deepEqual(h.submissions[0].references||[],original.references);assert.equal(h.uploads.length,0);
+  }
+});
+
+test('an explicitly cleared task draft overrides original media and never falls back to another draft',async()=>{
+  const cloud=new Map([['new',{exists:true,revision:8,description:'新建草稿'}],['task:102',{exists:true,revision:2,description:'其他任务'}],
+    ['task:101',{exists:true,revision:3,mode:'frames',description:'',firstFrameAssetId:0,lastFrameAssetId:0,references:[],parameters:{duration:4,resolution:'768P',ratio:'1:1'}}]]);
+  const h=harness({task:'101',cloud,input:async()=>taskInput('101','原始画面',{firstFrameAssetId:'901'})});await tick();
+  assert.equal(h.page.data.description,'');assert.equal(h.page.data.firstFrameAssetId,'');assert.equal(h.page.data.references.length,0);
+  assert.equal(P.mapVideoParameters(h.page.data.parameters).ratio,'1:1');
+  h.page.inputDescription({detail:{value:'新方向'}});await h.page.saveDraft();
+  assert.equal(h.writes[0].revision,3);assert.equal(h.writes[0].draftKey,'task:101');
+  assert.equal(cloud.get('new').description,'新建草稿');assert.equal(cloud.get('task:102').description,'其他任务');
+});
+
+test('task authorization failure cannot expose a cached form or submit its contents; retry reloads from the server',async()=>{
+  let denied=true;
+  const disk=new Map([['actor:zs-video-draft-v2:task:101',{form:taskInput('101','缓存中的旧作者内容'),revision:0,dirty:false}]]);
+  const h=harness({task:'101',disk,input:async()=>{if(denied)throw Error('任务不存在或无权读取');return taskInput('101','本人原任务');}});
+  await h.page.generate();await tick();await h.page.generateOnline();h.page.onHide();
+  assert.equal(h.page.data.description,'');assert.match(h.page.data.invalidMessage,/无权读取/);
+  assert.equal(h.draftReads.length,0);assert.equal(h.submissions.length,0);assert.equal(h.writes.length,0);
+  disk.clear();denied=false;await h.page.restoreTaskInput();
+  assert.equal(h.page.data.invalidMessage,'');assert.equal(h.page.data.description,'本人原任务');assert.equal(h.inputReads.length,2);
+});
+
+test('task input loading blocks empty generation and ignores responses after unload or identity change',async()=>{
+  for(const leave of ['unload','identity']){
+    const pending=later(),h=harness({task:'101',input:()=>pending.promise});
+    assert.equal(h.page.data.taskLoading,true);await h.page.generateOnline();h.page.onHide();
+    assert.equal(h.submissions.length,0);assert.equal(h.writes.length,0);
+    if(leave==='unload')h.page.onUnload();else h.invalidate();
+    pending.resolve(taskInput('101','迟到内容',{firstFrameAssetId:'901'}));await tick();
+    assert.equal(h.page.data.description,'');assert.equal(h.draftReads.length,0);assert.equal(h.downloads.length,0);
+  }
+});
+
+test('mismatched or unsupported task input remains blocked instead of becoming a blank editable form',async()=>{
+  for(const original of [taskInput('102','其他任务'),{...taskInput('101','数字人'),kind:'digital'},taskInput('101','不支持时长',{parameters:{duration:99,resolution:'768P',ratio:'9:16'}}),{taskId:'101',kind:'ai_video'}]){
+    const h=harness({task:'101',input:async()=>original});await tick();await h.page.generateOnline();
+    assert.ok(h.page.data.invalidMessage);assert.equal(h.draftReads.length,0);assert.equal(h.submissions.length,0);
+  }
+  const invalid=harness({task:'101/../../secret'});await tick();assert.equal(invalid.inputReads.length,0);assert.ok(invalid.page.data.invalidMessage);
+});
+
+test('editable-input API uses the authorized task route without changing a large task identifier',async()=>{
+  const calls=[],module={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/api/franchise/content'),'utf8'),{module,require:p=>{assert.equal(p,'../http');return{get:async url=>{calls.push(url);return taskInput('9007199254740993','原任务');}}},Date,Math});
+  const result=await module.exports.tasks.editableInput('9007199254740993');
+  assert.equal(result.taskId,'9007199254740993');assert.equal(calls[0],'/franchise/content/tasks/9007199254740993/editable-input');
+  await module.exports.tasks.editableInput('101/../../secret');assert.equal(calls[1],'/franchise/content/tasks/101%2F..%2F..%2Fsecret/editable-input');
 });
