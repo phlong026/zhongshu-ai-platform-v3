@@ -437,6 +437,59 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(quantityOf(materialId)).isEqualByComparingTo(new BigDecimal("15.000"));
     }
 
+    @Test
+    void arrivalCorrectionAcceptsExactPlanAndReplaysWithoutAnotherCorrection() {
+        jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);
+        insertArrivalForCorrection("20");
+        long receiptId = insertArrivalForCorrection("70");
+        String key = idem();
+        var command = new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80"), "补正实到数量");
+
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId, command, key));
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId, command, key));
+
+        assertThat(jdbc.queryForObject("SELECT SUM(actual_quantity) FROM fr_eng_supply_receipt WHERE supply_id = ?",
+                BigDecimal.class, supplyId)).isEqualByComparingTo("100");
+        assertThat(jdbc.queryForObject("SELECT expected_quantity FROM fr_eng_supply_receipt WHERE id = ?",
+                BigDecimal.class, receiptId)).isEqualByComparingTo("80");
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(corrections) FROM fr_eng_supply_receipt WHERE id = ?",
+                Integer.class, receiptId)).isEqualTo(1);
+    }
+
+    @Test
+    void arrivalCorrectionKeepsExactDecimalUpperAndCompletedNodeLowerBounds() {
+        jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);
+        insertArrivalForCorrection("20");
+        long receiptId = insertArrivalForCorrection("70");
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("79.999"), "未完成节点允许未到齐"), idem()));
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80.001"), "超过计划"), idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("超过计划数量");
+
+        jdbc.update("UPDATE fr_eng_plan_node SET status = 'DONE' WHERE id = ?", nodeId);
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("79.998"), "完成节点不能改为未到齐"), idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请先撤回节点完成");
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80.000"), "更正到计划值"), idem()));
+        assertThat(jdbc.queryForObject("SELECT SUM(actual_quantity) FROM fr_eng_supply_receipt WHERE supply_id = ?",
+                BigDecimal.class, supplyId)).isEqualByComparingTo("100.000");
+    }
+
+    private long insertArrivalForCorrection(String actual) {
+        long id = IDS.incrementAndGet();
+        long assetId = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, kind, "
+                        + "transaction_no, occurred_at, file_asset_id, quality, actual_quantity, expected_quantity, author_user_id) "
+                        + "VALUES (?, ?, ?, ?, 'RECEIPT', ?, CURRENT_DATE, ?, 'OK', ?, ?, ?)",
+                id, store.orgId(), projectId, supplyId, "ARRIVAL-CORRECTION-" + id, assetId,
+                new BigDecimal(actual), new BigDecimal(actual), engineer.userId());
+        return id;
+    }
+
     // ========== M07-T03：资产端口引用校验 ==========
 
     @Test

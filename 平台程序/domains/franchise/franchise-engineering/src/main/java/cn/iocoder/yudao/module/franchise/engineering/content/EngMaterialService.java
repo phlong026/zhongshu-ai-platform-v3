@@ -526,12 +526,13 @@ public class EngMaterialService {
         BigDecimal others = supplyReceipts.selectBySupply(post.orgId(), supply.getId()).stream()
                 .filter(r -> r.getId() != receiptId && r.getActualQuantity() != null)
                 .map(FrEngSupplyReceiptDO::getActualQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (others.add(q).add(new BigDecimal("0.0001")).compareTo(material.getQuantity()) > 0) {
+        BigDecimal correctedTotal = others.add(q);
+        if (correctedTotal.compareTo(material.getQuantity()) > 0) {
             throw exception(MATERIAL_INVALID, "更正后累计到货超过计划数量，请先调整需用数量");
         }
         FrEngPlanNodeDO planNode = planNodes.selectById(material.getNodeId());
         if (planNode != null && FrEngPlanNodeDO.STATUS_DONE.equals(planNode.getStatus())
-                && others.add(q).add(new BigDecimal("0.0001")).compareTo(material.getQuantity()) < 0) {
+                && correctedTotal.compareTo(material.getQuantity()) < 0) {
             throw exception(MATERIAL_INVALID, "本计划所属节点已完成，到货改少前请先撤回节点完成");
         }
         String corrections = EngPlanService.JsonList.append(receipt.getCorrections(), Map.of(
