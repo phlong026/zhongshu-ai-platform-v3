@@ -2,16 +2,19 @@ package cn.iocoder.yudao.module.platform.authz.controller.admin;
 
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
+import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.OrgService;
 import cn.iocoder.yudao.module.platform.org.StaffImportService;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
+import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -58,8 +61,14 @@ class StaffImportControllerConditionalTest {
             runner = runner.withPropertyValues("platform.legacy-design-bridge.enabled=" + property);
         }
         if (controller) {
+            // Spring also populates @Resource fields on the inline Mockito service mock.
             return runner
                     .withBean(CurrentPost.class, () -> mock(CurrentPost.class))
+                    .withBean(StaffPostService.class, () -> mock(StaffPostService.class))
+                    .withBean(SystemDirectory.class, () -> mock(SystemDirectory.class))
+                    .withBean(OrgUnitMapper.class, () -> mock(OrgUnitMapper.class))
+                    .withBean(JdbcTemplate.class, () -> mock(JdbcTemplate.class))
+                    .withBean(FranchiseAccountNaming.class, () -> mock(FranchiseAccountNaming.class))
                     .withBean(StaffAccountOnboardService.class, () -> mock(StaffAccountOnboardService.class))
                     .withBean(StaffImportService.class, () -> mock(StaffImportService.class));
         }

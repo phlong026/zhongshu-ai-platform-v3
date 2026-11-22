@@ -6,15 +6,19 @@ import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator;
 import cn.iocoder.yudao.module.platform.authz.service.StaffAccountOnboardService;
+import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffImportService;
+import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
+import cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -62,6 +66,11 @@ class StaffImportControllerHttpContractTest {
             .withBean(SystemDirectory.class, () -> directory)
             .withBean("post", PostPermissionEvaluator.class, () -> new PostPermissionEvaluator(currentPost, directory))
             .withBean(StaffImportService.class, () -> service)
+            // Keep the normal @Resource processor active for the inline Mockito service mock.
+            .withBean(StaffPostService.class, () -> mock(StaffPostService.class))
+            .withBean(OrgUnitMapper.class, () -> mock(OrgUnitMapper.class))
+            .withBean(JdbcTemplate.class, () -> mock(JdbcTemplate.class))
+            .withBean(FranchiseAccountNaming.class, () -> mock(FranchiseAccountNaming.class))
             .withBean(StaffAccountOnboardService.class, () -> staffAccounts)
             .withBean(StaffImportController.class);
 
