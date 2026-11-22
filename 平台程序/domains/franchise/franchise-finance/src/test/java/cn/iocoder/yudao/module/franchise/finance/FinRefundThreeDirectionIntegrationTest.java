@@ -514,6 +514,72 @@ class FinRefundThreeDirectionIntegrationTest extends FranchisePgIntegrationTest 
 
     // ========== helpers ==========
 
+    @Test
+    void refundConfirmationReturnsTheOriginalCommandAndIsolatesDirectionAndPost() {
+        for (boolean expense : new boolean[]{false, true}) {
+            String key = idem();
+            assertThat(as(financeA, () -> refundService.registrationResult(financeA, key, expense)))
+                    .containsExactly(java.util.Map.entry("state", "NOT_REGISTERED"));
+            long id;
+            if (expense) {
+                var cmd = expense(newPayment(10000), 10000, null);
+                id = as(financeA, () -> refundService.registerExpense(financeA, key, cmd));
+                assertThat(as(financeA, () -> refundService.registerExpense(financeA, key, cmd))).isEqualTo(id);
+            } else {
+                var cmd = new FinRefundService.RegisterCommand(newReceipt(10000, FinReceiptService.STATUS_REGISTERED, null),
+                        10000, "原单回查", LocalDate.of(2026, 11, 2), null, null, null);
+                id = as(financeA, () -> refundService.register(financeA, key, cmd));
+                assertThat(as(financeA, () -> refundService.register(financeA, key, cmd))).isEqualTo(id);
+            }
+            assertThat(as(financeA, () -> refundService.registrationResult(financeA, key, expense)))
+                    .containsExactly(java.util.Map.entry("refundId", Long.toString(id)));
+            assertThat(as(financeA, () -> refundService.registrationResult(financeA, key, !expense)))
+                    .containsExactly(java.util.Map.entry("state", "NOT_REGISTERED"));
+            for (var other : java.util.List.of(
+                    new PostSnapshot(financeA.postId()+1,financeA.userId(),financeA.orgId(),financeA.orgType(),financeA.roleCode(),null,false,java.util.Set.of()),
+                    fixture.post(store.orgId(), FINANCE, null), fixture.post(fixture.store().orgId(), FINANCE, null))) {
+                assertThat(as(other, () -> refundService.registrationResult(other, key, expense)))
+                        .containsExactly(java.util.Map.entry("state", "NOT_REGISTERED"));
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fr_fin_refund WHERE id=?", Long.class, id)).isEqualTo(1L);
+        }
+    }
+
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Test
+    void refundConfirmationWaitsForAnUncommittedRegistration() throws Exception {
+        String key = idem();
+        var cmd = new FinRefundService.RegisterCommand(newReceipt(10000, FinReceiptService.STATUS_REGISTERED, null),
+                10000, "并发回查", LocalDate.of(2026, 11, 2), null, null, null);
+        var written = new CountDownLatch(1);
+        var commit = new CountDownLatch(1);
+        var checking = new CountDownLatch(1);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            var write = pool.submit(() -> new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
+                long id = as(financeA, () -> refundService.register(financeA, key, cmd));
+                written.countDown();
+                try {
+                    if (!commit.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("commit gate timed out");
+                } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                return id;
+            }));
+            assertThat(written.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var lookup = pool.submit(() -> {
+                checking.countDown();
+                return as(financeA, () -> refundService.registrationResult(financeA, key, false));
+            });
+            assertThat(checking.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> lookup.get(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            commit.countDown();
+            long id = write.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(lookup.get(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .containsExactly(java.util.Map.entry("refundId", Long.toString(id)));
+        } finally { commit.countDown(); pool.shutdownNow(); }
+    }
+
     private long activeRefunded(long receiptId) {
         Long sum = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(amount_cents),0) FROM fr_fin_refund WHERE receipt_id = ? AND status = '已核实'",

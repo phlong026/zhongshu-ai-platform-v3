@@ -384,6 +384,18 @@ public class FinanceController {
         return requested == null || java.util.Objects.equals(stored, requested);
     }
 
+    @GetMapping("/refunds/registration-result")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Map<String,String>> refundResult(@RequestParam("key") String key) {
+        return success(refundService.registrationResult(currentPost.require(), key, false));
+    }
+
+    @GetMapping("/expense-refunds/registration-result")
+    @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")
+    public CommonResult<Map<String,String>> expenseRefundResult(@RequestParam("key") String key) {
+        return success(refundService.registrationResult(currentPost.require(), key, true));
+    }
+
     @PostMapping("/refunds")
     @Operation(summary = "登记退款（线下事实，登记即已核实；可携 replaces_id 走更正链）")
     @PreAuthorize("@post.has('" + FinPermissions.REGISTER + "')")

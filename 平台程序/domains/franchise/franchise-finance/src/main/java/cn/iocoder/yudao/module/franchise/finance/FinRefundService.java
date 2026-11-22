@@ -50,6 +50,23 @@ public class FinRefundService {
     private FinPaymentMapper paymentMapper;
     @Resource
     private FinPayableMapper payableMapper;
+    @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    /** 与登记持有同一命令锁，查询只返回当前岗位提交的该方向原单。 */
+    @Transactional
+    public java.util.Map<String,String> registrationResult(PostSnapshot post, String key, boolean expense) {
+        key = commands.requireIdempotencyKey(key);
+        designLocks.command(post, key);
+        String aggregate = expense ? "fin-expense-refund" : "fin-refund";
+        String command = expense ? "fin-expense-refund" : "fin-refund-register";
+        var ids = jdbc.queryForList("""
+                SELECT aggregate_id FROM pf_command_event WHERE domain='franchise' AND command=?
+                   AND aggregate_type=? AND org_id=? AND actor_user_id=? AND actor_post_id=? AND idempotency_key=?
+                """, Long.class, command, aggregate, post.orgId(), post.userId(), post.postId(),
+                "franchise:" + post.userId() + ":" + key);
+        return ids.isEmpty() ? java.util.Map.of("state", "NOT_REGISTERED")
+                : java.util.Map.of("refundId", Long.toString(ids.get(0)));
+    }
 
     public record RegisterCommand(long receiptId, long amountCents, String reason, LocalDate date,
                                   String transactionNo, Long voucherFileId, Long replacesId) {

@@ -91,6 +91,25 @@ class FinancePageHttpContractTest {
 
     private static final PostSnapshot FINANCE = new PostSnapshot(21L, 7L, 100L, "store", "finance", null, false, Set.of());
 
+    @Test
+    void refundConfirmationEndpointsRequireRegisterPermissionAndPreserveStringIds() {
+        context.run(ctx -> {
+            var service = ctx.getBean(FinRefundService.class);
+            when(service.registrationResult(FINANCE, "original-key", false)).thenReturn(java.util.Map.of("refundId", "9223372036854775000"));
+            when(service.registrationResult(FINANCE, "original-key", true)).thenReturn(java.util.Map.of("refundId", "9223372036854775001"));
+            for (var path : List.of("refunds", "expense-refunds")) {
+                assertThatThrownBy(() -> mvc(ctx).perform(get("/franchise/finance/" + path + "/registration-result")
+                        .param("key", "original-key"))).hasRootCauseInstanceOf(AccessDeniedException.class);
+            }
+            when(directory.roleHasPermission("finance", "franchise:fin:register")).thenReturn(true);
+            mvc(ctx).perform(get("/franchise/finance/refunds/registration-result").param("key", "original-key"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.refundId").value("9223372036854775000"));
+            mvc(ctx).perform(get("/franchise/finance/expense-refunds/registration-result").param("key", "original-key"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.refundId").value("9223372036854775001"));
+            mvc(ctx).perform(get("/franchise/finance/refunds/registration-result")).andExpect(status().isBadRequest());
+        });
+    }
+
     private final FixedCurrentPost currentPost = new FixedCurrentPost();
     private final SystemDirectory directory = mock(SystemDirectory.class);
     private final FinReceiptMapper receiptMapper = mock(FinReceiptMapper.class);
