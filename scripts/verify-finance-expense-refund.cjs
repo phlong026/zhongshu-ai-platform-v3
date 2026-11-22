@@ -63,6 +63,7 @@ assert.equal(PF.errorMessage({ code: 1102000030 }), '支出退回关联付款单
 // R2 P2：wx 全局桩——成功回调链（wx.showToast）真实走通，不再因 wx 未定义被 catch 吞掉
 const toastCalls = [];
 globalThis.wx = {
+  getStorageSync: () => '',
   showToast: opt => toastCalls.push(opt),
   chooseMessageFile: () => { throw new Error('本测试不应触达选择文件'); }
 };
@@ -78,8 +79,8 @@ function fakePage(registerForm, expenseRefundable) {
   };
   const calls = { expense: [], refund: [], uploads: 0 };
   const api = {
-    registerExpenseRefund(body, idem) { calls.expense.push({ body, idem }); return Promise.resolve({}); },
-    registerRefund(body, idem) { calls.refund.push({ body, idem }); return Promise.resolve({}); },
+    registerExpenseRefund(body, idem) { calls.expense.push({ body, idem }); return Promise.resolve({refundId:'new-expense-refund'}); },
+    registerRefund(body, idem) { calls.refund.push({ body, idem }); return Promise.resolve({refundId:'new-refund'}); },
     idemKey: type => 'idem-' + type
   };
   attach(page, api, PF);
@@ -123,7 +124,7 @@ async function behaviorB3() {
   assert.equal(page.registerIdem, null, '成功后粘性幂等键清空（下次换新键）');
   assert.equal(page.loadPlatformFinanceCalls, 1, '成功后刷新一次台账');
   assert.equal(page.data.registerBusy, false, 'busy 复位');
-  assert.equal(toastCalls.length, 1, '成功 toast 真实触达（wx 桩）');
+  assert.equal(page.data.paymentNotice, '支出退回已登记，单号 new-expense-refund', '成功提示保留可核对的原单号');
 }
 
 // B4：预填日期保留用户选择 + 成功链收尾
