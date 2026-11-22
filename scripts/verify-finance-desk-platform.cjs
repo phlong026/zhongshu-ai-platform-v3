@@ -15,6 +15,7 @@ global.wx = {
 };
 const PF = require('../miniprogram/utils/platform-finance');
 const attach = require('../miniprogram/pages/admin/finance-desk/platform-actions');
+require('../miniprogram/api/http').get = async () => ({state:'NOT_REGISTERED'});
 
 let passed = 0;
 let failed = 0;
@@ -50,7 +51,7 @@ const mockApi = { calls: [] };
     ? { fn, body: { bankFlowId: body, receiptId: idemOrReceipt } }
     : { fn, body, idem: idemOrReceipt };
   mockApi.calls.push(entry);
-  return Promise.resolve({ id: 1 });
+  return Promise.resolve(fn === 'registerRefund' ? {refundId:'1'} : fn === 'registerPayment' ? {paymentId:'1'} : {id:'1'});
 };
 });
 let idemSeq = 0;
@@ -235,22 +236,24 @@ console.log('[AC] M08-T04：响应丢失同键重试（register 粘性键）+ �
   await new Promise(r => setImmediate(r));
   ok(stickyKey() === key1, '失败路径保留粘性键（同键重试前提）');
   // ② 同键重试成功：resolve → 成功回调清键
-  page.submitRegister();
+  const retry = page.retryPendingPayment();
   await new Promise(r => setImmediate(r));
   const key2 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
   ok(key2 === key1, '重试复用同一键（后端去重，只有一笔）');
-  deferred.resolve(1);
-  await new Promise(r => setImmediate(r));
+  deferred.resolve({paymentId:'1'});
+  await retry;
   ok(stickyKey() === null, '成功路径清空粘性键（下一笔新周期）');
-  // ③ cancel：建立非空键前提（挂起请求在途）→ cancel 清空（Codex R2 P2：空键起点断言必假绿）
+  // ③ 已发出的付款不可取消丢弃；确认原单后才能打开下一笔。
   page.setData({ registerType: 'payment', registerForm: { amount: '1', payableId: '1', recipient: '供应商' } });
   page.submitRegister();
   await new Promise(r => setImmediate(r));
   const key3 = mockApi.calls.filter(c => c.fn === 'registerPayment').pop().idem;
   ok(stickyKey() === key3 && stickyKey() !== null, 'cancel 前粘性键非空（前提成立才可验证清键）');
   page.cancelRegister();
-  ok(page.registerIdem === null, 'cancel 路径清空粘性键');
-  ok(page.data.registerBusy === false, 'cancel 解除 busy 占位（关表单即解锁，不阻塞下次提交）');
+  ok(page.registerIdem === key3, 'cancel 保留在途付款幂等键');
+  ok(page.data.registerBusy === true, 'cancel 不丢弃在途付款');
+  deferred.resolve({paymentId:'2'});
+  await new Promise(r => setImmediate(r));
   // ④ open：open 后提交生成新周期键（独立于 cancel 起点）
   page.openRegister({ currentTarget: { dataset: { type: 'payment' } } });
   page.setData({ registerForm: { amount: '1', payableId: '1', recipient: '供应商' } });
@@ -260,7 +263,7 @@ console.log('[AC] M08-T04：响应丢失同键重试（register 粘性键）+ �
   console.log('  [DBG] key3=', key3, 'key4=', key4);
   ok(key4 !== key3, 'open 后新周期新键');
   // 挂起响应释放（避免悬挂 promise）
-  deferred.resolve(1);
+  deferred.resolve({paymentId:'3'});
   await new Promise(r => setImmediate(r));
 }
 

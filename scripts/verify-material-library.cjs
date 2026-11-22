@@ -6,7 +6,9 @@ function harness({get=async()=>({items:[],total:0}),post=async()=>({}),store=new
   let scope='tenant1-org1-user1',generation=1;const calls=[],video=[],toasts=[];const mod={exports:{}};
   const http={token:()=>true,base:()=> 'https://platform.example/admin-api',sessionGeneration:()=>generation,get:(path,body)=>{calls.push({path,body,method:'GET'});return get(path,body);},post:(path,body)=>{calls.push({path,body,method:'POST'});return post(path,body);},put:async(path,body)=>calls.push({path,body,method:'PUT'}),del:async(path)=>calls.push({path,method:'DELETE'})};
   const wx={getStorageSync:k=>store.get(k),setStorageSync:(k,v)=>store.set(k,v),removeStorageSync:k=>store.delete(k),showToast:o=>toasts.push(o.title),createVideoContext:()=>({pause:()=>video.push('pause'),stop:()=>video.push('stop')}),previewImage:o=>o.success({}),getFileSystemManager:()=>({statSync:()=>({size:4}),readFile:o=>o.success({data:Uint8Array.from([255,216,0,0]).buffer})})};
+  const apiModule={exports:{}};vm.runInNewContext(fs.readFileSync('miniprogram/api/franchise/content.js','utf8'),{module:apiModule,require:p=>{assert.equal(p,'../http');return http;}});
   vm.runInNewContext(fs.readFileSync('miniprogram/pages/studio/material-library.js','utf8'),{module:mod,wx,setTimeout,clearTimeout,Uint8Array,require:p=>{
+    if(p.endsWith('/api/franchise/content'))return apiModule.exports;
     if(p.endsWith('/http'))return http;if(p.endsWith('/studio'))return {scope:()=>scope};if(p.endsWith('/sha256-stream'))return {hashFile:async()=> 'a'.repeat(64)};
     if(p.endsWith('/b-asset-upload'))return {putTicketBytes:async()=>calls.push({method:'UPLOAD'})};
     if(p.endsWith('/b-asset-download'))return {downloadTicketFile:async()=>({tempFilePath:'/local/media'})};
@@ -73,5 +75,43 @@ for(const type of ['audio','image'])test('hidden page ignores delayed '+type+' p
     h.wx.createInnerAudioContext=()=>{players++;let playing;return {onCanplay(){},onPlay(fn){playing=fn;},onPause(){},onEnded(){},onTimeUpdate(){},onError(){},play(){playing();},destroy(){},seek(){}};};
     const next=h.page.openMaterial(event('1'));resolve({downloadUrl:'https://cos.example/media'});await next;
     assert.equal(players,1);assert.equal(h.page.data.previewAudioPlaying,true);h.page.closeMaterialPreview();
+  }
+});
+
+test('picker reuses personal/company lists and emits a shared asset ID without requiring management rights',async()=>{
+  const selected=[],back=[],id='9007199254740993';
+  const h=harness({get:async(path,q)=>({items:[{id,name:q.scope==='COMPANY'?'公司视频':'个人视频',mimeType:'video/mp4',visibility:q.scope,canManage:false}],total:1}),post:async()=>({downloadUrl:'https://cos.example/video.mp4'})});
+  h.page.getOpenerEventChannel=()=>({emit:(event,item)=>selected.push({event,item})});h.wx.navigateBack=()=>back.push(true);
+  h.page.materialPickerInit('ALL');await h.page.materialInit();
+  h.page.materialScopeChange({currentTarget:{dataset:{scope:'COMPANY'}}});await flush();
+  await h.page.openMaterial(event(id));
+  assert.equal(h.calls.filter(c=>c.method==='GET').at(-1).body.scope,'COMPANY');
+  assert.equal(selected[0].event,'materialSelected');assert.equal(selected[0].item.assetId,id);
+  assert.equal(selected[0].item.type,'video');assert.equal(selected[0].item.mimeType,'video/mp4');
+  assert.equal(selected[0].item.visibility,'COMPANY');assert.equal(selected[0].item.canManage,false);
+  assert.equal(back.length,1);assert.equal(h.calls.filter(c=>c.method==='UPLOAD').length,0);
+  await h.page.openMaterial(event('private-unlisted'));assert.equal(selected.length,1);
+});
+
+test('frame picker only accepts images and rechecks current permission before returning an asset',async()=>{
+  let revoked=false;const selected=[];
+  const h=harness({get:async(path,q)=>{assert.equal(q.type,'IMAGE');return {items:[{id:'1',name:'图片',mimeType:'image/png',visibility:'PERSONAL'}],total:1};},post:async()=>{if(revoked)throw {code:403,message:'素材已删除或无权访问'};return {downloadUrl:'https://cos.example/frame.png'};}});
+  h.page.getOpenerEventChannel=()=>({emit:(event,item)=>selected.push(item)});h.wx.navigateBack=()=>{};
+  h.page.materialPickerInit('IMAGE');await h.page.materialInit();
+  h.page.materialTypeChange({currentTarget:{dataset:{type:'VIDEO'}}});assert.equal(h.page.data.materialType,'IMAGE');
+  h.page.data.materialItems.push({id:'2',name:'视频',mimeType:'video/mp4',type:'video'});
+  await h.page.openMaterial(event('2'));assert.equal(selected.length,0);assert.match(h.toasts.at(-1),/图片/);
+  revoked=true;await h.page.openMaterial(event('1'));assert.equal(selected.length,0);assert.match(h.toasts.at(-1),/删除|无权/);
+  revoked=false;await h.page.openMaterial(event('1'));assert.equal(selected[0].assetId,'1');assert.equal(selected[0].type,'image');
+});
+
+test('leaving or switching identity while selecting does not return a late authorized ticket',async()=>{
+  for(const leave of ['materialHide','identity']){
+    let resolve;const selected=[],h=harness({post:()=>new Promise(r=>resolve=r)});
+    h.page.materialPickerInit('ALL');h.page.data.materialItems=[{id:'1',name:'录音',mimeType:'audio/mpeg',type:'audio'}];
+    h.page.getOpenerEventChannel=()=>({emit:(event,item)=>selected.push(item)});h.wx.navigateBack=()=>assert.fail('late selection navigated');
+    const pending=h.page.openMaterial(event('1'));if(leave==='identity')h.change();else h.page.materialHide();
+    resolve({downloadUrl:'https://cos.example/audio.mp3'});await pending;
+    assert.equal(selected.length,0);assert.equal(h.toasts.length,0);
   }
 });

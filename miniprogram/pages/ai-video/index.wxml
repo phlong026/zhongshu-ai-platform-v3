@@ -5,12 +5,12 @@
     <view class="creation-card media-card">
       <view class="creation-heading"><text class="creation-heading-title">{{mode === 'frames' ? '首尾帧' : '参考素材'}}</text></view>
       <block wx:if="{{mode === 'frames'}}">
-        <view class="frame-grid"><button wx:for="{{['firstFrame', 'lastFrame']}}" wx:key="*this" class="frame-box" data-target="{{item}}" bindtap="chooseFrame" hover-class="pressed"><image wx:if="{{index === 0 ? firstFrame : lastFrame}}" class="frame-preview" src="{{index === 0 ? firstFrame : lastFrame}}" mode="aspectFill" /><block wx:else><image src="/assets/creation-plus.png" class="upload-plus" /><text class="frame-title">{{index === 0 ? '添加首帧' : '添加尾帧'}}</text><text class="media-hint creation-muted">选填</text></block></button></view>
+        <view class="frame-grid"><button wx:for="{{['firstFrame', 'lastFrame']}}" wx:key="*this" class="frame-box" data-target="{{item}}" bindtap="chooseFrame" hover-class="pressed"><image wx:if="{{index === 0 ? firstFrame : lastFrame}}" class="frame-preview" src="{{index === 0 ? firstFrame : lastFrame}}" mode="aspectFill" /><text wx:elif="{{index === 0 ? firstFrameAssetId : lastFrameAssetId}}" class="frame-title">已选择素材库图片</text><block wx:else><image src="/assets/creation-plus.png" class="upload-plus" /><text class="frame-title">{{index === 0 ? '添加首帧' : '添加尾帧'}}</text><text class="media-hint creation-muted">选填</text></block></button></view>
         <text class="frame-footer creation-muted">从手机或素材库添加</text>
       </block>
       <block wx:else>
         <button class="reference-upload" bindtap="uploadReferences" hover-class="pressed"><image src="/assets/creation-plus.png" class="upload-plus" /><text class="frame-title">上传图片、视频或音频</text></button>
-        <view wx:if="{{references.length}}" class="reference-items"><view wx:for="{{references}}" wx:key="id" class="reference-item"><image wx:if="{{item.type === 'image'}}" src="{{item.path}}" mode="aspectFill" /><text wx:else>{{item.name || item.type}}</text><button data-id="{{item.id}}" bindtap="removeReference">移除</button></view></view>
+        <view wx:if="{{references.length}}" class="reference-items"><view wx:for="{{references}}" wx:key="id" class="reference-item"><image wx:if="{{item.type === 'image' && item.path}}" src="{{item.path}}" mode="aspectFill" /><text wx:else>{{item.name || item.type}}</text><button data-id="{{item.id}}" bindtap="removeReference">移除</button></view></view>
         <button class="library-button creation-brown" bindtap="openLibraryButton" hover-class="pressed"><image src="/assets/creation-upload.png" /><text>从素材库选择</text></button>
         <view class="reference-limits creation-muted"><text>图片≤8 · 视频≤3 · 音频≤3 · 合计≤12</text><button bindtap="help" aria-label="素材数量说明"><image src="/assets/creation-help.png" /></button></view>
       </block>
@@ -29,4 +29,3 @@
     </block>
   </view>
 </view>
-<view wx:if="{{libraryOpen}}" class="creation-sheet-overlay" bindtap="closeLibrary" catchtouchmove="noop"><view class="creation-sheet" catchtap="noop"><view class="creation-sheet-header"><text>从素材库选择</text><button class="creation-sheet-close" bindtap="closeLibrary">关闭</button></view><button wx:for="{{assets}}" wx:key="id" class="creation-sheet-row" data-id="{{item.id}}" bindtap="selectAsset"><image src="{{item.path}}" class="creation-sheet-thumb" mode="aspectFill" /><text class="creation-sheet-row-title">{{item.name}}</text></button></view></view>
