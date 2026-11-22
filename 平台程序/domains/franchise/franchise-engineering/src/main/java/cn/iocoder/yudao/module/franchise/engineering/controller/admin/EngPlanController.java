@@ -88,7 +88,7 @@ public class EngPlanController {
                                                       @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(plans.completeNode(post(), id, nodeId, new EngPlanService.NodeRecordCommand(
                 localDate(body.get("date")), str(body.get("note")), longOrNull(body.get("fileAssetId")),
-                Boolean.TRUE.equals(body.get("noMaterials"))), requireIdem(idem)));
+                Boolean.TRUE.equals(body.get("noMaterials")), body.containsKey("fileAssetIds") ? longList(body.get("fileAssetIds")) : null), requireIdem(idem)));
     }
 
     @PostMapping("/{id}/nodes/{nodeId}/reopen")
