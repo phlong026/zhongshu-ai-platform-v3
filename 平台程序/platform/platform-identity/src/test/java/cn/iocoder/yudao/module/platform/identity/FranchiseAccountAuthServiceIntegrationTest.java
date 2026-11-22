@@ -33,6 +33,8 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.flywaydb.core.Flyway;
 import org.redisson.config.Config;
 import org.redisson.spring.data.connection.RedissonConnectionFactory;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -55,6 +57,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.LocalDateTime;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -151,6 +155,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     @MockitoBean private WechatStaffClient wechat;
 
     private long tenantId;
+    @TempDir Path legacyPasswordLocation;
 
     @BeforeEach
     void setUp() {
@@ -821,6 +826,239 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(wechatLoginService.login("wx-franchise-flow", "legacy-bound-code", null).userId()).isEqualTo(employee.userId());
         assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(after);
         verify(wechat, never()).phoneNumber(eq("wx-franchise-flow"), anyString());
+    }
+
+    @Test
+    void flywayUpgradePreservesPasswordsPreviouslyResetThroughSmsAdminAndProfile() {
+        String schema = passwordUpgradeSchema();
+        Map<String, Account> accounts = new HashMap<>();
+        Map<String, String> chosenHashes = new HashMap<>();
+        try {
+            inPasswordSchema(schema, () -> {
+                for (String channel : List.of("sms", "admin", "profile")) {
+                    Account account = createAccount(tenantId, IDS.incrementAndGet(), "legacy" + channel,
+                            0, "ACTIVE", true);
+                    jdbc.update("UPDATE pf_franchise_account SET account_type='STAFF' WHERE account_id=?",
+                            account.accountId());
+                    // Before AUTH-01, these three reset paths wrote a new BCrypt hash without clearing
+                    // require_change. Reproduce the persisted old state, not the fixed future reset hooks.
+                    String chosen = BCRYPT.encode("Chosen" + channel + "2026");
+                    jdbc.update("UPDATE system_users SET password=? WHERE id=? AND tenant_id=?",
+                            chosen, account.userId(), tenantId);
+                    accounts.put(channel, account);
+                    chosenHashes.put(channel, chosen);
+                }
+            });
+
+            Flyway upgrade = passwordUpgrade(schema);
+            upgrade.migrate(); // Discover the production pf location; never call a migration class directly.
+
+            inPasswordSchema(schema, () -> {
+                AdminAuthServiceImpl webAuth = new AdminAuthServiceImpl();
+                ReflectionTestUtils.setField(webAuth, "userService", adminUserService);
+                ReflectionTestUtils.setField(webAuth, "loginLogService", mock(LoginLogService.class));
+                ReflectionTestUtils.setField(webAuth, "passwordPolicies",
+                        passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+                for (String channel : List.of("sms", "admin", "profile")) {
+                    Account account = accounts.get(channel);
+                    assertThat(loadUser(account.userId()).getPassword()).as("existing %s reset hash", channel)
+                            .isEqualTo(chosenHashes.get(channel));
+                    assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy "
+                            + "WHERE tenant_id=? AND user_id=?", Boolean.class, tenantId, account.userId())).isFalse();
+                    assertThat(service.login(account.accountId(), "Chosen" + channel + "2026", null).userId())
+                            .isEqualTo(account.userId());
+                    when(adminUserService.getUserByUsername(channel)).thenAnswer(inv -> loadUser(account.userId()));
+                    assertThat(webAuth.authenticate(channel, "Chosen" + channel + "2026").getId())
+                            .isEqualTo(account.userId());
+                }
+            });
+            assertThat(jdbc.queryForList("SELECT version FROM " + schema + ".flyway_schema_history "
+                    + "WHERE version IN ('20261122.989','20261122.990') ORDER BY installed_rank", String.class))
+                    .containsExactly("20261122.989", "20261122.990");
+            upgrade.validate();
+            assertThat(upgrade.migrate().migrationsExecuted).isZero();
+        } finally {
+            jdbc.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void flywayGuardChecksEveryStaffLoginAndKeepsTenantAndBossBoundaries() {
+        String schema = passwordUpgradeSchema();
+        List<Account> retired = new ArrayList<>();
+        Map<Account, String> preserved = new HashMap<>();
+        try {
+            inPasswordSchema(schema, () -> {
+                Account weak = legacyStaff("legacyweak", "legacyweak123");
+                retired.add(weak);
+                Account multiple = legacyStaff("firststaff", "secondstaff123");
+                Account second = createAccountForExistingUser(tenantId, multiple.userId(), "secondstaff", "另一门店");
+                jdbc.update("UPDATE pf_franchise_account SET account_type='STAFF' WHERE account_id=?", second.accountId());
+                retired.add(multiple);
+                Account promoted = legacyStaff("promotedstaff", "promotedstaff123");
+                createAccountForExistingUser(tenantId, promoted.userId(), "bossalias", "兼任老板门店");
+                retired.add(promoted);
+                for (String bad : List.of("broken", "$2a$99$" + "a".repeat(53), "!retired-initial-password")) {
+                    Account malformed = legacyStaff("bad" + IDS.incrementAndGet(), "Temporary2026");
+                    jdbc.update("UPDATE system_users SET password=? WHERE id=?", bad, malformed.userId());
+                    retired.add(malformed);
+                }
+                Account bossOnly = createAccount(tenantId, IDS.incrementAndGet(), "onlyboss", 0, "ACTIVE", true);
+                preserved.put(bossOnly, loadUser(bossOnly.userId()).getPassword());
+                Account alreadyChanged = legacyStaff("changedstaff", "AlreadyChosen2026");
+                jdbc.update("UPDATE pf_staff_password_policy SET require_change=FALSE WHERE tenant_id=? AND user_id=?",
+                        tenantId, alreadyChanged.userId());
+                preserved.put(alreadyChanged, loadUser(alreadyChanged.userId()).getPassword());
+                // A different tenant's public login must not classify this user's chosen password as initial.
+                Account sameTextElsewhere = legacyStaff("localstaff", "foreignstaff123");
+                preserved.put(sameTextElsewhere, loadUser(sameTextElsewhere.userId()).getPassword());
+                Account foreign = createAccount(tenantId + 1, IDS.incrementAndGet(), "foreignstaff", 0, "ACTIVE", true);
+                jdbc.update("UPDATE pf_franchise_account SET account_type='STAFF' WHERE account_id=?", foreign.accountId());
+                jdbc.update("UPDATE system_users SET password=? WHERE id=?", BCRYPT.encode("foreignstaff123"), foreign.userId());
+                retired.add(foreign);
+            });
+            passwordUpgrade(schema).migrate();
+            inPasswordSchema(schema, () -> {
+                for (Account account : retired) {
+                    assertThat(loadUser(account.userId()).getPassword()).isEqualTo("!retired-initial-password");
+                    assertThat(jdbc.queryForObject("SELECT require_change AND initial_password_expires_at < now() "
+                            + "FROM pf_staff_password_policy WHERE user_id=?", Boolean.class, account.userId())).isTrue();
+                }
+                preserved.forEach((account, hash) -> assertThat(loadUser(account.userId()).getPassword()).isEqualTo(hash));
+                assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy "
+                        + "WHERE user_id=(SELECT user_id FROM pf_franchise_account WHERE login_name='onlyboss')",
+                        Boolean.class)).isTrue();
+                assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy "
+                        + "WHERE user_id=(SELECT user_id FROM pf_franchise_account WHERE login_name='localstaff')",
+                        Boolean.class)).isFalse();
+            });
+        } finally {
+            jdbc.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void alreadyApplied990KeepsRetiredHashesAndNewRandomInitialCredentialsUntilVerifiedReset() throws Exception {
+        String schema = passwordUpgradeSchema();
+        List<Account> accounts = new ArrayList<>();
+        try {
+            inPasswordSchema(schema, () -> accounts.add(legacyStaff("lostreset", "PreviouslyChosen2026")));
+            String oldScript = "V20261122.990__pf_initial_password_expiry.sql";
+            try (var input = new ClassPathResource("db/migration/pf/" + oldScript).getInputStream()) {
+                byte[] bytes = input.readAllBytes();
+                assertThat(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)))
+                        .isEqualTo("8f355c526a50278e610735ce7194d7f41e9292901cc7852e2730d037a51173a9");
+                Files.write(legacyPasswordLocation.resolve(oldScript), bytes);
+            }
+            Flyway old = Flyway.configure().dataSource(jdbc.getDataSource()).schemas(schema).defaultSchema(schema)
+                    .baselineOnMigrate(true).baselineVersion("20261122.988")
+                    .locations("filesystem:" + legacyPasswordLocation.toAbsolutePath()).load();
+            assertThat(old.migrate().migrationsExecuted).isEqualTo(1);
+            Integer originalChecksum = jdbc.queryForObject("SELECT checksum FROM " + schema
+                    + ".flyway_schema_history WHERE version='20261122.990'", Integer.class);
+            Map<String, Object> initial = new HashMap<>();
+            inPasswordSchema(schema, () -> {
+                Account fresh = legacyStaff("freshstaff", "Zs3RandomInitial2026");
+                accounts.add(fresh);
+                initial.put("hash", loadUser(fresh.userId()).getPassword());
+                initial.put("expiry", jdbc.queryForObject("SELECT initial_password_expires_at FROM pf_staff_password_policy "
+                        + "WHERE tenant_id=? AND user_id=?", java.time.OffsetDateTime.class, tenantId, fresh.userId()));
+            });
+            Flyway upgrade = passwordUpgrade(schema);
+            assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1); // 989 is applied out of order; 990 is untouched.
+            upgrade.validate();
+            assertThat(jdbc.queryForObject("SELECT checksum FROM " + schema
+                    + ".flyway_schema_history WHERE version='20261122.990'", Integer.class)).isEqualTo(originalChecksum);
+            assertThat(upgrade.migrate().migrationsExecuted).isZero();
+            // Assert after the expected rejection has crossed the transaction boundary and rolled back.
+            assertCode(() -> inPasswordSchema(schema,
+                    () -> service.login(accounts.get(0).accountId(), "PreviouslyChosen2026", null)),
+                    ACCOUNT_CREDENTIAL_INVALID.getCode());
+            inPasswordSchema(schema, () -> {
+                Account lost = accounts.get(0), fresh = accounts.get(1);
+                assertThat(loadUser(lost.userId()).getPassword()).isEqualTo("!retired-initial-password");
+                assertThat(loadUser(fresh.userId()).getPassword()).isEqualTo(initial.get("hash"));
+                assertThat(jdbc.queryForObject("SELECT initial_password_expires_at FROM pf_staff_password_policy "
+                        + "WHERE tenant_id=? AND user_id=?", java.time.OffsetDateTime.class, tenantId, fresh.userId()))
+                        .isEqualTo(initial.get("expiry"));
+                assertThat(service.login(fresh.accountId(), "Zs3RandomInitial2026", null).requirePasswordChange()).isTrue();
+                // The existing trusted reset is the recovery path. The migration never invents the lost hash.
+                AdminUserServiceImpl resetter = new AdminUserServiceImpl();
+                ReflectionTestUtils.setField(resetter, "userMapper", adminUserMapper);
+                ReflectionTestUtils.setField(resetter, "passwordEncoder", BCRYPT);
+                ReflectionTestUtils.setField(resetter, "passwordPolicies",
+                        passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+                when(adminUserMapper.selectById(lost.userId())).thenAnswer(inv -> loadUser(lost.userId()));
+                resetter.updateUserPassword(lost.userId(), "VerifiedRecovery2026");
+                assertThat(service.login(lost.accountId(), "VerifiedRecovery2026", null).userId()).isEqualTo(lost.userId());
+            });
+        } finally {
+            jdbc.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void failedPreservationMigrationRollsBackEveryPolicyAndCanBeRetried() {
+        String schema = passwordUpgradeSchema();
+        List<Account> accounts = new ArrayList<>();
+        try {
+            inPasswordSchema(schema, () -> {
+                accounts.add(legacyStaff("firstreset", "FirstChosen2026"));
+                accounts.add(legacyStaff("secondreset", "SecondChosen2026"));
+                jdbc.execute("ALTER TABLE pf_staff_password_policy ADD CONSTRAINT guard_test_failure "
+                        + "CHECK (user_id <> " + accounts.get(1).userId() + " OR require_change)");
+            });
+            Flyway upgrade = passwordUpgrade(schema);
+            assertThatThrownBy(upgrade::migrate).hasStackTraceContaining("guard_test_failure");
+            inPasswordSchema(schema, () -> {
+                assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_staff_password_policy WHERE require_change",
+                        Integer.class)).isEqualTo(2);
+                assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_schema=? "
+                        + "AND table_name='pf_staff_password_policy' AND column_name='initial_password_expires_at'",
+                        Integer.class, schema)).isZero();
+                jdbc.execute("ALTER TABLE pf_staff_password_policy DROP CONSTRAINT guard_test_failure");
+            });
+            upgrade.migrate();
+            upgrade.validate();
+            inPasswordSchema(schema, () -> {
+                assertThat(service.login(accounts.get(0).accountId(), "FirstChosen2026", null).userId()).isEqualTo(accounts.get(0).userId());
+                assertThat(service.login(accounts.get(1).accountId(), "SecondChosen2026", null).userId()).isEqualTo(accounts.get(1).userId());
+            });
+        } finally {
+            jdbc.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
+    }
+
+    private Account legacyStaff(String loginName, String password) {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), loginName, 0, "ACTIVE", true);
+        jdbc.update("UPDATE pf_franchise_account SET account_type='STAFF' WHERE account_id=?", account.accountId());
+        jdbc.update("UPDATE system_users SET password=? WHERE id=? AND tenant_id=?", BCRYPT.encode(password), account.userId(), tenantId);
+        return account;
+    }
+
+    /** Minimal historical schema, isolated from the shared Spring integration database. */
+    private String passwordUpgradeSchema() {
+        String schema = "password_upgrade_" + IDS.incrementAndGet();
+        jdbc.execute("CREATE SCHEMA " + schema);
+        for (String table : List.of("system_users", "pf_org_unit", "pf_staff_post", "pf_franchise_account")) {
+            jdbc.execute("CREATE TABLE " + schema + "." + table + " (LIKE " + table + " INCLUDING ALL)");
+        }
+        jdbc.execute("CREATE TABLE " + schema + ".pf_staff_password_policy "
+                + "(tenant_id BIGINT,user_id BIGINT,require_change BOOLEAN NOT NULL,PRIMARY KEY(tenant_id,user_id))");
+        return schema;
+    }
+
+    private Flyway passwordUpgrade(String schema) {
+        return Flyway.configure().dataSource(jdbc.getDataSource()).schemas(schema).defaultSchema(schema)
+                .baselineOnMigrate(true).baselineVersion("20261122.988").outOfOrder(true)
+                .locations("classpath:db/migration/pf").load();
+    }
+
+    private void inPasswordSchema(String schema, Runnable action) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            jdbc.execute("SET LOCAL search_path TO " + schema);
+            action.run();
+        });
     }
 
     @Test

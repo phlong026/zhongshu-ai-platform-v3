@@ -19,6 +19,11 @@
     </description>
 
     <dependencies>
+        <!-- The credential preservation migration is discovered from the existing pf Flyway location. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
         <!-- 建部门、同步用户角色走 yudao system 的 Service（经 SystemDirectory 适配，测试中替换为内存实现） -->
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
