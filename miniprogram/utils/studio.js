@@ -44,6 +44,7 @@ state.records=state.records.filter(row=>!isDemo(row)&&!demoTaskIds.includes(row.
 state.title = typeof state.title === 'string' ? state.title : title;
 state.original = typeof state.original === 'string' ? state.original : original;
 state.script = typeof state.script === 'string' ? state.script : '';
+state.copyRevision = Number.isSafeInteger(state.copyRevision) && state.copyRevision >= 0 ? state.copyRevision : 0;
 state.rewriteHistory = Array.isArray(state.rewriteHistory) ? state.rewriteHistory.filter(Boolean) : [];
 if(!state.scriptEdited&&!state.rewriteHistory.some(row=>row.online===true)&&demoScripts.includes(state.script))state.script='';
 if(!state.scriptEdited&&!state.rewriteHistory?.length&&(state.script===state.original||raw?.version<3&&state.script===script))state.script='';
@@ -61,7 +62,16 @@ return state;
 function apiSalesPost(){try{const http=require('../api/http');if(!http.token())return null;const post=require('../api/auth').currentApiPost();if(post&&['sales','sales-lead','boss','owner'].includes(post.roleCode))return post;}catch(e){}return null;}
 function allowed(){const local=Access.context();if(local.active&&Job.has(local.role,'sales'))return true;return !!apiSalesPost();}
 function guard(){if(allowed())return true;let token=false;try{token=!!require('../api/http').token();}catch(e){}wx.redirectTo({url:'/pages/account/index?view='+(Access.context().active||token?'access':'login')});return false;}
-function write(state,token) { const old=read();if(token!==AUTH&&['tasks','works','records'].some(k=>JSON.stringify(state[k])!==JSON.stringify(old[k])))throw Error('作品和发布状态只能通过对应办理动作更新'); if(!allowed())throw Error('当前人员未获创作授权');if(state._scope&&state._scope!==storageKey())throw Error('工作身份已变化，请重新打开本人创作');wx.setStorageSync(storageKey(), state); return state; }
+function write(state,token) {
+const old=read();
+if(token!==AUTH&&['tasks','works','records'].some(k=>JSON.stringify(state[k])!==JSON.stringify(old[k])))throw Error('作品和发布状态只能通过对应办理动作更新');
+if(!allowed())throw Error('当前人员未获创作授权');
+if(state._scope&&state._scope!==storageKey())throw Error('工作身份已变化，请重新打开本人创作');
+// Every editor shares this draft. Editing away and back must still invalidate an older AI result.
+const edited=state.original!==old.original||state.script!==old.script||JSON.stringify(state.editorBuffer||null)!==JSON.stringify(old.editorBuffer||null);
+state.copyRevision=old.copyRevision+(edited?1:0);
+wx.setStorageSync(storageKey(),state);return state;
+}
 function completeTask(id) {
 const state = read(); const task = state.tasks.find(task => task.id === id);
 if (!task) throw new Error('任务不存在或已清理');

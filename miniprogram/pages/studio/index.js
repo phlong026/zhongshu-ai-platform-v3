@@ -21,7 +21,7 @@ Page({
 data: {
 ...MaterialLibrary.data,
 resultLoading:false,resultSaving:false,resultError:'',resultUrlNote:'',
-view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, operationError: '',
+view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rewriteMode: 0, ipIndex: 0, rewriting: false, optimizing:false, optimizationRetry:false, operationError: '',
 ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 taskCount:0,tasks: [], records: [], works: [],  publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
@@ -63,8 +63,8 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if(this.data.sheet==='editor')keyboard.open(this);if (this.options) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
   },
-onHide() { if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
-onUnload() { if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); if(this.data.view==='library')this.materialUnload(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); }, // 终止任务轮询（防 UI 长时间占锁）
+onHide() { this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
+onUnload() { this.stopOptimization();if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); if(this.data.view==='library')this.materialUnload(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
 if(this.data.view==='receipt'&&!this.data.receiptSaved&&['publishing','verify'].includes(this.data.detail&&this.data.detail.status)){const state=studio.read();state.publicationLinkDrafts=state.publicationLinkDrafts||{};state.publicationLinkDrafts[this.data.recordId]=this.data.publishedUrlInput;studio.write(state);}
@@ -83,7 +83,7 @@ refreshData() {
 if (http.token()) { // 仅在线路径：任务中心走后端列表；不装配本地演示 tasks/records/works
 if (['remix', 'digital'].includes(this.data.view)) { // 编辑器文案（草稿暂存键）仍回显
 const state = studio.read();
-this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0 });
+this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0, optimizationRetry:!!state.optimizationAttempt });
 }
 if (this.data.view === 'library') this.materialInit();
 if (this.data.view === 'tasks') this.syncApiTasks();
@@ -221,7 +221,8 @@ if (draft && draft.text === state.original) wx.setStorageSync(studio.scopedKey(r
 this.setData({ script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), sheet: '' }); keyboard.close(this);this.refreshData();
 },
 regenerate() {
-if(this.data.rewriting)return;
+if(this.data.rewriting||this.data.optimizing)return;
+if(studio.read().optimizationAttempt)return wx.showToast({title:'请先确认上次优化结果',icon:'none'});
 const onlineOriginal=String(this.data.original||'').trim();
 if(!http.token())return wx.showToast({title:'请先登录后再生成二创',icon:'none'}); // 无 token：提示登录，不回落本地改写
 if(!onlineOriginal)return wx.showToast({title:'请先粘贴链接或填写口播原文',icon:'none'});
@@ -275,45 +276,96 @@ return String(hit.id);
 });
 },
 /** 优化响应双形状兼容：同步 {text} 或任务化 {taskId}→轮询取 result.text */
-resolveText(promise) {
+resolveText(promise,{isCurrent,onPoll}={}) {
 return promise.then(res=>{
-if(res&&res.taskId)return P.pollTask(String(res.taskId)).then(task=>{
-if(P.taskView(task.status)!=='completed')throw Error(task.failedReason||'生成未完成，请稍后在任务中心查看');
-return String((task.result&&(task.result.text||task.result.script))||'').trim();
+if(isCurrent&&!isCurrent())throw {cancelled:true};
+if(res&&res.taskId){
+const poll=P.pollTask(String(res.taskId));if(onPoll)onPoll(poll);
+return poll.then(task=>{
+if(P.taskView(task.status)!=='completed'){
+const error=Error(task.failedReason||'生成未完成，请稍后在任务中心查看');
+error.taskFailed=task.status==='FAILED'&&!P.saveFailure(task);throw error;
+}
+const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
+if(!text)throw Error('未返回文案，请稍后重试');return text;
 });
+}
 const text=String((res&&(res.text||res.script))||'').trim();
 if(!text)throw Error('未返回文案，请稍后重试');
 return text;
 });
 },
 scrollToCopy(){if(!wx.createSelectorQuery)return;const scroll=()=>{try{const q=wx.createSelectorQuery();if(!q.selectViewport)return;q.select('.rewritten-card').boundingClientRect();q.selectViewport().scrollOffset();q.exec(rows=>{if(rows&&rows[0]&&rows[1])wx.pageScrollTo({scrollTop:Math.max(0,rows[0].top+rows[1].scrollTop-((getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight+56)),duration:250});});}catch(_){/* Scrolling must never block a successfully generated script. */}};if(wx.nextTick)wx.nextTick(scroll);else scroll();},
-openOptimization(){if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizeRequirement:'口语自然'});},
-inputOptimization(e){this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
+openOptimization(){
+if(this.data.optimizing||this.data.rewriting)return;
+const attempt=studio.read().optimizationAttempt;
+if(!attempt&&!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
+this.setData({sheet:'optimize',sheetTitle:'AI优化',optimizationRetry:!!attempt,optimizeRequirement:attempt?.payload?.requirement||'口语自然'});
+},
+inputOptimization(e){if(!this.data.optimizing&&!this.data.optimizationRetry)this.setData({optimizeRequirement:e.currentTarget.dataset.value});},
 optimizeScript(){
 const current=String(this.data.script||'');
-if(!current.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
+if(!current.trim()&&!studio.read().optimizationAttempt)return wx.showToast({title:'请先生成二创文案',icon:'none'});
 if(!http.token())return wx.showToast({title:'请先登录后再优化文案',icon:'none'}); // 无 token：提示登录，不回落本地优化
 return this.optimizeOnline(current); // 在线：AI 优化走后端 scripts.optimize
 },
-/** 在线 AI 优化：成功后写回本地文案与优化历史（不触碰 tasks/works/records 守卫键） */
-optimizeOnline(current) {
-const requirement=String(this.data.optimizeRequirement||'').trim();
-this.resolveText(contentApi.scripts.optimize({sourceText:current,requirement})).then(text=>{
-if(this.actorScope!==studio.scope())return;
+stopOptimization(){
+this.__optimizationGuard=null;
+if(this.__optimizationPoll?.cancel)this.__optimizationPoll.cancel();
+this.__optimizationPoll=null;
+if(this.data.optimizing)this.setData({optimizing:false});
+},
+persistOptimizationAttempt(attempt){
+const state=studio.read();state.optimizationAttempt=attempt;studio.write(state);
+if(JSON.stringify(studio.read().optimizationAttempt)!==JSON.stringify(attempt))throw Error('未能保存优化记录，请释放本机存储后重试');
+},
+/** One paid operation keeps its payload/key until confirmed. A later edit only receives history, never an automatic overwrite. */
+async optimizeOnline(current) {
+if(this.data.optimizing||this.data.rewriting||this.__closed||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration())return;
+const scope=this.actorScope,guard=this.__optimizationGuard=http.requestGuard('remix-optimize');
+const alive=()=>!this.__closed&&this.__optimizationGuard===guard&&guard()&&scope===studio.scope();
+let attempt,creating=false;
+this.setData({optimizing:true,operationError:''});
+try{
 const state=studio.read();
-state.script=text;
-state.copyOptimizations=(state.copyOptimizations||[]).concat({before:current,after:text,requirement,online:true,at:Date.now()}).slice(-20);
-studio.write(state);
+attempt=state.optimizationAttempt;
+if(!attempt){
+attempt={key:this.contentKey('optimize'),payload:{sourceText:current,requirement:String(this.data.optimizeRequirement||'').trim()},original:state.original,revision:state.copyRevision};
+this.persistOptimizationAttempt(attempt);
+}
+if(!attempt.key||typeof attempt.payload?.sourceText!=='string'||typeof attempt.payload.requirement!=='string'||!Number.isSafeInteger(attempt.revision))throw Error('原优化记录无法确认，请到任务中心查看');
+this.setData({optimizationRetry:true,optimizeRequirement:attempt.payload.requirement});
+creating=!attempt.taskId;
+const response=attempt.taskId?{taskId:attempt.taskId}:await contentApi.scripts.optimize(attempt.payload,attempt.key);
+creating=false;if(!alive())return;
+if(response?.taskId&&!attempt.taskId){attempt={...attempt,taskId:String(response.taskId)};this.persistOptimizationAttempt(attempt);}
+const text=await this.resolveText(Promise.resolve(response),{isCurrent:alive,onPoll:poll=>{this.__optimizationPoll=poll;}});
+if(!alive())return;
+const latest=studio.read();if(latest.optimizationAttempt?.key!==attempt.key)return;
+const applied=latest.copyRevision===attempt.revision&&latest.original===attempt.original&&latest.script===attempt.payload.sourceText&&this.data.sheet!=='editor';
+if(applied)latest.script=text;
+latest.copyOptimizations=(latest.copyOptimizations||[]).concat({before:attempt.payload.sourceText,after:text,requirement:attempt.payload.requirement,taskId:attempt.taskId||'',applied,online:true,at:Date.now()}).slice(-20);
+// Save the secondary draft before releasing the attempt; storage failure must stay recoverable.
 const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
-if(draft&&draft.text===state.original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
-this.setData({sheet:''});
+if(applied&&draft&&draft.text===latest.original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
+delete latest.optimizationAttempt;studio.write(latest);this.contentDropKey('optimize');
+if(this.data.sheet==='optimize')this.setData({sheet:''});
 this.refreshData();
-wx.showToast({title:'文案优化已完成',icon:'none'});
-}).catch(error=>{
-const message=P.degradeMessage(error);
-this.setData({operationError:message,sheet:''});
+wx.showToast({title:applied?'文案优化已完成':'稿件已修改，优化结果已保留，可到任务中心查看',icon:'none'});
+}catch(error){
+if(!alive()||error?.cancelled)return;
+let message=P.degradeMessage(error);
+try{
+const latest=studio.read();
+// Only explicit input rejection or a confirmed generation failure can release the request.
+if(attempt&&latest.optimizationAttempt?.key===attempt.key&&(error.taskFailed||creating&&['400','1114000001'].includes(String(error.code)))){
+delete latest.optimizationAttempt;studio.write(latest);this.contentDropKey('optimize');
+}
+this.setData({optimizationRetry:!!latest.optimizationAttempt});
+}catch(storageError){message=P.degradeMessage(storageError);}
+this.setData({operationError:message});
 wx.showToast({title:message,icon:'none'});
-});
+}finally{if(alive()){this.__optimizationGuard=null;this.__optimizationPoll=null;this.setData({optimizing:false});}}
 },
 makeDigital() {
 if(!this.data.script.trim())return wx.showToast({title:'请先生成二创文案',icon:'none'});
