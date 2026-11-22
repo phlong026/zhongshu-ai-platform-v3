@@ -299,6 +299,27 @@ public class CommissionService implements DesignFeeProgressApi {
         return counts;
     }
 
+    public record RecentHandling(String commissionId, String customerName, String kind, String handledAt) { }
+
+    /** 每个可见委托的最后一次设计办理，按事件时间和 ID 稳定取最近五项。 */
+    public List<RecentHandling> workbenchRecent(PostSnapshot post) {
+        if (!FranchiseRoles.atHeadquarters(post) || !FranchiseRoles.DESIGN_ADMIN.equals(post.roleCode())) {
+            throw exception(COMMISSION_FORBIDDEN);
+        }
+        return jdbc.query("""
+                SELECT commission_id, customer_name, kind, create_time FROM (
+                    SELECT DISTINCT ON (c.id) c.id AS commission_id, c.customer_name,
+                           p.id AS event_id, p.kind, p.create_time
+                    FROM fr_commission c JOIN fr_commission_progress p
+                      ON p.commission_id=c.id AND p.company_id=c.company_id AND p.design_org_id=c.design_org_id
+                    WHERE c.design_org_id=? AND p.kind IN ('COMPLETE','DISPATCH')
+                    ORDER BY c.id, p.create_time DESC, p.id DESC
+                ) recent ORDER BY create_time DESC, event_id DESC LIMIT 5
+                """, (rs, row) -> new RecentHandling(Long.toString(rs.getLong("commission_id")),
+                rs.getString("customer_name"), rs.getString("kind"),
+                rs.getObject("create_time", OffsetDateTime.class).toString()), post.orgId());
+    }
+
     /** 当前岗位可见的全部委托（待办即时计算用） */
     public java.util.List<CommissionDO> listVisible(PostSnapshot post) {
         return commissionMapper.selectVisible(access.visibleTo(post,
