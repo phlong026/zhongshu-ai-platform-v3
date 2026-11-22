@@ -39,9 +39,14 @@ function setStaffStatus(userId, active) {
   return http.post('/platform/org/staff-status', { userId, active });
 }
 
-/** 正常离职交接（M01-T04：先校验接收人，逐域批量转移在途对象，再撤本组织任职；失败整体回滚可重试）{orgId,fromUserId,toUserId} → {mode,items:[{domain,label,inFlight,transferred,status}]} */
+/** 正常离职交接：receivers 按业务类别选人；旧 toUserId 单接收人调用仍兼容。全部校验后统一转移与撤权。 */
 function staffHandover(payload) {
   return http.post('/platform/org/staff-handover', payload);
+}
+
+/** 只读确认在办类别；提交时服务端重新校验，不依赖预览数量。 */
+function handoverPreview(orgId, fromUserId) {
+  return http.get('/platform/org/staff-handover-preview', { orgId, fromUserId });
 }
 
 /** 紧急撤权（M01-T04：立即撤本组织任职与钱包会话；在途事项逐域转入待分配并返回清单）{orgId,userId} */
@@ -59,4 +64,4 @@ function handoverSources(orgId, keyword, pageNo) {
   return http.get('/platform/org/handover-sources', { orgId, keyword, pageNo: pageNo || 1 });
 }
 
-module.exports = { orgTeams, orgStaff, addStaff, openStaffAccount, assignPost, revokePost, setStaffStatus, staffHandover, staffEmergencyRevoke, handoverPending, handoverSources };
+module.exports = { orgTeams, orgStaff, addStaff, openStaffAccount, assignPost, revokePost, setStaffStatus, staffHandover, handoverPreview, staffEmergencyRevoke, handoverPending, handoverSources };

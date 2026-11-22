@@ -238,9 +238,10 @@ async function createMemberPage(rows, overrides = {}) {
   const commands = [];
   const org = {
     orgTeams: async () => [], orgStaff: async () => rows, handoverPending: async () => [],
+    handoverPreview: async () => [{ domain: 'franchise-crm', label: '客户', inFlight: 1, transferred: 0, status: 'PENDING_UNASSIGNED' }],
     revokePost: async postId => { commands.push({ action: 'revoke', postId }); },
     setStaffStatus: async userId => { commands.push({ action: 'suspend', userId }); },
-    staffHandover: async payload => { commands.push({ action: 'handover', ...payload }); return { items: [] }; },
+    staffHandover: async payload => { commands.push({ action: 'handover', ...JSON.parse(JSON.stringify(payload)) }); return { items: [] }; },
     staffEmergencyRevoke: async payload => { commands.push({ action: 'emergency', ...payload }); return { items: [] }; }
   };
   const env = createPage({ http: { token: () => 'token', sessionGuard: () => () => true }, org,
@@ -262,8 +263,8 @@ for (const roleCode of ['boss', 'owner']) test('门店 '+roleCode+' 兼岗也不
   assert.match(env.page.data.apiStaffRows[1].revokeBlockedReason, /总部/);
   env.page.revokeRow({ currentTarget: { dataset: { postId: 'reserved-post', name: '兼岗成员' } } });
   env.page.toggleActiveRow({ currentTarget: { dataset: { userId: 'u1', name: '兼岗成员', active: true } } });
-  env.page.pickHandoverLeaver({ detail: { value: 0 } });
-  env.page.pickHandoverTarget({ detail: { value: 0 } });
+  await env.page.pickHandoverLeaver({ detail: { value: 0 } });
+  env.page.pickHandoverTarget({ currentTarget: { dataset: { domain: 'franchise-crm' } }, detail: { value: 0 } });
   assert.match(env.page.data.handoverSource.removalBlockedReason, /总部/);
   env.page.confirmHandover();
   env.page.confirmEmergency();
@@ -281,11 +282,11 @@ test('老板仍可作为普通员工的交接接收人，总部成员页保留�
     { postId: 'sales-post', userId: 'u2', name: '员工', roleCode: 'sales', active: true }
   ];
   const store = await createMemberPage(rows);
-  store.page.pickHandoverLeaver({ detail: { value: 1 } });
-  store.page.pickHandoverTarget({ detail: { value: 0 } });
+  await store.page.pickHandoverLeaver({ detail: { value: 1 } });
+  store.page.pickHandoverTarget({ currentTarget: { dataset: { domain: 'franchise-crm' } }, detail: { value: 0 } });
   store.page.confirmHandover();
   await flush();
-  assert.deepEqual(store.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'u2', toUserId: 'u1' }]);
+  assert.deepEqual(store.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'u2', receivers: { 'franchise-crm': 'u1' } }]);
 
   const hq = await createMemberPage(rows, { currentPost: { postId: 'hq', orgId: 'hq', orgType: 'headquarters', roleCode: 'boss' } });
   assert.equal(hq.page.data.apiStaffRows[0].revokeBlockedReason, '');
@@ -302,7 +303,7 @@ test('弹窗确认期间成员新增总部保留身份时，停用和紧急撤�
       { postId: 'receiver-post', userId: 'u2', name: '员工乙', roleCode: 'sales', active: true }
     ];
     const env = await createMemberPage(rows, { wx: { showModal: options => { modal = options; } } });
-    env.page.pickHandoverLeaver({ detail: { value: 0 } });
+    await env.page.pickHandoverLeaver({ detail: { value: 0 } });
     env.page[method]({ currentTarget: { dataset: { userId: 'u1', name: '员工甲', active: true } } });
     assert.ok(modal);
     rows.push({ postId: 'new-boss', userId: 'u1', name: '员工甲', roleCode: 'boss', active: true });
@@ -404,8 +405,9 @@ test('正常交接、紧急撤权和停用返回共享财务时不创建待分�
       ] };
     };
     env.org.staffHandover = response; env.org.staffEmergencyRevoke = response;
-    env.page.pickHandoverLeaver({ detail: { value: 0 } });
-    env.page.pickHandoverTarget({ detail: { value: 0 } });
+    env.org.handoverPreview = async () => [{ domain: 'franchise-finance', label: '账款', inFlight: 0, transferred: 0, status: 'ORGANIZATION_SHARED' }];
+    await env.page.pickHandoverLeaver({ detail: { value: 0 } });
+    env.page.pickHandoverTarget({ currentTarget: { dataset: { domain: 'franchise-crm' } }, detail: { value: 0 } });
     env.page[method]({ currentTarget: { dataset: { userId: 'u1', name: '原财务', active: true } } });
     await flush(); await flush();
     assert.equal(calls.length, 1);
@@ -431,14 +433,14 @@ test('原员工分页检索只使用当前组织，零待分配的历史来源�
   assert.deepEqual(searches, [{ orgId: 'store-1', keyword: '原员工', pageNo: 1 }, { orgId: 'store-1', keyword: '原员工', pageNo: 2 }]);
   assert.equal(env.page.data.handoverSearchRows.length, 2);
   assert.equal(env.page.data.handoverSearchHasMore, false);
-  env.page.selectHandoverHistory({ currentTarget: { dataset: { userId: 'former2' } } });
+  await env.page.selectHandoverHistory({ currentTarget: { dataset: { userId: 'former2' } } });
   assert.equal(env.page.data.handoverSource.fromHistory, true);
   await env.page.loadApiMembers();
   assert.equal(env.page.data.handoverSource.userId, 'former2', '无pending的人工选中历史来源在同组织刷新后仍可办理');
-  env.page.pickHandoverTarget({ detail: { value: 0 } });
+  env.page.pickHandoverTarget({ currentTarget: { dataset: { domain: 'franchise-crm' } }, detail: { value: 0 } });
   env.page.confirmHandover();
   await flush();
-  assert.deepEqual(env.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'former2', toUserId: 'u1' }]);
+  assert.deepEqual(env.commands, [{ action: 'handover', orgId: 'store-1', fromUserId: 'former2', receivers: { 'franchise-crm': 'u1' } }]);
 });
 
 test('改查找词或离页后，迟到的历史员工响应不会写回候选与忙碌态', async () => {

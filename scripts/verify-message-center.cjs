@@ -19,14 +19,14 @@ function accountLifecycle(){
 }
 for(const event of ['onUnload','onHide'])test('message action after '+event+' does not update data or navigate',async()=> {
   const originals={post:H.post,guard:H.requestGuard,open:N.open};
-  const lifecycle=accountLifecycle(),p=page();p.data.view='messages';p.cancelLoginFlow=()=>{};
-  p.resetHandoverSearch=lifecycle.resetHandoverSearch; // 使用真实页面清理方法，保留离开后迟到回写的观测。
+  // 组合真实 Page 方法与消息夹具，生命周期新增清理也必须实际执行，不能遗漏或桩掉。
+  const p={...accountLifecycle(),...page()};p.data.view='messages';p.cancelLoginFlow=()=>{};
   let resolve,navigations=0,writes=0;
   const update=p.setData.bind(p);p.setData=patch=>{writes++;update(patch);};
   H.requestGuard=()=>()=>true;H.post=()=>new Promise(r=>{resolve=r;});N.open=()=>{navigations++;};
   try{
     const pending=P.read.call(p,message('99'),true);
-    lifecycle[event].call(p);const before=writes;
+    p[event]();const before=writes;
     resolve(message('99',{read:true,actionPath:'/pages/studio/index?view=tasks'}));
     await pending;
     assert.equal(writes,before);assert.equal(navigations,0);

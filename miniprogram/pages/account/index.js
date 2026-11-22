@@ -24,11 +24,11 @@ const titles={selection:'众墅甄选',product:'商品详情',procure:'采购需
 const Learning=require('../../utils/learning-catalog');
 const courses=Learning.courses,resources=Learning.resources;
 Page({
- data:{view:'learning',title:'学习中心',tab:'课程',category:'全部',categories:['全部','自媒体运营','招商','业务销售','设计','工程','财务绩效','AI应用'],messageTab:'全部',messageTabs:['全部','业务','学习','系统'],messageStatus:'',messageError:'',profileLoading:false,profileError:'',messageHasMore:false,messageBusy:false,messageMode:'ALL',messagePending:0,messageModule:'',messageModuleIndex:0,messageModules:[],messageKeyword:'',messageDetail:null,messagePartial:'',orderTab:'全部',orderTabs:['全部','待沟通','待确认','进行中','已完成'],feedbackTab:'提交反馈',feedbackType:'使用问题',keyword:'',form:{},error:'',checked:false,expanded:false,courseTab:'课程目录',modal:null,paymentReceipt:null,busy:false,loginMode:'account',loginPolicy:null,consentOpen:false,consentChecked:false,consentDocument:'',passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,loginBusy:false,matchBusy:false,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,defaultAccount:null,rememberDefault:true,passwordChangeRequired:false,pendingAccountLogin:null,wechatPhoneRequired:false,wechatPhoneGeneration:null,staffAccountDelivery:null,services:A.services,chapters:A.chapters,apiLeavers:[],apiReceivers:[],apiPendingRows:[],handoverPendingError:false,handoverSource:null,handoverTargetUserId:null,handoverTargetIndex:-1,handoverBusy:false,handoverResult:null,reassignHint:'',handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''},
+ data:{view:'learning',title:'学习中心',tab:'课程',category:'全部',categories:['全部','自媒体运营','招商','业务销售','设计','工程','财务绩效','AI应用'],messageTab:'全部',messageTabs:['全部','业务','学习','系统'],messageStatus:'',messageError:'',profileLoading:false,profileError:'',messageHasMore:false,messageBusy:false,messageMode:'ALL',messagePending:0,messageModule:'',messageModuleIndex:0,messageModules:[],messageKeyword:'',messageDetail:null,messagePartial:'',orderTab:'全部',orderTabs:['全部','待沟通','待确认','进行中','已完成'],feedbackTab:'提交反馈',feedbackType:'使用问题',keyword:'',form:{},error:'',checked:false,expanded:false,courseTab:'课程目录',modal:null,paymentReceipt:null,busy:false,loginMode:'account',loginPolicy:null,consentOpen:false,consentChecked:false,consentDocument:'',passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,loginBusy:false,matchBusy:false,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,defaultAccount:null,rememberDefault:true,passwordChangeRequired:false,pendingAccountLogin:null,wechatPhoneRequired:false,wechatPhoneGeneration:null,staffAccountDelivery:null,services:A.services,chapters:A.chapters,apiLeavers:[],apiReceivers:[],apiPendingRows:[],handoverPendingError:false,handoverSource:null,handoverItems:[],handoverRequirements:[],handoverReceivers:{},handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:'',handoverBusy:false,handoverResult:null,reassignHint:'',handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''},
  onLoad(options){if(http.token()&&['learning','course','resource'].includes(options.view)){const params=options.view==='course'&&options.id?'?id='+encodeURIComponent(options.id):options.tab==='资料'||options.view==='resource'?'?tab='+encodeURIComponent('资料'):'';wx.redirectTo({url:'/pages/account/training/index'+(options.entry==='academy'&&!params?'?entry=academy':params)});return;}this.options=options||{};// 展陈设计与众墅甄选目前只做展示：下单、订单、采购单类链接统一回到展示页
   const showcase={request:'services',orders:'services',order:'services',plan:'services',delivery:'services',cancel:'services',procure:'selection',purchases:'selection',purchase:'selection'};const view=titles[showcase[options.view]||options.view]?showcase[options.view]||options.view:'learning';this.id=routeValue(options.id)||'';this.serviceId=routeValue(options.service)||'store';const preferred=view==='login'?AccountLogin.defaultAccount():null;this.setData({view,title:titles[view],tab:routeValue(options.tab||'课程'),category:routeValue(options.category||'全部'),statusHeight:(getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight||20,defaultAccount:preferred,selectedAccount:preferred,form:preferred?{accountQuery:preferred.loginName}:this.data.form});this.refresh(true);if(view==='login')this.loadLoginPolicy();},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
- onShow(){if(this.options)this.refresh(false);if(this.data.view==='login'&&http.token()&&!this.data.loginBusy)this.resumeLogin();},
+ onShow(){this.memberPageHidden=false;this.restoreHandoverOutcome();if(this.options)this.refresh(false);if(this.data.view==='login'&&http.token()&&!this.data.loginBusy)this.resumeLogin();},
  resumeLogin(){
   const generation=this.cancelLoginFlow({clearSensitive:true,keepSession:true});
   this.setData({loginBusy:true,error:''});
@@ -170,7 +170,7 @@ Page({
  previewDelivery(e){const file=(this.data.order&&this.data.order.delivery&&this.data.order.delivery.files||[])[Number(e.currentTarget.dataset.index)];if(!file)return this.fail('交付文件不存在');if(file.path)return wx.openDocument({filePath:file.path,showMenu:true,fail:()=>this.fail('文件无法读取，请联系服务方补传')});this.setData({modal:{type:'notice',title:file.name,text:'该文件暂不可下载。'}});},pickCancel(e){this.setData({'form.cancelResult':['核实未收款，取消','退回取消申请','款项待核实'][Number(e.detail.value)]});},selectRole(e){this.setData({selectedRole:e.currentTarget.dataset.role});},
  selectApiPost(e){const postId=e.currentTarget.dataset.postId;const post=auth.apiPosts().find(p=>String(p.postId)===String(postId));if(!post)return this.fail('岗位不存在或已失效，请重新登录');if(!O.enabled(post.orgType,post.roleCode))return this.fail('该岗位工作台暂未开放，请选择其他身份');auth.switchPost(postId);this.setData({staffAccountDelivery:null});wx.showToast({title:'已切换为'+(O.roles[post.roleCode]||post.roleCode)});this.refresh();openApiHome(post);},
  logoutApi(){try{auth.logout();this.setData({checked:false,staffAccountDelivery:null});this.refresh();wx.showToast({title:'已退出后端账号',icon:'none'});}catch(e){this.fail('退出失败，请重试');}},
- loadApiMembers(){const post=auth.currentApiPost();if(!isOrgManager(post))return Promise.resolve();const alive=http.sessionGuard();const seq=this.memberLoadSeq=(this.memberLoadSeq||0)+1; // R2 P1-2：序号守卫——旧刷新响应丢弃，不覆盖操作后最新列表
+ loadApiMembers(){const post=auth.currentApiPost();if(this.memberPageHidden||!isOrgManager(post))return Promise.resolve();const alive=http.sessionGuard();const seq=this.memberLoadSeq=(this.memberLoadSeq||0)+1; // R2 P1-2：序号守卫——旧刷新响应丢弃，不覆盖操作后最新列表
   this.setData({apiMembersBusy:true});
   // R3 P1：返回完整 Promise 链（交接链 return this.loadApiMembers() 须等刷新完成才释放 busy）
   return Promise.all([orgApi.orgTeams(post.orgId),orgApi.orgStaff(post.orgId),orgApi.handoverPending(post.orgId).catch(()=>{if(!alive())return [];this.handoverPendingFailed=true;return this.data.apiPendingRows||[];})]).then(([teams,staff,pending])=>{
@@ -181,48 +181,129 @@ Page({
   // R7 P1：先比对旧上下文——组织/岗位已变（自动切岗）或无已完成加载（ctx 空）则不保留旧交接双方，
   // 防止旧 userId 提交到新组织；R8 P2-1：ctx 变化同步清结果清单/补交接提示（同组织刷新保留）
   const prevCtx=this.handoverCtx;
-  const ctxChanged=!prevCtx||prevCtx.postId!==String(post.postId)||prevCtx.orgId!==post.orgId;
+  const ctxChanged=!prevCtx||prevCtx.postId!==String(post.postId)||String(prevCtx.orgId)!==String(post.orgId)||(prevCtx.alive&&!prevCtx.alive());
   let source=this.data.handoverSource;
-  let targetUserId=this.data.handoverTargetUserId;
-  if(ctxChanged){source=null;targetUserId=null;this.resetHandoverSearch();this.setData({handoverResult:null,reassignHint:''});} // R8 P2-1：切组织同步清旧组织的结果清单与补交接提示
+  if(ctxChanged){source=null;this.handoverActionSeq=(this.handoverActionSeq||0)+1;this.handoverDeferredOutcome=null;this.resetHandoverPreview();this.resetHandoverSearch();this.setData({handoverBusy:false,handoverResult:null,reassignHint:''});} // R8 P2-1：切组织同步清旧组织的结果清单与补交接提示
   if(source){const real=leavers.find(l=>String(l.userId)===String(source.userId));
     // R6 P2：合成「已撤权」条目仅在该来源仍有待分配行时保留；交接完成/无待办后清空（结果清单继续显示，不影响重复提交）
     if(real)source={...real};
     else{const stillPending=(pending||[]).some(pl=>String(pl.fromUserId)===String(source.userId));source=stillPending?{userId:source.userId,name:source.name,roleName:'已撤权'}:(source.fromHistory?source:null);}}
   const receivers=leavers.filter(l=>!source||String(l.userId)!==String(source.userId));
-  // R4 P1：接收人按 userId 保留选择（索引钳制会在列表变动时换人）；原接收人消失→置空要求重选
-  let targetIndex=targetUserId?receivers.findIndex(l=>String(l.userId)===String(targetUserId)):-1;
-  if(targetIndex<0)targetUserId=null;
   const pendingFailed=this.handoverPendingFailed===true;this.handoverPendingFailed=false;
-  this.setData({apiMembersBusy:false,apiTeamOptions:teams,apiStaffRows:rows,apiRoleOptionsForAdd:roles.map(r=>({id:r,name:O.roles[r]})),apiLeavers:leavers,handoverSource:source,apiReceivers:receivers,handoverTargetIndex:targetIndex,handoverTargetUserId:targetUserId,handoverPendingError:pendingFailed,apiPendingRows:(pending||[]).map(r=>({...r,fromName:names[String(r.fromUserId)]||('用户'+r.fromUserId),inFlightText:r.inFlight<0?'数量待核':'在途 '+r.inFlight+' 项'})),'form.teamIndex':this.data.form.teamIndex||0,'form.roleIndex':this.data.form.roleIndex||0});
-  this.handoverCtx={orgId:post.orgId,postId:String(post.postId)}; // R6 P1：选择绑定加载时的组织/岗位（切岗失配即清空）
+  this.setData({apiMembersBusy:false,apiTeamOptions:teams,apiStaffRows:rows,apiRoleOptionsForAdd:roles.map(r=>({id:r,name:O.roles[r]})),apiLeavers:leavers,handoverSource:source,apiReceivers:receivers,handoverPendingError:pendingFailed,apiPendingRows:(pending||[]).map(r=>({...r,fromName:names[String(r.fromUserId)]||('用户'+r.fromUserId),inFlightText:r.inFlight<0?'数量待核':'在途 '+r.inFlight+' 项'})),'form.teamIndex':this.data.form.teamIndex||0,'form.roleIndex':this.data.form.roleIndex||0});
+  this.handoverCtx={orgId:post.orgId,postId:String(post.postId),alive:http.sessionGuard()};
+  this.syncHandoverReceivers();
+  if(source)return this.loadHandoverPreview();
+  this.resetHandoverPreview();
   }).catch(e=>{if(seq!==this.memberLoadSeq||!alive())return;this.setData({apiMembersBusy:false});this.fail(e.message||'成员数据加载失败，请下拉重试');});},
  resetHandoverSearch(){this.handoverSearchSeq=(this.handoverSearchSeq||0)+1;this.setData({handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''});},
  inputHandoverSearch(e){this.handoverSearchSeq=(this.handoverSearchSeq||0)+1;this.setData({handoverSearchQuery:e.detail.value,handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''});},
  searchHandoverHistory(e){if(this.data.handoverSearchBusy)return;const post=this.assertManage();if(!post)return;const keyword=(this.data.handoverSearchQuery||'').trim();if(!keyword)return this.fail('请输入原员工姓名、手机号或编号');const more=!!(e&&e.currentTarget&&e.currentTarget.dataset.more),pageNo=more?this.data.handoverSearchPage+1:1,seq=this.handoverSearchSeq=(this.handoverSearchSeq||0)+1,alive=http.sessionGuard();this.setData({handoverSearchBusy:true,handoverSearchError:''});return orgApi.handoverSources(post.orgId,keyword,pageNo).then(result=>{if(seq!==this.handoverSearchSeq||!alive())return;const rows=result&&result.items||[];this.setData({handoverSearchRows:more?this.data.handoverSearchRows.concat(rows):rows,handoverSearchPage:pageNo,handoverSearchHasMore:!!(result&&result.hasMore),handoverSearchBusy:false});}).catch(error=>{if(seq!==this.handoverSearchSeq||!alive()||error&&error.silent)return;this.setData({handoverSearchBusy:false,handoverSearchError:error.message||'查找失败，请重试'});});},
- selectHandoverHistory(e){const person=this.data.handoverSearchRows.find(row=>String(row.userId)===String(e.currentTarget.dataset.userId));if(!person||!this.assertManage())return;this.setHandoverSource({userId:person.userId,name:person.name,roleName:'历史任职',fromHistory:true});this.setData({handoverResult:null,reassignHint:'历史员工补交接：将核实并移交该员工在本组织的全部在途事项，请选择接收人。'});},
- pickHandoverLeaver(e){const source=this.data.apiLeavers[Number(e.detail.value)];if(!source)return;this.setHandoverSource(source);},
- setHandoverSource(source){source={...source,removalBlockedReason:this.memberRemovalReason(source.userId)};const receivers=this.data.apiLeavers.filter(l=>String(l.userId)!==String(source.userId));const idx=this.data.handoverTargetUserId?receivers.findIndex(l=>String(l.userId)===String(this.data.handoverTargetUserId)):-1; // R4 P1：按 userId 保留接收人；切来源不换人
-  this.setData({handoverSource:source,apiReceivers:receivers,handoverTargetIndex:idx,handoverTargetUserId:idx<0?null:this.data.handoverTargetUserId,reassignHint:''});},
- pickHandoverTarget(e){const idx=Number(e.detail.value),target=this.data.apiReceivers[idx];this.setData({handoverTargetIndex:idx,handoverTargetUserId:target?target.userId:null});},
+ selectHandoverHistory(e){const person=this.data.handoverSearchRows.find(row=>String(row.userId)===String(e.currentTarget.dataset.userId));if(!person||!this.assertManage())return;const pending=this.setHandoverSource({userId:person.userId,name:person.name,roleName:'历史任职',fromHistory:true});this.setData({handoverResult:null,reassignHint:'历史员工补交接：核实本组织在办事项后，按类别选择接收人。'});return pending;},
+ pickHandoverLeaver(e){const source=this.data.apiLeavers[Number(e.detail.value)];if(source)return this.setHandoverSource(source);},
+ resetHandoverPreview(){this.handoverPreviewSeq=(this.handoverPreviewSeq||0)+1;this.setData({handoverItems:[],handoverRequirements:[],handoverReceivers:{},handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:''});},
+ syncHandoverReceivers(){
+  const choices={},people=this.data.apiReceivers||[],previous=this.data.handoverReceivers||{};
+  const requirements=(this.data.handoverItems||[]).filter(item=>item.inFlight>0).map(item=>{
+   const targetIndex=people.findIndex(person=>String(person.userId)===String(previous[item.domain]));
+   const target=targetIndex>=0?people[targetIndex]:null;if(target)choices[item.domain]=target.userId;
+   const hint=item.domain==='franchise-crm'?'请选择销售或销售负责人':['franchise-commission','franchise-engineering'].includes(item.domain)?'请选择工长或工程经理':'请选择接收人';
+   return {...item,targetIndex,targetName:target?target.name:hint};
+  });
+  this.setData({handoverReceivers:choices,handoverRequirements:requirements});
+ },
+ setHandoverSource(source){
+  if(this.data.handoverBusy||!this.assertManage())return;
+  this.resetHandoverPreview();
+  source={...source,removalBlockedReason:this.memberRemovalReason(source.userId)};
+  this.setData({handoverSource:source,apiReceivers:this.data.apiLeavers.filter(person=>String(person.userId)!==String(source.userId)),reassignHint:''});
+  return this.loadHandoverPreview();
+ },
+ loadHandoverPreview(){
+  if(this.memberPageHidden)return Promise.resolve();
+  const post=this.assertManage(),source=this.data.handoverSource;if(!post||!source)return Promise.resolve();
+  const seq=this.handoverPreviewSeq=(this.handoverPreviewSeq||0)+1,alive=http.sessionGuard();
+  const current=()=>seq===this.handoverPreviewSeq&&!this.memberPageHidden&&alive()&&this.data.view==='api-members'&&this.data.handoverSource&&String(this.data.handoverSource.userId)===String(source.userId)&&String((auth.currentApiPost()||{}).orgId)===String(post.orgId)&&String((auth.currentApiPost()||{}).postId)===String(post.postId);
+  this.setData({handoverPreviewBusy:true,handoverPreviewReady:false,handoverPreviewError:''});
+  return orgApi.handoverPreview(post.orgId,source.userId).then(items=>{
+   if(!current())return;
+   if(!Array.isArray(items)||items.some(item=>item.inFlight<0||['SCAN_FAILED','NOT_INTEGRATED'].includes(item.status)))throw Error('事项尚未核实');
+   this.setData({handoverItems:items,handoverPreviewBusy:false,handoverPreviewReady:true});this.syncHandoverReceivers();
+  }).catch(error=>{if(current())this.setData({handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:'在办事项暂时没加载，请重试读取后再交接。'});});
+ },
+ pickHandoverTarget(e){
+  if(this.data.handoverBusy)return;
+  const domain=e.currentTarget.dataset.domain,target=this.data.apiReceivers[Number(e.detail.value)];
+  if(!this.data.handoverRequirements.some(item=>item.domain===domain))return;
+  const choices={...this.data.handoverReceivers};if(target)choices[domain]=target.userId;else delete choices[domain];
+  this.setData({handoverReceivers:choices});this.syncHandoverReceivers();
+ },
  assertManage(){const post=http.token()?auth.currentApiPost():null;if(!post)return this.fail('请先登录后端账号')&&null;if(!isOrgManager(post))return this.fail('成员与权限由老板或门店负责人办理')&&null;
-  // R6 P1：自动切岗（如交接返回岗位失效码后认证层切组织）后旧选择可能操作另一组织——失配即清空选择并要求重选
   const ctx=this.handoverCtx;
-  if(!ctx||ctx.postId!==String(post.postId)||ctx.orgId!==post.orgId){this.setData({handoverSource:null,apiReceivers:[],handoverTargetUserId:null,handoverTargetIndex:-1,reassignHint:''});return this.fail('岗位或组织已切换，请重新选择交接双方')&&null;}
+  if(!ctx||ctx.postId!==String(post.postId)||String(ctx.orgId)!==String(post.orgId)||(ctx.alive&&!ctx.alive())){this.resetHandoverPreview();this.setData({handoverSource:null,apiReceivers:[],reassignHint:''});return this.fail('岗位或组织已切换，请重新选择交接人员')&&null;}
   return post;},
- // R2 P1-2：busy 由交接调用链持有并释放（成功=刷新完成后释放；失败/取消即释放）——成员加载不再代管，旧刷新无法绕过
- confirmHandover(){if(this.data.handoverBusy||this.data.apiMembersBusy)return;const post=this.assertManage();if(!post)return;const source=this.data.handoverSource;if(!source)return this.fail('请选择离职成员');const blocked=this.memberRemovalReason(source.userId);if(blocked)return this.fail(blocked);if(!this.data.apiReceivers.length)return this.fail('本组织无其他在岗成员可接收，请先加人');const target=this.data.handoverTargetIndex>=0?this.data.apiReceivers[this.data.handoverTargetIndex]:null;if(!target)return this.fail('请选择接收人');const alive=http.sessionGuard();this.setData({handoverBusy:true,handoverResult:null});orgApi.staffHandover({orgId:post.orgId,fromUserId:source.userId,toUserId:target.userId}).then(res=>{if(!alive())return;this.setData({handoverResult:this.handoverResultView(res,source.name,target.name)});wx.showToast({title:'交接完成',icon:'success'});return this.loadApiMembers();}).then(()=>{if(alive())this.setData({handoverBusy:false});}).catch(e=>{if(!alive()||e&&e.silent)return;this.setData({handoverBusy:false});this.fail(e.message||'交接失败，请重试');});},
- confirmEmergency(){if(this.data.handoverBusy||this.data.apiMembersBusy)return;const post=this.assertManage();if(!post)return;const source=this.data.handoverSource;if(!source)return this.fail('请选择要撤权的成员');const blocked=this.memberRemovalReason(source.userId);if(blocked)return this.fail(blocked);wx.showModal({title:'紧急撤权',content:'立即撤销 '+source.name+' 在本组织的任职与钱包会话，不等待交接；个人负责的在途事项转入待分配，组织共享账款由财务岗继续处理。确认执行？',confirmText:'立即撤权',confirmColor:'#ad4a4a',success:r=>{if(!r.confirm||this.data.handoverBusy||this.data.apiMembersBusy)return;
+ // 隐藏时只缓存本会话结果；卸载或切会话后，旧提交不能再操作页面或占用新会话的忙碌状态。
+ restoreHandoverOutcome(){
+  const outcome=this.handoverDeferredOutcome;this.handoverDeferredOutcome=null;
+  if(!outcome||this.memberPageClosed||!outcome.alive()||outcome.seq!==this.handoverActionSeq)return;
+  const patch={};if(outcome.result)patch.handoverResult=outcome.result;if(outcome.done)patch.handoverBusy=false;
+  if(outcome.error){patch.handoverPreviewReady=false;patch.handoverPreviewError='办理结果尚未确认，请重新读取在办事项后再办理。';}
+  this.setData(patch);if(outcome.error)this.fail(outcome.error);
+ },
+ runHandoverAction(request,source,emergency){
+  const alive=http.sessionGuard(),seq=this.handoverActionSeq=(this.handoverActionSeq||0)+1;
+  const current=()=>alive()&&seq===this.handoverActionSeq&&!this.memberPageClosed;
+  const cache=patch=>{this.handoverDeferredOutcome={...this.handoverDeferredOutcome,...patch,seq,alive};};
+  this.handoverDeferredOutcome=null;this.setData({handoverBusy:true,handoverResult:null});
+  return request().then(res=>{
+   if(!current())return;
+   const result=this.handoverResultView(res,source.name,'');
+   if(this.memberPageHidden){cache({result});return;}
+   this.setData({handoverResult:result});wx.showToast({title:emergency?'已撤权，请核对交接清单':'交接完成',icon:emergency?'none':'success'});
+   return this.loadApiMembers();
+  }).then(()=>{
+   if(!current())return;
+   if(this.memberPageHidden){cache({done:true});return;}
+   this.setData({handoverBusy:false});
+  }).catch(error=>{
+   if(!current())return;
+   const message=error&&error.silent?'':error&&error.message||(emergency?'撤权失败，请重试':'交接失败，请重试');
+   if(this.memberPageHidden){cache({done:true,error:message});return;}
+   this.setData({handoverBusy:false});
+   if(message){this.setData({handoverPreviewReady:false,handoverPreviewError:'办理结果尚未确认，请重新读取在办事项后再办理。'});this.fail(message);}
+  });
+ },
+ // 接收人按类别和员工ID保存；全部选齐且预览成功才提交，服务端在事务内再次检查。
+ confirmHandover(){
+  if(this.data.handoverBusy||this.data.apiMembersBusy||this.memberPageHidden)return;
+  const post=this.assertManage();if(!post)return;const source=this.data.handoverSource;if(!source)return this.fail('请选择离职成员');
+  const blocked=this.memberRemovalReason(source.userId);if(blocked)return this.fail(blocked);
+  if(!this.data.handoverPreviewReady||this.data.handoverPreviewBusy||this.data.handoverPreviewError)return this.fail('请先重试读取在办事项');
+  this.syncHandoverReceivers();
+  if(this.data.handoverRequirements.some(item=>!this.data.handoverReceivers[item.domain]))return this.fail('请为每类在办事项选择接收人');
+  const receivers={...this.data.handoverReceivers};
+  return this.runHandoverAction(()=>orgApi.staffHandover({orgId:post.orgId,fromUserId:source.userId,receivers}),source,false);
+ },
+ confirmEmergency(){if(this.data.handoverBusy||this.data.apiMembersBusy||this.memberPageHidden||this.memberPageClosed)return;const post=this.assertManage();if(!post)return;const source=this.data.handoverSource;if(!source)return this.fail('请选择要撤权的成员');const blocked=this.memberRemovalReason(source.userId);if(blocked)return this.fail(blocked);wx.showModal({title:'紧急撤权',content:'立即撤销 '+source.name+' 在本组织的任职与钱包会话，不等待交接；个人负责的在途事项转入待分配，组织共享账款由财务岗继续处理。确认执行？',confirmText:'立即撤权',confirmColor:'#ad4a4a',success:r=>{if(!r.confirm||this.data.handoverBusy||this.data.apiMembersBusy||this.memberPageHidden||this.memberPageClosed)return;
   // R8 P2-2：确认时核对捕获的岗位/组织与来源仍有效（弹窗打开期间可能切岗或刷新清源）
   const cur=this.assertManage();if(!cur)return;
   const srcNow=this.data.handoverSource;
   if(!srcNow||String(srcNow.userId)!==String(source.userId)||String(cur.orgId)!==String(post.orgId)||String(cur.postId)!==String(post.postId))return this.fail('交接选择已变化，请重新选择后再撤权');
   const nowBlocked=this.memberRemovalReason(source.userId);if(nowBlocked)return this.fail(nowBlocked);
-  const alive=http.sessionGuard();this.setData({handoverBusy:true,handoverResult:null});orgApi.staffEmergencyRevoke({orgId:post.orgId,userId:source.userId}).then(res=>{if(!alive())return;this.setData({handoverResult:this.handoverResultView(res,source.name,'')});wx.showToast({title:'已撤权，请核对交接清单',icon:'none'});return this.loadApiMembers();}).then(()=>{if(alive())this.setData({handoverBusy:false});}).catch(e=>{if(!alive()||e&&e.silent)return;this.setData({handoverBusy:false});this.fail(e.message||'撤权失败，请重试');});}});},
- reassignRow(e){const fromUserId=e.currentTarget.dataset.userId,name=e.currentTarget.dataset.name;const real=this.data.apiLeavers.find(l=>String(l.userId)===String(fromUserId));this.setHandoverSource(real?{...real}:{userId:fromUserId,name:name||('用户'+fromUserId),roleName:'已撤权'});wx.pageScrollTo({scrollTop:0,duration:0});this.setData({handoverResult:null,reassignHint:'待分配补交接：'+(name||'该成员')+'的全部在途事项（含各域），请选择接收人后发起交接'});},
+  return this.runHandoverAction(()=>orgApi.staffEmergencyRevoke({orgId:post.orgId,userId:source.userId}),source,true);
+ }});},
+ reassignRow(e){const fromUserId=e.currentTarget.dataset.userId,name=e.currentTarget.dataset.name;const real=this.data.apiLeavers.find(l=>String(l.userId)===String(fromUserId));const pending=this.setHandoverSource(real?{...real}:{userId:fromUserId,name:name||('用户'+fromUserId),roleName:'已撤权'});wx.pageScrollTo({scrollTop:0,duration:0});this.setData({handoverResult:null,reassignHint:'待分配补交接：'+(name||'该成员')+'的在办事项，请按类别选择接收人后发起交接'});return pending;},
  pickMemberField(e){this.setData({['form.'+e.currentTarget.dataset.key]:Number(e.detail.value)});},
  // Shared finance work remains with the organization's finance roles; it is neither an empty transfer nor a pending reassignment.
- handoverResultView(res,fromName,toName){const STATUS={HANDED_OVER:'已交接',NONE:'无在途事项',PENDING_UNASSIGNED:'转待分配',NOT_INTEGRATED:'域未接入',SCAN_FAILED:'扫描失败（待核）',ORGANIZATION_SHARED:'组织共享'};const items=(res&&res.items||[]).map(r=>{const shared=r.status==='ORGANIZATION_SHARED';return {label:r.label||r.domain,inFlight:r.inFlight||0,inFlightText:shared?'组织共享事项，需财务岗继续处理':r.inFlight<0?'数量待核':'在途 '+(r.inFlight||0)+' 项',transferred:r.transferred||0,transferredText:shared?'':'已转移 '+(r.transferred||0)+' 项',statusText:STATUS[r.status]||r.status||'—',rawStatus:r.status||''};});return {title:res&&res.mode==='EMERGENCY'?fromName+' 紧急撤权清单':fromName+' → '+(toName||'待分配')+' 交接清单',items,openCount:items.filter(r=>r.rawStatus==='PENDING_UNASSIGNED').length};},
+ handoverResultView(res,fromName,toName){
+  const STATUS={HANDED_OVER:'已交接',NONE:'无在途事项',PENDING_UNASSIGNED:'转待分配',NOT_INTEGRATED:'域未接入',SCAN_FAILED:'扫描失败（待核）',ORGANIZATION_SHARED:'组织共享'};
+  const items=(res&&res.items||[]).map(row=>{
+   const shared=row.status==='ORGANIZATION_SHARED',targetId=res.receivers&&res.receivers[row.domain];
+   const target=(this.data.apiLeavers||[]).find(person=>String(person.userId)===String(targetId));
+   return {label:row.label||row.domain,receiverName:target?target.name:targetId?String(targetId):'',inFlight:row.inFlight||0,inFlightText:shared?'组织共享事项，需财务岗继续处理':row.inFlight<0?'数量待核':'在途 '+(row.inFlight||0)+' 项',transferred:row.transferred||0,transferredText:shared?'':'已转移 '+(row.transferred||0)+' 项',statusText:STATUS[row.status]||row.status||'—',rawStatus:row.status||''};
+  });
+  return {title:res&&res.mode==='EMERGENCY'?fromName+' 紧急撤权清单':fromName+(toName?' → '+toName:'')+' 交接清单',items,openCount:items.filter(row=>row.rawStatus==='PENDING_UNASSIGNED').length};
+ },
  memberCandidates(mobile){const byUser=new Map();(this.data.apiStaffRows||[]).filter(row=>String(row.mobile||'').trim()===mobile).forEach(row=>{const key=String(row.userId||'');if(!key)return;let candidate=byUser.get(key);if(!candidate){candidate={userId:row.userId,name:row.name||'未命名员工',roles:[]};byUser.set(key,candidate);}const role=row.roleName||O.roles[row.roleCode]||row.roleCode||'未标注岗位';if(!candidate.roles.includes(role))candidate.roles.push(role);});return [...byUser.values()].map(candidate=>({...candidate,label:candidate.name+' · '+candidate.roles.join('/')+' · 编号 '+candidate.userId}));},
  memberAddContext(post,name,mobile,role,team){return {alive:http.sessionGuard(),accountGeneration:this.memberAccountGeneration||0,postId:String(post.postId),orgId:String(post.orgId),orgType:post.orgType,name,mobile,roleCode:role.id,teamId:team?team.deptId:null,roleName:role.name};},
  sameMemberAddContext(ctx){let post=null;try{post=http.token()?auth.currentApiPost():null;}catch(e){return false;}const role=(this.data.apiRoleOptionsForAdd||[])[Number(this.data.form.roleIndex||0)],team=(this.data.apiTeamOptions||[])[Number(this.data.form.teamIndex||0)];return !!post&&isOrgManager(post)&&String(post.postId)===ctx.postId&&String(post.orgId)===ctx.orgId&&(this.data.form.memberName||'').trim()===ctx.name&&(this.data.form.memberMobile||'').trim()===ctx.mobile&&!!role&&role.id===ctx.roleCode&&String(team?team.deptId:'')===String(ctx.teamId||'');},
@@ -357,8 +438,8 @@ Page({
  loadLoginSession(result,generation){if(!this.loginFlowCurrent(generation))return Promise.reject({silent:true});if(!result||!result.accessToken){this.setData({loginBusy:false,error:'登录未完成，请重试'});return Promise.reject({silent:true});}auth.saveLogin(result,{remember:this.data.loginMode==='wechat'||this.data.rememberDefault});this.loginSessionGeneration=generation;const alive=auth.postLoadGuard();return auth.myPosts().then(posts=>{if(!this.loginFlowCurrent(generation)||!alive())return Promise.reject({silent:true});const list=(posts||[]).filter(Boolean);if(!list.length){auth.logout();this.loginSessionGeneration=0;this.setData({loginBusy:false,error:'当前账号暂无有效任职，请联系门店老板或平台管理员'});return Promise.reject({silent:true});}const preferred=list.find(p=>String(p.postId)===String(result.preferredPostId)),next=preferred||list[0];auth.savePosts(list);http.saveSession({postId:next.postId});return list;}).catch(e=>{if(!this.loginFlowCurrent(generation)||!alive()||e&&e.silent)throw e;this.setData({loginBusy:false,error:'岗位信息获取失败，请重试或返回登录'});throw e;});},
  afterRealLogin(result){this.finishAccountLogin(result);},
  goAfterLogin(generation){if(generation!==undefined&&!this.loginFlowCurrent(generation))return;const post=auth.currentApiPost();if(!post){auth.logout();this.loginSessionGeneration=0;this.setData({loginBusy:false,error:'当前账号暂无有效任职，请联系门店老板或平台管理员'});return;}this.loginSessionGeneration=0;wx.showToast({title:'以'+(O.roles[post.roleCode]||post.roleCode)+'身份进入',icon:'none'});return openApiHome(post);},
- onHide(){if(['profile','identity'].includes(this.data.view)&&(this.data.profileLoading||this.data.busy)&&http.token()){this.__profileNeedsRefresh=true;this.setData({profileLoading:false});}if(this.data.view==='messages'){this.__messagesGen=(this.__messagesGen||0)+1;require('./platform-messages-page').invalidateAction(this);}this.__policySeq=(this.__policySeq||0)+1;this.loginPolicyPromise=null;this.__profileGeneration=(this.__profileGeneration||0)+1;if(this.data.view==='profile')this.setData({busy:false});if(this.data.view==='login')this.cancelLoginFlow({clearSensitive:true});if(this.data.view==='api-members'){this.resetHandoverSearch();this.memberAccountGeneration=(this.memberAccountGeneration||0)+1;this.setData({apiMembersBusy:false,staffAccountDelivery:null});}},
- onUnload(){this.resetHandoverSearch();if(this.data.view==='messages')require('./platform-messages-page').invalidateAction(this,false);this.__messagesGen=(this.__messagesGen||0)+1;this.__messagesFlight=null;this.__policySeq=(this.__policySeq||0)+1;this.loginPolicyPromise=null;this.__profileGeneration=(this.__profileGeneration||0)+1;this.cancelLoginFlow({clearSensitive:true});this.memberAccountGeneration=(this.memberAccountGeneration||0)+1;this.setData({apiMembersBusy:false,staffAccountDelivery:null});},
+ onHide(){if(['profile','identity'].includes(this.data.view)&&(this.data.profileLoading||this.data.busy)&&http.token()){this.__profileNeedsRefresh=true;this.setData({profileLoading:false});}if(this.data.view==='messages'){this.__messagesGen=(this.__messagesGen||0)+1;require('./platform-messages-page').invalidateAction(this);}this.__policySeq=(this.__policySeq||0)+1;this.loginPolicyPromise=null;this.__profileGeneration=(this.__profileGeneration||0)+1;if(this.data.view==='profile')this.setData({busy:false});if(this.data.view==='login')this.cancelLoginFlow({clearSensitive:true});if(this.data.view==='api-members'){this.memberPageHidden=true;this.memberLoadSeq=(this.memberLoadSeq||0)+1;this.resetHandoverPreview();this.resetHandoverSearch();this.memberAccountGeneration=(this.memberAccountGeneration||0)+1;this.setData({apiMembersBusy:false,staffAccountDelivery:null});}},
+ onUnload(){this.memberPageClosed=true;this.handoverActionSeq=(this.handoverActionSeq||0)+1;this.handoverDeferredOutcome=null;this.memberPageHidden=true;this.memberLoadSeq=(this.memberLoadSeq||0)+1;this.resetHandoverPreview();this.resetHandoverSearch();if(this.data.view==='messages')require('./platform-messages-page').invalidateAction(this,false);this.__messagesGen=(this.__messagesGen||0)+1;this.__messagesFlight=null;this.__policySeq=(this.__policySeq||0)+1;this.loginPolicyPromise=null;this.__profileGeneration=(this.__profileGeneration||0)+1;this.cancelLoginFlow({clearSensitive:true});this.memberAccountGeneration=(this.memberAccountGeneration||0)+1;this.setData({apiMembersBusy:false,staffAccountDelivery:null});},
  logout(){this.setData({modal:{type:'logout',title:'退出登录',text:'退出后保留本机已有记录，可重新登录查看。'}});},
  confirmModal(){const m=this.data.modal;if(!m)return;if(m.type==='logout'){try{A.mutate(s=>{A.logout(s);});wx.switchTab({url:'/pages/profile/index'});}catch(e){this.fail('退出失败，请重试');}return;}if(m.type==='lesson')return this.completeLesson();if(m.type==='demo'||m.type==='cancel'||m.type==='cancel-resolution')return this.perform(m.action);this.closeModal();},closeModal(){this.setData({modal:null,error:''});},
  notice(e){const key=e.currentTarget.dataset.key,texts={companies:'已加入公司：'+this.data.state.companies.map(x=>x.name).join('、')+'。',contact:'如需联系服务方，请在“帮助与反馈”提交问题。',faq:'常见问题：在“公司与工作身份”切换已授权角色；订单中的确认和接收由门店负责人办理。',quote:'该订单尚无正式报价记录，服务内容、费用和周期应在沟通后单独确认。',delete:'如需注销账号，请联系所在公司管理员或客服办理。',policy:'本页内容由运营主体发布，以正式公示版本为准。'};this.setData({modal:{type:'notice',title:{contact:'联系服务方',faq:'常见问题',quote:'服务报价',delete:'注销账号',policy:'个人信息使用说明'}[key]||'提示',text:texts[key]||'该服务尚未接入。'}});},backHome(){wx.switchTab({url:'/pages/profile/index'});},noop(){}
