@@ -38,6 +38,10 @@ public class CustomerDO {
     private String addressDetail;
     private String summary;
     private String status;
+    private String salesStage;
+    private Boolean visited;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private boolean contractSigned;
     @com.baomidou.mybatisplus.annotation.TableField(exist = false)
     private String designStatus;
     private Long originLeadId;
