@@ -49,8 +49,11 @@ test('LIVE-12 commission list omits absent filters without losing a supplied sea
   });
   api.commissions.page(1, 20);
   api.commissions.page(1, 20, '张');
+  api.commissions.page(2, 20, '李', 'DESIGN_COMPLETED');
   assert.equal(Object.hasOwn(calls[0].data, 'keyword'), false);
   assert.equal(calls[1].data.keyword, '张');
+  assert.equal(calls[2].data.pageNo, 2);
+  assert.equal(calls[2].data.statuses, 'DESIGN_COMPLETED');
 });
 
 test('LIVE-11 expired materials entry returns to login with its destination and no misleading error', () => {
