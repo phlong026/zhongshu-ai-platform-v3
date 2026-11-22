@@ -42,5 +42,8 @@ public interface PlatformOrgErrorCodes {
     ErrorCode STAFF_HANDOVER_REQUIRED = new ErrorCode(1_101_000_028, "该员工仍有需承接的业务责任，请先处理责任或办理正常交接；需立即收权时请使用停用或紧急撤权并处理待分配清单");
     ErrorCode STAFF_HANDOVER_UNCONFIRMED = new ErrorCode(1_101_000_029, "在途事项尚未核实，暂不能单独撤销岗位；请重试，或使用停用或紧急撤权并核对待分配清单");
     ErrorCode STAFF_POST_REVOKED_VERIFY_REQUIRED = new ErrorCode(1_101_000_030, "岗位已撤销，但在途复核未完成，请核对待分配清单或查找原员工补交接");
+    ErrorCode HANDOVER_TARGET_REQUIRED = new ErrorCode(1_101_000_031, "请为每类有在办事项的业务选择接收人");
+    ErrorCode HANDOVER_DOMAIN_INVALID = new ErrorCode(1_101_000_032, "交接类别已变化，请重新读取交接事项");
+    ErrorCode HANDOVER_SCAN_UNCONFIRMED = new ErrorCode(1_101_000_033, "交接事项尚未核实，请重试读取后再办理");
 
 }

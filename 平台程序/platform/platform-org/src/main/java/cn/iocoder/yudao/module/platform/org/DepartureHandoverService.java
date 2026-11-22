@@ -21,13 +21,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
 /**
  * M01-T04：离职交接编排（I03 两条路径），返回交接清单并落持久化审计（Codex R2 P2-6）。
  *
- * <p><b>正常离职交接</b>（{@link #handover}）：独立事务段内「双方 advisory 锁 → 通用资格校验 →
+ * <p><b>正常离职交接</b>（{@link #handover}）：独立事务段内「来源与所有接收人 advisory 锁 → 通用资格校验 →
  * 只读快照全部域 → 仅对有在途对象的域校验域级接收资格（R2 P1：零在途域不得阻断交接）→
  * 统一批量转移（转移数≠快照数即整体回滚可重试，R1 P1-5）→ 撤本组织任职+钱包会话 →
  * 核销本轮已转移域的待分配行 → 落交接审计行」。事务提交后残留复核（R2 P1-5 的工程边界：
@@ -42,7 +43,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
  * <p>补交接：已撤岗员工存在 OPEN 待分配行时，正常交接入口仍然放行，完成后核销 OPEN 行（R1 P1-3：
  * 待分配可查询、可补交接，不伪造已交接）。未接入 Port 的域如实报告 NOT_INTEGRATED。
  *
- * <p>锁序（R1 P1-4）：交接双方 advisory 用户锁按 userId 升序获取；R2 对齐全部撤权入口——
+ * <p>锁序（R1 P1-4）：来源与所有接收人 advisory 用户锁按 userId 升序获取；R2 对齐全部撤权入口——
  * 单岗位撤销（{@code revokePost}）同样先行取 advisory 用户锁，串行化与交接的交错。
  */
 @Service
@@ -73,9 +74,14 @@ public class DepartureHandoverService {
     public record HandoverItem(String domain, String label, long inFlight, int transferred, String status) {
     }
 
-    /** 交接结果清单：模式、双方、被撤任职、逐域明细 */
+    /** toUserId 保留旧单接收人契约；receivers 记录实际有事项的各域接收人。 */
     public record HandoverResult(String mode, long orgId, long fromUserId, Long toUserId,
-                                 List<Long> revokedPostIds, List<HandoverItem> items) {
+                                 List<Long> revokedPostIds, List<HandoverItem> items,
+                                 Map<String, Long> receivers) {
+        public HandoverResult(String mode, long orgId, long fromUserId, Long toUserId,
+                              List<Long> revokedPostIds, List<HandoverItem> items) {
+            this(mode, orgId, fromUserId, toUserId, revokedPostIds, items, Map.of());
+        }
     }
 
     @Resource
@@ -128,66 +134,117 @@ public class DepartureHandoverService {
 
     // ===================== 正常离职交接（含补交接） =====================
 
-    /**
-     * 正常交接入口（非事务外壳）：事务段提交后做残留复核，返回交接清单。
-     */
-    public HandoverResult handover(long orgId, long fromUserId, long toUserId, long operatorUserId) {
-        if (toUserId == fromUserId) {
-            throw exception(PlatformOrgErrorCodes.HANDOVER_TARGET_SELF);
+    /** 只读预览：仅展示实际有事项的接收人选择；提交时在锁内重新扫描，不信任此快照。 */
+    @Transactional(readOnly = true)
+    public List<HandoverItem> preview(long orgId, long fromUserId) {
+        Map<String, DepartureHandoverPort> byDomain = portsByDomainOrThrow();
+        requireHandoverSource(orgId, fromUserId, byDomain);
+        List<HandoverItem> items = new ArrayList<>();
+        for (KnownDomain known : KNOWN_DOMAINS) {
+            DepartureHandoverPort port = byDomain.remove(known.domain());
+            items.add(port == null
+                    ? new HandoverItem(known.domain(), known.label(), 0, 0, ST_NOT_INTEGRATED)
+                    : previewDomain(port, orgId, fromUserId));
         }
-        HandoverResult result = self.handoverInNewTransaction(orgId, fromUserId, toUserId, operatorUserId);
+        for (DepartureHandoverPort extra : byDomain.values()) {
+            items.add(previewDomain(extra, orgId, fromUserId));
+        }
+        return List.copyOf(items);
+    }
+
+    private HandoverItem previewDomain(DepartureHandoverPort port, long orgId, long fromUserId) {
+        long count = confirmedInFlight(port, orgId, fromUserId);
+        return new HandoverItem(port.domain(), port.label(), count, 0, count > 0 ? ST_PENDING_UNASSIGNED
+                : port.organizationShared() ? ST_ORGANIZATION_SHARED : ST_NONE);
+    }
+
+    /** 旧客户端兼容：一个接收人承接所有有事项的类别，资格检查保持不变。 */
+    public HandoverResult handover(long orgId, long fromUserId, long toUserId, long operatorUserId) {
+        return handover(orgId, fromUserId, toUserId, Map.of(), operatorUserId);
+    }
+
+    /** 正常交接入口（非事务外壳）：分类接收人优先，旧 toUserId 仅作为未指定类别的回退。 */
+    public HandoverResult handover(long orgId, long fromUserId, Long toUserId,
+                                   Map<String, Long> receivers, long operatorUserId) {
+        HandoverResult result = self.handoverInNewTransaction(orgId, fromUserId, toUserId, receivers, operatorUserId);
         verifyResidualAfterCommit(orgId, fromUserId, operatorUserId);
         return result;
     }
 
-    /**
-     * 交接事务段：REQUIRES_NEW——advisory 锁内校验、快照先行、按需资格校验、统一转移、撤权、
-     * 核销本轮已转移域的待分配行、落审计行。
-     */
+    /** 保留旧事务入口，供已存在的调用方兼容。 */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public HandoverResult handoverInNewTransaction(long orgId, long fromUserId, long toUserId, long operatorUserId) {
-        // R1 P1-4：双方 advisory 锁按 userId 升序（事务内持有至提交），锁内做全部校验
-        lockBothUsers(fromUserId, toUserId);
+        return handoverInNewTransaction(orgId, fromUserId, toUserId, Map.of(), operatorUserId);
+    }
+
+    /** 所有人按序加锁；全部快照和资格通过后才开始写入，转移、撤权、待分配与审计同一事务。 */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public HandoverResult handoverInNewTransaction(long orgId, long fromUserId, Long toUserId,
+                                                   Map<String, Long> receivers, long operatorUserId) {
+        Map<String, Long> selected = receivers == null ? Map.of() : new LinkedHashMap<>(receivers);
         Map<String, DepartureHandoverPort> byDomain = portsByDomainOrThrow();
+        if (!byDomain.keySet().containsAll(selected.keySet())) {
+            throw exception(PlatformOrgErrorCodes.HANDOVER_DOMAIN_INVALID);
+        }
+        TreeSet<Long> userIds = new TreeSet<>();
+        userIds.add(fromUserId);
+        if (toUserId != null) userIds.add(toUserId);
+        for (Long target : selected.values()) {
+            if (target == null || target <= 0) throw exception(PlatformOrgErrorCodes.HANDOVER_TARGET_REQUIRED);
+            userIds.add(target);
+        }
+        userIds.forEach(staffPostMapper::lockUserAdvisoryForWrite);
         requireHandoverSource(orgId, fromUserId, byDomain);
-        validateTarget(orgId, fromUserId, toUserId);
-        // 保留角色与最后管理员检查必须先于业务转移；组织锁持有至本次交接提交。
+        // 旧请求即使没有事项仍维持原接收人校验；新分类请求零事项无需指定任何人。
+        if (toUserId != null) validateTarget(orgId, fromUserId, toUserId);
         staffPostService.validateRevokeAllInOrg(fromUserId, orgId);
-        // R2 P1：只读快照先行——域级接收资格只校验实际需要承接的域（零在途域不得阻断交接）
+
         Map<String, Long> snapshots = new LinkedHashMap<>();
         for (DepartureHandoverPort port : byDomain.values()) {
-            snapshots.put(port.domain(), port.scanInFlight(fromUserId, orgId));
+            snapshots.put(port.domain(), confirmedInFlight(port, orgId, fromUserId));
         }
+        Map<String, Long> effectiveReceivers = new LinkedHashMap<>();
         for (DepartureHandoverPort port : byDomain.values()) {
             if (snapshots.get(port.domain()) > 0) {
-                port.validateReceiver(toUserId, orgId);
+                Long target = selected.getOrDefault(port.domain(), toUserId);
+                if (target == null) throw exception(PlatformOrgErrorCodes.HANDOVER_TARGET_REQUIRED);
+                validateTarget(orgId, fromUserId, target);
+                port.validateReceiver(target, orgId);
+                effectiveReceivers.put(port.domain(), target);
             }
         }
 
-        // 统一开始写入：逐域转移（快照复用，不再重扫）
         List<HandoverItem> items = new ArrayList<>();
-        java.util.Set<String> transferredDomains = new java.util.HashSet<>();
         for (KnownDomain known : KNOWN_DOMAINS) {
             DepartureHandoverPort port = byDomain.remove(known.domain());
             if (port == null) {
                 items.add(new HandoverItem(known.domain(), known.label(), 0, 0, ST_NOT_INTEGRATED));
                 continue;
             }
-            items.add(transferDomain(port, orgId, fromUserId, toUserId, operatorUserId, snapshots.get(port.domain())));
-            transferredDomains.add(port.domain());
+            items.add(transferDomain(port, orgId, fromUserId, effectiveReceivers.get(port.domain()),
+                    operatorUserId, snapshots.get(port.domain())));
         }
-        for (DepartureHandoverPort extra : byDomain.values()) { // 清单外已接入域追加在末尾
-            items.add(transferDomain(extra, orgId, fromUserId, toUserId, operatorUserId, snapshots.get(extra.domain())));
-            transferredDomains.add(extra.domain());
+        for (DepartureHandoverPort extra : byDomain.values()) {
+            items.add(transferDomain(extra, orgId, fromUserId, effectiveReceivers.get(extra.domain()),
+                    operatorUserId, snapshots.get(extra.domain())));
         }
 
         List<Long> revokedPostIds = revokeAllInOrgCollecting(fromUserId, orgId, operatorUserId);
-        // 只核销本轮已转移域的 OPEN 行（未接入域不得误标已交接，Codex R2 P1）
-        pendingMapper.markHandedOver(orgId, fromUserId, toUserId, transferredDomains);
-        persistAudit(orgId, MODE_NORMAL, fromUserId, toUserId, operatorUserId, revokedPostIds, items);
-        log.info("[handover][NORMAL orgId={} from={} to={} revokedPostIds={} items={}]", orgId,
-                fromUserId, toUserId, revokedPostIds, items);
-        return new HandoverResult(MODE_NORMAL, orgId, fromUserId, toUserId, revokedPostIds, List.copyOf(items));
+        // 各域保留真实接收人；确认零事项的域可核销旧待办，未接入域不核销。
+        for (String domain : snapshots.keySet()) {
+            pendingMapper.markHandedOver(orgId, fromUserId, effectiveReceivers.get(domain), List.of(domain));
+        }
+        persistAudit(orgId, MODE_NORMAL, fromUserId, toUserId, operatorUserId, revokedPostIds, items, effectiveReceivers);
+        log.info("[handover][NORMAL orgId={} from={} receivers={} revokedPostIds={} items={}]", orgId,
+                fromUserId, effectiveReceivers, revokedPostIds, items);
+        return new HandoverResult(MODE_NORMAL, orgId, fromUserId, toUserId, revokedPostIds,
+                List.copyOf(items), Map.copyOf(effectiveReceivers));
+    }
+
+    private long confirmedInFlight(DepartureHandoverPort port, long orgId, long fromUserId) {
+        long count = port.scanInFlight(fromUserId, orgId);
+        if (count < 0) throw exception(PlatformOrgErrorCodes.HANDOVER_SCAN_UNCONFIRMED);
+        return count;
     }
 
     /** 提交后残留复核：逐域独立扫描；失败也落待核行，不回滚已提交的撤权/交接。 */
@@ -211,7 +268,7 @@ public class DepartureHandoverService {
 
     /** 仅组织共享的域明确报告；转移数≠快照数抛 022 整体回滚（残留不得报已交接）。 */
     private HandoverItem transferDomain(DepartureHandoverPort port, long orgId,
-                                        long fromUserId, long toUserId, long operatorUserId, long inFlight) {
+                                        long fromUserId, Long toUserId, long operatorUserId, long inFlight) {
         if (inFlight == 0) {
             return new HandoverItem(port.domain(), port.label(), 0, 0,
                     port.organizationShared() ? ST_ORGANIZATION_SHARED : ST_NONE);
@@ -327,12 +384,28 @@ public class DepartureHandoverService {
     /** 交接审计落库（Codex R2 P2-6）：清单 JSON 持久化，不依赖运行日志 */
     private void persistAudit(long orgId, String mode, long fromUserId, Long toUserId,
                               long operatorUserId, List<Long> revokedPostIds, List<HandoverItem> items) {
+        persistAudit(orgId, mode, fromUserId, toUserId, operatorUserId, revokedPostIds, items, Map.of());
+    }
+
+    private void persistAudit(long orgId, String mode, long fromUserId, Long toUserId,
+                              long operatorUserId, List<Long> revokedPostIds, List<HandoverItem> items,
+                              Map<String, Long> receivers) {
+        List<Map<String, Object>> auditItems = items.stream().map(item -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("domain", item.domain());
+            row.put("label", item.label());
+            row.put("inFlight", item.inFlight());
+            row.put("transferred", item.transferred());
+            row.put("status", item.status());
+            if (receivers.containsKey(item.domain())) row.put("toUserId", receivers.get(item.domain()));
+            return row;
+        }).toList();
         auditMapper.insert(new PlatformHandoverAuditDO()
                 .setOrgId(orgId).setMode(mode).setFromUserId(fromUserId).setToUserId(toUserId)
                 .setOperatorUserId(operatorUserId)
                 .setRevokedPostIds(revokedPostIds.stream().map(String::valueOf)
                         .reduce((a, b) -> a + "," + b).orElse(""))
-                .setItemsJson(JsonUtils.toJsonString(items))
+                .setItemsJson(JsonUtils.toJsonString(auditItems))
                 .setCreateTime(OffsetDateTime.now()));
     }
 
@@ -396,6 +469,7 @@ public class DepartureHandoverService {
 
     /** 接收人通用资格校验（域级资格由各 Port validateReceiver 把守）：停用/不在本组织均拒绝 */
     private void validateTarget(long orgId, long fromUserId, long toUserId) {
+        if (toUserId == fromUserId) throw exception(PlatformOrgErrorCodes.HANDOVER_TARGET_SELF);
         if (!systemDirectory.userUsable(toUserId)) {
             throw exception(PlatformOrgErrorCodes.HANDOVER_TARGET_DISABLED);
         }

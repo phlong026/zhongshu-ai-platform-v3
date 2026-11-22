@@ -181,6 +181,19 @@ class StaffOrgAdminControllerTest {
     }
 
     @Test
+    void classifiedHandoverDelegatesDomainReceiversAndPreviewKeepsOrganizationScope() {
+        loginAsBossAt(STORE_ORG);
+        var receivers = java.util.Map.of("franchise-crm", 6L, "franchise-engineering", 7L);
+        var req = new StaffOrgAdminController.StaffHandoverReqVO(STORE_ORG, 5L, null, receivers);
+        controller.handover(req);
+        org.mockito.Mockito.verify(handoverService).handover(STORE_ORG, 5L, null, receivers, BOSS_USER);
+        when(handoverService.preview(STORE_ORG, 5L)).thenReturn(List.of());
+        assertThat(controller.handoverPreview(STORE_ORG, 5L).getData()).isEmpty();
+        assertThatThrownBy(() -> controller.handoverPreview(999L, 5L)).isInstanceOf(ServiceException.class);
+        org.mockito.Mockito.verify(handoverService, org.mockito.Mockito.never()).preview(999L, 5L);
+    }
+
+    @Test
     void handoverRejectsOutOfScopeOrg() {
         loginAsBossAt(STORE_ORG); // 操作者在本店，请求交接别家组织（越权在 service 调用前即拒）
 

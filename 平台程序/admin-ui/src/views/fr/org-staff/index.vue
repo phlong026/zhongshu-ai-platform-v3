@@ -315,26 +315,30 @@
       >
     </el-dialog>
 
-    <el-dialog v-model="handoverDialog" title="离职交接" width="500px">
-      <el-form label-position="top"
-        ><el-form-item label="离职员工"
-          ><el-input
-            :model-value="handoverForm.fromName || String(handoverForm.fromUserId)"
-            disabled /></el-form-item
-        ><el-form-item label="接收人"
-          ><el-select v-model="handoverForm.toUserId" class="w-full"
-            ><el-option
-              v-for="person in receivers"
-              :key="person.userId"
-              :label="`${person.name} · ${roleLabel(person.roleCode)}`"
-              :value="person.userId" /></el-select></el-form-item
-      ></el-form>
-      <template #footer
-        ><el-button @click="handoverDialog = false">取消</el-button
-        ><el-button type="primary" :loading="saving" @click="saveHandover"
-          >确认交接并撤权</el-button
-        ></template
-      >
+    <el-dialog v-model="handoverDialog" title="离职交接" width="520px" @close="resetHandoverPreview">
+      <el-form label-position="top">
+        <el-form-item label="离职员工">
+          <el-input :model-value="handoverForm.fromName || String(handoverForm.fromUserId)" disabled />
+        </el-form-item>
+        <p v-if="handoverPreviewBusy">正在读取在办事项…</p>
+        <el-alert v-else-if="handoverPreviewError" :title="handoverPreviewError" type="error" :closable="false">
+          <el-button link type="primary" @click="loadHandoverPreview">重试读取</el-button>
+        </el-alert>
+        <template v-else-if="handoverPreviewReady">
+          <p v-if="handoverRequirements.length" class="mb-16px">请为以下在办事项分别选择接收人，可以由不同员工承接。</p>
+          <p v-else>已确认没有需要选择接收人的个人在办事项，可直接完成离职撤权。</p>
+          <el-form-item v-for="item in handoverRequirements" :key="item.domain" :label="`${item.label}（${item.inFlight} 项）`">
+            <el-select v-model="handoverForm.receivers[item.domain]" class="w-full" :placeholder="handoverRoleHint(item.domain)">
+              <el-option v-for="person in receivers" :key="person.userId"
+                :label="`${person.name} · ${roleLabel(person.roleCode)}`" :value="person.userId" />
+            </el-select>
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="handoverDialog = false">取消</el-button>
+        <el-button type="primary" :loading="saving" :disabled="!canSubmitHandover" @click="saveHandover">确认交接并撤权</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="resultDialog" title="交接结果" width="680px">
@@ -349,7 +353,9 @@
           ><template #default="{ row }">{{ row.status === 'ORGANIZATION_SHARED' ? '—' : row.inFlight < 0 ? '数量待核' : row.inFlight }}</template
         ></el-table-column><el-table-column label="已转移"
           ><template #default="{ row }">{{ row.status === 'ORGANIZATION_SHARED' ? '—' : row.transferred }}</template
-        ></el-table-column><el-table-column label="结果" min-width="270"
+        ></el-table-column><el-table-column label="接收人">
+          <template #default="{ row }">{{ handoverReceiverName(row.domain) }}</template>
+        </el-table-column><el-table-column label="结果" min-width="270"
           ><template #default="{ row }"
             ><el-tag :type="statusMeta[row.status]?.type">{{
               statusMeta[row.status]?.label || row.status
@@ -557,6 +563,7 @@ import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as api from '@/api/platform/staff'
 import type {
+  HandoverItem,
   HandoverResult,
   HandoverSource,
   PendingRow,
@@ -664,8 +671,14 @@ const assignForm = reactive({
 const handoverForm = reactive({
   fromUserId: '' as PlatformId,
   fromName: '',
-  toUserId: undefined as PlatformId | undefined
+  receivers: {} as Record<string, PlatformId>
 })
+const handoverItems = ref<HandoverItem[]>([])
+const handoverPreviewBusy = ref(false)
+const handoverPreviewReady = ref(false)
+const handoverPreviewError = ref('')
+const handoverRequirements = computed(() => handoverItems.value.filter((item) => item.inFlight > 0))
+let handoverPreviewGeneration = 0
 const handoverResult = ref<HandoverResult | null>(null)
 const historyQuery = ref('')
 const historyRows = ref<HandoverSource[]>([])
@@ -711,6 +724,32 @@ const receivers = computed(() =>
     ).values()
   )
 )
+const canSubmitHandover = computed(() =>
+  handoverPreviewReady.value && !handoverPreviewBusy.value && !handoverPreviewError.value &&
+  handoverRequirements.value.every((item) => receivers.value.some((person) =>
+    String(person.userId) === String(handoverForm.receivers[item.domain])))
+)
+const handoverRoleHint = (domain: string) => domain === 'franchise-crm'
+  ? '请选择销售或销售负责人' : ['franchise-commission', 'franchise-engineering'].includes(domain)
+    ? '请选择工长或工程经理' : '请选择接收人'
+const handoverReceiverName = (domain: string) => {
+  const userId = handoverResult.value?.receivers?.[domain]
+  if (userId == null) return '—'
+  return staff.value.find((person) => String(person.userId) === String(userId))?.name || String(userId)
+}
+const resetHandoverPreview = () => {
+  ++handoverPreviewGeneration
+  handoverItems.value = []
+  handoverPreviewBusy.value = false
+  handoverPreviewReady.value = false
+  handoverPreviewError.value = ''
+  handoverForm.receivers = {}
+}
+const syncHandoverReceivers = () => {
+  handoverForm.receivers = Object.fromEntries(Object.entries(handoverForm.receivers)
+    .filter(([domain, userId]) => handoverRequirements.value.some((item) => item.domain === domain) &&
+      receivers.value.some((person) => String(person.userId) === String(userId))))
+}
 const statusMeta: Record<
   string,
   { label: string; type: 'success' | 'warning' | 'danger' | 'info' }
@@ -774,6 +813,8 @@ const handleStaffRouteLeave = () => {
   }
   clearStaffAccountCredential()
   resetHandoverHistory()
+  handoverDialog.value = false
+  resetHandoverPreview()
   resetImport()
   return true
 }
@@ -781,6 +822,8 @@ const handleStaffRouteLeave = () => {
 const handleStaffDeactivated = () => {
   staffPageActive.value = false
   resetHandoverHistory()
+  handoverDialog.value = false
+  resetHandoverPreview()
   if (!saving.value) clearStaffAccountCredential()
   resetImport()
 }
@@ -1035,6 +1078,7 @@ const load = async () => {
     teams.value = teamRows
     postTemplates.value = templateRows
     staff.value = staffRows
+    syncHandoverReceivers()
     pending.value = pendingRows
     staffPage.value = 1
   } catch (error) {
@@ -1064,7 +1108,8 @@ const resetTransientState = () => {
   Object.assign(teamForm, { name: '', line: '' })
   Object.assign(staffForm, { name: '', mobile: '', roleCode: '', teamId: undefined })
   Object.assign(assignForm, { userId: '', roleCode: '', teamId: undefined })
-  Object.assign(handoverForm, { fromUserId: '', fromName: '', toUserId: undefined })
+  Object.assign(handoverForm, { fromUserId: '', fromName: '', receivers: {} })
+  resetHandoverPreview()
   staffPage.value = 1
 }
 const switchPost = async (postId: PlatformId) => {
@@ -1121,24 +1166,50 @@ const openAssign = (row: StaffRow) => {
   assignDialog.value = true
 }
 const openHandover = (row: StaffRow) => {
-  if (blockReservedRemoval(hasReservedRole(row.userId))) return
-  Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name, toUserId: undefined })
+  if (saving.value || !canManage.value || blockReservedRemoval(hasReservedRole(row.userId))) return
+  resetHandoverPreview()
+  Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name })
   handoverDialog.value = true
+  return loadHandoverPreview()
 }
-const openPendingHandover = (row: PendingRow) => {
-  Object.assign(handoverForm, {
-    fromUserId: row.fromUserId,
-    fromName: `用户 ${row.fromUserId}`,
-    toUserId: undefined
-  })
-  handoverDialog.value = true
-}
+const openPendingHandover = (row: PendingRow) => openHistoricalHandover({
+  userId: row.fromUserId, name: `用户 ${row.fromUserId}`, mobile: ''
+})
 const openHistoricalHandover = (row: HandoverSource) => {
-  if (!canManage.value || blockReservedRemoval(hasReservedRole(row.userId))) return
-  Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name, toUserId: undefined })
+  if (saving.value || !canManage.value || blockReservedRemoval(hasReservedRole(row.userId))) return
+  resetHandoverPreview()
+  Object.assign(handoverForm, { fromUserId: row.userId, fromName: row.name })
   handoverDialog.value = true
+  return loadHandoverPreview()
 }
 const actionScope = () => ({ generation: postGeneration(), orgId: orgId() })
+const loadHandoverPreview = async () => {
+  if (!canManage.value || !handoverDialog.value || !handoverForm.fromUserId) return
+  const scope = actionScope()
+  const fromUserId = handoverForm.fromUserId
+  const generation = ++handoverPreviewGeneration
+  const isCurrent = () => generation === handoverPreviewGeneration && staffPageActive.value &&
+    handoverDialog.value && isCurrentGeneration(scope.generation) &&
+    String(currentPost.value?.orgId) === String(scope.orgId) &&
+    String(handoverForm.fromUserId) === String(fromUserId)
+  handoverPreviewBusy.value = true
+  handoverPreviewReady.value = false
+  handoverPreviewError.value = ''
+  try {
+    const items = await api.getHandoverPreview(scope.orgId, fromUserId)
+    if (!isCurrent()) return
+    if (!Array.isArray(items) || items.some((item) => item.inFlight < 0 || ['SCAN_FAILED', 'NOT_INTEGRATED'].includes(item.status)))
+      throw new Error('Unconfirmed handover preview')
+    handoverItems.value = items
+    syncHandoverReceivers()
+    handoverPreviewReady.value = true
+  } catch (error) {
+    if (isCurrent() && (error as Error)?.message !== 'STALE_POST_RESPONSE')
+      handoverPreviewError.value = '在办事项暂时没加载，请重试读取后再交接。'
+  } finally {
+    if (isCurrent()) handoverPreviewBusy.value = false
+  }
+}
 const searchHandoverHistory = async (more = false) => {
   if (!canManage.value || historyBusy.value) return
   const keyword = historyQuery.value.trim()
@@ -1226,16 +1297,30 @@ const saveAssign = async () => {
   })
 }
 const saveHandover = async () => {
-  if (!handoverForm.toUserId) return ElMessage.warning('请选择接收人')
   if (blockReservedRemoval(hasReservedRole(handoverForm.fromUserId))) return
+  if (!canManage.value || !handoverDialog.value || !canSubmitHandover.value)
+    return ElMessage.warning('请先读取在办事项，并为每类事项选择接收人')
   const scope = actionScope()
+  const fromUserId = handoverForm.fromUserId
+  const selected = Object.fromEntries(handoverRequirements.value.map((item) =>
+    [item.domain, handoverForm.receivers[item.domain]]))
   await run(scope, async () => {
-    handoverResult.value = await api.handoverStaff({
-      orgId: scope.orgId,
-      fromUserId: handoverForm.fromUserId,
-      toUserId: handoverForm.toUserId!
-    })
+    let result: HandoverResult
+    try {
+      result = await api.handoverStaff({ orgId: scope.orgId, fromUserId, receivers: selected })
+    } catch (error) {
+      if (staffPageActive.value && isCurrentGeneration(scope.generation) &&
+          String(handoverForm.fromUserId) === String(fromUserId)) {
+        handoverPreviewReady.value = false
+        handoverPreviewError.value = '交接结果尚未确认，请重新读取在办事项后再办理。'
+      }
+      throw error
+    }
+    if (!staffPageActive.value || !isCurrentGeneration(scope.generation) ||
+        String(currentPost.value?.orgId) !== String(scope.orgId)) return
+    handoverResult.value = result
     handoverDialog.value = false
+    resetHandoverPreview()
     resultDialog.value = true
   })
 }

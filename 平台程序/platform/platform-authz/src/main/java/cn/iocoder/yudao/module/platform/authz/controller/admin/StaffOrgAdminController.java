@@ -111,7 +111,11 @@ public class StaffOrgAdminController {
 
     public record StaffHandoverReqVO(@NotNull(message = "组织不能为空") Long orgId,
                                      @NotNull(message = "被交接人不能为空") Long fromUserId,
-                                     @NotNull(message = "接收人不能为空") Long toUserId) {
+                                     Long toUserId,
+                                     @Size(max = 32) Map<@NotBlank @Size(max = 64) String, @NotNull Long> receivers) {
+        public StaffHandoverReqVO(Long orgId, Long fromUserId, Long toUserId) {
+            this(orgId, fromUserId, toUserId, null);
+        }
     }
 
     public record StaffEmergencyRevokeReqVO(@NotNull(message = "组织不能为空") Long orgId,
@@ -249,8 +253,20 @@ public class StaffOrgAdminController {
     @PreAuthorize("@post.has('platform:org:manage')")
     public CommonResult<DepartureHandoverService.HandoverResult> handover(@Valid @RequestBody StaffHandoverReqVO req) {
         requireScope(req.orgId());
-        return success(handoverService.handover(req.orgId(), req.fromUserId(), req.toUserId(),
-                currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId()));
+        long operator = currentPost.find().orElseThrow(() -> exception(POST_REQUIRED)).userId();
+        if (req.receivers() == null && req.toUserId() != null) {
+            return success(handoverService.handover(req.orgId(), req.fromUserId(), req.toUserId(), operator));
+        }
+        return success(handoverService.handover(req.orgId(), req.fromUserId(), req.toUserId(), req.receivers(), operator));
+    }
+
+    @GetMapping("/staff-handover-preview")
+    @Operation(summary = "读取本组织员工的在办交接类别，提交时重新校验")
+    @PreAuthorize("@post.has('platform:org:manage')")
+    public CommonResult<List<DepartureHandoverService.HandoverItem>> handoverPreview(
+            @RequestParam("orgId") long orgId, @RequestParam("fromUserId") long fromUserId) {
+        requireScope(orgId);
+        return success(handoverService.preview(orgId, fromUserId));
     }
 
     @PostMapping("/staff-emergency-revoke")

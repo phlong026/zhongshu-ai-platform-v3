@@ -65,6 +65,7 @@ export interface HandoverResult {
   toUserId?: PlatformId | null
   revokedPostIds: PlatformId[]
   items: HandoverItem[]
+  receivers?: Record<string, PlatformId>
 }
 
 export interface PendingRow {
@@ -132,8 +133,11 @@ export const setStaffStatus = (userId: PlatformId, active: boolean) =>
 export const handoverStaff = (data: {
   orgId: PlatformId
   fromUserId: PlatformId
-  toUserId: PlatformId
+  toUserId?: PlatformId
+  receivers?: Record<string, PlatformId>
 }) => request.post<HandoverResult>({ url: `${orgBase}/staff-handover`, data })
+export const getHandoverPreview = (orgId: PlatformId, fromUserId: PlatformId) =>
+  request.get<HandoverItem[]>({ url: `${orgBase}/staff-handover-preview`, params: { orgId, fromUserId } })
 export const emergencyRevokeStaff = (data: { orgId: PlatformId; userId: PlatformId }) =>
   request.post<HandoverResult>({ url: `${orgBase}/staff-emergency-revoke`, data })
 export const getHandoverPending = (orgId: PlatformId) =>

@@ -231,6 +231,87 @@ class DepartureHandoverDomainsIntegrationTest extends FranchisePgIntegrationTest
         assertThat(staffPosts.findActivePost(source.userId(), source.postId())).isPresent();
     }
 
+    @Test
+    void classifiedHandoverAssignsSalesAndEngineeringToDifferentPeopleAtomically() {
+        verifyClassifiedHandover(false);
+    }
+
+    @Test
+    void classifiedBackfillRecordsTheActualReceiverForEachPendingDomain() {
+        verifyClassifiedHandover(true);
+    }
+
+    private void verifyClassifiedHandover(boolean emergencyFirst) {
+        var salesOnly = fixture.post(store.orgId(), SALES, store.salesTeamB());
+        var engineerOnly = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        long customer = customer(source);
+        as(source, () -> customers.follow(source, customer, new CustomerService.FollowCommand("历史跟进", null), null));
+        long commission = packet(customer, source.userId(), boss.userId());
+        long project = project(store.orgId(), source.userId(), source.userId(), "IN_PROGRESS");
+        long delayed = node(project, 1, "IN_PROGRESS", source.userId());
+        long done = node(project, 2, "DONE", source.userId());
+        var selected = Map.of("franchise-crm", salesOnly.userId(),
+                "franchise-commission", engineerOnly.userId(), "franchise-engineering", engineerOnly.userId());
+        var preview = as(boss, () -> departures.preview(store.orgId(), source.userId()));
+        assertThat(preview.stream().filter(row -> row.inFlight() > 0).map(HandoverItem::domain))
+                .containsExactlyInAnyOrder("franchise-crm", "franchise-commission", "franchise-engineering");
+        assertThat(staffPosts.findActivePost(source.userId(), source.postId())).isPresent();
+        if (emergencyFirst) as(boss, () -> departures.emergencyRevoke(store.orgId(), source.userId(), boss.userId()));
+
+        var result = as(boss, () -> departures.handover(store.orgId(), source.userId(), null, selected, boss.userId()));
+
+        assertThat(result.toUserId()).isNull();
+        assertThat(result.receivers()).isEqualTo(selected);
+        assertThat(result.items().stream().filter(row -> row.inFlight() > 0)).allMatch(row -> ST_HANDED_OVER.equals(row.status()));
+        assertThat(staffPosts.listActivePosts(source.userId()).stream().filter(post -> post.getOrgId() == store.orgId())).isEmpty();
+        assertThat(number("SELECT owner_user_id FROM fr_customer WHERE id=?", customer)).isEqualTo(salesOnly.userId());
+        assertThat(number("SELECT manager_user_id FROM fr_commission_handover WHERE commission_id=? AND version=2", commission)).isEqualTo(engineerOnly.userId());
+        assertThat(number("SELECT manager_user_id FROM fr_eng_project WHERE id=?", project)).isEqualTo(engineerOnly.userId());
+        assertThat(number("SELECT assigned_engineer_user_id FROM fr_eng_project WHERE id=?", project)).isEqualTo(engineerOnly.userId());
+        assertThat(number("SELECT delay_owner_user_id FROM fr_eng_plan_node WHERE id=?", delayed)).isEqualTo(engineerOnly.userId());
+        assertThat(number("SELECT author_user_id FROM fr_customer_follow WHERE customer_id=?", customer)).isEqualTo(source.userId());
+        assertThat(number("SELECT author_user_id FROM fr_eng_project WHERE id=?", project)).isEqualTo(source.userId());
+        assertThat(number("SELECT responsible_user_id FROM fr_eng_plan_node WHERE id=?", done)).isEqualTo(source.userId());
+        assertThat(number("SELECT manager_user_id FROM fr_commission_handover WHERE commission_id=? AND version=1", commission)).isEqualTo(source.userId());
+        for (var entry : selected.entrySet()) {
+            String audited = jdbc.queryForObject("""
+                    SELECT item->>'toUserId' FROM pf_handover_audit a,
+                      jsonb_array_elements(a.items_json::jsonb) item
+                    WHERE a.org_id=? AND a.from_user_id=? AND a.mode='NORMAL' AND item->>'domain'=?
+                    """, String.class, store.orgId(), source.userId(), entry.getKey());
+            assertThat(audited).isEqualTo(entry.getValue().toString());
+            if (emergencyFirst) assertThat(number("SELECT to_user_id FROM pf_handover_pending WHERE org_id=? AND from_user_id=? AND domain=? AND status='HANDED_OVER'",
+                    store.orgId(), source.userId(), entry.getKey())).isEqualTo(entry.getValue());
+        }
+        assertThat(departures.listPending(store.orgId())).isEmpty();
+        assertThat(staffPosts.listActivePosts(salesOnly.userId())).extracting(post -> post.getRoleCode()).containsExactly(SALES);
+        assertThat(staffPosts.listActivePosts(engineerOnly.userId())).extracting(post -> post.getRoleCode()).containsExactly(ENGINEER);
+    }
+
+    @Test
+    void missingOrWrongDomainReceiverRollsBackAllResponsibilitiesAndRevocation() {
+        var salesOnly = fixture.post(store.orgId(), SALES, store.salesTeamB());
+        long customer = customer(source);
+        long project = project(store.orgId(), source.userId(), null, "IN_PROGRESS");
+        assertError(() -> as(boss, () -> departures.handover(store.orgId(), source.userId(), null,
+                Map.of("franchise-crm", salesOnly.userId()), boss.userId())), HANDOVER_TARGET_REQUIRED);
+        assertError(() -> as(boss, () -> departures.handover(store.orgId(), source.userId(), null,
+                Map.of("franchise-crm", salesOnly.userId(), "franchise-engineering", salesOnly.userId()), boss.userId())),
+                HANDOVER_TARGET_ROLE_MISMATCH);
+        assertThat(number("SELECT owner_user_id FROM fr_customer WHERE id=?", customer)).isEqualTo(source.userId());
+        assertThat(number("SELECT manager_user_id FROM fr_eng_project WHERE id=?", project)).isEqualTo(source.userId());
+        assertThat(staffPosts.findActivePost(source.userId(), source.postId())).isPresent();
+        assertThat(number("SELECT COUNT(*) FROM pf_handover_audit WHERE org_id=? AND from_user_id=?", store.orgId(), source.userId())).isZero();
+    }
+
+    @Test
+    void classifiedHandoverNeedsNoReceiverForConfirmedEmptyDomains() {
+        var result = as(boss, () -> departures.handover(store.orgId(), source.userId(), null, Map.of(), boss.userId()));
+        assertThat(result.receivers()).isEmpty();
+        assertThat(result.items()).allMatch(row -> row.inFlight() == 0);
+        assertThat(staffPosts.findActivePost(source.userId(), source.postId())).isEmpty();
+    }
+
     private long customer(PostSnapshot sales) {
         return as(sales, () -> leads.capture(sales,
                 new LeadService.CaptureCommand("交接客户", String.valueOf(PHONES.incrementAndGet()), "自建房咨询", "到店"), null)).customerId();
