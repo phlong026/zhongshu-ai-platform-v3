@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingEventMapper;
 import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingMapper;
 import cn.iocoder.yudao.module.platform.identity.wechat.WechatStaffClient;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.StaffInitialPasswordPolicy;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -37,7 +38,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@Import({StaffWechatLoginServiceImpl.class, StaffWechatBindingServiceImpl.class, StaffWechatBindingCommitService.class, StaffWechatLoginIntegrationTest.Config.class})
+@Import({StaffWechatLoginServiceImpl.class, StaffWechatBindingServiceImpl.class, StaffWechatBindingCommitService.class,
+        StaffInitialPasswordPolicy.class, StaffWechatLoginIntegrationTest.Config.class})
 @TestPropertySource(properties = {
         "platform.identity.wechat.apps[0].appid=wx-staff",
         "platform.identity.wechat.apps[0].secret=unused-in-this-test"

@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Options;
 
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +19,11 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
     /** 只锁定当前租户的用户行，不写状态或更新时间。 */
     @Select("SELECT id FROM system_users WHERE id = #{userId} AND deleted = 0 FOR UPDATE")
     Long lockById(@Param("userId") Long userId);
+
+    /** Password changes need a fresh value after acquiring business policy locks, even inside a cached SqlSession. */
+    @Select("SELECT password FROM system_users WHERE id = #{userId} AND deleted = 0 FOR UPDATE")
+    @Options(useCache = false, flushCache = Options.FlushCachePolicy.TRUE)
+    String selectPasswordForUpdate(@Param("userId") Long userId);
 
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);

@@ -203,7 +203,7 @@
           :title="
             staffAccountResult.reusedUser
               ? '已复用该员工原账号，密码保持不变。'
-              : '员工独立账号已开通，初始密码仅在本次显示。'
+              : '员工独立账号已开通，初始密码仅在本次显示，48小时内登录并改密；微信登录后初始密码失效。'
           "
           :type="staffAccountResult.reusedUser ? 'info' : 'warning'"
           show-icon

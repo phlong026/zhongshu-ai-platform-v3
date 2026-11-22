@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -119,7 +120,7 @@ public class FranchiseAccountAuthService {
         AccountRow account = account(accountId, tenantId);
         if (account == null) throw exception(ACCOUNT_CREDENTIAL_INVALID);
         ensureNotLocked(tenantId, account.userId());
-        boolean requireChange = lockPasswordPolicy(tenantId, account.userId());
+        PasswordState policy = lockPasswordPolicy(tenantId, account.userId());
         // policy 行串行化同一 userId 的首次改密；加锁后重读 hash，防止并发覆盖新密码。
         AdminUserDO user = adminUserService.getUser(account.userId());
         if (user == null || !Objects.equals(user.getTenantId(), tenantId)
@@ -129,7 +130,8 @@ public class FranchiseAccountAuthService {
             recordFailure(tenantId, account.userId());
             throw exception(ACCOUNT_CREDENTIAL_INVALID);
         }
-        if (requireChange) {
+        if (policy.requireChange()) {
+            if (!policy.initialUsable()) throw exception(ACCOUNT_INITIAL_PASSWORD_EXPIRED);
             if (newPassword == null) {
                 return new LoginResult(true, null, null, null, account.accountId(), account.loginName(), account.orgName());
             }
@@ -139,7 +141,7 @@ public class FranchiseAccountAuthService {
             }
             // 新账号与首次改密统一使用 bcrypt cost 10，避免沿用底座较低的默认 cost。
             adminUserMapper.updateById(new AdminUserDO().setId(account.userId()).setPassword(STRONG_ENCODER.encode(newPassword)));
-            jdbc.update("UPDATE pf_staff_password_policy SET require_change=FALSE WHERE tenant_id=? AND user_id=?",
+            jdbc.update("UPDATE pf_staff_password_policy SET require_change=FALSE,initial_password_expires_at=NULL WHERE tenant_id=? AND user_id=?",
                     tenantId, account.userId());
         }
         clearFailures(tenantId, account.userId());
@@ -158,11 +160,16 @@ public class FranchiseAccountAuthService {
         }
     }
 
-    private boolean lockPasswordPolicy(long tenantId, long userId) {
-        List<Boolean> values = jdbc.query("SELECT require_change FROM pf_staff_password_policy "
+    private record PasswordState(boolean requireChange, Instant expiresAt) {
+        boolean initialUsable() { return expiresAt != null && expiresAt.isAfter(Instant.now()); }
+    }
+
+    private PasswordState lockPasswordPolicy(long tenantId, long userId) {
+        List<PasswordState> values = jdbc.query("SELECT require_change,initial_password_expires_at FROM pf_staff_password_policy "
                         + "WHERE tenant_id=? AND user_id=? FOR UPDATE",
-                (rs, row) -> rs.getBoolean(1), tenantId, userId);
-        return !values.isEmpty() && Boolean.TRUE.equals(values.get(0));
+                (rs, row) -> new PasswordState(rs.getBoolean(1),
+                        rs.getTimestamp(2) == null ? null : rs.getTimestamp(2).toInstant()), tenantId, userId);
+        return values.isEmpty() ? new PasswordState(false, null) : values.get(0);
     }
 
     private void ensureNotLocked(long tenantId, long userId) {

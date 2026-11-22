@@ -27,4 +27,6 @@ public interface PlatformIdentityErrorCodes {
     ErrorCode WECHAT_BINDING_CONFLICT = new ErrorCode(1_104_000_015, "微信绑定状态已变化，请重试");
 
     ErrorCode LOGIN_CONSENT_REQUIRED = new ErrorCode(1_104_000_016, "请阅读并同意当前版本的用户协议和隐私政策");
+    ErrorCode ACCOUNT_INITIAL_PASSWORD_EXPIRED = new ErrorCode(1_104_000_017,
+            "初始密码已失效，请使用微信登录，或验证手机号/联系管理员重置密码");
 }

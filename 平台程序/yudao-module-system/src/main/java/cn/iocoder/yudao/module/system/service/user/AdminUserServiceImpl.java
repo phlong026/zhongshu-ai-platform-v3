@@ -43,6 +43,8 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.beans.factory.ObjectProvider;
+import cn.iocoder.yudao.module.system.service.auth.AdminUserPasswordPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,6 +100,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Resource
     private ApplicationEventPublisher eventPublisher; // M01-T01：用户删除事件（平台侧回收任职/钱包）
+    @Resource
+    private ObjectProvider<AdminUserPasswordPolicy> passwordPolicies;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -228,27 +232,34 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO) {
+        AdminUserDO user = validateUserExists(id);
+        passwordPolicies.orderedStream().forEach(policy -> policy.beforePasswordChange(user));
         // 校验旧密码密码
         validateOldPassword(id, reqVO.getOldPassword());
         // 执行更新
         AdminUserDO updateObj = new AdminUserDO().setId(id);
         updateObj.setPassword(encodePassword(reqVO.getNewPassword())); // 加密密码
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw exception(USER_NOT_EXISTS);
+        passwordPolicies.orderedStream().forEach(policy -> policy.passwordChanged(user));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UPDATE_PASSWORD_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_USER_UPDATE_PASSWORD_SUCCESS)
     public void updateUserPassword(Long id, String password) {
         // 1. 校验用户存在
         AdminUserDO user = validateUserExists(id);
+        passwordPolicies.orderedStream().forEach(policy -> policy.beforePasswordChange(user));
 
         // 2. 更新密码
         AdminUserDO updateObj = new AdminUserDO();
         updateObj.setId(id);
         updateObj.setPassword(encodePassword(password)); // 加密密码
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw exception(USER_NOT_EXISTS);
+        passwordPolicies.orderedStream().forEach(policy -> policy.passwordChanged(user));
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("user", user);
@@ -523,11 +534,11 @@ public class AdminUserServiceImpl implements AdminUserService {
      */
     @VisibleForTesting
     void validateOldPassword(Long id, String oldPassword) {
-        AdminUserDO user = userMapper.selectById(id);
-        if (user == null) {
+        String currentPassword = userMapper.selectPasswordForUpdate(id);
+        if (currentPassword == null) {
             throw exception(USER_NOT_EXISTS);
         }
-        if (!isPasswordMatch(oldPassword, user.getPassword())) {
+        if (!isPasswordMatch(oldPassword, currentPassword)) {
             throw exception(USER_PASSWORD_FAILED);
         }
     }

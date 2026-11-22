@@ -73,7 +73,7 @@ public class StaffAccountOnboardService {
                 "SELECT account_id,login_name,org_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=? AND user_id=?",
                 (rs, row) -> new Existing(rs.getString(1), rs.getString(2), rs.getString(3)), tenant, orgId, userId);
         String loginName = existing.isEmpty() ? availableLogin(tenant, person.pinyin()) : existing.get(0).loginName();
-        String initial = reusedUser ? null : InitialAccountPassword.forStaffLogin(loginName);
+        String initial = reusedUser ? null : InitialAccountPassword.generate();
         if (userId == null) userId = directory.createUserWithPassword(person.name(), mobile, orgId, initial);
         long postId = posts.assignPostInOrg(userId, orgId, roleCode, teamId, operatorUserId);
         Existing account;

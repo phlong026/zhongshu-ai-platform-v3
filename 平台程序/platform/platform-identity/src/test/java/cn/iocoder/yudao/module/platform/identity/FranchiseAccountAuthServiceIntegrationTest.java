@@ -12,12 +12,18 @@ import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.platform.org.OrgServiceImpl;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.StaffInitialPasswordPolicy;
 import cn.iocoder.yudao.module.platform.org.StaffPostServiceImpl;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl;
+import cn.iocoder.yudao.module.system.service.auth.AdminAuthServiceImpl;
+import cn.iocoder.yudao.module.system.service.auth.AdminUserPasswordPolicy;
+import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +34,13 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -54,6 +67,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.ACCOUNT_CREDENTIAL_INVALID;
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.ACCOUNT_LOGIN_LOCKED;
+import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.ACCOUNT_INITIAL_PASSWORD_EXPIRED;
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.STAFF_NOT_ENROLLED;
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.WECHAT_ALREADY_BOUND_OTHER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,7 +79,7 @@ import static org.mockito.Mockito.*;
 @Import({FranchiseAccountAuthService.class, FranchiseAccountNaming.class, OrgServiceImpl.class,
         StaffPostServiceImpl.class, FranchiseOnboardService.class, StaffAccountOnboardService.class, StoreProfileController.class,
         StaffWechatBindingServiceImpl.class, StaffWechatExplicitBindingServiceImpl.class,
-        StaffWechatBindingCommitService.class, StaffWechatLoginServiceImpl.class,
+        StaffWechatBindingCommitService.class, StaffWechatLoginServiceImpl.class, StaffInitialPasswordPolicy.class,
         FranchiseAccountAuthServiceIntegrationTest.RedisConfig.class})
 @TestPropertySource(properties = {
         "platform.identity.wechat.apps[0].appid=wx-franchise-flow",
@@ -118,6 +132,9 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     @Resource private StaffWechatBindingService bindingService;
     @Resource private WechatBindingMapper bindingMapper;
     @Resource private StaffPostService staffPostService;
+    @Resource private StaffInitialPasswordPolicy initialPasswords;
+    @Resource private PlatformTransactionManager transactions;
+    @Resource private SqlSessionFactory sqlSessionFactory;
     @Resource private JdbcDirectory directory;
     @MockitoBean private AdminUserService adminUserService;
     @MockitoBean private AdminUserMapper adminUserMapper;
@@ -387,7 +404,9 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(employee.userId()).isNotEqualTo(boss.adminUserId());
         assertThat(employee.orgName()).isEqualTo(boss.orgName());
         assertThat(employee.loginName()).isEqualTo("zhangsan");
-        assertThat(employee.initialPassword()).isEqualTo("zhangsan123");
+        assertThat(employee.initialPassword()).hasSize(16).isNotEqualTo("zhangsan123");
+        assertCode(() -> service.login(employee.accountId(), "zhangsan123", "Attacker2026Pwd"),
+                ACCOUNT_CREDENTIAL_INVALID.getCode());
         FranchiseAccountAuthService.LoginResult employeeInitial = service.login(
                 employee.accountId(), employee.initialPassword(), null);
         assertThat(employeeInitial.requirePasswordChange()).isTrue();
@@ -431,12 +450,14 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             ready.await(); start.countDown();var results = List.of(futures.get(0).get(), futures.get(1).get());
             assertThat(results).extracting(StaffAccountOnboardService.Result::loginName).containsExactlyInAnyOrder("lili", "lili2");
             for (var result : results) {
-                assertThat(result.initialPassword()).isEqualTo(result.loginName() + "123");
+                assertThat(result.initialPassword()).hasSize(16).isNotEqualTo(result.loginName() + "123");
                 assertThat(BCRYPT.matches(result.initialPassword(), loadUser(result.userId()).getPassword())).isTrue();
                 assertThat(service.login(result.accountId(), result.initialPassword(), null).requirePasswordChange()).isTrue();
             }
             var collision = staffAccountOnboardService.open(first.orgId(), null, "lili2", "13900107882", "journey-sales", null, first.adminUserId(), first.postId());
-            assertThat(collision.loginName()).isEqualTo("lili22");assertThat(collision.initialPassword()).isEqualTo("lili22123");
+            assertThat(collision.loginName()).isEqualTo("lili22");
+            assertThat(collision.initialPassword()).hasSize(16).isNotEqualTo("lili22123");
+            assertThat(results).extracting(StaffAccountOnboardService.Result::initialPassword).doesNotHaveDuplicates();
             assertThat(service.matches("李丽").items()).hasSize(2);
         } finally { pool.shutdownNow(); }
     }
@@ -457,13 +478,194 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             var first=wechatLoginService.login("wx-franchise-flow", code, code);
             assertThat(first.userId()).isEqualTo(user);assertThat(first.token()).isNotNull();
             assertThat(bindingMapper.selectActive("wx-franchise-flow", openid).getUserId()).isEqualTo(user);
-            assertThat(loadUser(user).getPassword()).isEqualTo(passwordBefore);
+            assertThat(loadUser(user).getPassword()).isNotEqualTo(passwordBefore);
+            assertThat(BCRYPT.matches(initial, loadUser(user).getPassword())).isFalse();
+            String retiredPassword=loadUser(user).getPassword();
             assertThat(wechatLoginService.login("wx-franchise-flow", code, null).userId()).isEqualTo(user);
             verify(wechat,times(1)).phoneNumber("wx-franchise-flow", code);
-            assertThat(service.login(id, initial, null).requirePasswordChange()).isTrue();
-            assertThat(service.login(id, initial, "123456").userId()).isEqualTo(user);
+            assertThat(loadUser(user).getPassword()).isEqualTo(retiredPassword);
+            assertCode(() -> service.login(id, initial, null), ACCOUNT_CREDENTIAL_INVALID.getCode());
+            assertCode(() -> service.login(id, initial, "123456"), ACCOUNT_CREDENTIAL_INVALID.getCode());
             assertThat(wechatLoginService.login("wx-franchise-flow", code, null).userId()).isEqualTo(user);
         }
+    }
+
+    @Test
+    void expiredInitialPasswordCannotActivateEvenWithANewPassword() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "expiry-check", 0, "ACTIVE", true);
+        assertThat(jdbc.queryForObject("SELECT initial_password_expires_at BETWEEN now()+INTERVAL '47 hours' "
+                + "AND now()+INTERVAL '49 hours' FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, account.userId())).isTrue();
+        jdbc.update("UPDATE pf_staff_password_policy SET initial_password_expires_at=now()-INTERVAL '1 second' "
+                + "WHERE tenant_id=? AND user_id=?", tenantId, account.userId());
+        assertCode(() -> service.login(account.accountId(), "Initial2026Pwd!", null), ACCOUNT_INITIAL_PASSWORD_EXPIRED.getCode());
+        assertCode(() -> service.login(account.accountId(), "Initial2026Pwd!", "Replacement2026"), ACCOUNT_INITIAL_PASSWORD_EXPIRED.getCode());
+        assertThat(BCRYPT.matches("Initial2026Pwd!", loadUser(account.userId()).getPassword())).isTrue();
+        jdbc.update("UPDATE system_users SET password='!retired-initial-password' WHERE id=?", account.userId());
+        assertCode(() -> service.login(account.accountId(), "Initial2026Pwd!", null), ACCOUNT_CREDENTIAL_INVALID.getCode());
+        assertThat(BCRYPT.matches("Initial2026Pwd!", loadUser(account.userId()).getPassword())).isFalse();
+        verifyNoInteractions(tokenIssuer);
+    }
+
+    @Test
+    void systemUsernamePasswordEntryCannotBypassFirstChangePolicy() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "system-entry-check", 0, "ACTIVE", true);
+        AdminAuthServiceImpl webAuth = new AdminAuthServiceImpl();
+        ReflectionTestUtils.setField(webAuth, "userService", adminUserService);
+        ReflectionTestUtils.setField(webAuth, "loginLogService", mock(LoginLogService.class));
+        ReflectionTestUtils.setField(webAuth, "passwordPolicies", passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+        when(adminUserService.getUserByUsername("staff-user")).thenAnswer(inv -> loadUser(account.userId()));
+        assertThatThrownBy(() -> webAuth.authenticate("staff-user", "Initial2026Pwd!"))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("首次改密");
+        service.login(account.accountId(), "Initial2026Pwd!", "Chosen2026Pwd");
+        assertThat(webAuth.authenticate("staff-user", "Chosen2026Pwd").getId()).isEqualTo(account.userId());
+        jdbc.update("UPDATE system_users SET password='!retired-initial-password' WHERE id=?", account.userId());
+        assertThatThrownBy(() -> webAuth.authenticate("staff-user", "Initial2026Pwd!"))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void systemPasswordMatchCannotRaceWechatRetirementIntoATokenEligibleUser() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "system-race-check", 0, "ACTIVE", true);
+        AdminAuthServiceImpl webAuth = new AdminAuthServiceImpl();
+        ReflectionTestUtils.setField(webAuth, "userService", adminUserService);
+        ReflectionTestUtils.setField(webAuth, "loginLogService", mock(LoginLogService.class));
+        ReflectionTestUtils.setField(webAuth, "passwordPolicies", passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+        when(adminUserService.getUserByUsername("racing-staff")).thenAnswer(inv -> loadUser(account.userId()));
+        String initialHash = loadUser(account.userId()).getPassword();
+        when(adminUserService.isPasswordMatch("Initial2026Pwd!", initialHash)).thenAnswer(inv -> {
+            boolean matched = BCRYPT.matches("Initial2026Pwd!", initialHash);
+            initialPasswords.retireAfterWechatLogin(account.userId());
+            return matched;
+        });
+        assertThatThrownBy(() -> webAuth.authenticate("racing-staff", "Initial2026Pwd!"))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, account.userId())).isFalse();
+        assertThat(loadUser(account.userId()).getPassword()).isNotEqualTo(initialHash);
+        verifyNoInteractions(tokenIssuer);
+    }
+
+    @Test
+    void passwordLockReadsFreshHashEvenWhenMybatisSessionContainsTheOldSnapshot() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "mybatis-password-cache", 0, "ACTIVE", true);
+        var configuration = sqlSessionFactory.getConfiguration();
+        if (!configuration.hasMapper(AdminUserMapper.class)) configuration.addMapper(AdminUserMapper.class);
+        String readId = "audit.passwordSnapshot" + IDS.incrementAndGet();
+        var result = new org.apache.ibatis.mapping.ResultMap.Builder(configuration, readId + "Map", String.class, List.of()).build();
+        var sql = new org.apache.ibatis.builder.StaticSqlSource(configuration,
+                "SELECT password FROM system_users WHERE id=" + account.userId());
+        configuration.addMappedStatement(new org.apache.ibatis.mapping.MappedStatement.Builder(configuration, readId,
+                sql, org.apache.ibatis.mapping.SqlCommandType.SELECT).resultMaps(List.of(result)).build());
+        try (var session = sqlSessionFactory.openSession(false)) {
+            String oldHash = session.selectOne(readId);
+            String changedHash = BCRYPT.encode("Concurrent2026");
+            jdbc.update("UPDATE system_users SET password=? WHERE id=?", changedHash, account.userId());
+            // The repeated read really is stale; the production lock query must bypass/clear that session cache.
+            assertThat((String) session.selectOne(readId)).isEqualTo(oldHash);
+            String lockedHash = session.getMapper(AdminUserMapper.class).selectPasswordForUpdate(account.userId());
+            assertThat(lockedHash).isEqualTo(changedHash);
+            assertThat(BCRYPT.matches("Initial2026Pwd!", lockedHash)).isFalse();
+            assertThat((String) session.selectOne(readId)).isEqualTo(changedHash);
+            session.rollback();
+        }
+    }
+
+    @Test
+    void verifiedResetRestoresExpiredPasswordLoginAndFailedProfileChangeKeepsPolicy() {
+        Account account = createAccount(tenantId, IDS.incrementAndGet(), "reset-expired-check", 0, "ACTIVE", true);
+        jdbc.update("UPDATE pf_staff_password_policy SET initial_password_expires_at=now()-INTERVAL '1 day' "
+                + "WHERE tenant_id=? AND user_id=?", tenantId, account.userId());
+        AdminUserServiceImpl resetter = new AdminUserServiceImpl();
+        ReflectionTestUtils.setField(resetter, "userMapper", adminUserMapper);
+        ReflectionTestUtils.setField(resetter, "passwordEncoder", BCRYPT);
+        ReflectionTestUtils.setField(resetter, "passwordPolicies", passwordPolicies().getBeanProvider(AdminUserPasswordPolicy.class));
+        when(adminUserMapper.selectById(account.userId())).thenAnswer(inv -> loadUser(account.userId()));
+        when(adminUserMapper.selectPasswordForUpdate(account.userId())).thenAnswer(inv -> loadUser(account.userId()).getPassword());
+        var transaction = new TransactionTemplate(transactions);
+        var wrongOld = new UserProfileUpdatePasswordReqVO().setOldPassword("wrong-old").setNewPassword("Chosen2026Pwd");
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> resetter.updateUserPassword(account.userId(), wrongOld)))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, account.userId())).isTrue();
+        verify(adminUserMapper).selectPasswordForUpdate(account.userId());
+
+        // This is the same password write called after SMS verification or an authorized system-admin reset.
+        transaction.executeWithoutResult(status -> resetter.updateUserPassword(account.userId(), "Verified2026Pwd"));
+        assertThat(jdbc.queryForObject("SELECT require_change FROM pf_staff_password_policy WHERE tenant_id=? AND user_id=?",
+                Boolean.class, tenantId, account.userId())).isFalse();
+        assertThatCode(() -> initialPasswords.validateLogin(loadUser(account.userId()))).doesNotThrowAnyException();
+        assertThat(service.login(account.accountId(), "Verified2026Pwd", null).userId()).isEqualTo(account.userId());
+        assertCode(() -> service.login(account.accountId(), "Initial2026Pwd!", null), ACCOUNT_CREDENTIAL_INVALID.getCode());
+    }
+
+    @Test
+    void existingWechatBindingRetiresLegacyInitialPasswordWithoutChangingChosenPasswords() {
+        var boss = franchiseOnboardService.onboard("合家美宅", "江西", "南昌", "旧绑定安全", "老板", "13800107901", null, null, "", 9L);
+        var employee = staffAccountOnboardService.open(boss.orgId(), null, "员工", "13900107901", "journey-sales", null, boss.adminUserId(), boss.postId());
+        String predictable = employee.loginName() + "123";
+        jdbc.update("UPDATE system_users SET password=? WHERE id=?", BCRYPT.encode(predictable), employee.userId());
+        jdbc.update("UPDATE pf_staff_password_policy SET initial_password_expires_at=now()-INTERVAL '1 day' WHERE tenant_id=? AND user_id=?",
+                tenantId, employee.userId());
+        bindingService.bind("wx-franchise-flow", "legacy-bound-openid", employee.userId(), "13900107901");
+        when(wechat.openid("wx-franchise-flow", "legacy-bound-code")).thenReturn("legacy-bound-openid");
+        assertThat(wechatLoginService.login("wx-franchise-flow", "legacy-bound-code", null).userId()).isEqualTo(employee.userId());
+        assertThat(BCRYPT.matches(predictable, loadUser(employee.userId()).getPassword())).isFalse();
+        assertCode(() -> service.login(employee.accountId(), predictable, "Replacement2026"), ACCOUNT_CREDENTIAL_INVALID.getCode());
+        String after = loadUser(employee.userId()).getPassword();
+        assertThat(wechatLoginService.login("wx-franchise-flow", "legacy-bound-code", null).userId()).isEqualTo(employee.userId());
+        assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(after);
+        verify(wechat, never()).phoneNumber(eq("wx-franchise-flow"), anyString());
+    }
+
+    @Test
+    void expiryMigrationRetiresOnlyInitialStaffCredentialsIncludingStaffPromotedToBoss() throws Exception {
+        String migration;
+        try (var input = new ClassPathResource("db/migration/pf/V20261122.990__pf_initial_password_expiry.sql").getInputStream()) {
+            migration = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        jdbc.execute((ConnectionCallback<Void>) connection -> {
+            String originalSchema = connection.getSchema();
+            String schema = "password_security_" + IDS.incrementAndGet();
+            try (var statement = connection.createStatement()) {
+                statement.execute("CREATE SCHEMA " + schema);
+                connection.setSchema(schema);
+                statement.execute("CREATE TABLE pf_staff_password_policy(tenant_id BIGINT,user_id BIGINT,require_change BOOLEAN,PRIMARY KEY(tenant_id,user_id))");
+                statement.execute("CREATE TABLE pf_franchise_account(tenant_id BIGINT,user_id BIGINT,account_type VARCHAR(8))");
+                statement.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,password VARCHAR(100))");
+                statement.execute("INSERT INTO pf_staff_password_policy VALUES(1,1,true),(1,2,false),(1,3,true),(1,4,true),(2,1,true)");
+                statement.execute("INSERT INTO pf_franchise_account VALUES(1,1,'STAFF'),(1,2,'STAFF'),(1,3,'BOSS'),(1,4,'STAFF'),(1,4,'BOSS'),(2,1,'BOSS')");
+                statement.execute("INSERT INTO system_users VALUES(1,1,'legacy-1'),(2,1,'chosen-2'),(3,1,'random-boss-3'),(4,1,'legacy-promoted-4'),(1,2,'other-tenant-boss')");
+                // Let PostgreSQL parse dollar-quoted blocks; ScriptUtils would split their internal semicolons.
+                statement.execute(migration);
+                Set<String> retired = new HashSet<>();
+                try (var rows = statement.executeQuery("SELECT tenant_id,user_id FROM pf_staff_password_policy WHERE initial_password_expires_at < now()")) {
+                    while (rows.next()) retired.add(rows.getLong(1) + ":" + rows.getLong(2));
+                }
+                assertThat(retired).containsExactlyInAnyOrder("1:1", "1:4");
+                Map<String,String> passwords = new HashMap<>();
+                try (var rows = statement.executeQuery("SELECT tenant_id,id,password FROM system_users")) {
+                    while(rows.next()) passwords.put(rows.getLong(1)+":"+rows.getLong(2), rows.getString(3));
+                }
+                assertThat(passwords).containsEntry("1:1", "!retired-initial-password")
+                        .containsEntry("1:4", "!retired-initial-password").containsEntry("1:2", "chosen-2")
+                        .containsEntry("1:3", "random-boss-3").containsEntry("2:1", "other-tenant-boss");
+                try (var rows = statement.executeQuery("SELECT require_change FROM pf_staff_password_policy WHERE tenant_id=1 AND user_id=2")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getBoolean(1)).isFalse();
+                }
+            } finally {
+                connection.setSchema(originalSchema);
+                try (var statement = connection.createStatement()) { statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE"); }
+            }
+            return null;
+        });
+    }
+
+    private StaticListableBeanFactory passwordPolicies() {
+        var beans = new StaticListableBeanFactory();
+        beans.addBean("initialPasswords", initialPasswords);
+        return beans;
     }
 
     @Test

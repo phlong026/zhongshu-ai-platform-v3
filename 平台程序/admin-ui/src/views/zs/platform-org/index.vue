@@ -162,7 +162,7 @@
             </el-descriptions>
             <el-alert
               v-if="!franchiseResult.reusedUser"
-              title="初始密码仅在本页显示一次，请立即复制并安全发送给加盟商。离开页面后无法再次查看。"
+              title="初始密码仅显示一次，请安全发送并在48小时内登录改密；微信登录后初始密码失效。"
               type="warning"
               :closable="false"
               show-icon
