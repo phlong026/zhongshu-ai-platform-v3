@@ -41,8 +41,8 @@ const assert = require('node:assert/strict');
     s.companies = [{ id: 'quanzhou', name: '门店', type: 'store', roles: ['sales'] }];
   });
   wx.setStorageSync(MKEY, { version: 1, companyId: 'quanzhou', staff: [{ id: 'sales-dual', personId: 'sales-dual', name: '双岗业务员', roles: ['sales'], teamIds: { sales: 'sales' } }] });
-  auth.saveLogin({ accessToken: 'token-A', posts: [] });
-  auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
+  auth.saveLogin({ accessToken: 'token-A', userId: 7 });
+  auth.savePosts([{ postId: 11, userId: 7, orgId: 31, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ postId: 11 });
 
   const open = url => { wx.reLaunch({ url }); return getCurrentPages().at(-1); };
@@ -67,9 +67,9 @@ const assert = require('node:assert/strict');
   holds.length = 0; handlers.length = 0;
   holdHandler(MSG(ID_A, 'A-旧消息'));
   page.syncApiMessages();
-  auth.saveLogin({ accessToken: 'token-B', posts: [] }); // 换 B（gen+1，M02-T02 隔离）
-  auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
-  http.saveSession({ postId: 11 });
+  auth.saveLogin({ accessToken: 'token-B', userId: 8 }); // 换 B（gen+1，M02-T02 隔离）
+  auth.savePosts([{ postId: 22, userId: 8, orgId: 31, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ postId: 22 });
   replyHandler(MSG(ID_B, 'B-消息'));
   page.syncApiMessages();
   await wait(30);
@@ -81,8 +81,8 @@ const assert = require('node:assert/strict');
 
   console.log('[msg-guard] 换会话/退出后无新刷新：挂起响应被组合守卫拦截（Codex R2 P2 场景）');
   // N1: A 消息挂起 → 换 B（同域不发新刷新）→ 释放 A → 会话守卫拦截
-  auth.saveLogin({ accessToken: 'token-A3', posts: [] });
-  auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
+  auth.saveLogin({ accessToken: 'token-A3', userId: 7 });
+  auth.savePosts([{ postId: 11, userId: 7, orgId: 31, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ postId: 11 });
   page = getCurrentPages().at(-1);
   holds.length = 0; handlers.length = 0;
@@ -90,9 +90,9 @@ const assert = require('node:assert/strict');
   page.syncApiMessages();
   const h1 = holds.shift();
   ok(!!h1, 'N1 A 消息挂起确认');
-  auth.saveLogin({ accessToken: 'token-B3', posts: [] }); // 换 B，同域不发新刷新
-  auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
-  http.saveSession({ postId: 11 });
+  auth.saveLogin({ accessToken: 'token-B3', userId: 8 }); // 换 B，同域不发新刷新
+  auth.savePosts([{ postId: 22, userId: 8, orgId: 31, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ postId: 22 });
   await wait(30);
   ok((page.apiMessages || []).every(m => m.title !== 'A-挂起消息'), 'N1 换会话后无新刷新：释放前不写入');
   handlers.length = 0;
@@ -101,7 +101,7 @@ const assert = require('node:assert/strict');
   ok((page.apiMessages || []).every(m => m.title !== 'A-挂起消息'), 'N1 换会话后无新刷新：旧消息响应被组合守卫拦截');
   // N2: 资料挂起 → 退出 → 释放 → 不回填
   holds.length = 0; handlers.length = 0;
-  holdHandler({ nickname: 'A-挂起资料', mobile: '13800000000' });
+  holdHandler({ id: 8, nickname: 'A-挂起资料', mobile: '13800000000', avatar: null });
   page.syncApiProfile();
   const h2 = holds.shift();
   ok(!!h2, 'N2 A 资料挂起确认');
@@ -109,7 +109,7 @@ const assert = require('node:assert/strict');
   await wait(30);
   ok((page.data.profile || {}).name !== 'A-挂起资料', 'N2 退出后释放前不写入');
   handlers.length = 0;
-  if (h2) h2.resolve({ nickname: 'A-挂起资料', mobile: '13800000000' });
+  if (h2) h2.resolve({ id: 8, nickname: 'A-挂起资料', mobile: '13800000000', avatar: null });
   await wait(30);
   ok((page.data.profile || {}).name !== 'A-挂起资料' && (Account.load().profile || {}).name !== 'A-挂起资料', 'N2 退出后挂起资料响应被组合守卫拦截');
 
@@ -120,20 +120,21 @@ const assert = require('node:assert/strict');
   ok((page.apiMessages || []).length === 0, '退出后消息清空');
 
   console.log('[msg-guard] syncApiProfile 分域守卫：A 挂起 → B 应用 → A 释放不污染');
-  auth.saveLogin({ accessToken: 'token-A2', posts: [] }); // 回到 A2 会话
-  auth.savePosts([{ postId: 11, roleCode: 'sales', orgType: 'store' }]);
+  auth.saveLogin({ accessToken: 'token-A2', userId: 7 }); // 回到 A2 会话
+  auth.savePosts([{ postId: 11, userId: 7, orgId: 31, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ postId: 11 });
   page = getCurrentPages().at(-1);
   holds.length = 0; handlers.length = 0;
-  holdHandler({ nickname: 'A-资料', mobile: '13800000000' });
+  // A/B 指同一用户的先后两次请求；完整 DTO 的 id 均与当前登录用户一致。
+  holdHandler({ id: 7, nickname: 'A-资料', mobile: '13800000000', avatar: null });
   page.syncApiProfile();
-  replyHandler({ nickname: 'B-资料', mobile: '13900000000' });
+  replyHandler({ id: 7, nickname: 'B-资料', mobile: '13900000000', avatar: null });
   page.syncApiProfile();
   await wait(30);
   ok(page.data.profile && page.data.profile.name === 'B-资料', '后发起的 B 资料已应用');
   const holdP = holds.shift();
   ok(!!holdP, 'A 资料请求确实被挂起');
-  holdP.resolve({ nickname: 'A-资料', mobile: '13800000000' });
+  holdP.resolve({ id: 7, nickname: 'A-资料', mobile: '13800000000', avatar: null });
   await wait(30);
   ok(page.data.profile.name === 'B-资料', 'A 迟到资料被分域序号守卫丢弃（页面不回退）');
   ok((Account.load().profile || {}).name === 'B-资料', '存储侧资料同样不回退');
