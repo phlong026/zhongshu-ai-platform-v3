@@ -14,7 +14,9 @@
    </view>
    <view class="section commission-card admin-section"><view class="section-heading"><text class="section-title">最近办理</text></view>
     <button wx:for="{{recent}}" wx:key="id" class="admin-list-row" data-url="{{item.url}}" bindtap="openTask"><view class="admin-initial">{{item.initial}}</view><view class="admin-list-copy"><text class="admin-list-name">{{item.name}}</text><text class="hint">{{item.recentWhen}} · {{item.recentText}}</text></view><text class="admin-light-action">查看记录</text><view class="chevron"/></button>
-    <view wx:if="{{!recent.length}}" class="sales-empty">暂无办理记录</view>
+    <view wx:if="{{recentError}}"><text class="commission-error">{{recentError}}</text><button class="commission-file" bindtap="retryRecent">重试</button></view>
+    <text wx:elif="{{recentLoading}}" class="hint">加载中…</text>
+    <view wx:elif="{{!recent.length&&platformStatus==='ready'}}" class="sales-empty">暂无办理记录</view>
    </view>
   </block>
   <block wx:elif="{{view==='projects'}}">
