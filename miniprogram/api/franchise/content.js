@@ -33,6 +33,8 @@ const tasks = {
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
   /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
   get: (id) => http.get('/franchise/content/tasks/' + id),
+  /** 本人 AI 视频任务的可编辑输入副本；不含内部授权或供应商快照。 */
+  editableInput: id => http.get('/franchise/content/tasks/' + encodeURIComponent(id) + '/editable-input'),
   /** 只恢复原任务的本地文案保存，服务端不重新生成或计费。 */
   retrySave: id => http.post('/franchise/content/tasks/' + encodeURIComponent(id) + '/retry-save', {}),
   /** 任务→作品（一任务一件，重复返既有）→ {workId,kind,status}；幂等键由调用方生成存 this（重试复用） */

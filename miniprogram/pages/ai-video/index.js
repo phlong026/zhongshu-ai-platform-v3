@@ -13,7 +13,7 @@ return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -23,14 +23,11 @@ parameters: [
 },
 onLoad(options) {
 if(!studio.guard())return;this.__closed=false;this.actorScope=studio.scope();this.__draftSession=http.sessionGuard();
-let draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft));
 if (options && options.task) {
-const state = studio.read();
-const task = state.tasks.find(item => item.id === options.task && item.kind === 'ai');
-if (!task) { this.setData({ invalidMessage: '任务不存在或已清理，请返回任务中心。' }); return; }
-this.setData({ editingTaskId: task.id });
-draft = (state.videoTaskDrafts || {})[task.id] || Object.assign({}, task.configuration, { description: task.script });
+this.setData({editingTaskId:String(options.task)});
+return this.restoreTaskInput();
 }
+const draft = wx.getStorageSync(studio.scopedKey(require('../../utils/storage-keys').videoDraft));
 this.__legacyDraft=!!draft&&!this.data.editingTaskId;
 if (draft) {
 let parameters;
@@ -41,6 +38,30 @@ this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', descri
 this.syncRatio();
 if(http.token()){this.restoreRemoteDraft();this.restoreMediaPreviews();}
 },
+async restoreTaskInput(){
+if(this.data.taskLoading)return;
+const id=this.data.editingTaskId;
+if(!/^[1-9]\d{0,18}$/.test(id)){this.setData({invalidMessage:'任务编号无效，请返回任务中心。'});return;}
+if(!http.token()){this.setData({invalidMessage:'请先登录后再读取原任务。'});return;}
+this.setData({taskLoading:true,invalidMessage:''});
+try{
+  const input=await contentApi.tasks.editableInput(id);
+  if(!this.videoAlive())return;
+  if(!input||String(input.taskId)!==id||input.kind!=='ai_video'||typeof input.description!=='string'
+    ||!['frames','reference'].includes(input.mode)||!Array.isArray(input.references)
+    ||!['resolution','duration','ratio'].every(key=>input.parameters&&input.parameters[key]!=null))throw Error('原任务输入无法完整恢复');
+  this.applyVideoForm(input);
+  // Authorize the original task before considering any local or cloud task-specific edits.
+  await this.restoreRemoteDraft();
+}catch(error){if(this.videoAlive())this.setData({invalidMessage:'原任务输入读取失败：'+P.degradeMessage(error)+'。请重试或返回任务中心。'});}
+finally{if(this.videoAlive())this.setData({taskLoading:false});}
+},
+applyVideoForm(draft){
+const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
+this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
+  firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
+this.syncRatio();this.restoreMediaPreviews();
+},
 restoreRemoteDraft() {
 if(this.__draft)return this.__draft.start().catch(()=>{});
 const key=this.data.editingTaskId?'task:'+this.data.editingTaskId:'new';
@@ -48,12 +69,7 @@ const scope=this.actorScope,storageKey=studio.scopedKey('zs-video-draft-v2:'+key
 this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialDirty:this.__legacyDraft,
   valid:()=>this.__draftSession()&&scope===studio.scope(),
   getForm:()=>this.videoForm(),
-  applyForm:draft=>{
-    const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
-    this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
-      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
-    this.syncRatio();this.restoreMediaPreviews();
-  },
+  applyForm:draft=>this.applyVideoForm(draft),
   api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>this.setData({draftStatus})});
 return this.__draft.start().catch(()=>{});
 },
@@ -61,7 +77,7 @@ onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.__d
 onHide() { this.saveDraft(); },
 onUnload() { this.__closed=true;this.saveDraft();if(this.__draft)this.__draft.stop(); },
 saveDraft() {
-  if(!studio.allowed()||this.actorScope!==studio.scope()||this.data.invalidMessage)return;
+  if(!studio.allowed()||this.actorScope!==studio.scope()||this.data.invalidMessage||this.data.taskLoading)return;
   if(this.__draft)return this.__draft.save().catch(()=>{});
 },
 videoAlive(){return !this.__closed&&!!http.token()&&this.actorScope===studio.scope()&&(!this.__draftSession||this.__draftSession());},
@@ -213,7 +229,7 @@ if (!http.token()) return wx.showToast({ title: '请先登录后再优化提示�
 wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面描述', icon: 'none' });
 },
 generate() {
-if (this.data.invalidMessage) return;
+if (this.data.invalidMessage||this.data.taskLoading) return;
 if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
@@ -222,7 +238,7 @@ if (http.token()) return this.generateOnline(); // 在线：直连后端创建 a
 wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none' });
 },
 async generateOnline() {
-if(this.data.generating)return;
+if(this.data.generating||this.data.invalidMessage||this.data.taskLoading)return;
 if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
