@@ -9,9 +9,9 @@ Page({
  ...baseHandlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
  input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
- data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},planEditorId:'',samplePreview:null,expenseMode:'register'},
+ data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register'},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=['base','topping','tail'].includes(o.stage)?o.stage:'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},planEditorId:'',p:null,form:{},fields:[],actions:[],docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length&&(this.data.node?.status!=='已完成'||this.data.expanded.nodeEdit)?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -28,8 +28,15 @@ Page({
  importPlan(){wx.chooseMessageFile({count:1,type:'file',extension:['xlsx'],success:r=>{try{const f=r.tempFiles[0];if(!f)return;if(Number(f.size)>SI.MAX_FILE_BYTES)return this.fail('进度表文件不能超过2MB');const res=SI.importNodes(wx.getFileSystemManager().readFileSync(f.path));this.setData({'form.nodes':res.nodes,error:''});wx.showToast({title:res.notice||'已导入'+res.nodes.length+'个节点，请核对日期',icon:'none',duration:2500});}catch(err){this.fail(err.message);}},fail:e=>{if(!/cancel/i.test(String(e&&e.errMsg||'')))this.fail('选择进度表失败，请重试');}});},
  addLine(){this.setData({'form.lines':this.data.form.lines.concat({name:'',spec:'',quantity:'',unit:'包'})});},
  fileSelectionGuard(){const http=require('../../../api/http'),current=http.sessionGuard(),post=http.currentPostId(),id=this.id,view=this.data.view;return()=>current()&&!this.__disposed&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);},
- upload(e){
-  const alive=this.fileSelectionGuard(),key=e.currentTarget.dataset.key||'file',multi=this.data.view==='node'&&key==='file',demo=!Files.release()&&X.context().demo,itemList=['拍照或从相册选择','选择聊天文件'];
+  selectNodeReplacement(e){
+   if(this.data.busy)return;const index=Number(e.detail.value),selected=(this.data.nodeEvidenceOptions||[])[index];if(!selected)return;
+   this.__fileSelectionGeneration=(this.__fileSelectionGeneration||0)+1;
+   this.setData({nodeEvidenceIndex:index,'form.nodeRecordId':selected.recordId,'form.nodeReplaceAssetId':selected.assetId,'form.nodeFile':null,'fileNames.nodeFile':'',error:''});
+  },
+  toggleInspectionHistory(e){const id=String(e.currentTarget.dataset.id);this.setData({inspectionHistoryId:this.data.inspectionHistoryId===id?'':id});},
+  upload(e){
+   const generation=this.__fileSelectionGeneration=(this.__fileSelectionGeneration||0)+1,current=this.fileSelectionGuard(),alive=()=>current()&&generation===this.__fileSelectionGeneration;
+   const key=e.currentTarget.dataset.key||'file',multi=this.data.view==='node'&&key==='file',demo=!Files.release()&&X.context().demo,itemList=['拍照或从相册选择','选择聊天文件'];
   if(demo)itemList.push('使用参考凭据');
   wx.showActionSheet({itemList,success:r=>{
    if(!alive())return;
