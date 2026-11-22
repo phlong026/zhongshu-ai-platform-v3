@@ -108,6 +108,7 @@ public class OrgAccountAdminService {
         int changed=jdbc.update("UPDATE system_users SET password=?,update_time=now() WHERE id=? AND tenant_id=? AND deleted=0",
                 PASSWORDS.encode(password),owner.userId(),tenant);
         if(changed!=1)throw new ServiceException(404,"账号已失效");
+        jdbc.update("UPDATE pf_staff_password_policy SET require_change=FALSE,initial_password_expires_at=NULL WHERE tenant_id=? AND user_id=?",tenant,owner.userId());
         // 同时撤销访问令牌和刷新令牌；微信绑定保留，所有端均须重新登录。
         var keys=tokens.listAccessTokenByUser(owner.userId(),UserTypeEnum.ADMIN.getValue()).stream()
                 .flatMap(t->java.util.stream.Stream.of(t.getAccessToken(),t.getRefreshToken())).distinct().toList();

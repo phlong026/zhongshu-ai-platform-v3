@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingDO;
 import cn.iocoder.yudao.module.platform.identity.dal.WechatBindingMapper;
 import cn.iocoder.yudao.module.platform.identity.wechat.WechatStaffClient;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
+import cn.iocoder.yudao.module.platform.org.StaffInitialPasswordPolicy;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,6 +38,8 @@ public class StaffWechatLoginServiceImpl implements StaffWechatLoginService {
     private StaffWechatBindingService bindingService;
     @Resource
     private StaffWechatBindingCommitService bindingCommitService;
+    @Resource
+    private StaffInitialPasswordPolicy initialPasswords;
 
     @Override
     public WechatLoginResult login(String appid, String loginCode, String phoneCode) {
@@ -106,6 +109,7 @@ public class StaffWechatLoginServiceImpl implements StaffWechatLoginService {
             log.warn("[login][userId={}] 员工已无有效任职，拒绝登录", userId);
             throw exception(STAFF_NOT_ENROLLED);
         }
+        initialPasswords.retireAfterWechatLogin(userId);
         return WechatLoginResult.loggedIn(userId, tokenIssuer.issue(userId));
     }
 

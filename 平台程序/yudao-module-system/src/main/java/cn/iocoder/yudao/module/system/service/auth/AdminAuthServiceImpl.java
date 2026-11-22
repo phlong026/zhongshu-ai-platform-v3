@@ -35,6 +35,7 @@ import jakarta.validation.Validator;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,6 +70,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private CaptchaService captchaService;
     @Resource
     private SmsCodeApi smsCodeApi;
+    @Resource
+    private ObjectProvider<AdminUserPasswordPolicy> passwordPolicies;
 
     /**
      * 验证码的开关，默认为 true
@@ -100,6 +103,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         }
         // 校验是否禁用
         validateUserStatus(user, username, logTypeEnum);
+        passwordPolicies.orderedStream().forEach(policy -> policy.validateLogin(user));
         return user;
     }
 
