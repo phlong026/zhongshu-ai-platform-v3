@@ -118,3 +118,53 @@ test('recent API uses the bounded headquarters read endpoint',async()=>{
  vm.runInNewContext(fs.readFileSync('miniprogram/api/franchise/commission.js','utf8'),{module,require:()=>({get:async(...args)=>{calls.push(args);return [];}})});
  await module.exports.commissions.workbenchRecent();assert.deepEqual(calls,[['/franchise/commissions/workbench-recent']]);
 });
+
+test('first project failure shows an inline retry instead of an empty result and keeps the original conditions',async()=>{
+ const {p,api,calls}=fixture(),readPage=api.commissions.page;
+ p.setData({keyword:'客户101',projectFilter:'设计中'});
+ api.commissions.page=async()=>{throw Error('请求超时');};await p.refresh();
+ assert.ok(!rendered(p).some(n=>n.text==='没有符合当前条件的项目。'));
+ assert.ok(rendered(p).some(n=>n.text==='项目暂时没加载，请重试'));
+ assert.ok(rendered(p).some(n=>n.attrs?.bindtap==='retryProjects'));
+ assert.equal(p.data.keyword,'客户101');assert.equal(p.data.projectFilter,'设计中');
+ api.commissions.page=readPage;await p.retryProjects();
+ assert.equal(p.data.projectRows.length,1);assert.equal(p.data.projectRows[0].name,'客户101');
+ assert.deepEqual(calls.at(-1),{number:1,size:20,keyword:'客户101',states:'DESIGNING'});
+ assert.equal(p.data.projectError,'');
+});
+test('project pages start before counts finish and remain searchable and pageable when counts fail',async()=>{
+ const {p,api,calls,requests}=fixture();let rejectCounts;
+ api.commissions.workbenchCounts=()=>{requests.counts++;return new Promise((_,reject)=>rejectCounts=reject);};
+ const pending=p.refresh();await new Promise(setImmediate);const started=calls.length;
+ rejectCounts(Error('统计超时'));await pending;
+ assert.equal(started,1);assert.equal(p.data.projectRows.length,20);assert.ok(p.data.countsError);
+ assert.ok(rendered(p).some(n=>n.attrs?.bindtap==='retryWorkbenchCounts'));
+ await p.loadMoreProjects();assert.equal(p.data.projectRows.length,40);
+ await p.searchProjects({detail:{value:'客户237'}});assert.equal(p.data.projectRows[0].name,'客户237');
+ const pageRequests=calls.length;
+ api.commissions.workbenchCounts=async()=>{requests.counts++;return {DESIGNING:119,DESIGN_COMPLETED:118};};
+ await p.retryWorkbenchCounts();assert.equal(calls.length,pageRequests);assert.equal(p.data.countsError,'');
+ assert.equal(p.data.projectFilters[0].count,237);assert.equal(p.data.keyword,'客户237');
+});
+test('failed search and malformed results never claim there are no matching projects',async()=>{
+ const {p,api}=fixture(),readPage=api.commissions.page;await p.refresh();
+ await p.selectProjectFilter({currentTarget:{dataset:{filter:'待下发'}}});
+ api.commissions.page=async()=>{throw Error('搜索超时');};
+ await p.searchProjects({detail:{value:'客户102'}});
+ assert.equal(p.data.projectRows.length,0);assert.equal(p.data.keyword,'客户102');assert.equal(p.data.projectFilter,'待下发');
+ assert.ok(!rendered(p).some(n=>n.text==='没有符合当前条件的项目。'));
+ api.commissions.page=async()=>({});await p.retryProjects();
+ assert.ok(!rendered(p).some(n=>n.text==='没有符合当前条件的项目。'));
+ api.commissions.page=readPage;await p.retryProjects();assert.equal(p.data.projectRows[0].name,'客户102');
+ await p.searchProjects({detail:{value:'没有匹配的客户'}});
+ assert.ok(rendered(p).some(n=>n.text==='没有符合当前条件的项目。'));
+ assert.ok(!rendered(p).some(n=>n.attrs?.bindtap==='retryProjects'));
+});
+test('inline project retry continues a failed next page without discarding the pages already loaded',async()=>{
+ const {p,api,calls}=fixture(),readPage=api.commissions.page;await p.refresh();
+ api.commissions.page=async()=>{throw Error('下一页超时');};await p.loadMoreProjects();
+ assert.equal(p.data.projectRows.length,20);assert.ok(p.data.projectError);
+ assert.ok(rendered(p).some(n=>n.attrs?.bindtap==='retryProjects'));
+ api.commissions.page=readPage;await p.retryProjects();
+ assert.equal(calls.at(-1).number,2);assert.equal(p.data.projectRows.length,40);assert.equal(p.data.projectError,'');
+});
