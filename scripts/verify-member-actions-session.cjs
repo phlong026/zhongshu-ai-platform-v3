@@ -27,7 +27,8 @@ function manager() {
   return { ...definition, handoverCtx: { postId: '42', orgId: '7' },
     data: { ...structuredClone(definition.data), apiMembersBusy: false,
       handoverSource: { userId: '71', name: '示例离职人' },
-      apiReceivers: [{ userId: '72', name: '示例接收人' }], handoverTargetIndex: 0,
+      apiReceivers: [{ userId: '72', name: '示例接收人' }], handoverPreviewReady: true,
+      handoverItems: [{ domain: 'franchise-crm', inFlight: 1 }], handoverReceivers: { 'franchise-crm': '72' },
       apiTeamOptions: [], apiRoleOptionsForAdd: [{ id: 'sales', name: '业务员' }],
       form: { memberName: '示例员工', memberMobile: '13800000001' } },
     setData(patch) { Object.assign(this.data, patch); }
