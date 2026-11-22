@@ -5,20 +5,21 @@ const later=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;
 const moduleP={exports:{}};
 vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/utils/platform-content'),'utf8'),{module:moduleP,require:()=>({}),setTimeout,Date});
 const P=moduleP.exports;
-function harness({disk=new Map(),cloud=new Map(),read,save,task}={}){
-  let definition,valid=true;const writes=[],submissions=[];
+function harness({disk=new Map(),cloud=new Map(),read,save,task,upload,download,preview}={}){
+  let definition,valid=true;const writes=[],submissions=[],uploads=[],downloads=[],toasts=[];
   const state={tasks:[{id:'101',kind:'ai',script:'history A',configuration:{}},{id:'102',kind:'ai',script:'history B',configuration:{}}]};
   const api={drafts:{videoDraft:read||(async key=>structuredClone(cloud.get(key)||{exists:false,revision:0})),saveVideoDraft:async body=>{
     writes.push(structuredClone(body));if(save)return save(body);
     const prior=cloud.get(body.draftKey)||{revision:0};if(body.revision!==prior.revision)throw{code:1114000011};
-    const result={...body,exists:true,revision:prior.revision+1};cloud.set(body.draftKey,result);return structuredClone(result);
-  }},tasks:{create:async body=>{submissions.push(body);return{id:'task'};}}};
-  const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':{upload:async()=>1},'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
-  const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast(){},navigateTo(){},redirectTo(){}};
+    const result={...prior,...body,exists:true,revision:prior.revision+1};cloud.set(body.draftKey,result);return {id:'draft',mode:body.mode,revision:result.revision};
+  }},assets:{downloadUrl:async id=>{downloads.push(id);return download?download(id):{downloadUrl:'https://signed.example/'+id};}},tasks:{create:async body=>{submissions.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}};
+  const media={upload:async(path,alive)=>{uploads.push(path);return upload?upload(path,alive):String(100+uploads.length);},source:async(id,alive,options={})=>{await api.assets.downloadUrl(id);if(!alive())throw Error('身份已切换');return preview?preview(id,options):options.type==='image'?(options.localPath||'/authorized/'+id+'.png'):'';}};
+  const modules={'../../utils/creation':{assets:[]},'../../utils/studio':{guard:()=>true,allowed:()=>valid,scope:()=>valid?'actor':'other',scopedKey:k=>'actor:'+k,read:()=>state,write:()=>{}},'../../utils/platform-content':P,'../../api/franchise/content':api,'../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},'../../utils/content-media':media,'../../utils/storage-keys':{videoDraft:'legacy'},'../../utils/creation-text-resize':require('../miniprogram/utils/creation-text-resize'),'./video-draft':Draft};
+  const wx={getStorageSync:k=>disk.get(k),setStorageSync:(k,v)=>disk.set(k,structuredClone(v)),showToast:o=>toasts.push(o.title),navigateTo(){},redirectTo(){}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/ai-video/index'),'utf8'),{Page:d=>definition=d,require:p=>{assert(p in modules,p);return modules[p]},wx,getCurrentPages:()=>[],console,Date});
   const page={...definition,data:structuredClone(definition.data),setData(values){for(const[k,v]of Object.entries(values)){if(k.startsWith('parameters[')){const i=Number(k.match(/\d+/)[0]);this.data.parameters[i].value=v;}else this.data[k]=v;}}};
   page.onLoad(task?{task}:{});
-  return{page,disk,cloud,writes,submissions,invalidate:()=>valid=false};
+  return{page,disk,cloud,writes,submissions,uploads,downloads,toasts,wx,invalidate:()=>valid=false};
 }
 test('exit before cloud load makes no default write and ignores late response',async()=>{
   const read=later(),h=harness({read:()=>read.promise});h.page.onHide();h.page.onUnload();
@@ -90,4 +91,103 @@ test('local draft reopen retains library IDs even when preview paths are absent'
   assert.equal(reopened.page.data.firstFrameAssetId,'9007199254740993');
   assert.equal(reopened.page.data.references[0].assetId,'101');
   assert.equal(reopened.page.data.ratioAutomatic,true);
+});
+
+test('fresh device restores all media from the real asset-ID draft DTO and generates without reupload',async()=>{
+  const cloud=new Map(),first=harness({cloud});await tick();
+  first.page.setData({description:'跨设备完整输入',firstFrame:'/saved/first.png',lastFrame:'/saved/last.png',references:[
+    {id:'r-image',type:'image',name:'参考图',path:'/saved/ref.png'},
+    {id:'r-audio',type:'audio',name:'参考音频',path:'/saved/ref.mp3'}]});
+  await first.page.saveDraft();
+  const body=first.writes[0];
+  assert.equal(first.writes.length,1,'upload ID backfill must not add an unnecessary draft revision');
+  assert.equal(body.firstFrameAssetId,'101');assert.equal(body.lastFrameAssetId,'102');
+  assert.deepEqual(body.references.map(r=>r.assetId),['103','104']);assert.equal('path' in body.references[0],false);
+  assert.equal(first.disk.get('actor:zs-video-draft-v2:new').dirty,false);
+  const second=harness({cloud});await tick();
+  assert.equal(second.page.data.firstFrameAssetId,'101');assert.equal(second.page.data.firstFrame,'/authorized/101.png');
+  assert.equal(second.page.data.lastFrameAssetId,'102');assert.equal(second.page.data.references.length,2);
+  assert.equal(second.page.data.references[0].type,'image');assert.equal(second.page.data.references[1].type,'audio');
+  second.page.onHide();await tick();assert.equal(second.writes.length,0,'preview tickets must not dirty a cloud draft');
+  await second.page.generateOnline();
+  assert.deepEqual(second.submissions[0].references.map(r=>r.assetId),['101','102']);
+  second.page.setData({mode:'reference'});await second.page.generateOnline();
+  assert.deepEqual(second.submissions[1].references.map(r=>r.assetId),['103','104']);assert.equal(second.uploads.length,0);
+});
+
+test('clearing frames and references sends explicit null/empty values and removes them on a fresh device',async()=>{
+  const cloud=new Map([['new',{exists:true,revision:1,description:'已保存',firstFrameAssetId:'901',lastFrameAssetId:'902',references:[{assetId:'903',role:'reference_image',name:'图'}],parameters:{duration:8}}]]);
+  const h=harness({cloud});await tick();
+  h.page.setData({firstFrame:'',lastFrame:'',firstFrameAssetId:'',lastFrameAssetId:'',references:[]});await h.page.saveDraft();
+  assert.equal(h.writes[0].firstFrameAssetId,null);assert.equal(h.writes[0].lastFrameAssetId,null);assert.deepEqual(h.writes[0].references,[]);
+  const next=harness({cloud});await tick();assert.equal(next.page.data.firstFrameAssetId,'');assert.equal(next.page.data.lastFrameAssetId,'');assert.equal(next.page.data.references.length,0);
+});
+
+test('numeric zero frame IDs and historical empty reference object normalize to empty media',async()=>{
+  const h=harness({cloud:new Map([['new',{exists:true,revision:1,description:'无媒体',firstFrameAssetId:0,lastFrameAssetId:'0',references:{},parameters:{duration:8}}]])});await tick();
+  assert.equal(h.page.data.firstFrameAssetId,'');assert.equal(h.page.data.lastFrameAssetId,'');assert.equal(h.page.data.references.length,0);assert.equal(h.downloads.length,0);
+  h.page.inputDescription({detail:{value:'修改文字'}});await h.page.saveDraft();assert.equal(h.writes[0].lastFrameAssetId,null);
+});
+
+test('upload failure stays on this device and retry saves the same media instead of a partial cloud draft',async()=>{
+  let failed=true;const h=harness({upload:async()=>{if(failed)throw Error('上传网络失败');return '9007199254740993';}});await tick();
+  h.page.setData({firstFrame:'/saved/retry.png'});await h.page.saveDraft();
+  assert.equal(h.writes.length,0);assert.match(h.page.data.draftStatus,/本机/);assert.equal(h.disk.get('actor:zs-video-draft-v2:new').form.firstFrame,'/saved/retry.png');
+  failed=false;await h.page.saveDraft();assert.equal(h.writes[0].firstFrameAssetId,'9007199254740993');assert.equal(h.page.data.firstFrameAssetId,'9007199254740993');
+});
+
+test('late uploaded ID cannot replace a later library selection even when its preview path is identical',async()=>{
+  const pending=later(),h=harness({upload:()=>pending.promise});await tick();
+  h.page.setData({firstFrame:'/saved/same.png'});const saving=h.page.saveDraft();await tick();
+  h.page.setData({firstFrame:'/saved/same.png',firstFrameAssetId:'9007199254740995'});
+  pending.resolve('101');await saving;
+  assert.equal(h.page.data.firstFrameAssetId,'9007199254740995');
+  assert.equal(h.writes[0].firstFrameAssetId,'101');assert.equal(h.writes.at(-1).firstFrameAssetId,'9007199254740995');
+  assert.equal(h.disk.get('actor:zs-video-draft-v2:new').dirty,false);
+});
+
+test('reference uploads backfill by row identity; intervening reorder, replacement and removal stay dirty',async()=>{
+  const pending=later(),h=harness({upload:()=>pending.promise});await tick();
+  h.page.setData({references:[{id:'a',type:'image',path:'/saved/a.png',name:'A'}]});
+  const saving=h.page.saveDraft();await tick();
+  h.page.setData({references:[{id:'b',type:'image',assetId:'202',path:'/saved/a.png',name:'B'}]});
+  pending.resolve('101');await saving;
+  assert.equal(h.page.data.references[0].id,'b');assert.equal(h.page.data.references[0].assetId,'202');
+  assert.equal(h.writes[0].references[0].assetId,'101');assert.equal(h.writes.at(-1).references[0].assetId,'202');
+});
+
+test('unreadable restored media keeps its asset ID, reports the failure and cannot become an empty paid request',async()=>{
+  const h=harness({cloud:new Map([['new',{exists:true,revision:1,description:'库素材',firstFrameAssetId:'901',references:[],parameters:{duration:8}}]]),download:async()=>{throw {code:403,message:'素材已移除或无权限'};}});await tick();
+  assert.equal(h.page.data.firstFrameAssetId,'901');assert.match(h.page.data.mediaError,/素材|权限/);
+  await h.page.generateOnline();assert.equal(h.submissions.length,0);assert.equal(h.uploads.length,0);
+  assert.equal(h.page.data.firstFrameAssetId,'901');assert.match(h.toasts.at(-1),/素材|权限/);
+});
+
+test('late preview and upload responses cannot write into a new identity or a changed media selection',async()=>{
+  const ticket=later(),h=harness({cloud:new Map([['new',{exists:true,revision:1,firstFrameAssetId:'901',references:[],parameters:{duration:8}}]]),download:()=>ticket.promise});await tick();
+  h.page.setData({firstFrameAssetId:'902',firstFrame:'/user/new.png'});ticket.resolve({downloadUrl:'https://signed.example/901'});await tick();
+  assert.equal(h.page.data.firstFrame,'/user/new.png');
+  const upload=later(),other=harness({upload:()=>upload.promise});await tick();other.page.setData({firstFrame:'/saved/old.png'});
+  const saving=other.page.saveDraft();await tick();other.invalidate();upload.resolve('101');await saving;
+  assert.equal(other.writes.length,0);assert.equal(other.page.data.firstFrameAssetId,'');
+});
+
+test('legacy cloud references without asset IDs remain visible as unavailable and cannot silently disappear on save',async()=>{
+  const h=harness({cloud:new Map([['new',{exists:true,revision:1,mode:'reference',description:'历史草稿',references:[{role:'reference_image',name:'旧参考图'}],parameters:{duration:8}}]])});await tick();
+  assert.equal(h.page.data.references.length,1);assert.equal(h.page.data.references[0].name,'旧参考图');assert.match(h.page.data.mediaError,/缺少资产/);
+  h.page.inputDescription({detail:{value:'继续编辑'}});await h.page.saveDraft();await h.page.generateOnline();
+  assert.equal(h.writes.length,0);assert.equal(h.submissions.length,0);assert.equal(h.page.data.references.length,1);
+});
+
+test('frame generation ignores unavailable reference-mode drafts without deleting them',async()=>{
+  const h=harness({cloud:new Map([['new',{exists:true,revision:1,mode:'frames',description:'首帧模式',firstFrameAssetId:'901',references:[{role:'reference_image',name:'旧参考素材'}],parameters:{duration:8}}]])});await tick();
+  await h.page.generateOnline();assert.equal(h.submissions.length,1);assert.deepEqual(h.submissions[0].references,[{role:'first_frame',assetId:'901'}]);
+  assert.equal(h.page.data.references.length,1);assert.equal(h.page.data.references[0].name,'旧参考素材');assert.equal(h.uploads.length,0);
+});
+
+test('reference generation ignores an expired frame-mode file while retaining that unfinished draft',async()=>{
+  const h=harness({upload:async()=>{throw Error('旧帧本地文件已失效');}});await tick();
+  h.page.setData({mode:'reference',description:'参考模式',firstFrame:'/expired/old.png',references:[{id:'r',type:'video',name:'当前视频',assetId:'902',path:''}]});
+  await h.page.generateOnline();assert.equal(h.submissions.length,1);assert.deepEqual(h.submissions[0].references,[{role:'reference_video',assetId:'902',name:'当前视频'}]);
+  assert.equal(h.page.data.firstFrame,'/expired/old.png');assert.equal(h.uploads.length,0);
 });

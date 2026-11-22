@@ -5,10 +5,15 @@ const contentApi=require('../../api/franchise/content');
 const http=require('../../api/http');
 const media=require('../../utils/content-media');
 const textResize = require('../../utils/creation-text-resize');
+const assetId=value=>value==null||String(value)==='0'?'':String(value);
+const restoreReferences=values=>Array.isArray(values)?values.map((value,index)=>{
+const item=value&&typeof value==='object'?value:{};
+return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId:assetId(item.assetId),type:item.type||{reference_image:'image',reference_video:'video',reference_audio:'audio'}[item.role]||'',name:item.name||'参考素材'+(index+1),path:item.path||''};
+}):[];
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', invalidMessage: '', draftStatus:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -31,10 +36,10 @@ if (draft) {
 let parameters;
 try { parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters); }
 catch(error){this.setData({draftStatus:error.message});parameters=this.data.parameters;}
-this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', firstFrameAssetId:draft.firstFrameAssetId||'',lastFrameAssetId:draft.lastFrameAssetId||'',references: draft.references || [], parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value)) });
+this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references), parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value)) });
 }
 this.syncRatio();
-if(http.token())this.restoreRemoteDraft();
+if(http.token()){this.restoreRemoteDraft();this.restoreMediaPreviews();}
 },
 restoreRemoteDraft() {
 if(this.__draft)return this.__draft.start().catch(()=>{});
@@ -42,26 +47,87 @@ const key=this.data.editingTaskId?'task:'+this.data.editingTaskId:'new';
 const scope=this.actorScope,storageKey=studio.scopedKey('zs-video-draft-v2:'+key);
 this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialDirty:this.__legacyDraft,
   valid:()=>this.__draftSession()&&scope===studio.scope(),
-  getForm:()=>{const {mode,description,firstFrame,lastFrame,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;return{mode,description,firstFrame,lastFrame,firstFrameAssetId,lastFrameAssetId,references,parameters:P.mapVideoParameters(parameters)};},
+  getForm:()=>this.videoForm(),
   applyForm:draft=>{
     const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
     this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
-      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameAssetId:draft.firstFrameAssetId||'',lastFrameAssetId:draft.lastFrameAssetId||'',references:Array.isArray(draft.references)?draft.references.filter(r=>r.path||r.assetId):[],parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
-    this.syncRatio();
+      firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
+    this.syncRatio();this.restoreMediaPreviews();
   },
-  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>{
-    const payload={draftKey:key,revision:draft.revision,mode:draft.mode,description:draft.description,parameters:draft.parameters};
-    if(draft.references.length)payload.references=P.mapReferences(draft.references);
-    return contentApi.drafts.saveVideoDraft(payload);
-  }},onStatus:draftStatus=>this.setData({draftStatus})});
+  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>this.setData({draftStatus})});
 return this.__draft.start().catch(()=>{});
 },
-onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope())wx.redirectTo({url:"/pages/ai-video/index"});},
+onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.__draftSession&&!this.__draftSession())wx.redirectTo({url:'/pages/ai-video/index'+(this.data.editingTaskId?'?task='+encodeURIComponent(this.data.editingTaskId):'')});},
 onHide() { this.saveDraft(); },
 onUnload() { this.__closed=true;this.saveDraft();if(this.__draft)this.__draft.stop(); },
 saveDraft() {
   if(!studio.allowed()||this.actorScope!==studio.scope()||this.data.invalidMessage)return;
   if(this.__draft)return this.__draft.save().catch(()=>{});
+},
+videoAlive(){return !this.__closed&&!!http.token()&&this.actorScope===studio.scope()&&(!this.__draftSession||this.__draftSession());},
+videoForm(){
+const {mode,description,firstFrame,lastFrame,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;
+return {mode,description,firstFrame,lastFrame,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(item=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
+},
+saveVideoDraftSnapshot(key,draft){
+const {revision,...form}=draft;
+if(form.references.some(item=>!['image','video','audio'].includes(item.type)))return Promise.reject(Error('参考素材类型无效，请移除后重新选择'));
+const send=prepared=>{
+  if(!this.videoAlive())throw Error('工作身份已变化或页面已关闭，草稿已存本机');
+  return contentApi.drafts.saveVideoDraft({draftKey:key,revision,mode:prepared.mode,description:prepared.description,parameters:prepared.parameters,
+    firstFrameAssetId:prepared.firstFrameAssetId||null,lastFrameAssetId:prepared.lastFrameAssetId||null,references:P.mapReferences(prepared.references)})
+    .then(result=>({...result,form:prepared}));
+};
+const needsUpload=['firstFrame','lastFrame'].some(field=>form[field]&&!form[field+'AssetId'])||form.references.some(item=>!item.assetId);
+if(!needsUpload)return send(form);
+this.setData({draftStatus:'正在上传素材，草稿暂存本机…'});
+return this.prepareVideoMedia(form).then(send);
+},
+async prepareVideoMedia(form){
+const prepared=JSON.parse(JSON.stringify(form)),alive=()=>this.videoAlive();
+const check=()=>{if(!alive())throw Error('工作身份已变化或页面已关闭');};
+check();
+const upload=path=>{
+  if(!path)throw Error('参考素材缺少可用文件，请移除后重新选择');
+  this.__mediaUploads=this.__mediaUploads||new Map();
+  if(!this.__mediaUploads.has(path))this.__mediaUploads.set(path,media.upload(path,alive).then(id=>{check();if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(path);throw error;}));
+  return this.__mediaUploads.get(path);
+};
+for(const field of ['firstFrame','lastFrame'])if(prepared[field]&&!prepared[field+'AssetId']){
+  const id=await upload(prepared[field]);check();prepared[field+'AssetId']=id;
+  if(this.data[field]===form[field]&&assetId(this.data[field+'AssetId'])===assetId(form[field+'AssetId'])){
+    this.setData({[field+'AssetId']:id});this.__draft?.cache();
+  }
+}
+for(const item of prepared.references){
+  if(!['image','video','audio'].includes(item.type))throw Error('参考素材类型无效，请移除后重新选择');
+  if(item.assetId)continue;
+  const id=await upload(item.path);check();item.assetId=id;
+  const current=this.data.references.find(row=>row.id===item.id&&row.path===item.path&&!assetId(row.assetId));
+  if(current){this.setData({references:this.data.references.map(row=>row===current?{...row,assetId:id}:row)});this.__draft?.cache();}
+}
+return prepared;
+},
+async restoreMediaPreviews(){
+const sequence=this.__mediaPreviewSequence=(this.__mediaPreviewSequence||0)+1,alive=()=>this.videoAlive()&&sequence===this.__mediaPreviewSequence;
+if(!alive())return;
+const jobs=[],errors=[];
+for(const field of ['firstFrame','lastFrame'])if(assetId(this.data[field+'AssetId'])){
+  const id=assetId(this.data[field+'AssetId']);
+  jobs.push({id,type:'image',path:this.data[field],current:()=>assetId(this.data[field+'AssetId'])===id,apply:path=>this.setData({[field]:path})});
+}
+for(const item of this.data.references){
+  const id=assetId(item.assetId),current=()=>this.data.references.some(row=>row.id===item.id&&assetId(row.assetId)===id);
+  if(!['image','video','audio'].includes(item.type)){errors.push({current,message:item.name+'类型无效，请重新选择'});continue;}
+  if(!id){if(!item.path)errors.push({current,message:item.name+'缺少资产，请重新选择'});continue;}
+  jobs.push({id,type:item.type,path:item.path,current,apply:path=>this.setData({references:this.data.references.map(row=>row.id===item.id&&assetId(row.assetId)===id?{...row,path}:row)})});
+}
+this.setData({mediaLoading:!!jobs.length,mediaError:''});
+await Promise.all(jobs.map(async job=>{
+  try{const path=await media.source(job.id,alive,{type:job.type,localPath:job.path});if(alive()&&job.current())job.apply(path);}
+  catch(error){if(alive()&&job.current()){job.apply('');errors.push({current:job.current,message:'素材读取失败：'+P.degradeMessage(error)});}}
+}));
+if(alive())this.setData({mediaLoading:false,mediaError:errors.filter(error=>error.current()).map(error=>error.message).join('；')});
 },
 retryDraft(){
   if(!this.__draft)return;
@@ -87,9 +153,9 @@ const itemList = ['从手机添加', '从素材库选择'];
 if (this.data[target]||this.data[target+'AssetId']) itemList.push('移除图片');
 wx.showActionSheet({ itemList, success: ({ tapIndex }) => {
 if (tapIndex === 1) this.openLibrary(target);
-else if (tapIndex === 2) {this.setData({ [target]: '',[target+'AssetId']:'' });this.syncRatio();this.saveDraft();}
+else if (tapIndex === 2) {this.setData({ [target]: '',[target+'AssetId']:'' });this.syncRatio();this.saveDraft();this.restoreMediaPreviews();}
 else wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album', 'camera'], success: async result => {
-try { this.setData({ [target]: await persistMedia(result.tempFiles[0].tempFilePath),[target+'AssetId']:'' });this.syncRatio(); this.saveDraft(); } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
+try { this.setData({ [target]: await persistMedia(result.tempFiles[0].tempFilePath),[target+'AssetId']:'' });this.syncRatio(); this.saveDraft();this.restoreMediaPreviews(); } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
 }, fail: this.mediaFailure });
 } });
 },
@@ -119,7 +185,7 @@ if (!next.some(ref => item.assetId?String(ref.assetId)===String(item.assetId):!!
 }
 this.setData({ references: next });this.syncRatio();
 },
-removeReference(e) { this.setData({ references: this.data.references.filter(item => item.id !== e.currentTarget.dataset.id) });this.syncRatio(); },
+removeReference(e) { this.setData({ references: this.data.references.filter(item => item.id !== e.currentTarget.dataset.id) });this.syncRatio();this.saveDraft();this.restoreMediaPreviews(); },
 openLibraryButton() { this.openLibrary('references'); },
 openLibrary(target) {
 if(this.data.generating||!['firstFrame','lastFrame','references'].includes(target))return;
@@ -135,7 +201,7 @@ const maximum=asset.type==='image'?8:3;
 if(this.data.references.length>=12||this.data.references.filter(r=>r.type===asset.type).length>=maximum)throw Error('已达到素材数量上限');
 this.addReferences([{...asset,id:'material-'+asset.assetId,assetId:String(asset.assetId)}]);
 }else this.setData({[target]:asset.path||'',[target+'AssetId']:String(asset.assetId)});
-this.syncRatio();this.saveDraft();
+this.syncRatio();this.saveDraft();if(this.data.mediaError)this.restoreMediaPreviews();
 }catch(error){wx.showToast({title:error.message,icon:'none'});}
 }},fail:()=>{if(valid())wx.showToast({title:'素材库打开失败，请重试',icon:'none'});}});
 },
@@ -162,19 +228,23 @@ const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
 try {
-const mapped = P.mapVideoParameters(this.data.parameters);
-const hasVisual=this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame||this.data.firstFrameAssetId||this.data.lastFrameAssetId):this.data.references.some(r=>r.type==='image'||r.type==='video');
+const current=this.videoForm();
+// Mode switches retain both drafts, but only the visible mode's media participates in this task.
+const selected=current.mode==='frames'?{...current,references:[]}:{...current,firstFrame:'',lastFrame:'',firstFrameAssetId:'',lastFrameAssetId:''};
+const form=await this.prepareVideoMedia(selected);if(!alive())return;
+const mapped = form.parameters;
+const hasVisual=form.mode==='frames'?!!(form.firstFrame||form.lastFrame||form.firstFrameAssetId||form.lastFrameAssetId):form.references.some(r=>r.type==='image'||r.type==='video');
 if(hasVisual)mapped.ratio='adaptive';
 else if(mapped.ratio==='adaptive')throw Error('纯文生视频请选择具体画面比例');
-const payload = { kind: 'ai_video', description: this.data.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
-const inputs=this.data.mode==='reference'
-  ? this.data.references.map(item=>({path:item.path,assetId:item.assetId,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
-  : [{path:this.data.firstFrame,assetId:this.data.firstFrameAssetId,role:'first_frame'},{path:this.data.lastFrame,assetId:this.data.lastFrameAssetId,role:'last_frame'}].filter(item=>item.path||item.assetId);
-// Recheck every selected library asset, including a retry. Never replace an inaccessible selection with an empty reference list.
+const payload = { kind: 'ai_video', description: form.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
+const inputs=form.mode==='reference'
+  ? form.references.map(item=>({assetId:item.assetId,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
+  : [{assetId:form.firstFrameAssetId,role:'first_frame'},{assetId:form.lastFrameAssetId,role:'last_frame'}].filter(item=>item.assetId);
+// The generic CONTENT_ASSET gate supports both phone uploads and library media; all IDs stay subject to current access checks.
 for(const input of inputs){
   if(!input.role)throw Error('参考素材类型无效，请重新选择');
   if(input.assetId){
-    const ticket=await contentApi.materials.download(String(input.assetId));if(!alive())return;
+    const ticket=await contentApi.assets.downloadUrl(String(input.assetId));if(!alive())return;
     if(!ticket?.downloadUrl)throw Error('素材已不可用，请重新选择');
   }
 }
@@ -182,8 +252,7 @@ const signature=JSON.stringify({payload,inputs});
 if(!this.__videoSubmission||this.__videoSubmission.signature!==signature){
   const references=[];
   for(const input of inputs){
-    const assetId=input.assetId?String(input.assetId):await media.upload(input.path,alive);
-    references.push(Object.assign({role:input.role,assetId},input.name?{name:input.name}:{}));
+    references.push(Object.assign({role:input.role,assetId:String(input.assetId)},input.name?{name:input.name}:{}));
   }
   if(references.length)payload.references=references;
   this.__videoSubmission={signature,payload,key:'video-'+Date.now()+'-'+Math.floor(Math.random()*1e8)};

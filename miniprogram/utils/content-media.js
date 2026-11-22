@@ -45,4 +45,18 @@ async function upload(filePath, alive) {
   return String(ticket.assetId);
 }
 
-module.exports = { upload };
+async function source(assetId, alive, {type='image',localPath=''}={}) {
+  if(!alive())throw Error('工作身份已变化，请重新打开页面');
+  const ticket=await api.assets.downloadUrl(String(assetId));
+  if(!alive())throw Error('工作身份已变化，请重新打开页面');
+  if(!ticket?.downloadUrl)throw Error('素材不可用，请重新选择');
+  // Audio/video references need authorization, not another local copy just to show their names.
+  if(type!=='image')return '';
+  if(localPath&&!/^https?:\/\//i.test(localPath)){
+    try{wx.getFileSystemManager().accessSync(localPath);return localPath;}catch(_){/* Recover an expired local file by its asset ID. */}
+  }
+  if(/^https:\/\//i.test(ticket.downloadUrl)&&!String(ticket.downloadUrl).startsWith(String(http.base()).replace(/\/admin-api\/?$/,'')+'/'))return ticket.downloadUrl;
+  return (await require('./b-asset-download').downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive,label:'素材'})).tempFilePath;
+}
+
+module.exports = { upload, source };
