@@ -363,12 +363,20 @@ async function perform(action, id, form, node, key) {
     }
     case 'node-reopen':
       return api.plan.reopen(id, node.id, f.nodeReason || f.reason, key);
-    case 'node-correct':
-      return api.plan.correct(id, node.id, {
-        completedAt: f.nodeDate || dateStr, note: f.nodeNote || f.note,
-        fileAssetId: await uploadVoucher((f.nodeFile || f.file) && (f.nodeFile || f.file).path, 'ENG_SITE_PHOTO'),
-        reason: f.nodeReason || f.reason
-      }, key);
+    case 'node-correct': {
+      const completedAt = f.nodeDate || dateStr, reason = String(f.nodeReason || f.reason || '').trim();
+      if (!completedAt || !reason) throw new Error('请填写完成日期和更正原因');
+      const body = { completedAt, reason }, note = String(f.nodeNote || f.note || '').trim();
+      if (note) body.note = note;
+      const file = f.nodeFile || f.file;
+      if (f.nodeRecordId || f.nodeReplaceAssetId || file) {
+        if (!f.nodeRecordId || !f.nodeReplaceAssetId || !file || !file.path) throw new Error('请选择要替换的原凭据和新凭据');
+        body.replacementRecordId = String(f.nodeRecordId);
+        body.replaceFileAssetId = String(f.nodeReplaceAssetId);
+        body.fileAssetId = await uploadVoucher(file.path, 'ENG_SITE_PHOTO');
+      }
+      return api.plan.correct(id, node.id, body, key);
+    }
     case 'site': {
       const files = f.files && f.files.length ? f.files : f.file ? [f.file] : [];
       const assetIds = [];
@@ -561,6 +569,20 @@ function recordView(bundle, ctx) {
   const node = (view === 'start' && nodes.find(n => n.milestone === 'start'))
     || ((opts.nodeId || materialNodeId) && nodes.find(n => n.id === String(opts.nodeId || materialNodeId)))
     || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
+  const inspections = (d.siteRecords || []).filter(r => r.completion && String(r.node_id) === node?.id).map(r => ({
+    id: String(r.id), date: timestampDate(r.occurred_at), result: r.note || '已完成',
+    person: r.operator_name || r.author_name || (r.author_user_id ? '经办人 ' + r.author_user_id : '经办人未留存'),
+    file: { assetId: parseJsonList(r.file_asset_ids)[0] }, files: parseJsonList(r.file_asset_ids).map(assetId => ({ assetId: String(assetId) })),
+    corrections: parseJsonList(r.corrections).map((c, index) => ({
+      id: String(index), date: dateOf(c.occurredAt), note: c.note || '', reason: c.reason || '', correctedAt: dateOf(c.date),
+      files: parseJsonList(c.fileAssetIds).map(assetId => ({ assetId: String(assetId) }))
+    }))
+  }));
+  const nodeEvidenceOptions = [{ recordId: '', assetId: '', label: '保留全部凭据' },
+    ...inspections.flatMap((record, recordIndex) => record.files.map((file, index) => ({
+      recordId: record.id, assetId: file.assetId,
+      label: (inspections.length > 1 ? '验收记录' + (recordIndex + 1) + ' · ' : '') + '替换凭据' + (index + 1)
+    })))];
   const own = !!opts.writeRole && (!opts.userId || [String(d.managerUserId),String(d.assignedEngineerUserId)].includes(String(opts.userId)));
   const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
@@ -590,7 +612,7 @@ function recordView(bundle, ctx) {
       stage, transaction: '', amount: '', total: '', first: '', receiver: '', recipient: '',
       noMaterials: false, adjustReason: '', correctId: '', correctActual: '', correctReason: '',
       siteId: '', siteNote: '', siteFile: null, siteReason: '',
-      nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '',
+      nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '', nodeRecordId: '', nodeReplaceAssetId: '',
       delayReason:node?.delayReason||'',delayOwnerUserId:node?.delayOwnerUserId||String(d.managerUserId||''),delayOwnerName:node?.delayOwnerName||p.manager,recoveryDate:node?.recoveryDate||today,recoveryAction:node?.recoveryAction||'',
       promiseDate: ''
     };
@@ -651,8 +673,7 @@ function recordView(bundle, ctx) {
       // R2 P1-4：现场记录创建恢复（多张照片，perform site→api.site.create）
       actions = [{ action: 'node', label: '标记节点完成' }, { action: 'site', label: '留存现场照片' }];
     } else if (own && !archived && !delivery && node.status === '已完成') {
-      fields = [viewField('nodeDate', '正确完成日期', 'date'), viewField('nodeNote', '正确节点情况', 'textarea'),
-        viewField('nodeFile', '正确凭据（jpg/png/pdf）', 'file'), viewField('nodeReason', '更正原因', 'textarea')];
+      // 完成态只使用明确保留/替换原凭据的更正表单，不能再展示无目标的通用上传控件。
       actions = [{ action: 'node-correct', label: '更正节点记录' }];
       const index = nodes.findIndex(n => n.id === node.id);
       const nextId = nodes[index + 1]?.id;
@@ -790,7 +811,8 @@ function recordView(bundle, ctx) {
     delayHistory:(node?.delayHistory||[]).map((r,i)=>({...r,id:String(i),recordedAt:timestampDate(r.recordedAt),recoveryDate:dateOf(r.recoveryDate),ownerName:r.ownerName||(opts.handlers||[]).find(h=>String(h.id)===String(r.ownerUserId))?.name||'原责任人'})),
     nodePlans: plans.filter(r=>r.nodeId===node?.id),
     nodeMoney: node ? (()=>{const rows=plans.filter(r=>r.nodeId===node.id),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return {known:rows.every(r=>r.known),plannedText:centsText(sum('total')),committedText:centsText(sum('total')),paidText:centsText(sum('paid')),remainingText:centsText(sum('remaining')),expenses:[]};})() : null,
-    inspections: (d.siteRecords || []).filter(r=>r.completion&&String(r.node_id)===node?.id).map(r=>({id:String(r.id),date:timestampDate(r.occurred_at),result:r.note||'已完成',person:r.operator_name||r.author_name||(r.author_user_id?'经办人 '+r.author_user_id:'经办人未留存'),file:{assetId:parseJsonList(r.file_asset_ids)[0]},files:parseJsonList(r.file_asset_ids).map(assetId=>({assetId}))})),
+    inspections, nodeEvidenceOptions,
+    nodeEvidenceIndex: Math.max(0, nodeEvidenceOptions.findIndex(option => option.recordId === (form.nodeRecordId || '') && option.assetId === (form.nodeReplaceAssetId || ''))),
     arrivals: (plan?.lines || []).flatMap(l=>(l.receipts||[]).map(r=>({id:String(r.id),materialName:l.name,unit:l.unit,date:dateOf(r.occurredAt),actual:r.actualQuantity,note:r.transactionNo||'',qualityText:r.qualified?'合格实收':'实收待质检处理',file:r.fileAssetId?{assetId:String(r.fileAssetId)}:null,corrections:parseJsonList(r.corrections),canCorrect:own&&!delivery&&!!r.id}))),
     pending: own && !archived ? [
       ...(!delivery?nodes.filter(n=>n.status!=='已完成'&&n.deviationDays>0).map(n=>({id:'delay-'+n.id,title:n.name+'延期'+n.deviationDays+'天',status:n.delayOwnerName,url:base+'delay&nodeId='+encodeURIComponent(n.id)})):[]),
@@ -816,7 +838,8 @@ function recordView(bundle, ctx) {
     canAdjust: own && !delivery && !!plan,
     canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),
     termsLocked: !!plan && !plan.lines.some(l => l.termsEditable),
-    canCorrectNode: false, canReopen: false,
+    canCorrectNode: actions.some(action => action.action === 'node-correct'),
+    canReopen: actions.some(action => action.action === 'node-reopen'),
     demo: false
   };
 }
