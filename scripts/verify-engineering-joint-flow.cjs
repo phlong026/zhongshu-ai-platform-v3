@@ -11,7 +11,7 @@ function harness() {
     calls = [];
   global.wx = { getStorageSync: () => '', getSystemInfoSync: () => ({}) };
   const api = {
-    plan: { prepare: async (id, body) => calls.push(body) },
+    plan: { prepare: async (id, body) => calls.push(body), complete: async (id,node,body,key) => calls.push({id,node,body,key}) },
     materials: { submit: async (id, body) => calls.push(body) },
     uploadVoucher: async () => '9007199254740999'
   };
@@ -20,7 +20,7 @@ function harness() {
     require: (n) => (n === '../api/franchise/engineering' ? api : real(n)),
     wx: global.wx
   });
-  return { P: m.exports, calls };
+  return { P: m.exports, calls, api };
 }
 const bundle = () => ({
   detail: {
@@ -37,6 +37,38 @@ const bundle = () => ({
   materials: { plans: [] },
   settle: {},
   followups: []
+});
+
+test('three completion photos are all submitted and remain available in a fresh server read',async()=>{
+ const {P,api,calls}=harness(),uploads=[];
+ api.uploadVoucher=async(file,type)=>{uploads.push({file,type});return String(9007199254740993n+BigInt(uploads.length));};
+ await P.perform('node','100',{date:'2026-11-17',note:'验收完成',files:[{path:'one.jpg'},{path:'two.jpg'},{path:'three.jpg'}]},{id:'101'},'original-key');
+ assert.equal(uploads.length,3);assert.ok(uploads.every(r=>r.type==='ENG_SITE_PHOTO'));assert.equal(calls.length,1);
+ const ids=['9007199254740994','9007199254740995','9007199254740996'];
+ assert.equal(JSON.stringify(calls[0].body.fileAssetIds),JSON.stringify(ids));assert.equal(calls[0].key,'original-key');
+ const b=bundle();b.detail.siteRecords=[{id:'record',node_id:'101',occurred_at:'2026-11-17',completion:true,note:'验收完成',file_asset_ids:JSON.stringify(ids)}];
+ const saved=P.recordView(b,{view:'node',nodeId:'101'});
+ assert.equal(JSON.stringify(saved.inspections[0].files.map(f=>f.assetId)),JSON.stringify(ids));
+ assert.equal(JSON.stringify(saved.siteRecords[0].files.map(f=>f.assetId)),JSON.stringify(ids));
+ const {render}=require('./role-page-runtime.cjs');const flat=rows=>rows.flatMap(r=>[r,...flat(r.children||[])]);
+ const nodes=flat(render(path.resolve('miniprogram/pages/build/record/index.wxml'),{...saved,view:'node',expanded:{inspections:true}}));
+ assert.equal(nodes.filter(r=>r.tag==='button'&&r.attrs?.bindtap==='preview'&&ids.includes(r.attrs['data-file']?.assetId)).length,3);
+});
+test('completion bounds and any upload failure prevent a partially saved node',async()=>{
+ const {P,api,calls}=harness();let uploads=0;
+ api.uploadVoucher=async()=>{uploads++;if(uploads===2)throw Error('上传失败');return '9007199254740994';};
+ await assert.rejects(P.perform('node','100',{files:[]},{id:'101'},'empty'),/1至9/);
+ await assert.rejects(P.perform('node','100',{files:Array.from({length:10},()=>({path:'x'}))},{id:'101'},'too-many'),/1至9/);
+ assert.equal(uploads,0);
+ await assert.rejects(P.perform('node','100',{files:[{path:'a'},{path:'b'},{path:'c'}]},{id:'101'},'original'),/上传失败/);
+ assert.equal(calls.length,0);assert.equal(uploads,2);
+});
+test('choosing one replacement file clears an older multi-photo selection',()=>{
+ let page;const file=path.resolve('miniprogram/pages/build/record/index.js'),real=createRequire(file);
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:p=>page=p,require:real});
+ page.data={view:'node',form:{files:[{path:'old-a'},{path:'old-b'}]}};
+ page.setData=patch=>{for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let target=page.data;for(const part of parts.slice(0,-1))target=target[part]||(target[part]={});target[parts.at(-1)]=v;}};
+ page.setFile('file',{name:'new.jpg',path:'new.jpg'});assert.equal(page.data.form.files.length,1);assert.equal(page.data.form.files[0].path,'new.jpg');
 });
 test('handover next step progresses through preparation, schedule, collection, start, node, delivery, settlement and archive', () => {
   const { P } = harness(),
