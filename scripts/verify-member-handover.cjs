@@ -2,10 +2,10 @@
 /**
  * 批次#32 · M01-T04/M04-T04 离职交接 v3 前端接线验证（role-page-runtime + wx.request spy）。
  * AC1 成员管理视图渲染交接卡（离职成员/接收人 picker+两动作）
- * AC2 正常交接：请求体 {orgId,fromUserId,toUserId} + 交接清单渲染（逐域 inFlight/transferred/status）
+ * AC2 正常交接：请求体 {orgId,fromUserId,receivers} + 交接清单渲染（逐域 inFlight/transferred/status）
  * AC3 紧急撤权：确认弹窗+请求体 {orgId,userId} + 待分配清单刷新
  * AC4 待分配行补交接：回填离职成员后发起 handover
- * AC5 无接收人（单人组织）不得发起交接+请求记录反证+AC5b 非管理岗直链门禁
+ * AC5 有在办事项但无接收人（单人组织）不得发起交接+请求记录反证+AC5b 非管理岗直链门禁
  * AC6 api 层三方法契约（org.js → /platform/org/staff-handover|staff-emergency-revoke|handover-pending）
  * 用法：node scripts/verify-member-handover.cjs
  */
@@ -15,6 +15,8 @@ const os = require('node:os');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
+const previewItems = [{ domain: 'franchise-crm', label: '客户', inFlight: 3, transferred: 0, status: 'PENDING_UNASSIGNED' }];
+const pickTarget = (page, value) => page.pickHandoverTarget({ currentTarget: { dataset: { domain: 'franchise-crm' } }, detail: { value } });
 
 (async () => {
   // ===== AC6：api 层契约（connect 后 wx.request spy——http.get/post 闭包内部 request，覆盖 exports 无效）=====
@@ -52,6 +54,7 @@ const root = path.join(__dirname, '..');
   const respond = options => {
     const url = options.url || '';
     const ok = data => ({ statusCode: 200, data: { code: 0, data } });
+    if (url.endsWith('/platform/org/staff-handover-preview')) return ok(previewItems);
     if (url.endsWith('/platform/org/teams')) return ok([{ deptId: 1, name: '门店团队' }]);
     if (url.endsWith('/platform/org/staff')) return ok([
       { postId: 11, userId: 3, name: '李业务', mobile: '13800000003', roleCode: 'sales', teamName: '门店团队', active: true },
@@ -62,7 +65,7 @@ const root = path.join(__dirname, '..');
       { id: 1, orgId: 9, fromUserId: 9, domain: 'franchise-crm', domainLabel: '客户', inFlight: 3, createTime: '2026-11-04 10:00' }
     ]);
     if (url.endsWith('/platform/org/staff-handover')) return ok({
-      mode: 'HANDOVER', orgId: 9, fromUserId: options.data.fromUserId, toUserId: options.data.toUserId,
+      mode: 'HANDOVER', orgId: 9, fromUserId: options.data.fromUserId, toUserId: options.data.toUserId, receivers: options.data.receivers,
       revokedPostIds: [11], items: [
         { domain: 'franchise-crm', label: '客户', inFlight: 3, transferred: 3, status: 'HANDED_OVER' },
         { domain: 'franchise-engineering', label: '工程任务', inFlight: 2, transferred: 0, status: 'PENDING_UNASSIGNED' }
@@ -91,12 +94,12 @@ const root = path.join(__dirname, '..');
   assert.equal(page().data.apiPendingRows.length, 1, '待分配清单加载');
   assert.equal(page().data.apiPendingRows[0].fromName, '用户9', '待分配行补 fromName（无在岗匹配兜底）');
   assert.equal(page().data.handoverSource, null, '初始未选离职成员（来源与在岗列表分离）');
-  page().pickHandoverLeaver({ detail: { value: 0 } });
+  await page().pickHandoverLeaver({ detail: { value: 0 } });
   assert.equal(page().data.handoverSource.userId, 3, '选离职成员→source=在岗成员');
   assert.deepEqual(page().data.apiReceivers.map(r => r.userId), [4, 5], '接收人=真实在岗排除来源');
-  assert.equal(page().data.handoverTargetIndex, -1, '初始未选接收人（R4 P1：按 userId 保留，未选=-1）');
-  page().pickHandoverTarget({ detail: { value: 0 } });
-  assert.equal(page().data.handoverTargetUserId, 4, '选接收人→记录 userId');
+  assert.equal(page().data.handoverRequirements[0].targetIndex, -1, '初始未选分类接收人');
+  pickTarget(page(), 0);
+  assert.equal(page().data.handoverReceivers['franchise-crm'], 4, '选分类接收人→记录 userId');
   const file = path.join(root, 'miniprogram/pages/account/index.wxml');
   const wxml = require('fs').readFileSync(file, 'utf8');
   for (const text of ['离职交接', '发起正常交接', '紧急撤权（不等待交接）', '待分配在途事项', '补交接']) {
@@ -112,8 +115,8 @@ const root = path.join(__dirname, '..');
   assert.ok(handoverReq, '发起正常交接请求');
   assert.equal(handoverReq.data.orgId, 9);
   assert.equal(handoverReq.data.fromUserId, 3, 'fromUserId=首名离职成员');
-  assert.equal(handoverReq.data.toUserId, 4, 'toUserId=接收人（排除本人）');
-  assert.equal(page().data.handoverResult.title, '李业务 → 王工程 交接清单');
+  assert.deepEqual(handoverReq.data.receivers, { 'franchise-crm': 4 }, '分类接收人排除本人');
+  assert.equal(page().data.handoverResult.title, '李业务 交接清单');
   assert.deepEqual(page().data.handoverResult.items.map(i => i.label + ':' + i.statusText), ['客户:已交接', '工程任务:转待分配'], 'R2 P1-1 五态映射（HANDED_OVER/PENDING_UNASSIGNED）');
   assert.equal(page().data.handoverResult.openCount, 1, '转待分组计数');
   console.log('  ✅ AC2 正常交接请求体与交接清单渲染');
@@ -135,9 +138,9 @@ const root = path.join(__dirname, '..');
   console.log('  ✅ AC3 紧急撤权确认弹窗+请求体+结果清单');
 
   // AC4：待分配行补交接——回填离职成员再发起
-  page().reassignRow({ currentTarget: { dataset: { userId: 9, name: '用户9' } } });
-  assert.ok(page().data.reassignHint.includes('全部在途事项'), '补交接提示回填（R4 P2：全部在途语义）');
-  page().pickHandoverTarget({ detail: { value: 0 } });
+  await page().reassignRow({ currentTarget: { dataset: { userId: 9, name: '用户9' } } });
+  assert.ok(page().data.reassignHint.includes('按类别选择接收人'), '补交接提示回填（R4 P2：全部在途语义）');
+  pickTarget(page(), 0);
   page().confirmHandover();
   await new Promise(r => setTimeout(r, 20));
   const reassignReq = requests.filter(r => r.url.endsWith('/platform/org/staff-handover')).at(-1);
@@ -149,7 +152,8 @@ const root = path.join(__dirname, '..');
     const url = options.url || '';
     const ok = data => ({ statusCode: 200, data: { code: 0, data } });
     let res = ok(null);
-    if (url.endsWith('/platform/org/teams')) res = ok([{ deptId: 1, name: '门店团队' }]);
+    if (url.endsWith('/platform/org/staff-handover-preview')) res = ok(previewItems);
+    else if (url.endsWith('/platform/org/teams')) res = ok([{ deptId: 1, name: '门店团队' }]);
     else if (url.endsWith('/platform/org/staff')) res = ok([{ postId: 11, userId: 3, name: '李业务', mobile: '13800000003', roleCode: 'sales', teamName: '门店团队', active: true }]);
     else if (url.endsWith('/platform/org/handover-pending')) res = ok([]);
     requests.push(options); // R1 P2-6：AC5 stub 同样记录请求（防「未发送」断言恒真）
@@ -162,17 +166,18 @@ const root = path.join(__dirname, '..');
   await new Promise(r => setTimeout(r, 20));
   assert.equal(page().data.apiLeavers.length, 1, '单人组织在岗一人');
   assert.equal(page().data.handoverSource, null, 'R6 P2：来源已撤权且无待分配行→刷新清空（不保留无待办的撤权来源）');
-  page().pickHandoverLeaver({ detail: { value: 0 } });
+  await page().pickHandoverLeaver({ detail: { value: 0 } });
   assert.equal(page().data.apiReceivers.length, 0, '来源切换为唯一在岗成员后无接收人');
   page().confirmHandover();
-  assert.ok(page().data.error.includes('无其他在岗成员'), '单人组织拦截：' + page().data.error);
+  assert.ok(page().data.error.includes('每类在办事项选择接收人'), '单人组织拦截：' + page().data.error);
   assert.ok(!requests.some(r => r.url.endsWith('/platform/org/staff-handover')), '单人组织不发交接请求（紧跟调用断言，清空前取证——R5 P2-2）');
   // R4 P1：接收人 userId 保留回归——多人在岗时选用户5，刷新移除用户4后仍指向用户5（不换人）
   global.wx.request = options => {
     const url = options.url || '';
     const ok = data => ({ statusCode: 200, data: { code: 0, data } });
     let res = ok(null);
-    if (url.endsWith('/platform/org/teams')) res = ok([{ deptId: 1, name: '门店团队' }]);
+    if (url.endsWith('/platform/org/staff-handover-preview')) res = ok(previewItems);
+    else if (url.endsWith('/platform/org/teams')) res = ok([{ deptId: 1, name: '门店团队' }]);
     else if (url.endsWith('/platform/org/staff')) res = ok([
       { postId: 14, userId: 5, name: '赵财务', mobile: '13800000005', roleCode: 'finance', teamName: '门店团队', active: true },
       { postId: 15, userId: 6, name: '钱工程', mobile: '13800000006', roleCode: 'engineer', teamName: '门店团队', active: true }
@@ -182,12 +187,12 @@ const root = path.join(__dirname, '..');
     options.success && options.success(res);
   };
   requests.length = 0;
-  page().setData({ handoverTargetUserId: 6, handoverSource: { userId: 9, name: '用户9', roleName: '已撤权' }, error: '' });
+  page().setData({ handoverItems: previewItems, handoverReceivers: { 'franchise-crm': 6 }, handoverSource: { userId: 9, name: '用户9', roleName: '已撤权' }, error: '' });
   page().loadApiMembers();
   await new Promise(r => setTimeout(r, 20));
   assert.deepEqual(page().data.apiReceivers.map(r => r.userId), [5, 6], '接收人列表重算（source=原李业务3 已撤权保留，不进接收人排除）');
-  assert.equal(page().data.handoverTargetIndex, 1, 'userId=6 保留→新列表索引 1（R4 P1：不换人）');
-  assert.equal(page().data.handoverTargetUserId, 6, 'userId 保留');
+  assert.equal(page().data.handoverRequirements[0].targetIndex, 1, 'userId=6 保留→新列表索引 1（R4 P1：不换人）');
+  assert.equal(page().data.handoverReceivers['franchise-crm'], 6, 'userId 保留');
   assert.equal(page().data.handoverSource && page().data.handoverSource.userId, 9, 'R1 P1+R6 P2：补交接来源（已撤权 9）仍待分配→按 userId 保留不换人');
   // 反证：请求记录通道有效——故意直发一次交接请求应被记录（断言非恒真的机制证明）
   await orgApi.staffHandover({ orgId: 9, fromUserId: 1, toUserId: 2 });
@@ -230,6 +235,7 @@ const root = path.join(__dirname, '..');
   const respondSync = options => {
     const url = options.url || '';
     const ok = data => ({ statusCode: 200, data: { code: 0, data } });
+    if (url.endsWith('/platform/org/staff-handover-preview')) return ok(previewItems);
     if (url.endsWith('/platform/org/teams')) return ok([{ deptId: 1, name: '门店团队' }]);
     if (url.endsWith('/platform/org/staff')) {
       const isFirstSnapshot = options.__firstLoad === true; // 快照按请求期标记（响应乱序不串）
@@ -258,6 +264,7 @@ const root = path.join(__dirname, '..');
   let nonHandoverCount = 0;
   global.wx.request = options => {
     requests.push(options);
+    if (options.url.endsWith('/staff-handover-preview')) { options.success(respondSync(options)); if (options.complete) options.complete(); return; }
     let ms;
     if (options.url.endsWith('staff-handover')) { ms = 150; handoverAt.v = Date.now() + ms; }
     else { nonHandoverCount++; options.__firstLoad = nonHandoverCount <= 3; ms = nonHandoverCount <= 3 ? 150 : 60; } // load#1（旧快照，请求期标记）后完成、load#2 先完成——序号守卫变异敏感
@@ -302,8 +309,8 @@ const root = path.join(__dirname, '..');
   assert.equal(p7.data.apiMembersBusy, false, 'AC7 交错刷新完成后恢复空闲');
   p7.setData({ handoverSource: null });
   // 提交交接——handover +150ms 未回期间 busy 恒 true（旧刷新无法提前释放）
-  p7.pickHandoverLeaver({ detail: { value: 0 } });
-  p7.pickHandoverTarget({ detail: { value: 0 } });
+  await p7.pickHandoverLeaver({ detail: { value: 0 } });
+  pickTarget(p7, 0);
   p7.confirmHandover();
   assert.equal(p7.data.handoverBusy, true, 'AC7 提交即持锁');
   await new Promise(r => setTimeout(r, 20));
@@ -324,12 +331,12 @@ const root = path.join(__dirname, '..');
   await new Promise(r => setTimeout(r, 20));
   assert.equal(pendingDispatch.length, 0, 'AC7 队列已清空（刷新真实完成——R3 P2-1 补强断言）');
   assert.equal(p7.data.handoverBusy, false, 'AC7 交接链完成后释放');
-  assert.equal(p7.data.handoverResult.title, '李业务 → 王工程 交接清单', 'AC7 结果清单渲染');
+  assert.equal(p7.data.handoverResult.title, '李业务 交接清单', 'AC7 结果清单渲染');
   console.log('  ✅ AC7 延迟响应回归：序号守卫+busy 交接链持有（分阶段释放+中间窗口断言）');
 
   // AC8：R7 P1 切岗跨组织——组织/岗位变化后 loadApiMembers 清空旧交接双方，提交被 ctx 失配拦截
   requests.length = 0;
-  p7.setData({ handoverSource: { userId: 3, name: '李业务', roleName: '业务员' }, handoverTargetUserId: 4, error: '' });
+  p7.setData({ handoverSource: { userId: 3, name: '李业务', roleName: '业务员' }, handoverReceivers: { 'franchise-crm': 4 }, error: '' });
   httpPage.saveSession({ token: 'tk-org10' });
   auth.savePosts([{ postId: 41, roleCode: 'boss', orgId: 10, orgType: 'store', lead: false }]);
   httpPage.saveSession({ postId: 41 });
@@ -338,12 +345,12 @@ const root = path.join(__dirname, '..');
   flushAt(Date.now());
   await new Promise(r => setTimeout(r, 10));
   assert.equal(p7.data.handoverSource, null, 'AC8 切岗后刷新清空旧来源（不按 userId 保留到新组织）');
-  assert.equal(p7.data.handoverTargetUserId, null, 'AC8 切岗后清空旧接收人');
+  assert.deepEqual(p7.data.handoverReceivers, {}, 'AC8 切岗后清空各类旧接收人');
   p7.confirmHandover();
   assert.ok(p7.data.error.includes('请选择离职成员'), 'AC8 清空后提交被空选拦截：' + p7.data.error);
   assert.ok(!requests.some(r => r.url.endsWith('/platform/org/staff-handover')), 'AC8 清空后不发交接请求');
   // ctx 缺失路径（加载未完成即提交）——assertManage ctx 失配清空+拦截
-  p7.setData({ handoverSource: { userId: 3, name: '李业务', roleName: '业务员' }, handoverTargetUserId: 4, error: '' });
+  p7.setData({ handoverSource: { userId: 3, name: '李业务', roleName: '业务员' }, handoverReceivers: { 'franchise-crm': 4 }, error: '' });
   p7.handoverCtx = null;
   p7.confirmHandover();
   assert.ok(p7.data.error.includes('岗位或组织已切换'), 'AC8 ctx 失配提交拦截：' + p7.data.error);
