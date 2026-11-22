@@ -8,6 +8,48 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource JdbcTemplate jdbc;
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void allocatedDepositAndRefundUseOneCurrentOwnerAndTheirOriginalOccurrenceMonths(){
+  createTables();
+  jdbc.execute("ALTER TABLE fr_sale_contract ADD total_cents bigint, ADD author_user_id bigint");
+  jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint");
+  // 本域测试无销售/内容/工程生产依赖，临时表只提供跨域只读查询所需列。
+  jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_follow(customer_id bigint,company_id bigint,create_time timestamptz)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,status text,completed_at date,end_date date,responsible_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_content_publication(id bigint,company_id bigint,status text,published_at timestamptz,author_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_lead(id bigint,company_id bigint,status text,update_time timestamptz,registrar_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,kind text,actual_quantity numeric,quality text,quality_resolution jsonb,occurred_at date,author_user_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_commission(id bigint,company_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_commission_submission(commission_id bigint,version int,total_cents bigint,submitted_by_user_id bigint,create_time timestamptz)");
+  jdbc.execute("CREATE TEMP TABLE fr_commission_progress(id bigint,commission_id bigint,company_id bigint,kind text,actor_user_id bigint,create_time timestamptz)");
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
+  jdbc.update("INSERT INTO fr_customer VALUES(20,?,101)",org);
+  jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date) VALUES(10,?,20,'SIGNED','2026-11-01')",org);
+  jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type,source_ref) VALUES(1,?,1000000,'已登记','2026-10-10','business','sale-allocation:10:30:1')",org);
+  jdbc.update("INSERT INTO fr_sale_stage_receipt VALUES(?,10,30,1),(?,10,31,1)",org,org);
+  jdbc.update("INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(2,?,1,200000,'已核实','2026-11-05','client')",org);
+  var metrics=new PerfMetrics(jdbc);
+  var october=metrics.sources(actor,"2026-10",List.of());
+  var november=metrics.sources(actor,"2026-11",List.of());
+  assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",null)).isEqualTo(1000000);
+  assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",101L)).isEqualTo(1000000);
+  assertThat(PerfMetrics.taskValue(november,"auto:collectionsAmount",null)).isEqualTo(-200000);
+  assertThat(PerfMetrics.taskValue(november,"auto:collectionsAmount",101L)).isEqualTo(-200000);
+  assertThat(october.stream().filter(r->r.type().equals("auto:collectionsAmount"))).hasSize(1);
+  // 沿用现有实时“当前负责人”归属；换人后不复用服务实例上一次查询的永久缓存。
+  jdbc.update("UPDATE fr_customer SET owner_user_id=102 WHERE id=20");
+  assertThat(PerfMetrics.taskValue(metrics.sources(actor,"2026-10",List.of()),"auto:collectionsAmount",101L)).isZero();
+  assertThat(PerfMetrics.taskValue(metrics.sources(actor,"2026-10",List.of()),"auto:collectionsAmount",102L)).isEqualTo(1000000);
+  assertThat(PerfMetrics.taskValue(metrics.sources(actor,"2026-11",List.of()),"auto:collectionsAmount",102L)).isEqualTo(-200000);
+  // 归属裁决仍能覆盖原收款以及关联退款，不改变现有申诉规则。
+  var adjusted=metrics.sources(actor,"2026-11",List.of(new PerfMetrics.Adjustment("fin-receipt:1",101L,false)));
+  assertThat(PerfMetrics.taskValue(adjusted,"auto:collectionsAmount",101L)).isEqualTo(-200000);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt",Long.class)).isEqualTo(1);
+  jdbc.update("UPDATE fr_customer SET company_id=? WHERE id=20",org+999);
+  assertThat(PerfMetrics.taskValue(metrics.sources(actor,"2026-10",List.of()),"auto:collectionsAmount",102L)).isZero();
+ }
  @Test @org.springframework.transaction.annotation.Transactional
  void bossCashDebtAndAgingUseTheSameEffectiveFacts(){
   // 事务回滚时清理临时表，避免不同测试的跨域表结构相互影响。

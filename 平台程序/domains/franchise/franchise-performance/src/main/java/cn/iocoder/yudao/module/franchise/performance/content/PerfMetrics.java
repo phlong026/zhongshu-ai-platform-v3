@@ -64,6 +64,7 @@ public class PerfMetrics {
     /** 十类源行全量（已应用 adjustments；金额净额在 SQL 内完成退款扣减） */
     public List<SourceRow> sources(PostSnapshot post, String period, List<Adjustment> adjustments) {
         List<SourceRow> rows = new ArrayList<>();
+        Map<Long, Long> receiptOwners = new java.util.HashMap<>();
         long org = post.orgId();
         String from = monthStart(period), to = monthEndExclusive(period);
 
@@ -75,7 +76,7 @@ public class PerfMetrics {
                 (RowCallbackHandler) rs -> {
                     long id = rs.getLong("id");
                     String sourceRef = rs.getString("source_ref");
-                    Long owner = ownerOfReceipt(org, sourceRef, rs.getString("source_type"), id);
+                    Long owner = ownerOfReceipt(org, sourceRef, rs.getString("source_type"), id, receiptOwners);
                     String businessId = "fin-receipt:" + id;
                     rows.add(new SourceRow(businessId, "auto:collectionsAmount",
                             rs.getLong("amount_cents"), owner, rs.getDate("received_date").toLocalDate(), businessId));
@@ -84,15 +85,15 @@ public class PerfMetrics {
                             100L, getLong(rs, "registrar_user_id"), rs.getDate("received_date").toLocalDate(), businessId));
                 }, org, from, to);
         // M08-T08/R1 P1：仅 client 方向退款冲减回款金额——expense 退回是付款回流，不属于回款扣减
-        jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref, r.registrar_user_id "
-                        + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id "
+        jdbc.query("SELECT f.id, f.amount_cents, f.date, f.receipt_id, r.source_ref, r.source_type, r.registrar_user_id "
+                        + "FROM fr_fin_refund f LEFT JOIN fr_fin_receipt r ON r.id = f.receipt_id AND r.company_id=f.company_id "
                         + "WHERE f.company_id = ? AND f.status = '已核实' AND f.replaced_by_id IS NULL "
                         + "AND f.refund_direction = 'client' "
                         + "AND f.date >= ?::date AND f.date < ?::date",
                 (RowCallbackHandler) rs -> {
                     long receiptId = rs.getLong("receipt_id");
                     long refundId = rs.getLong("id");
-                    Long owner = receiptId > 0 ? receiptOwnerCached(org, rs.getString("source_ref"), receiptId) : null;
+                    Long owner = receiptId > 0 ? ownerOfReceipt(org, rs.getString("source_ref"), rs.getString("source_type"), receiptId, receiptOwners) : null;
                     // R2-3：退款只扣回款金额，不计 financeRegistrations（任务书口径=receipt+payment 登记）
                     rows.add(new SourceRow("fin-refund:" + refundId, "auto:collectionsAmount",
                             -rs.getLong("amount_cents"), owner, rs.getDate("date").toLocalDate(),
@@ -196,30 +197,25 @@ public class PerfMetrics {
         return applyAdjustments(rows, adjustments);
     }
 
-    private final Map<Long, Long> receiptOwnerCache = new java.util.concurrent.ConcurrentHashMap<>();
-
-    private Long ownerOfReceipt(long org, String sourceRef, String sourceType, long receiptId) {
+    private Long ownerOfReceipt(long org, String sourceRef, String sourceType, long receiptId, Map<Long,Long> receiptOwners) {
         if (sourceRef != null && sourceRef.startsWith("engineering:")) {
             // engineering:{projectId}:{stage}:{collectionId}
             String[] parts = sourceRef.split(":");
             if (parts.length >= 2) {
                 try {
                     long projectId = Long.parseLong(parts[1]);
-                    return receiptOwnerCache.computeIfAbsent(receiptId,
+                    return receiptOwners.computeIfAbsent(receiptId,
                             k -> queryManager(org, projectId));
                 } catch (NumberFormatException ignored) {
                     return null;
                 }
             }
         }
-        if (sourceRef != null && sourceRef.startsWith("sale:")) {
-            return receiptOwnerCache.computeIfAbsent(receiptId, k -> querySaleOwner(org, sourceRef));
+        if ("sale-allocation".equals(sourceType) || "business".equals(sourceType)
+                || sourceRef != null && sourceRef.startsWith("sale:")) {
+            return receiptOwners.computeIfAbsent(receiptId, k -> querySaleOwner(org, receiptId, sourceRef));
         }
         return null;
-    }
-
-    private Long receiptOwnerCached(long org, String sourceRef, long receiptId) {
-        return ownerOfReceipt(org, sourceRef, null, receiptId);
     }
 
     private Long queryManager(long org, long projectId) {
@@ -229,8 +225,17 @@ public class PerfMetrics {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private Long querySaleOwner(long org, String sourceRef) {
-        // sale:{contractId}:{stage} → Java 侧解析合同 id → 客户 owner
+    private Long querySaleOwner(long org, long receiptId, String sourceRef) {
+        // 定金抵扣与普通合同回款共用正式期款关联；同一原收款关联多个期款仍只归属一次。
+        List<Long> owners = jdbc.queryForList("""
+                SELECT DISTINCT c.owner_user_id FROM fr_sale_stage_receipt s
+                JOIN fr_sale_contract k ON k.id=s.contract_id AND k.company_id=s.company_id
+                JOIN fr_customer c ON c.id=k.customer_id AND c.company_id=k.company_id
+                WHERE s.company_id=? AND s.receipt_id=?
+                """, Long.class, org, receiptId);
+        if (!owners.isEmpty()) return owners.size() == 1 ? owners.get(0) : null;
+        // 保留尚无正式关联的历史 sale:{contractId}:{stage} 记录兼容。
+        if (sourceRef == null || !sourceRef.startsWith("sale:")) return null;
         String[] parts = sourceRef.split(":");
         if (parts.length < 2) {
             return null;
@@ -238,7 +243,7 @@ public class PerfMetrics {
         try {
             long contractId = Long.parseLong(parts[1]);
             List<Long> rows = jdbc.queryForList(
-                    "SELECT c.owner_user_id FROM fr_sale_contract k JOIN fr_customer c ON c.id = k.customer_id "
+                    "SELECT c.owner_user_id FROM fr_sale_contract k JOIN fr_customer c ON c.id = k.customer_id AND c.company_id=k.company_id "
                             + "WHERE k.company_id = ? AND k.id = ?", Long.class, org, contractId);
             return rows.isEmpty() ? null : rows.get(0);
         } catch (NumberFormatException e) {
