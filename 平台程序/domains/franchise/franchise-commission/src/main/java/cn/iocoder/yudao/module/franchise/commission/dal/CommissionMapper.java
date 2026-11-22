@@ -21,11 +21,17 @@ public interface CommissionMapper extends BaseMapperX<CommissionDO> {
 
     default PageResult<CommissionDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CommissionDO>> visibility,
                                                 String keyword) {
+        return selectPage(page, visibility, keyword, null);
+    }
+
+    default PageResult<CommissionDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CommissionDO>> visibility,
+                                                String keyword, List<String> statuses) {
         LambdaQueryWrapperX<CommissionDO> query = new LambdaQueryWrapperX<>();
         visibility.accept(query);
         if (keyword != null && !keyword.isBlank()) {
             query.like(CommissionDO::getCustomerName, keyword.trim());
         }
+        if (statuses != null && !statuses.isEmpty()) query.in(CommissionDO::getStatus, statuses);
         return selectPage(page, query.orderByDesc(CommissionDO::getUpdateTime).orderByDesc(CommissionDO::getId));
     }
 

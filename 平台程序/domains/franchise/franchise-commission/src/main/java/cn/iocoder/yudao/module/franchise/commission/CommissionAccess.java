@@ -72,12 +72,13 @@ public class CommissionAccess {
     public Consumer<LambdaQueryWrapperX<CommissionDO>> visibleTo(PostSnapshot post, Set<Long> visibleCustomerIds,
                                                                  Set<Long> managedCommissionIds) {
         return query -> {
+            if (DESIGN_ADMIN.equals(post.roleCode()) && FranchiseRoles.atHeadquarters(post)) {
+                query.eq(CommissionDO::getDesignOrgId, post.orgId());
+                return; // 当前总部岗位按设计组织；同一人的历史工程接收关系不得收窄本岗位范围。
+            }
             boolean any = false;
             if (FranchiseRoles.isBoss(post)) {
                 query.eq(CommissionDO::getCompanyId, post.orgId());
-                any = true;
-            } else if (DESIGN_ADMIN.equals(post.roleCode()) && FranchiseRoles.atHeadquarters(post)) {
-                query.eq(CommissionDO::getDesignOrgId, post.orgId());
                 any = true;
             }
             boolean byCustomer = visibleCustomerIds != null && !visibleCustomerIds.isEmpty();

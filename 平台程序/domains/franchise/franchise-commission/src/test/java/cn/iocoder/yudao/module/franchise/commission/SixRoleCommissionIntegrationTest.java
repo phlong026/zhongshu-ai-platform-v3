@@ -47,6 +47,53 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
     @org.junit.jupiter.api.AfterEach
     void resetSimulationScope() { simulations.configureSimulationOrganizations(""); }
 
+    @Test void headquartersPaginationSearchAndCountsIncludeEveryVisibleCommission() {
+        var store=fixture.store();var outside=fixture.store();
+        var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
+        var finance=fixture.post(design.orgId(),"finance",null);
+        String prefix="page-"+UUID.randomUUID().toString().substring(0,8)+"-";
+        var before=commissions.workbenchCounts(design);
+        try {
+            for(int i=1;i<=238;i++) {
+                long id=cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+                jdbc.update("INSERT INTO fr_commission(id,company_id,design_org_id,customer_id,customer_name,status,submission_version) VALUES(?,?,?,?,?,?,1)",
+                        id,store.orgId(),i==238?outside.orgId():design.orgId(),id,prefix+String.format("%03d",i),i%2==1?"DESIGNING":"DESIGN_COMPLETED");
+            }
+            long received=jdbc.queryForObject("SELECT id FROM fr_commission WHERE company_id=? AND customer_name=?",Long.class,store.orgId(),prefix+"001");
+            jdbc.update("""
+                    INSERT INTO fr_commission_handover(id,company_id,commission_id,version,dispatch_seq,result_file,drawing_file,
+                      review_file,confirmation_file,drawing_version,confirmation_date,note,manager_user_id,status,submitted_by_user_id)
+                    VALUES(?,?,?,1,1,'result','drawing','review','confirmation','v1',CURRENT_DATE,'历史接收',?,'ACCEPTED',?)
+                    """,cn.hutool.core.util.IdUtil.getSnowflakeNextId(),store.orgId(),received,design.userId(),design.userId());
+            var seen=new java.util.HashSet<Long>();
+            var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();page.setPageSize(20);
+            for(int number=1;number<=12;number++) {
+                page.setPageNo(number);var result=commissions.page(design,page,prefix,null);
+                assertThat(result.getTotal()).isEqualTo(237);
+                result.getList().forEach(row->assertThat(seen.add(row.getId())).isTrue());
+            }
+            assertThat(seen).hasSize(237);page.setPageNo(1);
+            for(String suffix:java.util.List.of("101","237")) {
+                var found=commissions.page(design,page,prefix+suffix,null);
+                assertThat(found.getTotal()).isEqualTo(1);
+                assertThat(found.getList().get(0).getCustomerName()).isEqualTo(prefix+suffix);
+            }
+            assertThat(commissions.page(design,page,prefix,"DESIGN_COMPLETED").getTotal()).isEqualTo(118);
+            assertThat(commissions.page(design,page,prefix,"DESIGNING,DESIGN_COMPLETED").getTotal()).isEqualTo(237);
+            var counts=commissions.workbenchCounts(design);
+            assertThat(counts.get("DESIGNING")-before.getOrDefault("DESIGNING",0L)).isEqualTo(119);
+            assertThat(counts.get("DESIGN_COMPLETED")-before.getOrDefault("DESIGN_COMPLETED",0L)).isEqualTo(118);
+            assertError(()->commissions.workbenchCounts(finance),COMMISSION_FORBIDDEN);
+            var storeBoss=fixture.post(store.orgId(),"boss",null);
+            assertError(()->commissions.workbenchCounts(storeBoss),COMMISSION_FORBIDDEN);
+            assertError(()->commissions.page(design,page,prefix,"DESIGNING) OR 1=1"),
+                    cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        } finally {
+            jdbc.update("DELETE FROM fr_commission_handover WHERE company_id=?",store.orgId());
+            jdbc.update("DELETE FROM fr_commission WHERE company_id=?",store.orgId());
+        }
+    }
+
     @Test void areaSubmissionFreezesPriceRejectsStaleAndRequiresBothLiveNets() {
         var store=fixture.store();
         PostSnapshot sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
