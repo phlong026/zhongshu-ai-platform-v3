@@ -775,3 +775,55 @@ for (const remember of [true, false]) test('账号登录提交记住选择：' +
   env.page.accountLogin(); await flush(); await flush();
   assert.equal(savedOptions.remember, remember);
 });
+
+
+const loginRender = page => {
+ const {render}=require('./role-page-runtime.cjs');
+ const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
+ return flatten(render(path.join(__dirname,'../miniprogram/pages/account/index.wxml'),page.data));
+};
+const nodeText=node=>(node.text||'')+(node.children||[]).map(nodeText).join('');
+
+test('密码登录失败统一提供恢复说明，不透露账号存在、停用或初始凭据状态',async()=>{
+ const errors=[
+  {code:1104000011,message:'账号或密码不正确'},
+  {code:401,message:'账号不存在'},
+  {code:403,message:'员工已停用'},
+  {code:1104000021,message:'初始密码已失效'},
+  {code:-1,message:'请求超时'}
+ ];
+ const messages=[];
+ for(const error of errors){
+  const env=createPage({auth:{accountLogin:async()=>{throw error;}}});
+  const account={accountId:'same-account'};env.page.data.selectedAccount=account;
+  env.page.submitAccountLogin(account,'old-initial-password');await flush();
+  assert.equal(env.page.data.loginBusy,false);assert.equal(env.page.data.passwordLoginRecovery,true);
+  assert.equal(env.saved.length,0);assert.equal(env.navigated.length,0);
+  const nodes=loginRender(env.page);
+  assert.ok(nodes.some(n=>n.tag==='text'&&/微信登录.*管理员.*核实身份.*重置密码/.test(nodeText(n))));
+  assert.ok(nodes.some(n=>n.tag==='button'&&n.attrs?.bindtap==='selectLoginMode'&&n.attrs?.['data-mode']==='wechat'&&nodeText(n)==='微信登录'));
+  messages.push(env.page.data.error);
+ }
+ assert.equal(new Set(messages).size,1);
+ assert.doesNotMatch(messages[0],/不存在|停用|失效|过期/);
+});
+
+test('密码失败的微信入口切换已有通道并清除旧密码和恢复状态',async()=>{
+ const env=createPage({auth:{accountLogin:async()=>{throw{code:1104000011,message:'账号或密码不正确'};}}});
+ env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='old';env.page.accountLogin();await flush();
+ const button=loginRender(env.page).find(n=>n.tag==='button'&&n.attrs?.['data-mode']==='wechat'&&nodeText(n)==='微信登录');
+ assert.ok(button);
+ env.page[button.attrs.bindtap]({currentTarget:{dataset:{mode:button.attrs['data-mode']}}});
+ assert.equal(env.page.data.loginMode,'wechat');assert.equal(env.page.data.form.password,'');
+ assert.equal(env.page.data.passwordLoginRecovery,false);assert.equal(env.page.data.error,'');
+ assert.equal(env.saved.length,0);
+});
+
+test('切换账号后，旧密码请求的迟到失败不能恢复上一账号的提示',async()=>{
+ const pending=deferred(),env=createPage({auth:{accountLogin:()=>pending.promise}});
+ env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='old';env.page.accountLogin();
+ env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value:'new-account'}});
+ pending.reject({code:1104000011,message:'旧账号失败'});await flush();
+ assert.equal(env.page.data.error,'');assert.equal(!!env.page.data.passwordLoginRecovery,false);
+ env.page.onHide();
+});
