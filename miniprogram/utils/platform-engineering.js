@@ -354,10 +354,11 @@ async function perform(action, id, form, node, key) {
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'ENG_DRAWING') }, key);
     case 'node': {
       const files = f.files && f.files.length ? f.files : f.file ? [f.file] : [];
+      if (!files.length || files.length > 9) throw new Error('请选择1至9份现场验收凭据');
       const assetIds = [];
-      for (const file of files.slice(0, 1)) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO'));
+      for (const file of files) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO'));
       return api.plan.complete(id, node.id, {
-        date: dateStr, note: f.note, fileAssetId: assetIds[0], noMaterials: !!f.noMaterials
+        date: dateStr, note: f.note, fileAssetIds: assetIds, noMaterials: !!f.noMaterials
       }, key);
     }
     case 'node-reopen':
@@ -789,7 +790,7 @@ function recordView(bundle, ctx) {
     delayHistory:(node?.delayHistory||[]).map((r,i)=>({...r,id:String(i),recordedAt:timestampDate(r.recordedAt),recoveryDate:dateOf(r.recoveryDate),ownerName:r.ownerName||(opts.handlers||[]).find(h=>String(h.id)===String(r.ownerUserId))?.name||'原责任人'})),
     nodePlans: plans.filter(r=>r.nodeId===node?.id),
     nodeMoney: node ? (()=>{const rows=plans.filter(r=>r.nodeId===node.id),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return {known:rows.every(r=>r.known),plannedText:centsText(sum('total')),committedText:centsText(sum('total')),paidText:centsText(sum('paid')),remainingText:centsText(sum('remaining')),expenses:[]};})() : null,
-    inspections: (d.siteRecords || []).filter(r=>r.completion&&String(r.node_id)===node?.id).map(r=>({id:String(r.id),date:timestampDate(r.occurred_at),result:r.note||'已完成',person:r.operator_name||r.author_name||(r.author_user_id?'经办人 '+r.author_user_id:'经办人未留存'),file:{assetId:parseJsonList(r.file_asset_ids)[0]}})),
+    inspections: (d.siteRecords || []).filter(r=>r.completion&&String(r.node_id)===node?.id).map(r=>({id:String(r.id),date:timestampDate(r.occurred_at),result:r.note||'已完成',person:r.operator_name||r.author_name||(r.author_user_id?'经办人 '+r.author_user_id:'经办人未留存'),file:{assetId:parseJsonList(r.file_asset_ids)[0]},files:parseJsonList(r.file_asset_ids).map(assetId=>({assetId}))})),
     arrivals: (plan?.lines || []).flatMap(l=>(l.receipts||[]).map(r=>({id:String(r.id),materialName:l.name,unit:l.unit,date:dateOf(r.occurredAt),actual:r.actualQuantity,note:r.transactionNo||'',qualityText:r.qualified?'合格实收':'实收待质检处理',file:r.fileAssetId?{assetId:String(r.fileAssetId)}:null,corrections:parseJsonList(r.corrections),canCorrect:own&&!delivery&&!!r.id}))),
     pending: own && !archived ? [
       ...(!delivery?nodes.filter(n=>n.status!=='已完成'&&n.deviationDays>0).map(n=>({id:'delay-'+n.id,title:n.name+'延期'+n.deviationDays+'天',status:n.delayOwnerName,url:base+'delay&nodeId='+encodeURIComponent(n.id)})):[]),
