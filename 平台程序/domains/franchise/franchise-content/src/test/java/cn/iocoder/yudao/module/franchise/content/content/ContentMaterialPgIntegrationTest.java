@@ -73,8 +73,24 @@ class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->service.download(bob,coverId)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(()->visibility.requireReadable(1,b,coverId)).isInstanceOf(RuntimeException.class);
         service.remove(alice,id);assertThat(list(alice,"PERSONAL","ALL","",1)).isEmpty();
+        var owner=new AssetAccessPort.Actor(101,999,11,1);
+        assertThatThrownBy(()->visibility.requireReadable(1,owner,id)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->visibility.requireReadable(1,owner,coverId)).isInstanceOf(RuntimeException.class);
         visibility.requireReadable(1,new AssetAccessPort.Actor(101,999,0,0),id);
+        visibility.requireReadable(1,new AssetAccessPort.Actor(101,999,0,0),coverId);
         assertThatThrownBy(()->service.download(alice,coverId)).isInstanceOf(RuntimeException.class);
+    }
+    @Test void removingOneMaterialDoesNotRevokeDirectUploadsOrOtherLiveAssetsWithTheSameContent() {
+        var actor=new AssetAccessPort.Actor(101,999,22,2);
+        // No library entry: organization/type/ACCEPTED checks remain the asset port's responsibility.
+        visibility.requireReadable(1,actor,99999);
+        long first=upload(alice,"共享图 A","image/png","COMPANY");service.complete(alice,first);
+        long second=upload(alice,"同内容共享图 B","image/png","COMPANY");service.complete(alice,second);
+        visibility.requireReadable(1,actor,first);visibility.requireReadable(1,actor,second);
+        service.remove(alice,first);
+        assertThatThrownBy(()->visibility.requireReadable(1,actor,first)).isInstanceOf(RuntimeException.class);
+        visibility.requireReadable(1,actor,second);
+        assertThat(service.download(bob,second)).containsKey("downloadUrl");
     }
     @Test void filtersEscapeWildcardsAndPageOnlyRealReadyRecords() {
         for(int i=0;i<23;i++){long id=upload(alice,i==0?"100%完成":"素材"+i,i%2==0?"image/jpeg":"audio/mpeg","COMPANY");service.complete(alice,id);}
@@ -159,6 +175,11 @@ class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
         // Existing authorized tasks continue after sharing is withdrawn; new submissions cannot.
         service.update(alice,main,Map.of("visibility","PERSONAL"));assertThat(gate.download(sharedAsr,main)).isNotBlank();
         assertThatThrownBy(()->scripts.extract(bob,main,null,5.0,"a".repeat(64),"after-unshare")).isInstanceOf(RuntimeException.class);
+        service.remove(alice,main);
+        assertThat(gate.download(sharedAsr,main)).isNotBlank();assertThat(gate.download(shared,coverId)).isNotBlank();
+        assertThatThrownBy(()->scripts.extract(bob,main,null,5.0,"a".repeat(64),"after-remove")).isInstanceOf(RuntimeException.class);
+        active.set(alice);
+        assertThatThrownBy(()->tasks.createFromPost(alice,request,"removed-author-video")).isInstanceOf(RuntimeException.class);
         verify(points,times(3)).reserve(any());
         var forged=new FrContentTaskDO().setId(shared.getId()).setCompanyId(102L).setAuthorUserId(22L).setInputSnapshot(shared.getInputSnapshot());
         assertThatThrownBy(()->gate.download(forged,coverId)).isInstanceOf(ContentProviderException.Rejection.class);
