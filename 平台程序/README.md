@@ -1,160 +1,44 @@
-# 众墅之家平台后端
+# 众墅之家平台后端 · B 运行指南
 
-2026-11-15 加盟商统一账号改造：总部固定字段开通门店老板账号，老板在本门店为员工开独立账号；账号密码、简称和微信共用原 `system_users.id`。接口、一次性密码交付、存量切换与迁移回退见[账号协议与运营说明](docs/franchise-account-20261115/协议与运营说明.md)，验证记录见[实施与验收](docs/franchise-account-20261115/实施与验收.md)。本次为未部署代码。
+本目录所在分支为 `backend-main`；配套小程序在同仓库 `main`。总体模块与三端关系见 [仓库入口](../README.md)。
 
-当前B赋能平台上线候选使用 `yudao-platform-server`，默认端口48081；Web入口是“总部运营工作台”。构建请运行 `bash script/platform/build-platform.sh`。下方历史 `yudao-server` 与A设计模块说明不能替代B部署路径。当前三端联合审查、接口变更与容量边界见 [本轮记录](docs/joint-review-20261114/README.md)。
+## 构建 B 平台
 
-参考图跨应用读取协议、白名单配置及待部署边界见[2026-11-15说明](docs/joint-review-20261115/参考图跨应用读取协议.md)。部署前后逐项执行依据见[独立B部署与验收清单](docs/joint-review-20261115/独立B部署与验收清单.md)；当前暂不部署。最新[部署前置核查结果](docs/joint-review-20261115/部署前置核查结果.md)列明本地已满足项与正式发布阻塞。
+当前 B 启动模块是 [yudao-platform-server](yudao-platform-server/pom.xml)，应用默认端口 **48080**（`PF_SERVER_PORT` 可覆盖）；仓内 B Compose 使用 `127.0.0.1:48081:48080` 映射，宿主机联调入口为 **48081**。`yudao-server` 是既有设计应用入口；`compose.dev.yml` 和 `script/dev/` 的历史本地流程也不等于独立 B 部署。
 
-众墅之家管理后台与小程序端的 Java 后端，基于 RuoYi-Vue-Pro JDK 17 维护线扩展，采用 Spring Boot、PostgreSQL、Flyway 和 Redis。
-
-## 实际构建面
-
-父 POM 当前启用以下模块：
-
-- `yudao-dependencies`
-- `yudao-framework`
-- `yudao-server`
-- `yudao-module-system`
-- `yudao-module-infra`
-- `yudao-module-identity`
-- `yudao-module-design`
-- `yudao-module-commerce`
-- `yudao-module-ai-orchestration`
-
-2026-09-09 已移出 16 个未启用的上游业务模块及后端内嵌旧 `yudao-ui/`。当前管理端位于本目录 `admin-ui/`。来源、归档、验证和后续配置见 [清理执行记录](../项目文档/后端匹配审计-2026-09-09/清理执行记录.md)；原始许可证和来源文件保留。
-
-微信、支付、内容审核的 Stub 及本地对象存储仅在 `zsdev` 且未同时启用 `prod` / `production` 时装配。正式环境需要真实适配器；当前只填写密钥不会自动获得真实登录、支付、云存储或 AI 生成能力。不得把开发环境的通过记录当作真实渠道验收。
-
-## 众墅业务模块
-
-| 模块 | 责任 |
-|---|---|
-| `yudao-module-identity` | 微信身份合同、账号、授权码、访问授权、会话和个人资料 |
-| `yudao-module-design` | 资产、案例、设计项目、候选/结果、预算、投稿、审核和消息 |
-| `yudao-module-commerce` | 定价、设计点账本、充值订单、支付和退款领域 |
-| `yudao-module-ai-orchestration` | AI 任务、租约、回调、结果隔离、结算和取消 |
-| `yudao-module-infra` | Outbox、审计、异步导出和一次性交付能力 |
-
-### 授权码管理
-
-`ZS_ACCESS_CODE_ARTIFACT_KEY` 必须配置为 Base64 编码的 32 字节密钥；授权码批次以 AES-GCM 密文保存，便于拥有 `identity:access-code:export` 权限的管理员复制仍未使用、未过期的单码。列表继续只展示掩码。删除只对未兑换码执行逻辑删除并停用，历史兑换事实保留。升级前创建且未保存加密制品的旧批次无法恢复完整码。
-
-## 环境要求
-
-- JDK 17（`.java-version` 已声明；启动脚本会拒绝其它主版本）
-- Maven 3.9.16（通过 Maven Wrapper 3.3.4 自动获取并校验，不要求全局安装 Maven）
-- Docker Engine / Docker Desktop 与 Compose
-- 本地编排固定 PostgreSQL 16.15、Redis 7.4.11
-
-Wrapper 的脚本和 JAR 来自 Apache Maven 官方 3.3.4 发行包，Maven 发行包与 Wrapper JAR 的 SHA-256 已固定在 `.mvn/wrapper/maven-wrapper.properties`。
-
-## Windows 一键本地启动
-
-在本目录执行：
-
-```powershell
-.\script\dev\start-local.ps1
-```
-
-脚本会依次完成：
-
-1. 检查 JDK 17 与 Docker daemon；
-2. 首次运行时从 `.env.example` 创建被 Git 忽略的 `.env`；
-3. 启动并等待 PostgreSQL、Redis 健康；
-4. 通过 Maven Wrapper 编译全部启用模块；
-5. 以 `local,pg,zsdev` 启动后端，执行 Flyway 迁移并等待 `/actuator/health` 返回 `UP`。
-
-成功后 PID 与日志位于 `target/local-dev/`。停止服务与依赖：
-
-```powershell
-.\script\dev\stop-local.ps1
-```
-
-只有确认要清空本机开发数据库和 Redis 数据时才执行：
-
-```powershell
-.\script\dev\stop-local.ps1 -DeleteData
-```
-
-`-DeleteData` 会删除 Docker 开发卷，数据不可恢复。
-
-## macOS / Linux 手动启动
+准备 JDK 17、仓库 Maven Wrapper 所需网络以及可用的测试数据库/缓存条件，然后在本目录执行：
 
 ```bash
-cp .env.example .env
-docker compose --env-file .env -f compose.dev.yml up -d --wait
-./mvnw -B -DskipTests package
-./mvnw -pl yudao-server -am spring-boot:run \
-  -Dspring-boot.run.profiles=local,pg,zsdev
+bash script/platform/build-platform.sh
 ```
 
-另一个终端执行 `curl --fail http://127.0.0.1:48080/actuator/health` 验证健康状态。
+脚本先校验发布边界，再对 `yudao-platform-server` 及其依赖运行 `verify`，最后检查生成 JAR，路径为 `yudao-platform-server/target/yudao-platform-server.jar`。不会跳过测试。具体 CI 用例和 PostgreSQL / Redis 参数见 [Backend CI](../.github/workflows/backend-ci.yml)；它同时执行财务/内容完整套件、发布回归和管理台上传回放。
 
-## Profiles
+## 数据与业务边界
 
-- `local`：底座本地配置。
-- `pg`：PostgreSQL 与生产安全默认；不包含密钥默认值，开发便利开关默认关闭。
-- `zsdev`：仅本机 Stub 联调；包含公开占位密钥、种子数据、本地资产内容端点和后台驱动器。
+| 目录 | 关注点 |
+| --- | --- |
+| `platform/platform-org`、`platform/platform-authz`、`platform/platform-identity` | 租户、组织、岗位、登录和授权 |
+| `platform/platform-command`、`platform/platform-workflow`、`platform/platform-wallet` | 幂等命令、审批工作流和组织点数 |
+| `domains/franchise/franchise-content`、`franchise-asset` | 内容任务、草稿、素材与文件访问 |
+| `domains/franchise/franchise-crm`、`franchise-sales`、`franchise-commission` | 客户责任、合同、设计委托和工程接收 |
+| `domains/franchise/franchise-engineering`、`franchise-finance`、`franchise-performance` | 工程履约、资金记录、绩效归属 |
+| `domains/franchise/franchise-design` | B 的设计适配与公开户型访问 |
+| `yudao-module-*`、`yudao-design-provider`、`design-capability-api` | 框架、既有应用或独立能力组件，按各自实际依赖维护 |
 
-本地 Stub 联调使用：
+鉴权、组织范围、业务状态及文件可读性在服务端核验。前端提交的 ID 和展示文案不能代替这些约束；历史经办人和真实垫付人也不能随当前员工责任转移而改写。
 
-```bash
-./mvnw spring-boot:run -pl yudao-server \
-  -Dspring-boot.run.profiles=local,pg,zsdev
-```
+## 管理台与部署
 
-生产环境不得启用 `zsdev`，并必须通过受控环境变量或密钥托管提供所需配置。
+管理台源码在 [admin-ui](admin-ui/)，Node/pnpm 命令见仓库入口；环境样例及构建模式由该目录维护。
 
-`.env` 中可通过 `ZS_PG_PORT` / `ZS_PG_URL` 和 `ZS_REDIS_HOST` / `ZS_REDIS_PORT` 调整本机端口；修改 PostgreSQL 端口时需同步更新 JDBC URL。
+独立 B 的 Compose、配置示例、能力叠加文件和运维脚本在 [deploy/platform](deploy/platform/README.md)。部署前应核验**叠加后的最终配置**、文件卷、外部适配器和迁移状态，按现有运维手册执行。演练产物及恢复测试由 `script/release-rehearsal/` 生成，不代表已对生产进行任何操作。
 
-## Build and test
+源码测试可使用边界替身或隔离数据；真实微信/短信、对象存储和 AI 供应商的可用性须在对应环境另行验证。模拟支付仅是明确配置的业务流程，不应作为真实渠道付款凭据。
 
-```bash
-./mvnw -B -DskipTests package
-./mvnw -B test
-./mvnw -B -pl yudao-server -am test
-```
+## 维护约定
 
-众墅专项测试大量依赖 PostgreSQL/Testcontainers。测试结果必须来自当前提交和可取回的 CI runner 报告。
-
-## Database migrations
-
-- 平台：`yudao-module-infra/src/main/resources/db/migration/platform/`
-- 身份：`yudao-module-identity/src/main/resources/db/migration/identity/`
-- 设计：`yudao-module-design/src/main/resources/db/migration/design/`
-- 商业：`yudao-module-commerce/src/main/resources/db/migration/commerce/`
-- AI 编排：`yudao-module-ai-orchestration/src/main/resources/db/migration/ai-orchestration/`
-- 管理菜单：`yudao-server/src/main/resources/db/migration/platform/`
-
-已发布迁移不得原地修改。新增迁移必须包含升级验证和恢复说明。
-
-全新本地 PostgreSQL 卷会先按 `sql/postgresql/ruoyi-vue-pro.sql` 与 `quartz.sql` 初始化底座表；后端第一次启动时，再由 Flyway 执行五个众墅迁移目录。复用已有卷不会重复执行初始化 SQL。
-
-## 当前真实集成边界
-
-- 微信身份：Stub，待 T06-01。
-- 微信支付与回调：Stub/领域合同，待 T06-02。
-- 对象存储：已实现本地及私有 COS 适配器；`zsdev` 默认本地，`prod` 选择 COS，真实凭据与联调需要单独验收。
-- 内容审核：直通 Stub，待 T07-03。
-- AI Runtime/Provider：未接真实供应商，待 T08。
-
-Stub 通过只用于本地合同联调，不等于生产验收。
-
-## 私有 COS 图片存储
-
-用户草图、头像、公司案例、AI 平面与立面结果均复用 `ObjectStoragePort`。后端仅向小程序和 AI Runtime 签发对象级短期 URL，永久密钥只注入后端。
-
-部署时设置 `ZHONGSHU_DESIGN_ASSET_STORAGE_PROVIDER=cos`、`ZS_DEV_CONTENT_ENDPOINT=false`，并填齐 `.env.example` 的 `ZS_COS_*`。`ZS_COS_ENDPOINT` 使用区域地址（上海为 `https://cos.ap-shanghai.myqcloud.com`），`ZS_COS_BUCKET` 包含 APPID 后缀，`ZS_COS_PATH_STYLE_ACCESS=false`；SDK 自动生成带桶名的实际请求域名。禁止把完整桶域名再次当作区域 endpoint。
-
-从仓库根目录执行 `node scripts/cos-storage-check.mjs` 检查配置；`--live` 才上传一个随机诊断文本，核对 HEAD 大小、签名 GET 摘要及匿名访问被拒绝。脚本复用既有 COS 签名算法，不触发 AI 调用，不删除对象，输出诊断对象 key。
-
-切换前必须暂停新任务，按原 object key 复制并校验本地历史资产；数据库中的对象 key 保持不变。再同步切换 Runtime 的 `ZS_AI_STORAGE_MODE=https` 与 `ZS_AI_STORAGE_ORIGINS`，完成上传、读取及生成结果验收。运行中的服务不会自动读取后来修改的 `.env`。具体桶信息与当前验收边界见 [COS 接入记录](../项目文档/COS图片存储接入-2026-09-29.md)。
-
-## Documentation and governance
-
-- 受控后端合同：[`docs/zhongshu-design/README.md`](docs/zhongshu-design/README.md)
-- 统一任务状态：[`项目状态看板`](../项目文档/项目状态看板.md)
-- 源码来源：[`SOURCE_PROVENANCE.md`](../SOURCE_PROVENANCE.md)
-- 贡献规范：[`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- 上游许可证：[`LICENSE`](LICENSE)
+- 业务改动提交到对应域，跨域通过已有接口及应用装配协作。
+- 已发布的 Flyway 迁移保留原内容；修复以新迁移推进。
+- 保留每次候选的前后端完整 SHA、自动检查结果、部署回执和人工验收边界。
+- 历史 A 启动命令、旧模块清单和历次进度见 [README.legacy.md](README.legacy.md)，只供追溯。

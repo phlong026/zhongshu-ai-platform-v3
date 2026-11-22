@@ -1,59 +1,56 @@
-# 众墅之家 AI 赋能平台
+# 众墅之家 AI 赋能平台 · 后端与管理台
 
-总部与加盟门店协同的赋能平台。一个仓库管两端：Web 管理后台、后端。微信小程序在独立仓库 `zhongshu-ai-platform-v3` 开发，本仓库原归档的小程序快照已删除（历史提交中仍可追溯）。
+本仓库用两个长期分支维护三端：**`main` 是原生微信小程序，当前 `backend-main` 是 Java 后端与 Vue 管理台**。小程序已接入平台 API；“独立小程序仓库”“小程序尚未接后端”是历史描述，不代表当前结构。
 
-## 目录
+## 当前运行入口
 
-| 目录 | 内容 |
-|---|---|
-| `平台程序/` | yudao（Spring Boot）后端 + Vue3 管理后台，分三层，见下 |
-| `平台程序/admin-ui/` | Vue3 + Element Plus Web 管理后台（基于 yudao-ui-admin-vue3 底座改造） |
-| `项目文档/平台/` | 平台层方案与约定，含 [后台改造方案](项目文档/平台/后台改造方案-2026-10-21.md) |
-| `项目文档/加盟协同域/` | 加盟协同域的方案、接口约定与验收记录 |
+| 组件 | 源码 | 作用 |
+| --- | --- | --- |
+| B 赋能平台 API | `平台程序/yudao-platform-server/` | 总部与门店的账号、岗位、创作、客户、委托、工程、财务与绩效，应用默认端口 48080；仓内 Compose 映射到宿主机 48081 |
+| Web 管理台 | `平台程序/admin-ui/` | Vue 3 / Element Plus 管理台，与 B API 配套 |
+| 微信小程序 | [同仓库 main 分支](https://github.com/phlong026/zhongshu-ai-platform-v3/tree/main) | 原生 WXML / WXSS / JS，调用 B 的授权接口 |
+| 设计应用及能力 | `平台程序/yudao-server/`、`yudao-design-provider/`、`design-capability-api/`、`ai-runtime-b/` | 既有设计应用与独立能力侧；根据具体部署组合配置，不能替代 B 启动包 |
 
-### 后端分层
+## 后端分层
 
-| 层 | 位置 | 说明 |
-|---|---|---|
-| 框架底座 | `yudao-framework/`、`yudao-module-system/`、`yudao-module-infra/` | yudao 原有，原则上不改 |
-| 平台能力层 | `platform/` | 组织、登录、授权、待办、审批、文件、通知、AI 等通用能力，M1 起加入 |
-| 业务域层 | `domains/` | 每个业务域一个目录；新建业务域按 `domains/_template/README.md` |
-| 旧业务模块 | `yudao-module-identity/`、`design/`、`commerce/`、`ai-orchestration/` | 众墅设计小程序原有业务，M1 起拆分迁移或删除 |
+项目使用 Spring Boot、PostgreSQL、Flyway 和 Redis，按模块组织，B 的业务服务在一个应用启动包内装配。
 
-## 当前进度
+| 层 | 位置（均在 `平台程序/` 内） | 责任 |
+| --- | --- | --- |
+| 框架和系统基础 | `yudao-framework/`、`yudao-module-system/`、`yudao-module-infra/` | Web、安全、MyBatis、用户、基础设施 |
+| 平台公共能力 | `platform/`、`yudao-platform-operations/` | 组织岗位、认证授权、命令幂等、工作流、点数、待办和运营 |
+| 加盟业务域 | `domains/franchise/franchise-*` | org、crm、sales、commission、engineering、finance、performance、content、asset、design |
+| 独立启动与组合 | `yudao-platform-server/`、`deploy/platform/` | B 的依赖装配、配置、交付与恢复 |
+| 既有设计模块 | `yudao-module-identity/`、`yudao-module-design/`、`yudao-module-commerce/`、`yudao-module-ai-orchestration/` | 仍有实际构建或能力侧用途，不能视为已经迁走或可以整批删除 |
 
-- M0 结构整理：已完成目录调整、建仓库、建分层骨架与业务域模板。
-- 计费能力去留已决定（2026-10-28，用户确认）：点数、充值、激活码**保留**，AI 对加盟商**继续计费**。commerce/identity/design/ai-orchestration 不再按原方案删除，改为保留并逐步收编进平台层；franchise-design（AI 平面/立面/预算）由此解锁，排入后续里程碑。
-- 小程序尚未接后端。
+B 实际装配范围以 [启动模块 POM](平台程序/yudao-platform-server/pom.xml) 和 [构建边界脚本](平台程序/script/platform/build-platform.sh) 为准。父 POM 的全部模块清单不等于 B 的运行依赖；A/B 的组织、数据及文件边界由各适配器与部署配置约束。
 
-## 本地构建
+## 开发入口
 
-后端需要 JDK 17（`JAVA_HOME` 指向 JDK 17；Homebrew 安装的路径如下）：
-
-```bash
-cd 平台程序
-JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home mvn -DskipTests package
-```
-
-后端测试需要 Docker（Testcontainers 启动 PostgreSQL）。本机如开启了系统 SOCKS 代理，JVM 会继承它导致连不上测试数据库，需要显式关掉：
+后端使用 JDK 17；Maven Wrapper、Java 版本和依赖以仓库文件为准。B 的完整校验和产物边界检查：
 
 ```bash
 cd 平台程序
-mvn test -DargLine="-DsocksProxyHost= -DsocksNonProxyHosts=localhost|127.*|[::1]"
+bash script/platform/build-platform.sh
 ```
 
-管理后台：
+该脚本执行选定 reactor 的 `verify`，包括测试；需要 PostgreSQL / Redis 测试条件，不能把它理解为跳过测试的快速打包命令。后端 CI 的服务版本、测试清单和连接参数见 [backend-ci.yml](.github/workflows/backend-ci.yml)。
+
+管理台使用 Node.js 24（与 CI 一致）及 [package.json](平台程序/admin-ui/package.json) 固定的 pnpm 版本：
 
 ```bash
 cd 平台程序/admin-ui
-pnpm install
-pnpm dev
+npx --yes pnpm@11.19.0 install --frozen-lockfile
+npm run dev
 ```
 
-小程序：在独立仓库 `zhongshu-ai-platform-v3` 用微信开发者工具导入。
+开发模式和 API 目标按管理台环境配置设置；生产交付不能复用个人开发环境文件。进一步说明见 [后端运行指南](平台程序/README.md)。
 
-## 约定
+## 部署、验收和历史材料
 
-- 环境变量实际值不入库，只提交 `.env.example`。
-- 提交信息使用中文，遵循 Lore 提交协议。
-- 已合入的 Flyway 迁移脚本只增不改：重命名或改内容必须换新版本号，避免已执行过旧版的环境启动失败（2026-10-28 评审 P1-1）。
+- [B 部署目录](平台程序/deploy/platform/README.md) 是正式运维入口；配置模板、最终 Compose 组合和恢复流程在该目录维护。
+- `平台程序/script/release-rehearsal/` 与 [配对工作流](.github/workflows/paired-release.yml) 在临时运行器验收具体前后端组合，保留不可变包、提交 SHA 与迁移/回滚证据。
+- `项目文档/` 与 `平台程序/docs/` 包含历次设计和验收记录；日期较早的计划不覆盖当前源码、配置或部署证据。
+- 旧根入口存入 [README.history.md](README.history.md)，旧应用启动说明存入 [README.legacy.md](平台程序/README.legacy.md)。历史记录保留追溯，不作为 B 的默认启动命令。
+
+按问题独立开发、专项评审和单独 PR 合并。Flyway 已合入迁移不原地改名或改内容，修正使用新版本迁移。密钥和实际环境文件不入库。代码合并、演练通过和生产部署是三个不同状态；当前环境状态必须查看对应部署回执。
