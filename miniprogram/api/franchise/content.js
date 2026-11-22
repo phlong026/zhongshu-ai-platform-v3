@@ -58,6 +58,17 @@ const drafts = {
     http.get('/franchise/content/course-progress', courseId ? { courseId } : undefined)
 };
 
+// The same authorized library serves management and video selection.
+const materialBase = '/franchise/content/material-library';
+const materials = {
+  page: query => http.get(materialBase, query),
+  upload: body => http.post(materialBase + '/upload-tickets', body),
+  complete: id => http.post(materialBase + '/' + encodeURIComponent(id) + '/complete', {}),
+  download: id => http.post(materialBase + '/' + encodeURIComponent(id) + '/download-tickets', {}),
+  update: (id, body) => http.put(materialBase + '/' + encodeURIComponent(id), body),
+  remove: id => http.del(materialBase + '/' + encodeURIComponent(id))
+};
+
 const assets = {
   /** 内容素材上传票据（CONTENT_ASSET：jpeg/png/mp3/mp4 ≤50MB，B_END 免审）→ {assetId,uploadUrl} */
   uploadTicket: (data) => http.post('/franchise/content/assets/upload-tickets', data),
@@ -104,4 +115,4 @@ const clones = {
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
   setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
 };
-module.exports = { links, scripts, tasks, drafts, assets, personas, clones, publications, growth };
+module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publications, growth };

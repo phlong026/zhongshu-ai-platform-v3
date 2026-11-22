@@ -133,3 +133,70 @@ test('video picker indices resolve to selected parameter labels', () => {
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(value)), { resolution: '2K', duration: 10, ratio: '16:9' });
 });
+
+function libraryVideo({download=async()=>({downloadUrl:'https://cos.example/media'}),persist=async path=>path}={}) {
+  let valid=true;const navigations=[],uploads=[],tickets=[],tasks=[],toasts=[];
+  const wx={showToast:o=>toasts.push(o.title),navigateTo:o=>navigations.push(o),redirectTo() {}};
+  const page=load({
+    '../../utils/creation':{persistMedia:persist},'../../utils/studio':{scope:()=> 'actor',allowed:()=>true},
+    '../../utils/platform-content':require('../miniprogram/utils/platform-content'),
+    '../../api/http':{token:()=>true,sessionGuard:()=>()=>valid},
+    '../../utils/content-media':{upload:async path=>{uploads.push(path);return 'uploaded';}},
+    '../../api/franchise/content':{materials:{download:async id=>{tickets.push(id);return download(id);}},tasks:{create:async body=>{tasks.push(JSON.parse(JSON.stringify(body)));return{id:'task'};}}}
+  },wx);
+  page.data.description='庭院镜头';
+  return{page,wx,navigations,uploads,tickets,tasks,toasts,invalidate:()=>valid=false};
+}
+
+test('video frame picker opens the real library and submits its large asset ID without reupload',async()=>{
+  const h=libraryVideo(),id='9007199254740993';h.page.openLibrary('firstFrame');
+  assert.equal(h.navigations[0].url,'/pages/studio/index?view=library&select=IMAGE');
+  h.navigations[0].events.materialSelected({assetId:id,type:'image',mimeType:'image/png',name:'公司外观图',visibility:'COMPANY',canManage:false,path:'https://cos.example/frame.png'});
+  assert.equal(h.page.data.firstFrameAssetId,id);assert.equal(h.page.data.firstFrame,'https://cos.example/frame.png');
+  assert.equal(h.page.data.assets,undefined);
+  await h.page.generateOnline();
+  assert.deepEqual(h.uploads,[]);assert.deepEqual(h.tickets,[id]);
+  assert.deepEqual(h.tasks[0].references,[{role:'first_frame',assetId:id}]);
+});
+
+test('library references keep media roles and de-duplicate by stable ID, including files without preview paths',async()=>{
+  const h=libraryVideo();h.page.data.mode='reference';
+  for(const [id,type,mimeType]of [['11','image','image/jpeg'],['12','video','video/mp4'],['13','audio','audio/mpeg'],['12','video','video/mp4']]){
+    h.page.openLibraryButton();h.navigations.at(-1).events.materialSelected({assetId:id,type,mimeType,name:type,visibility:'COMPANY',canManage:false,path:''});
+  }
+  assert.equal(h.page.data.references.length,3);
+  await h.page.generateOnline();
+  assert.deepEqual(h.uploads,[]);assert.deepEqual(h.tickets,['11','12','13']);
+  assert.deepEqual(h.tasks[0].references,[{role:'reference_image',assetId:'11',name:'image'},{role:'reference_video',assetId:'12',name:'video'},{role:'reference_audio',assetId:'13',name:'audio'}]);
+});
+
+test('revoked library access blocks task creation and preserves the selected reference for correction',async()=>{
+  const h=libraryVideo({download:async()=>{throw{code:403,message:'素材已删除或无权访问'};}});
+  h.page.data.mode='reference';h.page.data.references=[{id:'material-1',assetId:'1',type:'video',mimeType:'video/mp4',name:'共享视频',path:''}];
+  await h.page.generateOnline();assert.equal(h.tasks.length,0);assert.equal(h.uploads.length,0);
+  assert.equal(h.page.data.references[0].assetId,'1');assert.match(h.toasts.at(-1),/删除|无权/);
+});
+
+test('picker rejects a wrong media type and discards selection after session change or unload',async()=>{
+  const h=libraryVideo();h.page.openLibrary('lastFrame');
+  const receive=h.navigations[0].events.materialSelected;
+  receive({assetId:'2',type:'video',mimeType:'video/mp4',name:'视频'});
+  assert.equal(h.page.data.lastFrameAssetId,'');assert.match(h.toasts.at(-1),/图片/);
+  h.invalidate();receive({assetId:'3',type:'image',mimeType:'image/png',path:'https://cos.example/p.png'});
+  assert.equal(h.page.data.lastFrameAssetId,'');
+  const gone=libraryVideo();gone.page.openLibrary('firstFrame');gone.page.onUnload();
+  gone.navigations[0].events.materialSelected({assetId:'3',type:'image',mimeType:'image/png',path:'https://cos.example/p.png'});
+  assert.equal(gone.page.data.firstFrameAssetId,'');
+});
+
+test('removing or replacing a library frame clears its asset ID so generation uses the chosen phone image',async()=>{
+  const h=libraryVideo({persist:async()=>'/saved/new.jpg'});
+  Object.assign(h.page.data,{firstFrame:'https://cos.example/old.png',firstFrameAssetId:'old'});
+  h.wx.showActionSheet=o=>o.success({tapIndex:2});h.page.chooseFrame({currentTarget:{dataset:{target:'firstFrame'}}});
+  assert.equal(h.page.data.firstFrameAssetId,'');assert.equal(h.page.data.firstFrame,'');
+  Object.assign(h.page.data,{firstFrame:'https://cos.example/old.png',firstFrameAssetId:'old'});
+  h.wx.showActionSheet=o=>o.success({tapIndex:0});h.wx.chooseMedia=o=>o.success({tempFiles:[{tempFilePath:'/tmp/new.jpg'}]});
+  h.page.chooseFrame({currentTarget:{dataset:{target:'firstFrame'}}});await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.page.data.firstFrameAssetId,'');await h.page.generateOnline();
+  assert.deepEqual(h.uploads,['/saved/new.jpg']);assert.deepEqual(h.tickets,[]);
+});

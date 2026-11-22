@@ -35,6 +35,7 @@ const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
 this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
+if(view==='library'&&options.select)this.materialPickerInit(options.select);
 if(view==='digital')this.restoreDigitalAttempt();
 if (view === 'result' && options.task) {
 if (http.token()) return this.loadApiResult(options.task); // 在线任务：直取后端详情（不回落本地演示任务）
