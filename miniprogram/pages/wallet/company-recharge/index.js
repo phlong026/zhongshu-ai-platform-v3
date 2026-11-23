@@ -140,17 +140,21 @@ Page({
           throw Error('订单信息已更新，请核对后再支付');
       }
       if (!this.foreground) return;
-      if (typeof wx.requestVirtualPayment !== 'function') throw Error('当前微信版本不支持此支付方式，请升级后重试');
       const login = await new Promise((resolve, reject) => wx.login({ success: resolve, fail: reject }));
       if (!this.current(actor) || !this.foreground) return;
       if (!login.code) throw Error('获取支付凭证失败，请重试');
       const params = await http.post(base + '/orders/' + encodeURIComponent(order.id) + '/pay-params', { code: login.code });
       if (!this.current(actor) || !this.foreground) return;
-      if (!params || !params.mode || !params.signData || !params.paySig || !params.signature)
-        throw Error('支付参数不完整，请刷新订单');
-      await new Promise((resolve, reject) => wx.requestVirtualPayment({ mode: params.mode, signData: params.signData,
-        paySig: params.paySig, signature: params.signature, success: resolve, fail: reject }));
-      if (this.current(actor)) this.setData({ note: '已提交支付，正在核对到账状态。' });
+      if (params && params.mode === 'MOCK' && params.status === 'CREDITED') {
+        this.setData({ note: '模拟支付成功，积分已到账（未发生真实扣款）。' });
+      } else {
+        if (typeof wx.requestVirtualPayment !== 'function') throw Error('当前微信版本不支持此支付方式，请升级后重试');
+        if (!params || !params.mode || !params.signData || !params.paySig || !params.signature)
+          throw Error('支付参数不完整，请刷新订单');
+        await new Promise((resolve, reject) => wx.requestVirtualPayment({ mode: params.mode, signData: params.signData,
+          paySig: params.paySig, signature: params.signature, success: resolve, fail: reject }));
+        if (this.current(actor)) this.setData({ note: '已提交支付，正在核对到账状态。' });
+      }
     } catch (err) {
       if (this.current(actor)) this.setData({ note: /cancel/i.test(err.errMsg || '') ? '已取消支付。' :
         err.message || '支付未完成，请刷新订单状态。' });
