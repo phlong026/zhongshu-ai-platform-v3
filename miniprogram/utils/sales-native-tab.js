@@ -1,6 +1,7 @@
 // The five sales workspaces share the existing five native Tab pages. Other
 // roles retain their own workbenches; no subpackage is required for a Tab paint.
-const ROUTES = { creation: '/pages/home/index', design: '/pages/engineering/index', customers: '/pages/management/index' };
+const navigation = require('./page-navigation');
+const ROUTES = navigation.salesTabs;
 function sales() {
   const http = require('../api/http');
   const post = http.token() && require('../api/auth').currentApiPost();
@@ -32,22 +33,32 @@ function register(kind, legacy) {
   }
   definition.onLoad = function(options) { this.__nativeOptions = options || {}; initialize(this, options); };
   definition.onShow = function() {
-    this.__nativeVisible=true;
+    this.__nativeVisible=true;this.__nativeReady=false;this.__nativeScope=navigation.scope();this.__nativeAuthorization=null;
     const render=()=>{
       if(!this.__nativeVisible)return;
       initialize(this,this.__nativeOptions);this.__closed=false;
+      const entry=this.__nativeMode==='sales'?navigation.takeTabEntry(ROUTES[kind]):null;
+      if(entry&&kind!=='creation')salesPage.applyEntryIntent?.call(this,entry);
       const result=definitions[this.__nativeMode].onShow?.call(this);
+      // Creation refreshes the actor's draft in onShow before opening its editor.
+      if(entry&&kind==='creation')salesPage.applyEntryIntent?.call(this,entry);
+      this.__nativeScope=navigation.scope();this.__nativeReady=this.__nativeMode==='sales';
       if(this.__nativeMode==='sales'){const bar=this.getTabBar?.();bar?.refresh?.();bar?.setData({hidden:!!this.data.sheet});}
       return result;
     };
     // Home is also the cold-start entry: cached posts never substitute for server authorization.
-    if(kind==='creation'&&sales())return require('../api/auth').restoreSession().then(render).catch(error=>{
-      if(this.__nativeVisible&&!error.silent&&error.code!==401)wx.showToast({title:'登录状态暂未确认，请重试',icon:'none'});
-    });
+    if(kind==='creation'&&sales()){
+      const authorization=this.__nativeAuthorization={scope:this.__nativeScope};
+      return require('../api/auth').restoreSession().then(()=>{
+        if(this.__nativeAuthorization===authorization)return render();
+      }).catch(error=>{
+        if(this.__nativeAuthorization===authorization&&this.__nativeVisible&&!error.silent&&error.code!==401)wx.showToast({title:'登录状态暂未确认，请重试',icon:'none'});
+      }).finally(()=>{if(this.__nativeAuthorization===authorization)this.__nativeAuthorization=null;});
+    }
     return render();
   };
   definition.onHide = function() {
-    this.__nativeVisible=false;
+    this.__nativeVisible=false;this.__nativeReady=false;this.__nativeAuthorization=null;navigation.clearTabEntry(ROUTES[kind],this.__nativeScope,this);
     const d = definitions[this.__nativeMode || active()]; d.onHide?.call(this);
     if (this.__nativeMode === 'sales' && kind === 'creation') {
       this.__closed = true; this.__parsePoll?.cancel?.();
@@ -55,11 +66,14 @@ function register(kind, legacy) {
     }
     this.cancelSearch?.();
   };
-  definition.onUnload = function() { this.__nativeVisible=false;return definitions[this.__nativeMode || active()].onUnload?.call(this); };
-  definition.onNativeEntry = function(options) {
-    if (this.__nativeMode !== 'sales') return;
-    salesPage.onLoad?.call(this, options || {});
-    salesPage.onShow?.call(this);
+  definition.onUnload = function() { this.__nativeVisible=false;this.__nativeReady=false;this.__nativeAuthorization=null;navigation.clearTabEntry(ROUTES[kind],this.__nativeScope,this);return definitions[this.__nativeMode || active()].onUnload?.call(this); };
+  definition.acceptNavigationEntry = function() {
+    if(!this.__nativeVisible||this.__nativeMode!=='sales'||!sales())return false;
+    if(this.__nativeScope!==navigation.scope())return false;
+    if(!this.__nativeReady)return this.__nativeAuthorization?.scope===this.__nativeScope;
+    const entry=navigation.takeTabEntry(ROUTES[kind]);
+    if(entry)salesPage.applyEntryIntent?.call(this,entry,true);
+    return true;
   };
   Page(definition);
   return definition;
@@ -69,8 +83,8 @@ function compatibility(kind, make) {
   d.onLoad = function(options = {}) {
     if (!sales()) return original?.call(this, options);
     this.__compatRedirect = true;
-    wx.switchTab({ url: ROUTES[kind], success: () => getCurrentPages().slice(-1)[0]?.onNativeEntry?.(options),
-      fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
+    const query=Object.keys(options).filter(key=>['focus','intent','editor','section'].includes(key)).map(key=>key+'='+encodeURIComponent(options[key])).join('&');
+    return navigation.open('/pages/'+kind+'/index'+(query?'?'+query:''),{replace:true});
   };
   const show = d.onShow;
   d.onShow = function() { if (!this.__compatRedirect) return show?.call(this); };

@@ -5,7 +5,8 @@ const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约回访�
 const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',authError:false},
- onLoad(o={}){this.setData({intent:o.intent==='commission'?'commission':''});if(TABS.some(([key])=>key===o.focus))this.setData({tab:o.focus});},
+ onLoad(o={}){this.applyEntryIntent(o);},
+ applyEntryIntent(o={},refresh=false){this.cancelSearch();this.setData({intent:o.intent==='commission'?'commission':'',...(TABS.some(([key])=>key===o.focus)?{tab:o.focus,keyword:'',pageSize:10}:{})});if(refresh)return this.loadPlatformList();},
  onUnload(){this.__unloaded=true;this.cancelSearch();},
  cancelSearch(){if(this.__searchTimer){clearTimeout(this.__searchTimer);this.__searchTimer=null;}},
  onShow(){
