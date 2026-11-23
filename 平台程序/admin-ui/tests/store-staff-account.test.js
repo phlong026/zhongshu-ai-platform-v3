@@ -340,3 +340,63 @@ test('员工账号复制文案区分新用户与复用用户', () => {
   assert.match(reused, /沿用原账号密码/)
   assert.doesNotMatch(reused, /初始密码：/)
 })
+
+const handoverRoster = [
+  { userId: 'leaving', name: '离职员工', active: true, roleCode: 'sales' },
+  { userId: 'sales', name: '销售', active: true, roleCode: 'sales' },
+  { userId: 'sales-lead', name: '销售负责人', active: true, roleCode: 'sales-lead' },
+  { userId: 'engineer', name: '工长', active: true, roleCode: 'engineer' },
+  { userId: 'manager', name: '工程经理', active: true, roleCode: 'project-manager' },
+  { userId: 'dual', name: '兼岗员工', active: true, roleCode: 'sales' },
+  { userId: 'dual', name: '兼岗员工', active: true, roleCode: 'engineer' },
+  { userId: 'finance', name: '财务', active: true, roleCode: 'finance' },
+  { userId: 'inactive', name: '已停用', active: false, roleCode: 'sales' }
+]
+
+function prepareHandover() {
+  const { state } = loadView({})
+  state.staff.value = handoverRoster.map((row) => ({ ...row }))
+  state.handoverForm.fromUserId = 'leaving'
+  state.handoverDialog.value = true
+  state.handoverPreviewReady.value = true
+  state.handoverItems.value = [
+    { domain: 'franchise-crm', label: '客户', inFlight: 1 },
+    { domain: 'franchise-engineering', label: '工程任务', inFlight: 1 }
+  ]
+  return state
+}
+
+test('离职交接按业务资格筛选后再去重，兼岗员工可接两类事项', () => {
+  const state = prepareHandover()
+  const ids = (domain) => Array.from(state.receiversFor(domain), (row) => row.userId)
+  assert.deepEqual(ids('franchise-crm'), ['sales', 'sales-lead', 'dual'])
+  assert.deepEqual(ids('franchise-engineering'), ['engineer', 'manager', 'dual'])
+  assert.deepEqual(ids('franchise-commission'), ['engineer', 'manager', 'dual'])
+  assert.deepEqual(ids('unknown-domain'), [])
+  state.staff.value.reverse()
+  assert.deepEqual(ids('franchise-crm').sort(), ['dual', 'sales', 'sales-lead'])
+  assert.deepEqual(ids('franchise-engineering').sort(), ['dual', 'engineer', 'manager'])
+})
+
+test('选错岗位不能提交，两个纯岗位或同一兼岗员工均可接手', () => {
+  const state = prepareHandover()
+  state.handoverForm.receivers = { 'franchise-crm': 'engineer', 'franchise-engineering': 'sales' }
+  assert.equal(state.canSubmitHandover.value, false)
+  state.handoverForm.receivers = { 'franchise-crm': 'sales', 'franchise-engineering': 'engineer' }
+  assert.equal(state.canSubmitHandover.value, true)
+  state.handoverForm.receivers = { 'franchise-crm': 'dual', 'franchise-engineering': 'dual' }
+  assert.equal(state.canSubmitHandover.value, true)
+})
+
+test('员工岗位刷新后清理失效接收人，缺少合格人员时保持禁止提交', () => {
+  const state = prepareHandover()
+  state.handoverForm.receivers = { 'franchise-crm': 'dual', 'franchise-engineering': 'dual' }
+  state.staff.value = state.staff.value.filter((row) => !(row.userId === 'dual' && row.roleCode === 'sales'))
+  state.syncHandoverReceivers()
+  assert.equal(state.handoverForm.receivers['franchise-crm'], undefined)
+  assert.equal(state.handoverForm.receivers['franchise-engineering'], 'dual')
+  assert.equal(state.canSubmitHandover.value, false)
+  state.staff.value = state.staff.value.filter((row) => !['sales', 'sales-lead'].includes(row.roleCode))
+  assert.equal(state.receiversFor('franchise-crm').length, 0)
+  assert.equal(state.canSubmitHandover.value, false)
+})
