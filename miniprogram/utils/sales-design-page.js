@@ -48,6 +48,7 @@ module.exports=()=>({
   onHide() { recent.stop(this); },
   retryRecent() { return recent.load(this); },
   openRecent(e) { recent.open(this,e); },
+  recentCoverError(e) { recent.coverError(this,e); },
   openAllTasks() { if(allowed(currentPost()))wx.navigateTo({url:'/design-migration/pages/profile/records?type=projects&from=tasks'}); },
   onUnload() {
     recent.stop(this);
