@@ -293,3 +293,12 @@ for (const change of ['changeSession', 'changePost']) test('inline edit after ' 
   assert.deepEqual(plain(Array.from(f.storage)), before);
   assert.equal(page.data.script, '已有二创稿');
 });
+
+test('generated results drop an explicit first-line title without guessing from the first spoken line', async () => {
+  const f = fixture({poll: async () => ({status:'SUCCEEDED',result:{text:'## **标题：**'+'很长的标题'.repeat(60)+'\n\n正文：今天聊建房。\n这是第二句。'}})});
+  const p=f.page();
+  assert.equal(await p.resolveText(Promise.resolve({text:'标题：模型标题\n正文第一句。'})), '正文第一句。');
+  assert.equal(await p.resolveText(Promise.resolve({taskId:'copy-123'})), '今天聊建房。\n这是第二句。');
+  assert.equal(await p.resolveText(Promise.resolve({text:'这是一句很长但没有标记的开场白。\n正文不变。'})), '这是一句很长但没有标记的开场白。\n正文不变。');
+  await assert.rejects(p.resolveText(Promise.resolve({text:'标题：只有标题'})), /未返回文案/);
+});
