@@ -48,6 +48,18 @@ jobs:
           ref: ${{ inputs.backend_sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Resolve paired frontend branch for backend feature PRs
+        if: github.event_name == 'pull_request' && inputs.frontend_sha == ''
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          candidate="${HEAD_BRANCH/-backend-/-}"
+          if git ls-remote --exit-code origin "refs/heads/$candidate" >/dev/null 2>&1; then
+            echo "FRONTEND_REF=$candidate" >> "$GITHUB_ENV"
+            echo "Paired frontend branch: $candidate"
+          else
+            echo "No matching frontend branch found; retain configured FRONTEND_REF=$FRONTEND_REF"
+          fi
       - name: Freeze the selected frontend and backend commits
         run: |
           test -f 平台程序/script/release-rehearsal/freeze_pair.py || { echo "::error::The selected backend predates the pairing scripts; choose a REL-01-or-newer backend or review its original run evidence."; exit 1; }
