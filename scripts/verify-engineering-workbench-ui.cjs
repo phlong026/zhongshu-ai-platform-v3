@@ -15,13 +15,14 @@ const content = node => (node.text || '') + node.children.map(content).join('');
 const rendered = (file, data) => flat(render(path.resolve(__dirname, '../miniprogram', file), data));
 
 async function setup(role = 'engineer', supportsFiling = true) {
-  const runtime = await connect();
+  const runtime = await connect({lifecycles:true});
   const auth = require('../miniprogram/api/auth');
   const post = { postId: 'workbench-ui-' + role, orgId: 'ui-test', orgType: 'store', roleCode: role };
   auth.saveLogin({ accessToken: 'isolated-ui-test' }); auth.savePosts([post]); auth.switchPost(post.postId);
   let projects = rows;
   const writes = [];
   const filingRequests = [];
+  const projectRequests = [];
   wx.request = options => {
     const url = new URL(options.url).pathname.replace('/admin-api', '');
     let data = [];
@@ -38,7 +39,10 @@ async function setup(role = 'engineer', supportsFiling = true) {
     }
     if (url === '/platform/profile/mine') data = { nickname: '工程同事' };
     else if (url === '/platform/todos') data = { items: [], failedDomains: [], actionableCount: 0 };
-    else if (url === '/franchise/engineering/projects') data = projects;
+    else if (url === '/franchise/engineering/projects') {
+      const {page = 1, pageSize = 50} = options.data || {};
+      data = projects.slice((page - 1) * pageSize, page * pageSize); projectRequests.push(options.data);
+    }
     else if (/\/franchise\/engineering\/\d+$/.test(url)) data = rows.find(row => url.endsWith('/' + row.id));
     else if (url.endsWith('/materials/summary')) data = { plans: [] };
     else if (url.includes('/collections')) data = { stages: [], records: [] };
@@ -46,7 +50,209 @@ async function setup(role = 'engineer', supportsFiling = true) {
     if (options.method !== 'GET') writes.push(options.url);
     setImmediate(() => options.success({ statusCode: 200, data: { code: 0, data } }));
   };
-  return { runtime, writes, filingRequests, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
+  return { runtime, writes, filingRequests, projectRequests, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
+}
+
+function workspaceBar() {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const file = require.resolve('../miniprogram/custom-tab-bar/index.js');
+  let definition;
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), {Component: value => { definition = value; },
+    require: require('node:module').createRequire(file), getCurrentPages, getApp, wx});
+  const bar = { ...definition.methods, data: {}, properties: {activeIndex: current().data.navigationIndex, nested: true},
+    setData(patch) { Object.assign(this.data, patch); } };
+  bar.refresh();
+  return index => bar.switchTab({currentTarget: {dataset: {index}}});
+}
+
+for (const role of ['engineer', 'project-manager']) {
+  test(role + ' 的首页、项目、材料连续点击保留同一页面和已加载面板', async () => {
+    const h = await setup(role);
+    await h.open('/pages/build/home/index');
+    const home = current(), initialRequests = h.projectRequests.length, navigations = [], lifecycles = [];
+    for (const method of ['onLoad', 'onShow', 'onHide', 'onUnload']) {
+      const original = home[method]; home[method] = function (...args) { lifecycles.push(method); return original.apply(this, args); };
+    }
+    for (const method of ['navigateTo', 'redirectTo', 'switchTab', 'reLaunch']) {
+      const original = wx[method]; wx[method] = options => { navigations.push([method, options.url]); return original(options); };
+    }
+    const tap = workspaceBar();
+    tap(8); tap(9); tap(2); tap(9);
+    await flush();
+    assert.equal(current(), home, '主导航不得重建 Page 或走中间路由');
+    assert.deepEqual(navigations, []); assert.deepEqual(lifecycles, [], '局部切换不能手动重放 Page 生命周期');
+    assert.equal(home.data.homeMounted, true); assert.equal(home.data.projectsMounted, true);
+    assert.equal(home.data.destination, 'materials');
+    assert.equal(home.data.navigationIndex, 9);
+    assert.equal(home.data.cards.length, 3);
+    assert.equal(h.projectRequests.length - initialRequests, 1, '首次项目加载期间切材料只复用同一列表请求');
+    tap(8); home.setData({keyword: '王女士', expandedProjects: true}); home.applyProjectFilters();
+    tap(2); tap(9); tap(8);
+    assert.equal(home.data.keyword, '王女士');
+    assert.equal(home.data.expandedProjects, true);
+    assert.equal(home.data.cards[0].id, rows[1].id);
+    assert.equal(h.projectRequests.length - initialRequests, 1, '就地返回已加载面板不再重拉列表');
+  });
+}
+
+test('旧项目直链保留筛选、destination 和 mode，随后仍在原 Page 切换工作台', async () => {
+  const h = await setup();
+  await h.open('/pages/build/projects/index?filter=' + encodeURIComponent('在建') + '&destination=schedule&mode=tasks');
+  const page = current(), tap = workspaceBar();
+  assert.equal(page.data.filter, '在建'); assert.equal(page.data.destination, 'schedule'); assert.equal(page.data.mode, 'tasks');
+  tap(9); tap(2); tap(8); await flush();
+  assert.equal(current(), page); assert.equal(page.data.destination, ''); assert.equal(page.data.mode, '');
+  assert.equal(page.data.filter, '在建');
+});
+
+test('项目建档草稿跨首页和材料保存，材料面板不显示项目建档表单', async () => {
+  const h = await setup();
+  await h.open('/pages/build/projects/index');
+  const page = current(), tap = workspaceBar();
+  await page.openCreate(); page.setData({'createForm.name': '未提交项目'});
+  tap(9); await flush();
+  assert.equal(current(), page);
+  const material = await h.runtime.currentPage();
+  assert.equal(await material.$('.eng-create-form'), null);
+  assert.ok(await material.$('.eng-project-open'));
+  tap(2); tap(8);
+  assert.equal(page.data.creating, true); assert.equal(page.data.createForm.name, '未提交项目');
+  assert.ok(await (await h.runtime.currentPage()).$('.eng-create-form'));
+});
+
+test('从材料详情返回原工作台时保留分页、筛选、展开和滚动，后台刷新完整快照后才替换', async () => {
+  const h = await setup();
+  const many = Array.from({length: 51}, (_, index) => ({...rows[0], id: String(BigInt(rows[0].id) + BigInt(index)), name: '工程项目' + index}));
+  h.projects(many);
+  const facade = await h.open('/pages/build/projects/index?destination=materials&filter=' + encodeURIComponent('在建'));
+  const page = current(); page.toggleProjects(); await page.loadNextProjects();
+  assert.equal(page.data.cards.length, 51);
+  page.onPageScroll({scrollTop: 760});
+  await (await facade.$('.eng-project-open')).tap(); await flush();
+  assert.equal(getCurrentPages().length, 2); assert.equal(current().data.view, 'materials');
+  const request = wx.request, pending = [], scrolls = [];
+  wx.request = options => options.url.endsWith('/franchise/engineering/projects') ? pending.push(options) : request(options);
+  wx.pageScrollTo = options => scrolls.push(options);
+  await h.runtime.callWxMethod('navigateBack', {delta: 1});
+  assert.equal(current(), page); assert.equal(page.data.destination, 'materials');
+  assert.equal(page.data.filter, '在建'); assert.equal(page.data.expandedProjects, true);
+  assert.equal(page.data.cards.length, 51); assert.equal(scrolls.at(-1).scrollTop, 760);
+  pending[0].success({statusCode: 200, data: {code: 0, data: many.slice(0, 50)}}); await flush();
+  assert.equal(page.data.cards.length, 51, '不能先缩成第一页导致可见列表和滚动跳动');
+  assert.equal(pending[1].data.page, 2);
+  pending[1].success({statusCode: 200, data: {code: 0, data: many.slice(50)}}); await flush();
+  assert.equal(page.data.cards.length, 51); assert.equal(page.__projectPage, 2);
+});
+
+test('同岗位项目刷新失败保留可见列表，403 失权清空缓存和建档草稿', async () => {
+  const h = await setup(); await h.open('/pages/build/projects/index');
+  const page = current(); await page.openCreate(); page.setData({'createForm.name': '当前草稿'});
+  wx.request = options => setImmediate(() => options.success({statusCode: 503, data: {code: 503, msg: '暂不可用'}}));
+  await page.refreshOnline();
+  assert.equal(page.data.cards.length, 3); assert.equal(page.data.createForm.name, '当前草稿');
+  wx.request = options => setImmediate(() => options.success({statusCode: 403, data: {code: 403, msg: '权限已失效'}}));
+  await page.refreshOnline();
+  assert.deepEqual(page.data.cards, []); assert.deepEqual(page.__platRows, []);
+  assert.equal(page.data.canCreate, false); assert.equal(page.data.creating, false); assert.equal(page.data.createForm.name, '');
+});
+
+test('详情返回的全量刷新期间下一页不能抢占请求或把旧第一页拼回列表', async () => {
+  const h = await setup();
+  const many = Array.from({length: 51}, (_, index) => ({...rows[0], id: String(BigInt(rows[0].id) + BigInt(index)), name: '原项目' + index}));
+  h.projects(many); await h.open('/pages/build/projects/index');
+  const page = current(); page.toggleProjects();
+  const updated = many.map((row, index) => ({...row, name: '详情更新后' + index}));
+  h.projects(updated);
+  const request = wx.request, pending = [];
+  wx.request = options => options.url.endsWith('/franchise/engineering/projects') ? pending.push(options) : request(options);
+  const refresh = page.refreshOnline(), append = page.loadNextProjects(), started = pending.length;
+  const nextButton = rendered('pages/build/projects/index.wxml', page.data).find(node => node.attrs?.bindtap === 'loadNextProjects');
+  const nextPage = pending.find(options => options.data.page === 2);
+  if (nextPage) nextPage.success({statusCode: 200, data: {code: 0, data: updated.slice(50)}});
+  await append;
+  pending[0].success({statusCode: 200, data: {code: 0, data: updated.slice(0, 50)}}); await refresh;
+  assert.equal(page.data.cards[0].name, '详情更新后0');
+  assert.equal(started, 1); assert.equal(nextButton.attrs.disabled, true);
+  wx.request = request; await page.loadNextProjects();
+  assert.equal(page.data.cards.length, 51); assert.equal(page.data.cards[0].name, '详情更新后0');
+});
+
+for (const source of ['home', 'projects']) for (const error of [{postInvalid: true, message: '工作身份已撤销'}, {code: 1103000002, message: '工作身份已撤销'}]) {
+  test(source + ' 的 ' + (error.postInvalid ? 'postInvalid' : '1103000002') + ' 清空所有工程缓存和草稿', async () => {
+    const h = await setup(); await h.open('/pages/build/home/index');
+    const page = current(), tap = workspaceBar(); tap(8); await flush();
+    await page.openCreate(); page.setData({'createForm.name': '已撤销岗位草稿'});
+    const api = require('../miniprogram/utils/platform-engineering').api.projects;
+    const method = source === 'home' ? 'page' : 'pageChunk', original = api[method];
+    api[method] = () => Promise.reject(error);
+    try { await (source === 'home' ? page.loadOnline() : page.refreshOnline()); }
+    finally { api[method] = original; }
+    assert.equal(page.data.cards.length, 0); assert.equal(page.__platRows.length, 0);
+    assert.equal(page.data.createForm.name, ''); assert.equal(page.data.creating, false); assert.equal(page.data.canCreate, false);
+    assert.equal(page.data.eng?.recent || null, null);
+    assert.match(source === 'home' ? page.data.homeError : page.data.error, /工作身份已撤销/);
+  });
+}
+
+test('工程失权清理后，之前建档请求的迟到成功不能打开旧工程详情', async () => {
+  const h = await setup(); await h.open('/pages/build/projects/index');
+  const page = current(); await page.openCreate(); page.setData({'createForm.name': '失权前提交'});
+  const api = require('../miniprogram/utils/platform-engineering').api.projects;
+  const create = api.create, chunk = api.pageChunk; let finish;
+  api.create = () => new Promise(resolve => { finish = resolve; });
+  api.pageChunk = () => Promise.reject({postInvalid: true, message: '工作身份已撤销'});
+  try {
+    const submit = page.submitCreateOnline(); await page.refreshOnline();
+    finish(rows[0]); await submit;
+    assert.equal(current(), page); assert.equal(page.data.canCreate, false); assert.equal(page.data.cards.length, 0);
+  } finally { api.create = create; api.pageChunk = chunk; }
+});
+
+test('已提交建档在其他页面返回结果时不会抢导航，回到工作台可继续使用', async () => {
+  const h = await setup(); await h.open('/pages/build/projects/index');
+  const page = current(), tap = workspaceBar(); await page.openCreate();
+  page.setData({'createForm.name': '后台建档', 'createForm.phone': '13900008158'});
+  const request = wx.request, writes = [];
+  wx.request = options => options.method === 'POST' ? writes.push(options) : request(options);
+  const submit = page.submitCreateOnline(); tap(2); await flush();
+  await h.runtime.callWxMethod('navigateTo', {url: '/pages/build/record/index?id=' + rows[0].id + '&view=overview'}); await flush();
+  const detail = current();
+  writes[0].success({statusCode: 200, data: {code: 0, data: rows[0]}}); await submit;
+  assert.equal(current(), detail); assert.equal(page.data.busy, false); assert.equal(page.data.creating, false);
+  await h.runtime.callWxMethod('navigateBack'); tap(8); await flush();
+  assert.equal(current(), page); assert.equal(page.data.busy, false); assert.equal(page.data.canCreate, true);
+});
+
+for (const [field, value] of [['roleCode', 'project-manager'], ['orgType', 'headquarters'], ['orgId', 'other-org'], ['tenantId', 'other-tenant']]) {
+test('同 postId 的 ' + field + ' 变更立即清掉常驻首页、列表和草稿，拒绝迟到旧请求', async () => {
+  const h = await setup();
+  await h.open('/pages/build/home/index');
+  const page = current(), tap = workspaceBar(); tap(8); await flush();
+  await page.openCreate(); page.setData({'createForm.name': '旧岗位草稿'});
+  const auth = require('../miniprogram/api/auth'), pending = [];
+  wx.request = options => pending.push(options);
+  const oldRequest = page.refreshOnline();
+  const oldPost = auth.currentApiPost(); auth.savePosts([{...oldPost, [field]: value}]);
+  page.onShow();
+  assert.equal(page.data.eng, null); assert.deepEqual(page.data.cards, []);
+  assert.equal(page.data.createForm.name, ''); assert.equal(page.data.creating, false);
+  pending[0].success({statusCode: 200, data: {code: 0, data: [{...rows[0], name: '旧岗位项目'}]}});
+  await oldRequest; await flush();
+  assert.deepEqual(page.data.cards, []);
+});
+}
+
+for (const role of ['boss', 'finance']) {
+  test(role + ' 的工程只读直链不接管工程岗位主导航', async () => {
+    const h = await setup(role);
+    await h.open('/pages/build/projects/index?destination=materials&filter=' + encodeURIComponent('在建'));
+    const page = current();
+    assert.equal(page.data.cards[0].id, rows[0].id);
+    assert.equal(page.data.destination, 'materials');
+    assert.equal(page.switchWorkspaceTab({key: 'engineering', index: 2}), false);
+    if (role === 'finance') assert.equal(page.data.canCreate, false);
+    else assert.equal(page.data.readOnly, true);
+  });
 }
 
 test('旧后端可浏览工程列表，缺少合同建档能力时不展示入口也不能提交', async () => {

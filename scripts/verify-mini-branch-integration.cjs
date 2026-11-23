@@ -11,7 +11,7 @@ test('老板入口保留当前在线客户与工程路由', async () => {
   const home = read('miniprogram/pages/admin/home/index.wxml');
   const customers = read('miniprogram/utils/sales-customers-page.js');
   assert.match(read('miniprogram/pages/customers/index.js'),/compatibility\('customers',make\)/);
-  const projects = read('miniprogram/pages/build/projects/index.js');
+  const projects = read('miniprogram/pages/build/projects/page.js');
 
   const business = read('miniprogram/pages/business/index.wxml');
   assert.match(business, /wx:elif="\{\{isBossBiz\}\}"[\s\S]*data-url="\/pages\/customers\/index" bindtap="openBossLink"/);

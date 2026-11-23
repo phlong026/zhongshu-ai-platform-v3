@@ -5,23 +5,24 @@ const fs=require('node:fs');
 const path=require('node:path');
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
 function fixture(file,P){
-  let post='A',gen=0,spec;const notices=[],sequences={};
+  let post='A',gen=0,spec;const mod={exports:{}};const notices=[],sequences={};
   const http={currentPostId:()=>post,sessionGeneration:()=>gen,sessionGuard:()=>{const g=gen;return()=>g===gen;},requestGuard:key=>{const g=gen,s=sequences[key]=(sequences[key]||0)+1;return()=>g===gen&&s===sequences[key];},token:()=> 'token'};
   const auth={currentApiPost:()=>({postId:post,orgId:post,roleCode:'engineer'})};
   const org={roles:{engineer:{}},has:()=>false,apiContext:p=>({role:p.roleCode}),navigation:()=>({tabs:[]})};
   const wx={showToast:x=>notices.push(x),switchTab:()=>{},navigateTo:()=>{}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram',file),'utf8'),{
-    Page:x=>{spec=x;},wx,
-    require:name=>name.endsWith('/platform-engineering')?P:name.endsWith('/api/franchise/engineering')?{cameras:{list:async()=>[],playback:(...args)=>P.playback(...args)},progress:{handlers:async()=>[]}}:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
+    Page:x=>{spec=x;},module:mod,wx,
+    require:name=>name.endsWith('/workspace-scope')?()=>String(post)+':'+gen:name.endsWith('/platform-engineering')?P:name.endsWith('/api/franchise/engineering')?{cameras:{list:async()=>[],playback:(...args)=>P.playback(...args)},progress:{handlers:async()=>[]}}:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
     getApp:()=>({globalData:{}}),Date,Math,Promise
   });
+  spec=spec||mod.exports;
   const page=Object.assign({},spec,{data:structuredClone(spec.data),setData(o){Object.assign(this.data,o);}});
   return{page,notices,http,wx,switchPost(){post='B';gen++;}};
 }
 test('slow engineering list from old organization cannot replace the new organization list',async()=>{
   const a=deferred(),b=deferred();let n=0;
   const P={api:{projects:{pageChunk:()=>++n===1?a.promise:b.promise}},listCards:r=>r,statusMatches:()=>true,online:()=>true,errorText:e=>e.message};
-  const f=fixture('pages/build/projects/index.js',P);
+  const f=fixture('pages/build/projects/page.js',P);
   const old=f.page.refreshOnline();f.switchPost();const next=f.page.refreshOnline();
   b.resolve([{id:'B'}]);await next;a.resolve([{id:'A'}]);await old;
   assert.equal(f.page.data.cards[0].id,'B');assert.equal(f.page.__platRows[0].id,'B');
