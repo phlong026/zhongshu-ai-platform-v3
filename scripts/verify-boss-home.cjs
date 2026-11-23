@@ -80,7 +80,7 @@ test('owner navigation uses one transition and keeps only the last queued destin
   h.navigation[1].complete();assert.equal(h.app.globalData.workspaceNavigating,false);
 });
 
-async function setup() {
+async function setup(initialFailure={}) {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
   const post = { postId:'boss-home', orgId:'store-home', orgName:'不应显示的门店名称', orgType:'store', roleCode:'boss' };
@@ -95,7 +95,7 @@ async function setup() {
   commissions.push({ id:'old', createTime:'2025-01-01', totalCents:9999900 });
   const projects = ['IN_PROGRESS','PENDING_START','READY_DELIVER','DELIVERED','ARCHIVED'].map((status, i) => ({ id:'p' + i, name:'工程' + i, status }));
   const calls = [];
-  let businessFailure = false, projectsFailure = false, summaryFailure = false;
+  let businessFailure = !!initialFailure.business, projectsFailure = !!initialFailure.projects, summaryFailure = !!initialFailure.summary;
   let intercept = () => false;
   global.wx.request = options => {
     const url = new URL(options.url).pathname.replace('/admin-api', '');
@@ -181,16 +181,16 @@ test('经营指标打开所选月份及岗位的明细',async()=>{
   const detail=getCurrentPages().at(-1);assert.equal(detail.route,'pages/home-metrics/index');assert.equal(detail.role,'owner');assert.equal(detail.data.key,'signed');assert.equal(detail.data.period,'2026-11');
 });
 
-test('失败不冒充零，业务与工程及绩效接口独立，重点项目有空态', async () => {
+test('普通失败保留已核验业务和工程，成功空结果才显示真实空态', async () => {
   const h = await setup();
   h.failure('business',true); await h.page.refreshHomeModules(); await flush();
-  assert.ok(h.page.data.desk.home.business.metrics.every(row => row.value === '—'));
-  assert.equal(h.page.data.desk.home.business.available,false);
+  assert.deepEqual(h.page.data.desk.home.business.metrics,CRM.homeSummary(h.customers,h.commissions,h.post).metrics);
+  assert.equal(h.page.data.desk.home.business.available,true);assert.ok(h.page.ownerBusinessError);
   assert.equal(h.page.data.desk.home.engineering.available,true);
   h.failure('business',false); h.failure('projects',true);
   await h.page.refreshHomeModules(); await flush();
   assert.equal(h.page.data.desk.home.business.available,true);
-  assert.ok(h.page.data.desk.home.engineering.metrics.every(row => row.value === '—'));
+  assert.deepEqual(h.page.data.desk.home.engineering.counts,Engineering.homeStats(Engineering.listCards(h.projects)));assert.ok(h.page.ownerProjectsError);
   h.failure('projects',false); h.failure('summary',true);
   h.page.refresh(); await flush();
   assert.equal(h.page.data.desk.home.business.available,true);
@@ -282,4 +282,102 @@ test('interrupted member append retains all loaded pages after resuming',async()
  item=h.pending.find(x=>!x.done&&x.kind==='member');assert.ok(item);item.done=true;item.resolve({rows:[{id:'page-1',title:'第一页刷新'}],more:true});await flush();
  assert.equal(h.page.data.records.length,2,'resumed member reload shrinks the visible retained list to the first page');
  item=h.pending.find(x=>!x.done&&x.kind==='member');assert.ok(item);item.done=true;item.resolve({rows:[{id:'page-2',title:'第二页刷新'}],more:false});await flush();assert.equal(h.page.data.records.length,2);assert.equal(h.page.data.records[1].title,'第二页刷新');
+});
+
+test('first owner reads that fail never invent zero metrics or cached projects',async()=>{
+ const h=await setup({business:true,projects:true,summary:true});
+ assert.equal(h.page.data.desk.home.business.available,false);assert(h.page.data.desk.home.business.metrics.every(r=>r.value==='—'));
+ assert.equal(h.page.data.desk.home.engineering.available,false);assert.equal(h.page.data.desk.home.engineering.sites.length,0);assert.equal(h.page.data.desk.ledger.inTotal,'—');
+});
+test('same-scope duplicate shows retain all owner cards and share pending domain reads',async()=>{
+ const h=await setup(),before=JSON.stringify([h.page.data.desk.home,h.page.platSummary]);const held=[];
+ h.intercept((url,o)=>{if(url==='/franchise/engineering/projects'){held.push(o);return true;}return false;});
+ const start=h.calls.length;h.page.onShow();h.page.onShow();
+ assert.equal(JSON.stringify([h.page.data.desk.home,h.page.platSummary]),before);
+ await flush();for(const url of ['/franchise/engineering/projects','/franchise/performance/tasks/summary','/franchise/performance/goals','/franchise/performance/operating/analytics','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
+ assert.equal(h.nodes().filter(n=>hasClass(n,'home-project-row')).length,3);
+ assert(h.nodes().some(n=>n.tag==='#text'&&n.text.includes('更新中')));
+ held[0].success({statusCode:200,data:{code:0,data:h.projects}});await flush();assert.equal(h.page.data.homeRefreshing,false);
+});
+test('an ordinary project refresh failure keeps mounted rows and retries from the existing heading',async()=>{
+ const h=await setup();h.failure('projects',true);await h.page.refreshHomeModules();await flush();
+ assert.equal(h.nodes().filter(n=>hasClass(n,'home-project-row')).length,3);assert(h.nodes().some(n=>n.tag==='#text'&&n.text.includes('更新失败')));
+ h.failure('projects',false);const p=await h.runtime.currentPage();const retry=await p.$('.home-section-heading button');await retry.tap();await flush();
+ assert(!h.page.ownerProjectsError);assert.equal(h.page.data.desk.home.engineering.sites.length,3);
+});
+test('owner summaries retain a failed domain while applying the other domain latest response',async()=>{
+ const h=await setup(),oldSummary=structuredClone(h.page.platSummary.summary);
+ h.intercept((url,o)=>{if(url.endsWith('/tasks/summary')){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'offline'}}));return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:0,data:{trend:[{period:h.page.platPeriod,incomeCents:990000,paidCents:0,netCents:990000}],totals:{}}}}));return true;}return false;});
+ await h.page.refreshPlatSummary();await flush();assert.deepEqual(h.page.platSummary.summary,oldSummary);assert.equal(h.page.platSummary.operating.trend[0].incomeCents,990000);assert.equal(h.page.platDegraded,true);
+ const oldOperating=structuredClone(h.page.platSummary.operating);
+ h.intercept((url,o)=>{if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'offline'}}));return true;}if(url.endsWith('/tasks/summary')){setImmediate(()=>o.success({statusCode:200,data:{code:0,data:{departments:{business:{'auto:collectionsAmount':2220000}}}}}));return true;}return false;});
+ await h.page.refreshPlatSummary();await flush();assert.deepEqual(h.page.platSummary.operating,oldOperating);assert.equal(h.page.platSummary.summary.departments.business['auto:collectionsAmount'],2220000);assert.equal(h.page.platOperatingDegraded,true);
+});
+test('same-post owner permission and organization changes clear every cached module before pending reads return',async()=>{
+ for(const change of [{roleCode:'owner'},{orgType:'headquarters'},{permissions:['changed:scope']},{tenantId:'another-tenant'},{userId:'another-user'}]){
+  const h=await setup(),old=[];h.intercept((url,o)=>{if(url==='/franchise/engineering/projects'){old.push(o);return true;}return false;});h.page.refreshHomeModules();await flush();
+  h.auth.savePosts([{...h.post,...change}]);const held=[];h.intercept((url,o)=>{if(url.startsWith('/franchise/')){held.push(o);return true;}return false;});h.page.onShow();
+  assert.equal(h.page.ownerProjects,null,JSON.stringify(change));assert.equal(h.page.ownerCustomers,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.data.desk.home.engineering.sites.length,0);
+  old[0].success({statusCode:200,data:{code:0,data:[{id:'old-scope',status:'IN_PROGRESS'}]}});await flush();assert.equal(h.page.ownerProjects,null);
+  h.page.onUnload();for(const o of held)o.success({statusCode:200,data:{code:0,data:[]}});await flush();
+ }
+});
+test('hidden owner reads cannot merge with a return or overwrite its new projects, performance or profile',async()=>{
+ for(const leave of ['onHide','onUnload']){
+  const h=await setup(),held=[];
+  h.intercept((url,o)=>{if(['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'].includes(url)){held.push({url,o});return true;}return false;});h.page.onShow();await flush();
+  const start=h.calls.length;h.page[leave]();h.intercept(()=>false);h.page.onShow();await flush();
+  for(const url of ['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
+  const latest=JSON.stringify(h.page.data.desk);for(const {url,o}of held)o.success({statusCode:200,data:{code:url==='/platform/profile/mine'?0:403,data:{nickname:'旧姓名'}}});await flush();assert.equal(JSON.stringify(h.page.data.desk),latest);
+ }
+});
+test('current owner denial representations clear all retained summaries and project data',async()=>{
+ const original=Engineering.api.projects.page;
+ try{for(const error of [{code:401},{code:403},{status:401},{status:403},{statusCode:401},{statusCode:403},{code:1103000002},{postInvalid:true}]){
+  Engineering.api.projects.page=original;const h=await setup();Engineering.api.projects.page=async()=>{throw error;};await h.page.refreshHomeModules();await flush();
+  assert.equal(h.page.ownerProjects,null,JSON.stringify(error));assert.equal(h.page.ownerCustomers,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.data.desk.home.engineering.sites.length,0);
+ }}finally{Engineering.api.projects.page=original;}
+});
+test('month changes clear only the financial snapshot and reject late previous-period responses',async()=>{
+ const h=await setup(),projects=h.page.ownerProjects,customers=h.page.ownerCustomers,held=[];
+ h.intercept((url,o)=>{if(url.includes('/performance/')){held.push(o);return true;}return false;});h.page.refreshPlatSummary();await flush();
+ h.intercept(()=>false);h.page.month({detail:{value:'2026-10'}});assert.equal(h.page.platSummary,null);assert.equal(h.page.ownerProjects,projects);assert.equal(h.page.ownerCustomers,customers);await flush();
+ const latest=JSON.stringify(h.page.platSummary);for(const o of held)o.success({statusCode:200,data:{code:0,data:{departments:{private:'previous-month'}}}});await flush();assert.equal(JSON.stringify(h.page.platSummary),latest);
+});
+
+
+test('owner project retry starts a new read even when another home domain is still pending',async()=>{
+ const h=await setup(),old=[];
+ h.intercept((url,o)=>{if(url==='/franchise/customers'){old.push(o);return true;}if(url==='/franchise/engineering/projects'){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'项目网络失败'}}));return true;}return false;});
+ h.page.refreshHomeModules();await flush();assert(h.page.ownerProjectsError);const start=h.calls.length;
+ h.intercept(()=>false);const p=await h.runtime.currentPage();await(await p.$('.home-section-heading button')).tap();await flush();
+ assert.equal(h.calls.slice(start).filter(c=>c.url==='/franchise/engineering/projects').length,1,'explicit retry was swallowed by the other domain pending flight');
+ assert.equal(h.page.ownerProjectsError,'');assert.equal(h.page.data.desk.home.engineering.sites.length,3);
+ for(const o of old)o.success({statusCode:200,data:{code:0,data:{list:[],total:0}}});await flush();
+});
+test('owner summary retry starts a fresh failed domain while the parallel summary domain is pending',async()=>{
+ const h=await setup(),old=[];
+ h.intercept((url,o)=>{if(url.endsWith('/tasks/summary')){old.push(o);return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'经营网络失败'}}));return true;}return false;});
+ h.page.refreshPlatSummary();await flush();assert.equal(h.page.platOperatingDegraded,true);const start=h.calls.length;
+ h.intercept(()=>false);h.page.retryHome();await flush();
+ assert.equal(h.calls.slice(start).filter(c=>c.url.endsWith('/operating/analytics')).length,1,'explicit retry must not merge into the failed read batch');
+ assert.equal(h.page.platOperatingDegraded,false);
+ for(const o of old)o.success({statusCode:200,data:{code:0,data:{departments:{}}}});await flush();
+});
+test('current owner denial followed by same-scope retry cannot revive any earlier domain owner',async()=>{
+ const h=await setup(),old=[];
+ h.intercept((url,o)=>{if(['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'].includes(url)){old.push({url,o});return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:403,msg:'当前权限拒绝'}}));return true;}return false;});
+ h.page.onShow();await flush();assert.equal(h.page.ownerProjects,null);assert.equal(h.page.ownerCustomers,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.platProfileName,'');
+ const fresh=[];h.intercept((url,o)=>{if(url==='/platform/todos')return false;fresh.push(o);return true;});h.page.retryHome();await flush();
+ for(const{url,o}of old)o.success({statusCode:200,data:{code:0,data:url==='/franchise/engineering/projects'?[{id:'old-private',name:'旧权限工程',status:'IN_PROGRESS'}]:url==='/platform/profile/mine'?{nickname:'旧姓名'}:{departments:{business:{private:'old'}}}}});await flush();
+ assert.equal(h.page.ownerProjects,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.platProfileName,'');assert.equal(h.page.data.desk.home.engineering.sites.length,0);
+ h.page.onUnload();for(const o of fresh)o.success({statusCode:200,data:{code:0,data:[]}});await flush();
+});
+test('owner archive confirmation forces a new summary batch instead of joining its pre-archive read',async()=>{
+ const h=await setup(),old=[],writes=[];
+ h.intercept((url,o)=>{if(url.endsWith('/operating/snapshot')){writes.push(o);return true;}if(url.includes('/performance/')){old.push(o);return true;}return false;});
+ h.page.refreshPlatSummary();await flush();h.page.archivePlatSnapshot();await flush();assert.equal(writes.length,1);const start=h.calls.length;
+ h.intercept(()=>false);writes[0].success({statusCode:200,data:{code:0,data:{}}});await flush();
+ for(const url of ['/franchise/performance/tasks/summary','/franchise/performance/goals','/franchise/performance/operating/analytics'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
+ const latest=JSON.stringify(h.page.platSummary);for(const o of old)o.success({statusCode:200,data:{code:0,data:{departments:{private:'pre-archive'}}}});await flush();assert.equal(JSON.stringify(h.page.platSummary),latest);
 });
