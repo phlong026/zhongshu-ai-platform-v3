@@ -541,9 +541,12 @@ async dismissTask(id) {
  try {
   await contentApi.tasks.dismiss(id);
   if(!alive()||this.__closed||scope!==studio.scope())return;
+  // Invalidate any list response started before dismissal; then refresh the current status filter.
+  this.__taskListSeq=(this.__taskListSeq||0)+1;
   const remaining=(this.data.tasks||[]).filter(row=>String(row.id)!==String(id));
   this.setData({tasks:remaining,taskCount:remaining.length});
   wx.showToast({title:'已从任务中心移除',icon:'success'});
+  this.syncApiTasks();
  } catch(error) {
   if(alive()) {
    this.setData({tasks:(this.data.tasks||[]).map(row=>({...row,dismissing:String(row.id)===String(id)?false:row.dismissing}))});
