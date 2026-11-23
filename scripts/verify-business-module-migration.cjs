@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const P = require('../miniprogram/utils/platform-content');
 const flush = () => new Promise(resolve => setImmediate(resolve));
-const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const event = (key, value) => ({ currentTarget: { dataset: key }, detail: { value } });
 const plain = value => JSON.parse(JSON.stringify(value));
 
@@ -22,10 +22,11 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   if(file==='studio/characters/index.js')api={...api,personas:require('./persona-draft-fixture.cjs')(api.personas)};
   let linkDraft;
   let page, scope = 'post-1', generation = 1;
+  let token = 'token', orgType = 'store';
   const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
   const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
-  const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
+  const http = { tenantId:()=>1,token: () => token, sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
   } };
@@ -54,7 +55,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
       if (name.endsWith('/utils/creation-link-draft')) return linkDraft;
       if (name.endsWith('/utils/platform-content')) return utility;
       if (name.endsWith('/api/http')) return http;
-      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role,orgId:persistence.orgId||'33',userId:persistence.userId||'77' }) };
+      if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role,orgType,orgId:persistence.orgId||'33',userId:persistence.userId||'77' }) };
       if (name.endsWith('/api/franchise/content')) return api;
       if (name.endsWith('/utils/storage-keys')) return { creationDraft: 'creation-draft' };
       if (name.endsWith('/utils/page-navigation')) return { open: url => navigations.push(url) };
@@ -67,7 +68,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
     for (const segment of segments.slice(0, -1)) target = target[segment] || (target[segment] = {});
     target[segments.at(-1)] = value;
   } };
-  return { page, state, calls, navigations, storage, toasts,wx, changeScope() { scope = 'post-2'; generation++; } };
+  return { page, state, calls, navigations, storage, toasts,wx, changeScope() { scope = 'post-2'; generation++; }, changeRole(value) { role = value; }, changeOrgType(value) { orgType = value; }, logout() { token = ''; generation++; } };
 }
 
 test('link submission locks immediately and duplicate tap does not create another paid parse', async () => {
@@ -335,9 +336,18 @@ test('returning from native media selection does not erase the IP form', async (
   h.changeScope();h.page.onShow();await flush();assert.equal(h.page.data.view,'home');assert.deepEqual(plain(h.page.data.form),{});
 });
 
+async function readyDigital(api) {
+  const h=harness('studio/index.js',{
+    personas:{page:async()=>[{id:'21',name:'张工'}]},
+    clones:{list:async()=>[{id:'31',kind:'AVATAR',title:'张工分身',ready:true},{id:'32',kind:'VOICE',title:'张工声音',ready:true}]},
+    ...api
+  });
+  h.page.data.view='digital';await h.page.loadDigitalProfiles('21');return h;
+}
+
 test('digital network retry freezes complete payload and key across page recreation', async () => {
   const requests=[];const api={tasks:{create:async(body,key)=>{requests.push([plain(body),key]);throw {code:-1,message:'响应丢失'};}}};
-  const h=harness('studio/index.js',api);Object.assign(h.page.data,{script:'完整口播稿',title:'张工口播',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
+  const h=await readyDigital(api);Object.assign(h.page.data,{script:'完整口播稿',title:'张工口播',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
   await h.page.generateDigitalOnline();assert.equal(h.page.data.digitalRetry,true);assert.equal(h.page.data.digitalSubmitting,false);
   h.page.data.script='不能替换待确认稿件';h.page.data.avatarCloneId='99';await h.page.generateDigitalOnline();assert.deepEqual(requests[0],requests[1]);
   const reload=harness('studio/index.js',api);for(const [key,value] of h.storage)reload.storage.set(key,value);
@@ -346,7 +356,7 @@ test('digital network retry freezes complete payload and key across page recreat
 
 test('digital submission accepts the real task DTO id and saves the same completed task', async () => {
   const id='90071992547409931',requests=[],saves=[];
-  const h=harness('studio/index.js',{tasks:taskApi(async(url,body,headers)=>{
+  const h=await readyDigital({tasks:taskApi(async(url,body,headers)=>{
     if(url==='/franchise/content/tasks'){
       requests.push([plain(body),headers['Idempotency-Key']]);
       return {id,kind:'digital',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
@@ -371,7 +381,7 @@ test('digital retry after a lost response replays the frozen request and resumes
     }
     assert.equal(url,'/franchise/content/tasks/90071992547409933/save-work');saves.push(plain(body));return {workId:'90071992547409934'};
   });
-  const first=harness('studio/index.js',{tasks});Object.assign(first.page.data,{script:'原口播稿',title:'原标题',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
+  const first=await readyDigital({tasks});Object.assign(first.page.data,{script:'原口播稿',title:'原标题',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
   await first.page.generateDigitalOnline();assert.equal(first.page.data.digitalRetry,true);assert.equal(first.navigations.length,0);
   const retry=harness('studio/index.js',{tasks},'sales-lead',{storage:first.storage});
   retry.page.restoreDigitalAttempt();retry.page.data.script='重试不应替换原稿';await retry.page.generateDigitalOnline();
@@ -388,14 +398,14 @@ test('task create normalizes the legacy taskId response without replacing the ca
 });
 
 test('a digital create response without any task id keeps the pending request for recovery', async () => {
-  const h=harness('studio/index.js',{tasks:taskApi(async()=>({kind:'digital',status:'QUEUED'}))});
+  const h=await readyDigital({tasks:taskApi(async()=>({kind:'digital',status:'QUEUED'}))});
   Object.assign(h.page.data,{script:'原口播稿',avatarCloneId:'31',voiceCloneId:'32'});
   await h.page.generateDigitalOnline();
   assert.equal(h.page.data.digitalRetry,true);assert.equal(h.storage.size,1);assert.equal(h.navigations.length,0);assert.equal(h.calls.length,0);
 });
 
 test('late digital response cannot navigate or save after a session switch', async () => {
-  const pending=deferred(),saves=[];const h=harness('studio/index.js',{tasks:{create:()=>pending.promise,saveWork:async()=>saves.push('saved')}});
+  const pending=deferred(),saves=[];const h=await readyDigital({tasks:{create:()=>pending.promise,saveWork:async()=>saves.push('saved')}});
   Object.assign(h.page.data,{script:'旧岗位稿件',title:'旧人物',avatarCloneId:'31',voiceCloneId:'32'});
   const run=h.page.generateDigitalOnline();h.changeScope();pending.resolve({id:'old-task',kind:'digital',status:'QUEUED'});await run;
   assert.equal(h.navigations.length,0);assert.deepEqual(saves,[]);
@@ -438,9 +448,9 @@ test('empty and failed digital resource loads clear old selections without suppl
   const h=harness('studio/index.js',{personas:{page:async()=>{if(failed)throw Error('接口异常');return [];}}});
   Object.assign(h.page.data,{actor:'旧分身',voice:'旧声音',avatarCloneId:'31',voiceCloneId:'32',digitalPersonas:[{id:'old',name:'旧人物'}]});
   await h.page.loadDigitalProfiles();assert.equal(h.page.data.actor,'');assert.equal(h.page.data.voice,'');
-  assert.equal(h.page.data.digitalPersonas.length,0);assert.match(h.page.data.operationError,/暂无可选人物/);
+  assert.equal(h.page.data.digitalPersonas.length,0);assert.match(h.page.data.digitalResourceError,/暂无可选人物/);
   failed=true;await h.page.loadDigitalProfiles();assert.equal(h.page.data.digitalPersonas.length,0);
-  assert.equal(h.page.data.avatarCloneId,'');assert.match(h.page.data.operationError,/接口异常/);
+  assert.equal(h.page.data.avatarCloneId,'');assert.match(h.page.data.digitalResourceError,/接口异常/);
 });
 
 test('old name-only demo submissions cannot restore a digital script or become a retryable paid request',()=>{
@@ -547,4 +557,188 @@ test('unreadable or unwritable recovery storage blocks paid extraction instead o
   let creates=0;const h=harness('creation/index.js',{links:{parse:async()=>{creates++;}}});h.wx[method]=()=>{throw Error('storage unavailable');};
   h.page.data.link='https://v.example/storage';await h.page.extract();assert.equal(creates,0);assert.match(h.page.data.extractError,/任务记录/);assert.equal(h.page.data.extracting,false);
  }
+});
+
+const digitalPeople=[{id:'21',name:'张工'},{id:'22',name:'李工'}];
+const digitalClones=[
+ {id:'31',kind:'AVATAR',title:'手选分身',ready:true},{id:'33',kind:'AVATAR',title:'默认分身',ready:true,isDefault:true},
+ {id:'32',kind:'VOICE',title:'手选声音',ready:true},{id:'34',kind:'VOICE',title:'默认声音',ready:true,isDefault:true}
+];
+function digitalFixture(){
+ let people=()=>Promise.resolve(digitalPeople),clones=()=>Promise.resolve(digitalClones);
+ const reads={people:0,clones:[]};
+ const h=harness('studio/index.js',{personas:{page:()=>{reads.people++;return people();}},clones:{list:id=>{reads.clones.push(id);return clones(id);}}});
+ h.page.data.view='digital';
+ return {...h,reads,setPeople:value=>{people=value;},setClones:value=>{clones=value;}};
+}
+function digitalSnapshot(page){return plain(Object.fromEntries(['digitalPersonas','digitalPersonaId','digitalPersonaIndex','actor','voice','avatarCloneId','voiceCloneId','avatarOptions','voiceOptions','actorIsDefault','voiceIsDefault'].map(key=>[key,page.data[key]])));}
+function chooseManualDigital(page){page.selectActor(event({id:'31'}));page.selectVoice(event({id:'32'}));}
+
+test('F06 concurrent profile reads share both the persona request and its clone request',async()=>{
+ const h=digitalFixture(),people=deferred(),clones=deferred();
+ h.setPeople(()=>people.promise);h.setClones(()=>clones.promise);
+ const first=h.page.loadDigitalProfiles('21'),second=h.page.loadDigitalProfiles('21');
+ assert.equal(h.reads.people,1);assert.equal(first,second);
+ people.resolve(digitalPeople);await flush();
+ const third=h.page.loadDigitalProfiles('21');assert.equal(h.reads.people,1);assert.equal(h.reads.clones.length,1);
+ clones.resolve(digitalClones);await Promise.all([first,second,third]);
+ assert.equal(h.page.data.digitalLoading,false);assert.equal(h.page.data.avatarCloneId,'33');
+});
+
+test('F06 returning to the editor retains its displayed resources and manual choices while updating',async()=>{
+ const h=digitalFixture();h.page.onLoad({view:'digital',persona:'21'});h.page.onShow();await flush();
+ chooseManualDigital(h.page);const before=digitalSnapshot(h.page);
+ h.page.onHide();const people=deferred(),clones=deferred();h.setPeople(()=>people.promise);h.setClones(()=>clones.promise);
+ h.page.onShow();h.page.onShow();
+ assert.equal(h.reads.people,2);assert.deepEqual(digitalSnapshot(h.page),before);
+ people.resolve(digitalPeople);await flush();assert.deepEqual(digitalSnapshot(h.page),before);
+ clones.resolve(digitalClones.map(row=>({...row,title:row.title+'更新'})));await flush();
+ assert.equal(h.page.data.avatarCloneId,'31');assert.equal(h.page.data.voiceCloneId,'32');
+ assert.equal(h.page.data.actor,'手选分身更新');assert.equal(h.page.data.voice,'手选声音更新');assert.equal(h.page.data.digitalLoading,false);
+});
+
+test('F06 ordinary profile and clone failures retain the authorized selection and do not erase generation errors',async()=>{
+ for(const stage of ['people','clones']){
+  const h=digitalFixture();await h.page.loadDigitalProfiles('21');chooseManualDigital(h.page);
+  const before=digitalSnapshot(h.page);h.page.data.operationError='原提交等待确认';
+  h[stage==='people'?'setPeople':'setClones'](()=>Promise.reject(Error('资源接口超时')));
+  await h.page.loadDigitalProfiles('21');
+  assert.deepEqual(digitalSnapshot(h.page),before);assert.equal(h.page.data.digitalLoading,false);
+  assert.match(h.page.data.digitalResourceError,/资源接口超时/);assert.equal(h.page.data.operationError,'原提交等待确认');
+ }
+});
+
+test('F06 only an authoritatively missing or unavailable selection is replaced',async()=>{
+ const h=digitalFixture();await h.page.loadDigitalProfiles('21');chooseManualDigital(h.page);
+ h.setClones(()=>Promise.resolve(digitalClones.map(row=>({...row,isDefault:row.id==='33'||row.id==='34'}))));
+ await h.page.loadDigitalProfiles('21');assert.equal(h.page.data.avatarCloneId,'31');assert.equal(h.page.data.voiceCloneId,'32');
+ h.setClones(()=>Promise.resolve(digitalClones.filter(row=>row.id!=='31')));
+ await h.page.loadDigitalProfiles('21');assert.equal(h.page.data.avatarCloneId,'33');assert.equal(h.page.data.voiceCloneId,'32');
+ h.setClones(()=>Promise.resolve(digitalClones.map(row=>({...row,ready:row.kind==='AVATAR'}))));
+ await h.page.loadDigitalProfiles('21');assert.equal(h.page.data.avatarCloneId,'33');assert.equal(h.page.data.voiceCloneId,'');
+ assert.match(h.page.data.digitalResourceError,/声音/);
+});
+
+test('F06 a choice made while clones refresh wins over the earlier saved IDs',async()=>{
+ const h=digitalFixture();await h.page.loadDigitalProfiles('21');
+ const pending=deferred();h.setClones(()=>pending.promise);const refresh=h.page.loadDigitalClones('21',{avatarId:'33',voiceId:'34'});
+ chooseManualDigital(h.page);pending.resolve(digitalClones);await refresh;
+ assert.equal(h.page.data.avatarCloneId,'31');assert.equal(h.page.data.voiceCloneId,'32');
+});
+
+test('F06 changing persona clears incompatible resources and rejects its older child response and error',async()=>{
+ for(const failOld of [false,true]){
+  const h=digitalFixture();await h.page.loadDigitalProfiles('21');
+  const old=deferred(),next=deferred();h.setClones(id=>id==='21'?old.promise:next.promise);
+  const first=h.page.loadDigitalClones('21');h.page.changeDigitalPersona(event({},'1'));
+  assert.equal(h.page.data.digitalPersonaId,'22');assert.equal(h.page.data.avatarCloneId,'');
+  const resources=[{id:'41',kind:'AVATAR',ready:true,title:'李工分身'},{id:'42',kind:'VOICE',ready:true,title:'李工声音'}];
+  next.resolve(resources);await flush();const snapshot=digitalSnapshot(h.page);
+  if(failOld)old.reject(Error('旧人物失败'));else old.resolve(digitalClones);await first;
+  assert.deepEqual(digitalSnapshot(h.page),snapshot);assert.equal(h.page.data.digitalResourceError,'');assert.equal(h.page.data.digitalLoading,false);
+ }
+});
+
+test('F06 an older profile refresh must not restore the persona preferred before a newer selection',async()=>{
+ const h=digitalFixture();await h.page.loadDigitalProfiles('21');
+ const people=deferred(),child=deferred();h.setPeople(()=>people.promise);h.setClones(id=>id==='22'?child.promise:Promise.resolve(digitalClones));
+ const refresh=h.page.loadDigitalProfiles('21');h.page.changeDigitalPersona(event({},'1'));
+ people.resolve(digitalPeople);await flush();
+ assert.equal(h.page.data.digitalPersonaId,'22');assert.deepEqual(h.reads.clones,['21','22']);
+ child.resolve([{id:'41',kind:'AVATAR',ready:true,title:'李工分身'},{id:'42',kind:'VOICE',ready:true,title:'李工声音'}]);await refresh;
+ assert.equal(h.page.data.avatarCloneId,'41');assert.equal(h.page.data.digitalLoading,false);
+});
+
+test('F06 a superseded persona child cannot keep the newer resources locked while it hangs',async()=>{
+ const h=digitalFixture();await h.page.loadDigitalProfiles('21');const old=deferred(),next=deferred();
+ h.setClones(id=>id==='21'?old.promise:next.promise);const refresh=h.page.loadDigitalProfiles('21');await flush();
+ h.page.changeDigitalPersona(event({},'1'));
+ next.resolve([{id:'41',kind:'AVATAR',ready:true,title:'李工分身'},{id:'42',kind:'VOICE',ready:true,title:'李工声音'}]);await flush();
+ assert.equal(h.page.data.avatarCloneId,'41');assert.equal(h.page.data.digitalLoading,false,'an abandoned child must not lock the newly loaded persona');
+ old.resolve(digitalClones);await refresh;assert.equal(h.page.data.avatarCloneId,'41');
+});
+
+test('F06 resource selection handlers cannot reuse displayed options after a same-session permission change',async()=>{
+ for(const action of ['selectActor','selectVoice','changeDigitalPersona']){
+  const h=digitalFixture();await h.page.loadDigitalProfiles('21');h.changeRole('boss');
+  h.page[action](action==='changeDigitalPersona'?event({},'1'):event({id:action==='selectActor'?'31':'32'}));
+  assert.equal(h.page.data.digitalPersonas.length,0);assert.equal(h.page.data.avatarCloneId,'');assert.equal(h.page.data.voiceCloneId,'');
+ }
+});
+
+test('F06 role and organization type changes clear the old resource frame before new authorization',async()=>{
+ for(const change of ['changeRole','changeOrgType']){
+  const h=digitalFixture();await h.page.loadDigitalProfiles('21');const old=deferred();h.setClones(()=>old.promise);
+  const first=h.page.loadDigitalClones('21');h[change](change==='changeRole'?'boss':'company');
+  const people=deferred();h.setPeople(()=>people.promise);h.setClones(()=>Promise.resolve([{id:'41',kind:'AVATAR',ready:true,title:'新权限分身'},{id:'42',kind:'VOICE',ready:true,title:'新权限声音'}]));
+  const second=h.page.loadDigitalProfiles('21');assert.equal(h.page.data.avatarCloneId,'');assert.equal(h.page.data.digitalPersonas.length,0);
+  old.resolve(digitalClones);await first;assert.equal(h.page.data.avatarCloneId,'');
+  people.resolve(digitalPeople);await second;assert.equal(h.page.data.avatarCloneId,'41');
+ }
+});
+
+test('F06 revoked resource permissions clear all displayed people, avatars and voices',async()=>{
+ for(const stage of ['people','clones'])for(const code of [403,1103000002]){
+  const h=digitalFixture();await h.page.loadDigitalProfiles('21');
+  h[stage==='people'?'setPeople':'setClones'](()=>Promise.reject({code,postInvalid:code===1103000002,message:'资源权限失效'}));
+  await h.page.loadDigitalProfiles('21');
+  assert.equal(h.page.data.digitalPersonas.length,0);assert.equal(h.page.data.digitalPersonaId,'');
+  assert.equal(h.page.data.actor,'');assert.equal(h.page.data.voice,'');assert.equal(h.page.data.digitalLoading,false);
+  assert.match(h.page.data.digitalResourceError,/权限失效/);
+ }
+});
+
+test('F06 an expiring 401 clears the old frame even after its request guard is invalid',async()=>{
+ const h=digitalFixture();await h.page.loadDigitalProfiles('21');const pending=deferred();h.setPeople(()=>pending.promise);
+ const refresh=h.page.loadDigitalProfiles('21');h.logout();pending.reject({code:401,message:'登录已失效'});await refresh;
+ assert.equal(h.page.data.digitalPersonas.length,0);assert.equal(h.page.data.avatarCloneId,'');assert.equal(h.page.data.digitalLoading,false);
+ assert.match(h.page.data.digitalResourceError,/登录已失效/);
+});
+
+test('F06 hide releases the old read but retains its frame and the return reads fresh resources',async()=>{
+ const h=digitalFixture();h.page.onLoad({view:'digital',persona:'21'});h.page.onShow();await flush();chooseManualDigital(h.page);
+ const before=digitalSnapshot(h.page),old=deferred();h.setPeople(()=>old.promise);h.page.onShow();h.page.onHide();
+ assert.deepEqual(digitalSnapshot(h.page),before);assert.equal(h.page.data.digitalLoading,false);
+ h.setPeople(()=>Promise.resolve(digitalPeople));h.page.onShow();await flush();assert.equal(h.reads.people,3);
+ old.resolve([]);await flush();assert.equal(h.page.data.digitalPersonaId,'21');assert.equal(h.page.data.avatarCloneId,'31');
+});
+
+test('F06 a removed persona cannot silently substitute resources in an unresolved paid attempt',async()=>{
+ const h=digitalFixture();h.storage.set('zs-digital-attempt:post-1',{key:'paid-once',personaId:'21',payload:{kind:'digital',avatarCloneId:'31',voiceCloneId:'32',text:'待确认文案',title:'原提交'}});
+ h.page.restoreDigitalAttempt();h.setPeople(()=>Promise.resolve([digitalPeople[1]]));await h.page.loadDigitalProfiles('21');
+ assert.equal(h.page.data.digitalPersonaId,'');assert.equal(h.page.data.avatarCloneId,'');assert.equal(h.reads.clones.length,0);
+ assert.equal(h.page.__digitalAttempt.key,'paid-once');assert.equal(h.page.data.digitalRetry,true);assert.match(h.page.data.digitalResourceError,/原提交人物|不存在|停用/);
+});
+
+test('F06 resource failures have an independent inline retry without replacing generation errors',()=>{
+ const wxml=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/studio/index.wxml'),'utf8');
+ assert.match(wxml,/digitalResourceError/);assert.match(wxml,/bindtap="refreshDigitalResources"/);
+ const h=digitalFixture();assert.equal(typeof h.page.refreshDigitalResources,'function');
+});
+
+for(const change of ['role','orgType']){
+ test('F06 new paid digital submission rejects same-post '+change+' drift',async()=>{
+  const submitted=[];
+  const api={personas:{page:async()=>digitalPeople},clones:{list:async()=>digitalClones},tasks:{create:async(body,key)=>{submitted.push([plain(body),key]);throw {code:503,message:'测试请求挂起'};}}};
+  const h=harness('studio/index.js',api,change==='role'?'sales-lead':'boss');h.page.data.view='digital';await h.page.loadDigitalProfiles('21');
+  h.page.data.script='当前岗位的口播文案';if(change==='role')h.changeRole('boss');else h.changeOrgType('headquarters');
+  await h.page.generateDigital();
+  assert.equal(submitted.length,0,'a new paid request was sent using resources authorized before the identity change');
+  assert.equal(h.page.data.avatarCloneId,'');assert.equal(h.page.data.voiceCloneId,'');assert.equal(h.storage.size,0);
+ });
+ test('F06 audition refuses same-post '+change+' drift',async()=>{
+  const h=harness('studio/index.js',{personas:{page:async()=>digitalPeople},clones:{list:async()=>digitalClones.map(row=>({...row,demoUrl:'https://audio.test/'+row.id+'.mp3'}))}},change==='role'?'sales-lead':'boss');
+  h.page.data.view='digital';await h.page.loadDigitalProfiles('21');let played=0;
+  h.wx.createInnerAudioContext=()=>({onError(){},play(){played++;},stop(){},destroy(){}});
+  if(change==='role')h.changeRole('boss');else h.changeOrgType('headquarters');
+  h.page.audition();assert.equal(played,0,'old resource audio was played without rechecking the current identity');
+  assert.equal(h.page.data.voiceCloneId,'');assert.match(h.page.data.digitalResourceError,/工作身份已变化/);
+ });
+}
+
+test('F06 missing live resources still permit the exact frozen paid retry',async()=>{
+ const submitted=[],attempt={key:'paid-frozen',personaId:'21',payload:{kind:'digital',avatarCloneId:'31',voiceCloneId:'32',text:'已付费确认中的原文案',title:'原始标题'}};
+ const h=harness('studio/index.js',{personas:{page:async()=>[]},clones:{list:async()=>[]},tasks:{create:async(body,key)=>{submitted.push([plain(body),key]);throw {code:503,message:'继续确认'};}}});
+ h.page.data.view='digital';h.storage.set('zs-digital-attempt:post-1',attempt);h.page.restoreDigitalAttempt();await h.page.loadDigitalProfiles('21');
+ assert.equal(h.page.data.avatarCloneId,'');await h.page.generateDigital();assert.deepEqual(submitted,[[attempt.payload,attempt.key]]);assert.equal(h.page.__digitalAttempt.key,attempt.key);
 });

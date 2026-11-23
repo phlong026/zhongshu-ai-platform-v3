@@ -9,7 +9,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const input = value => ({ detail: { value } });
 
 // Use the real scoped draft store and API adapter: storage reads are copies, as on WeChat.
-function fixture({ submit = async () => ({ taskId: '9007199254740993', status: 'QUEUED' }), poll } = {}) {
+function fixture({ submit = async () => ({ taskId: '9007199254740993', status: 'QUEUED' }), poll, personas = [], clones = [] } = {}) {
   let generation = 1, postId = 'one', failStorage = false;
   const storage = new Map(), requests = [], polls = [], toasts = [], seq = {};
   const wx = {
@@ -19,7 +19,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
     showLoading() {}, hideLoading() {}, removeStorageSync: key => storage.delete(key)
   };
   const http = {
-    token: () => 'token', sessionGeneration: () => generation,
+    token: () => 'token', sessionGeneration: () => generation, tenantId: () => 1,
     requestGuard(domain) { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; },
     post(url, body, headers) { requests.push(plain({ url, body, headers })); return submit(body, headers['Idempotency-Key']); }
   };
@@ -40,7 +40,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/api/franchise/content'), 'utf8'), {
     module: apiModule, require: name => { assert.equal(name, '../http'); return http; }
   });
-  const studio = studioModule.exports, api = { ...apiModule.exports, personas: { page: async () => [] } };
+  const studio = studioModule.exports, api = { ...apiModule.exports, personas: { page: async () => personas }, clones: { ...apiModule.exports.clones, list: async () => clones } };
   const utility = { ...P, api, pollTask(id) { polls.push(id); return poll ? poll(id) : Promise.resolve({ id, status: 'SUCCEEDED', result: { text: '优化后的稿件' } }); } };
   studio.write({ ...studio.read(), original: '建房原文', script: '已有二创稿', scriptEdited: true });
   wx.setStorageSync(studio.scopedKey('creation-draft'), { text: '建房原文', rewrittenText: '已有二创稿' });
@@ -52,6 +52,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
         if (name === '../../utils/studio') return studio;
         if (name === '../../utils/platform-content') return utility;
         if (name === '../../api/http') return http;
+        if (name === '../../api/auth') return { currentApiPost: () => ({ postId, roleCode: 'sales' }) };
         if (name === '../../utils/storage-keys') return { creationDraft: 'creation-draft' };
         if (name === '../../utils/creation-keyboard') return { open() {}, close() {}, stop() {} };
         if (name === '../../utils/creation-text-resize' || name === './material-library') return { data: {}, handlers: {} };
@@ -229,7 +230,10 @@ test('rewrite result is a body-only inline editor, including after clearing its 
 });
 
 test('inline edits save exact paragraphs immediately and reach the actual oral generation request', async () => {
-  const f = fixture({ submit: async () => ({ id: 'oral-task' }) }), page = f.page();
+  const f = fixture({ submit: async () => ({ id: 'oral-task' }),
+    personas: [{ id: 'person-1', name: '张工' }],
+    clones: [{ id: 'avatar-1', kind: 'AVATAR', title: '张工分身', ready: true }, { id: 'voice-1', kind: 'VOICE', title: '张工声音', ready: true }]
+  }), page = f.page();
   const body = '先看预算，再定方案。\n\n标题只是作品名称，不该混入口播正文。';
   const revision = f.studio.read().copyRevision;
   page.inputRewrittenScript(input(body));
@@ -245,7 +249,8 @@ test('inline edits save exact paragraphs immediately and reach the actual oral g
   assert.equal(destination, 'digital');
   const oral = f.page({ view: 'digital' });
   assert.equal(oral.data.script, body);
-  Object.assign(oral.data, { avatarCloneId: 'avatar-1', voiceCloneId: 'voice-1' });
+  await oral.loadDigitalProfiles('person-1');
+  assert.equal(oral.data.avatarCloneId, 'avatar-1');assert.equal(oral.data.voiceCloneId, 'voice-1');
   oral.go = () => {};
   await oral.generateDigital();
   assert.equal(f.requests[0].body.kind, 'digital');
