@@ -653,6 +653,18 @@ this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(e
 });
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
+async openPublicationVideo(e) {
+ const id=String(e.currentTarget.dataset.id||this.data.recordId||'');
+ const record=(this.data.records||[]).find(row=>String(row.id)===id)||this.data.detail;
+ if(!record||!record.workId)return wx.showToast({title:'这条发布记录没有关联到平台作品',icon:'none'});
+ try {
+  const works=P.rowsOf(await contentApi.drafts.works());
+  const work=works.find(row=>String(row.id)===String(record.workId));
+  const taskId=work&&String(work.taskId||'');
+  if(!taskId)return wx.showToast({title:'原片任务暂不可用，请从我的作品查看',icon:'none'});
+  wx.navigateTo({url:'/pages/studio/index?view=result&task='+encodeURIComponent(taskId)});
+ } catch(error) { wx.showToast({title:P.degradeMessage(error),icon:'none'}); }
+},
 refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.id)wx.navigateTo({url:'/pages/growth/index?view=capture&publicationId='+encodeURIComponent(record.id)});},
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
