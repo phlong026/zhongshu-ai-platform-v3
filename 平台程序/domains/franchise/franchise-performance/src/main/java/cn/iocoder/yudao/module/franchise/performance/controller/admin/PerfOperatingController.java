@@ -62,7 +62,14 @@ public class PerfOperatingController {
     @PreAuthorize("@post.has('" + PerformancePermissions.OPERATE + "')")
     public CommonResult<Map<String, Object>> reconcile(@RequestBody Map<String, Object> body,
                                                        @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
-        return success(operating.reconcile(post(), str(body.get("period")), requireIdem(idem)));
+        return success(operating.reconcile(post(), str(body.get("period")), str(body.get("sourceSignature")), requireIdem(idem)));
+    }
+
+    @GetMapping("/operating/reconciliation")
+    @Operation(summary = "指定月份实时收支与上次确认快照")
+    @PreAuthorize("@post.has('" + PerformancePermissions.OPERATE + "')")
+    public CommonResult<Map<String, Object>> reconciliation(@RequestParam String period) {
+        return success(operating.monthReconciliation(post(), period));
     }
 
     @GetMapping("/operating/reconciliations")

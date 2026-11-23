@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.franchise.performance.content;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfOperatingSnapshotDO;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfOperatingSnapshotMapper;
 import cn.iocoder.yudao.module.franchise.performance.dal.FrPerfReconciliationDO;
@@ -34,6 +36,7 @@ public class PerfOperatingService {
     private final FrPerfOperatingSnapshotMapper snapshots;
     private final FranchiseCommands commands;
     private final JdbcTemplate jdbc;
+    @jakarta.annotation.Resource private SystemDirectory directory;
 
     public PerfOperatingService(FrPerfReconciliationMapper reconciliations,
                                 FrPerfOperatingSnapshotMapper snapshots,
@@ -48,57 +51,74 @@ public class PerfOperatingService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> reconcile(PostSnapshot post, String period, String idempotencyKey) {
+        return reconcile(post, period, null, idempotencyKey);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> reconcile(PostSnapshot post, String period, String expectedSignature,
+                                          String idempotencyKey) {
         requirePeriod(period);
-        var replayed = commands.replayed(post, idempotencyKey, Map.of("period", period, "action", "month-reconcile"));
-        if (replayed.isPresent()) {
-            return reconciliationView(post, period);
-        }
-        long income = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_receipt WHERE company_id = ? "
-                        + "AND status = '已登记' AND received_date >= ?::date AND received_date < ?::date",
-                Long.class, post.orgId(), period + "-01", nextMonth(period));
-        // M08-T08/R1 P1：退款按方向分层——client=对客退款（资金流出，计入支出）；
-        // expense=供应商/劳务退回（资金回流，冲减支出）——expense 行不得再计入流出统计
-        long paid = jdbc.queryForObject(
-                "SELECT (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment WHERE company_id = ? "
-                        + "AND status = '已核实' AND funding_type='COMPANY' AND pay_date >= ?::date AND pay_date < ?::date) "
-                        + "+ (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
-                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'client' "
-                        + "AND date >= ?::date AND date < ?::date) "
-                        + "- (SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_refund WHERE company_id = ? "
-                        + "AND status = '已核实' AND replaced_by_id IS NULL AND refund_direction = 'expense' AND funding_type='COMPANY' "
-                        + "AND date >= ?::date AND date < ?::date)",
-                Long.class, post.orgId(), period + "-01", nextMonth(period),
-                post.orgId(), period + "-01", nextMonth(period),
-                post.orgId(), period + "-01", nextMonth(period));
-        int receiptCount = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM fr_fin_receipt WHERE company_id = ? AND status = '已登记' "
-                        + "AND received_date >= ?::date AND received_date < ?::date",
-                Integer.class, post.orgId(), period + "-01", nextMonth(period));
-        // 笔数只计流出记录：对客退款是流出；支出退回是对既有付款的回流，不算一笔支出
-        int paymentCount = jdbc.queryForObject(
-                "SELECT (SELECT COUNT(*) FROM fr_fin_payment WHERE company_id = ? AND status = '已核实' "
-                        + "AND pay_date >= ?::date AND pay_date < ?::date) "
-                        + "+ (SELECT COUNT(*) FROM fr_fin_refund WHERE company_id = ? AND status = '已核实' "
-                        + "AND replaced_by_id IS NULL AND refund_direction = 'client' "
-                        + "AND date >= ?::date AND date < ?::date)",
-                Integer.class, post.orgId(), period + "-01", nextMonth(period),
-                post.orgId(), period + "-01", nextMonth(period));
+        // Serialize confirmations for one company/month, including the first insert and weak-network replay.
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+                Object.class, "fr-perf-reconcile:" + post.orgId() + ":" + period);
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("period", period);
+        input.put("action", "month-reconcile");
+        if (StrUtil.isNotBlank(expectedSignature)) input.put("sourceSignature", expectedSignature);
         FrPerfReconciliationDO existing = reconciliations.selectByPeriod(post.orgId(), period);
-        if (existing == null) {
-            reconciliations.insert(new FrPerfReconciliationDO().setCompanyId(post.orgId()).setPeriod(period)
-                    .setIncomeCents(income).setPaidCents(paid).setNetCents(income - paid)
-                    .setReceiptCount(receiptCount).setPaymentCount(paymentCount).setByUserId(post.userId()));
-        } else {
-            reconciliations.updateById(new FrPerfReconciliationDO().setId(existing.getId())
-                    .setIncomeCents(income).setPaidCents(paid).setNetCents(income - paid)
-                    .setReceiptCount(receiptCount).setPaymentCount(paymentCount).setByUserId(post.userId()));
+        if (existing != null) {
+            var replayed = commands.previous(post, idempotencyKey, "perf-month-reconcile", existing.getId());
+            if (replayed.isPresent()) {
+                Map<String, Object> payload = JsonUtil.parseMap(replayed.get().getPayload());
+                if (payload != null && input.equals(payload.get("request"))
+                        && payload.get("confirmation") instanceof Map<?, ?> confirmation) {
+                    // The monthly row may have been confirmed again. Its old request still gets its own receipt.
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> original = (Map<String, Object>) confirmation;
+                    return new LinkedHashMap<>(original);
+                }
+                // Pre-upgrade events contained only the period and have no detailed receipt to recover.
+                if (StrUtil.isBlank(expectedSignature) && Map.of("period", period).equals(payload)) {
+                    return reconciliationView(post, period);
+                }
+                throw exception(PERF_INPUT_INVALID, "该请求的对账版本不一致，请重新读取对账记录");
+            }
         }
+        Map<String, Object> current = currentReconciliation(post.orgId(), period);
+        if (StrUtil.isNotBlank(expectedSignature)
+                && !expectedSignature.equals(current.get("sourceSignature"))) {
+            throw exception(PERF_INPUT_INVALID, "账有变化，请刷新核对后再确认");
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>(current);
+        snapshot.put("byName", userName(post.userId()));
+        FrPerfReconciliationDO row = new FrPerfReconciliationDO().setCompanyId(post.orgId()).setPeriod(period)
+                .setIncomeCents(cents(current, "incomeCents")).setPaidCents(cents(current, "paidCents"))
+                .setNetCents(cents(current, "netCents")).setReceiptCount(((Number)current.get("receiptCount")).intValue())
+                .setPaymentCount(((Number)current.get("paymentCount")).intValue()).setByUserId(post.userId())
+                .setSourceSnapshot(JsonUtils.toJsonString(snapshot)).setUpdateTime(java.time.OffsetDateTime.now());
+        if (existing == null) reconciliations.insert(row);
+        else reconciliations.updateById(row.setId(existing.getId()));
         long recId = reconciliations.selectByPeriod(post.orgId(), period).getId();
+        Map<String, Object> saved = reconciliationView(post, period);
         commands.record(post, AGGREGATE, recId,
                 PerfSupport.nextAggregateRevision(jdbc, AGGREGATE, recId), "perf-month-reconcile",
-                Map.of("period", period), idempotencyKey);
-        return reconciliationView(post, period);
+                Map.of("request", input, "confirmation", saved), idempotencyKey);
+        return saved;
+    }
+
+    /** Current ledger and the saved confirmation remain separate until finance explicitly confirms again. */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public Map<String, Object> monthReconciliation(PostSnapshot post, String period) {
+        requirePeriod(period);
+        Map<String, Object> current = currentReconciliation(post.orgId(), period);
+        Map<String, Object> saved = reconciliationView(post, period);
+        boolean confirmed = saved.containsKey("incomeCents");
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("period", period);
+        view.put("current", current);
+        view.put("confirmed", confirmed ? saved : null);
+        view.put("needsReview", confirmed && !current.get("sourceSignature").equals(saved.get("sourceSignature")));
+        return view;
     }
 
     public List<Map<String, Object>> reconciliationList(PostSnapshot post) {
@@ -112,17 +132,84 @@ public class PerfOperatingService {
     private Map<String, Object> reconciliationView(PostSnapshot post, String period) {
         FrPerfReconciliationDO row = reconciliations.selectByPeriod(post.orgId(), period);
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("period", period);
         if (row != null) {
+            Map<String, Object> snapshot = JsonUtil.parseMap(row.getSourceSnapshot());
+            if (snapshot != null) view.putAll(snapshot);
             view.put("incomeCents", row.getIncomeCents());
             view.put("paidCents", row.getPaidCents());
             view.put("netCents", row.getNetCents());
             view.put("receiptCount", row.getReceiptCount());
             view.put("paymentCount", row.getPaymentCount());
-            view.put("byUserId", row.getByUserId());
-            view.put("updateTime", row.getUpdateTime());
+            view.put("byUserId", String.valueOf(row.getByUserId()));
+            if (!view.containsKey("byName")) view.put("byName", userName(row.getByUserId()));
+            view.put("updateTime", row.getUpdateTime().toString());
+            view.put("legacy", snapshot == null);
         }
+        view.put("period", period);
         return view;
+    }
+
+    private String userName(long userId) {
+        if (directory != null) {
+            var users = directory.usersByIds(List.of(userId));
+            if (!users.isEmpty() && StrUtil.isNotBlank(users.get(0).name())) return users.get(0).name();
+        }
+        return "员工 " + userId;
+    }
+
+    private static long cents(Map<String, Object> values, String key) {
+        return ((Number) values.get(key)).longValue();
+    }
+
+    private Map<String, Object> currentReconciliation(long companyId, String period) {
+        // One statement sees a coherent set of source rows. Counts and amounts use the same facts.
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+            SELECT 'receipt' AS kind,id::text AS id,amount_cents,'COMPANY' AS funding,received_date::text AS business_date
+            FROM fr_fin_receipt WHERE company_id=? AND status='已登记'
+                AND received_date>=?::date AND received_date<?::date
+            UNION ALL
+            SELECT 'payment',id::text,amount_cents,funding_type,pay_date::text
+            FROM fr_fin_payment WHERE company_id=? AND status='已核实' AND funding_type IN ('COMPANY','EMPLOYEE')
+                AND pay_date>=?::date AND pay_date<?::date
+            UNION ALL
+            SELECT refund_direction,id::text,amount_cents,funding_type,date::text
+            FROM fr_fin_refund WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL
+                AND (refund_direction='client' OR funding_type IN ('COMPANY','EMPLOYEE'))
+                AND date>=?::date AND date<?::date
+            ORDER BY kind,id
+            """, companyId, period + "-01", nextMonth(period), companyId, period + "-01", nextMonth(period),
+                companyId, period + "-01", nextMonth(period));
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String name : List.of("grossReceipts", "clientRefunds", "companyPaid", "companyReturned", "employeeAdvance", "employeeReturned")) {
+            out.put(name + "Cents", 0L);
+            out.put(name + "Count", 0);
+        }
+        for (Map<String, Object> row : rows) {
+            String kind = String.valueOf(row.get("kind"));
+            boolean employee = "EMPLOYEE".equals(row.get("funding"));
+            String name = switch (kind) {
+                case "receipt" -> "grossReceipts";
+                case "client" -> "clientRefunds";
+                case "payment" -> employee ? "employeeAdvance" : "companyPaid";
+                case "expense" -> employee ? "employeeReturned" : "companyReturned";
+                default -> throw new IllegalStateException("Unexpected reconciliation source " + kind);
+            };
+            out.put(name + "Cents", cents(out, name + "Cents") + ((Number)row.get("amount_cents")).longValue());
+            out.put(name + "Count", ((Number)out.get(name + "Count")).intValue() + 1);
+        }
+        long gross = cents(out, "grossReceiptsCents"), refunds = cents(out, "clientRefundsCents");
+        long companyPaid = cents(out, "companyPaidCents") - cents(out, "companyReturnedCents");
+        out.put("netReceivedCents", gross - refunds);
+        out.put("netCompanyPaidCents", companyPaid);
+        out.put("employeeNetAdvanceCents", cents(out, "employeeAdvanceCents") - cents(out, "employeeReturnedCents"));
+        // Retain existing reporting semantics: paid includes client refunds and nets supplier returns.
+        out.put("incomeCents", gross);
+        out.put("paidCents", companyPaid + refunds);
+        out.put("netCents", gross - refunds - companyPaid);
+        out.put("receiptCount", out.get("grossReceiptsCount"));
+        out.put("paymentCount", ((Number)out.get("companyPaidCount")).intValue() + ((Number)out.get("clientRefundsCount")).intValue());
+        out.put("sourceSignature", PerfSupport.signature(rows.stream().map(JsonUtils::toJsonString).toList()));
+        return out;
     }
 
     // ===================== 经营快照（只允许过去月） =====================
