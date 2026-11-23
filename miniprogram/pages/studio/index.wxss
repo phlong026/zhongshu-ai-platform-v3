@@ -151,3 +151,5 @@
 .result-text{display:block;white-space:pre-wrap;line-height:1.8;margin:24rpx 0;overflow-wrap:anywhere}
 
 .task-type-icon{width:104rpx;height:104rpx;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:20rpx;background:#f5eee5}.task-type-icon image{width:48rpx;height:48rpx}
+
+.content-source-row{display:flex;align-items:flex-start;gap:12rpx;padding:16rpx 0;border-bottom:1rpx solid var(--zs-line)}.content-source-row .flex{flex:1;min-width:0;display:flex;flex-direction:column;gap:6rpx}.content-source-row .link{flex-shrink:0}
