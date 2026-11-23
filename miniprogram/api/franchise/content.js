@@ -120,9 +120,12 @@ const clones = {
   uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
   completeUpload: id => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/complete', {}),
   quote: kind => http.get('/franchise/content/clones/quote', { kind }),
+  /** Each clone reports canRename, canDelete and canSetDefault for the active post. */
   list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),
   create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
-  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
+  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {}),
+  rename: (id, title) => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/title', { title }),
+  remove: id => http.del('/franchise/content/clones/' + encodeURIComponent(id))
 };
 module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publications, growth };
