@@ -9,13 +9,15 @@ FROM eclipse-temurin:17.0.17_10-jre-jammy@sha256:03c5b280ad53c041741552f231f5b65
 WORKDIR /opt/platform
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libheif-examples \
     && rm -rf /var/lib/apt/lists/* \
-    && ffmpeg -version && ffprobe -version && heif-convert --help \
+    && ffmpeg -version && ffprobe -version \
     && groupadd --gid 10001 platform && useradd --uid 10001 --gid 10001 --no-create-home platform \
     && install -d -m 0700 -o 10001 -g 10001 /var/lib/platform/asset-spool /var/lib/platform/training-private
 COPY --chown=10001:10001 yudao-platform-server/target/yudao-platform-server.jar ./app.jar
 COPY --from=health --chown=10001:10001 /health/Healthcheck.class ./health/Healthcheck.class
 COPY --from=health --chown=10001:10001 /health/CapabilitySmoke.class ./smoke/CapabilitySmoke.class
+COPY --chown=10001:10001 deploy/platform/media-smoke.sh ./media-smoke.sh
 USER 10001:10001
+RUN sh ./media-smoke.sh
 EXPOSE 48080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 CMD ["java", "-cp", "/opt/platform/health", "Healthcheck"]
 ENTRYPOINT ["java", "-jar", "/opt/platform/app.jar"]

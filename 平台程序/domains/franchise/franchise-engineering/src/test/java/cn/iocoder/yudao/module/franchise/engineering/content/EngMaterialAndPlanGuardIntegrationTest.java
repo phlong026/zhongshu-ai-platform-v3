@@ -175,6 +175,8 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource
     private EngPlanService planService;
     @Resource
+    private FranchiseCommands commands;
+    @Resource
     private EngCollectionService collectionsService;
     @Resource
     private EngClosureService closuresService;
@@ -596,6 +598,77 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 .extracting(String::valueOf).containsExactly(Long.toString(completed.photos().get(0)));
     }
 
+    @Test
+    void completedLegacyCorrectionRetriesAfterUpgradeWithoutChangingEvidenceOrAppendingHistory() {
+        var completed = completedInspection();
+        var command = new EngPlanService.NodeCorrectCommand(java.time.LocalDate.now(), "旧版保存的验收说明",
+                insertAsset("ENG_SITE_PHOTO", true, store.orgId()), "旧版完工日期填错");
+        String key = idem();
+        saveLegacyCorrection(completed, command, key);
+        var before = jdbc.queryForMap("SELECT revision FROM fr_eng_project WHERE id=?", projectId);
+
+        var result = as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+
+        assertThat(String.valueOf(result.get("id"))).isEqualTo(Long.toString(projectId));
+        assertCompletion(completed, java.util.List.of(command.fileAssetId()), command.note(), command.completedAt());
+        assertThat(jdbc.queryForMap("SELECT revision FROM fr_eng_project WHERE id=?", projectId)).isEqualTo(before);
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(corrections) FROM fr_eng_plan_node WHERE id=?",
+                Integer.class, nodeId)).isEqualTo(1);
+        assertThat(completionHistory(completed.recordId())).isEmpty(); // 旧版没有凭据历史，重放不能伪造一条。
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE idempotency_key=?",
+                Integer.class, "franchise:" + engineer.userId() + ":" + key)).isEqualTo(1);
+    }
+
+    @Test
+    void completedLegacyCorrectionRejectsChangedContentOrAnotherAggregateAfterUpgrade() {
+        var completed = completedInspection();
+        var command = new EngPlanService.NodeCorrectCommand(java.time.LocalDate.now(), "旧版保存的验收说明",
+                insertAsset("ENG_SITE_PHOTO", true, store.orgId()), "旧版完工日期填错");
+        String key = idem();
+        saveLegacyCorrection(completed, command, key);
+        for (var changed : java.util.List.of(
+                new EngPlanService.NodeCorrectCommand(command.completedAt().minusDays(1), command.note(), command.fileAssetId(), command.reason()),
+                new EngPlanService.NodeCorrectCommand(command.completedAt(), "更换说明", command.fileAssetId(), command.reason()),
+                new EngPlanService.NodeCorrectCommand(command.completedAt(), command.note(), completed.photos().get(0), command.reason()),
+                new EngPlanService.NodeCorrectCommand(command.completedAt(), command.note(), command.fileAssetId(), "更换原因"),
+                new EngPlanService.NodeCorrectCommand(command.completedAt(), null, null, command.reason()),
+                new EngPlanService.NodeCorrectCommand(command.completedAt(), command.note(), command.fileAssetId(),
+                        command.reason(), completed.recordId(), completed.photos().get(0)))) {
+            assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, changed, key)))
+                    .isInstanceOf(ServiceException.class);
+        }
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, nodeId + 1, command, key)))
+                .isInstanceOf(ServiceException.class);
+        long anotherProject = insertProject("另一个工程 · 升级重试校验");
+        assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, anotherProject, nodeId, command, key)))
+                .isInstanceOf(ServiceException.class);
+        // 在拒绝非法重试后，原请求仍可以确认成功。
+        as(engineer, () -> planService.correctNode(engineer, projectId, nodeId, command, key));
+        assertCompletion(completed, java.util.List.of(command.fileAssetId()), command.note(), command.completedAt());
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(corrections) FROM fr_eng_plan_node WHERE id=?",
+                Integer.class, nodeId)).isEqualTo(1);
+        assertThat(completionHistory(completed.recordId())).isEmpty();
+    }
+
+    private void saveLegacyCorrection(CompletedInspection completed, EngPlanService.NodeCorrectCommand command, String key) {
+        // 模拟 #66 之前真实写入形态：节点历史有原因，现场记录已更新为单凭据，事件只存节点与日期。
+        String history = EngPlanService.JsonList.of(java.util.Map.of(
+                "completedAt", completed.date().toString(), "note", "节点 完成更正", "reason", command.reason(),
+                "date", java.time.LocalDate.now().toString(), "actorUserId", engineer.userId()));
+        jdbc.update("UPDATE fr_eng_plan_node SET completed_at=?, corrections=CAST(? AS jsonb) WHERE id=?",
+                command.completedAt(), history, nodeId);
+        jdbc.update("UPDATE fr_eng_site_record SET occurred_at=?, note=?, file_asset_ids=CAST(? AS jsonb) WHERE id=?",
+                command.completedAt(), command.note(), EngPlanService.JsonList.of(command.fileAssetId()), completed.recordId());
+        long revision = jdbc.queryForObject("UPDATE fr_eng_project SET revision=revision+1 WHERE id=? RETURNING revision",
+                Long.class, projectId);
+        as(engineer, () -> {
+            commands.record(engineer, EngPlanService.AGGREGATE, projectId, revision, "eng-node-correct",
+                    java.util.Map.of("nodeId", nodeId, "completedAt", command.completedAt().toString()), key);
+            return null;
+        });
+    }
+
     private record CompletedInspection(long recordId, java.time.LocalDate date, java.util.List<Long> photos) {}
 
     private CompletedInspection completedInspection() {
@@ -864,13 +937,17 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     private long insertProject() {
+        return insertProject("陈先生 · 乡墅");
+    }
+
+    private long insertProject(String name) {
         long id = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status, "
                         + "manager_user_id, assigned_engineer_user_id, source_commission_id, source_type, "
                         + "revision, author_user_id, create_time, update_time) "
-                        + "VALUES (?, ?, NULL, '陈先生', '陈先生 · 乡墅', 'PENDING_START', ?, ?, ?, 'HANDOVER', "
+                        + "VALUES (?, ?, NULL, '陈先生', ?, 'PENDING_START', ?, ?, ?, 'HANDOVER', "
                         + "1, ?, now(), now())",
-                id, store.orgId(), engineer.userId(), engineer.userId(), IDS.incrementAndGet(), engineer.userId());
+                id, store.orgId(), name, engineer.userId(), engineer.userId(), IDS.incrementAndGet(), engineer.userId());
         // closure（requireActionAllowed/requireOwned 依赖）
         jdbc.update("INSERT INTO fr_eng_closure (id, company_id, project_id, create_time) "
                         + "VALUES (?, ?, ?, now())", IDS.incrementAndGet(), store.orgId(), id);

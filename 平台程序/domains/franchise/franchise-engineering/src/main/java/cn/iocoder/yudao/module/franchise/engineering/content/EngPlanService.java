@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionTermDO;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 /**
@@ -665,8 +667,20 @@ public class EngPlanService {
         payload.put("fileAssetId", cmd.fileAssetId() == null ? "" : cmd.fileAssetId().toString());
         payload.put("replacementRecordId", cmd.replacementRecordId() == null ? "" : cmd.replacementRecordId().toString());
         payload.put("replaceFileAssetId", cmd.replaceFileAssetId() == null ? "" : cmd.replaceFileAssetId().toString());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
-        if (replayed.isPresent()) {
+        var previous = commands.previous(post, idempotencyKey, "eng-node-correct", projectId);
+        if (previous.isPresent()) {
+            if (!AGGREGATE.equals(previous.get().getAggregateType())) throw exception(IDEMPOTENCY_KEY_REUSED);
+            var recorded = JsonUtils.parseTree(previous.get().getPayload());
+            if (recorded.isObject() && recorded.size() == 2 && recorded.has("nodeId") && recorded.has("completedAt")) {
+                // 旧版只记录节点和日期；用已保存结果补核其余字段，不能把旧指纹当成任意内容的通行证。
+                if (!Long.toString(nodeId).equals(recorded.path("nodeId").asText())
+                        || cmd.completedAt() == null || !cmd.completedAt().toString().equals(recorded.path("completedAt").asText())) {
+                    throw exception(IDEMPOTENCY_KEY_REUSED);
+                }
+                requireSavedLegacyCorrection(post, projectId, nodeId, cmd);
+            } else {
+                commands.replayed(post, idempotencyKey, payload);
+            }
             return projectService.detail(post, projectId);
         }
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
@@ -760,6 +774,33 @@ public class EngPlanService {
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
                 "eng-node-correct", payload, idempotencyKey);
         return projectService.detail(post, projectId);
+    }
+
+    private void requireSavedLegacyCorrection(PostSnapshot post, long projectId, long nodeId, NodeCorrectCommand cmd) {
+        if (cmd.replacementRecordId() != null || cmd.replaceFileAssetId() != null
+                || cmd.fileAssetId() == null || StrUtil.isBlank(cmd.note()) || StrUtil.isBlank(cmd.reason())) {
+            throw exception(IDEMPOTENCY_KEY_REUSED);
+        }
+        FrEngPlanNodeDO node = planNodes.selectByProject(post.orgId(), projectId).stream()
+                .filter(n -> n.getId() == nodeId).findFirst().orElseThrow(() -> exception(IDEMPOTENCY_KEY_REUSED));
+        if (!FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus()) || !cmd.completedAt().equals(node.getCompletedAt())
+                || StrUtil.isBlank(node.getCorrections())) throw exception(IDEMPOTENCY_KEY_REUSED);
+        var history = JsonUtils.parseTree(node.getCorrections());
+        if (!history.isArray() || history.isEmpty()) throw exception(IDEMPOTENCY_KEY_REUSED);
+        var last = history.get(history.size() - 1);
+        if (!StrUtil.trimToEmpty(cmd.reason()).equals(StrUtil.trimToEmpty(last.path("reason").asText()))
+                || !Long.toString(post.userId()).equals(last.path("actorUserId").asText())) {
+            throw exception(IDEMPOTENCY_KEY_REUSED);
+        }
+        var completions = siteRecords.selectByProject(post.orgId(), projectId).stream()
+                .filter(record -> record.getNodeId() != null && record.getNodeId() == nodeId
+                        && Boolean.TRUE.equals(record.getCompletion())).toList();
+        if (completions.isEmpty() || completions.stream().anyMatch(record ->
+                !cmd.completedAt().equals(record.getOccurredAt())
+                        || !StrUtil.trimToEmpty(cmd.note()).equals(StrUtil.trimToEmpty(record.getNote()))
+                        || !completionAssetIds(record).equals(List.of(cmd.fileAssetId().toString())))) {
+            throw exception(IDEMPOTENCY_KEY_REUSED);
+        }
     }
 
     // ===================== 读 =====================

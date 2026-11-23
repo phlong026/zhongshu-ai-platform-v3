@@ -328,10 +328,11 @@
           <p v-if="handoverRequirements.length" class="mb-16px">请为以下在办事项分别选择接收人，可以由不同员工承接。</p>
           <p v-else>已确认没有需要选择接收人的个人在办事项，可直接完成离职撤权。</p>
           <el-form-item v-for="item in handoverRequirements" :key="item.domain" :label="`${item.label}（${item.inFlight} 项）`">
-            <el-select v-model="handoverForm.receivers[item.domain]" class="w-full" :placeholder="handoverRoleHint(item.domain)">
-              <el-option v-for="person in receivers" :key="person.userId"
+            <el-select v-model="handoverForm.receivers[item.domain]" class="w-full" :placeholder="handoverRoleHint(item.domain)" :disabled="!receiversFor(item.domain).length">
+              <el-option v-for="person in receiversFor(item.domain)" :key="person.userId"
                 :label="`${person.name} · ${roleLabel(person.roleCode)}`" :value="person.userId" />
             </el-select>
+            <p v-if="!receiversFor(item.domain).length" class="mt-8px">暂无符合岗位要求的在岗员工，暂时无法交接该类事项。</p>
           </el-form-item>
         </template>
       </el-form>
@@ -715,18 +716,22 @@ const canSubmitImport = computed(
     importRowsReady.value &&
     importPrecheckResult.value !== null
 )
-const receivers = computed(() =>
-  Array.from(
+const receiversFor = (domain: string) => {
+  const roles = domain === 'franchise-crm'
+    ? ['sales', 'sales-lead']
+    : ['franchise-commission', 'franchise-engineering'].includes(domain)
+      ? ['engineer', 'project-manager'] : []
+  return Array.from(
     new Map(
       staff.value
-        .filter((row) => String(row.userId) !== String(handoverForm.fromUserId) && row.active)
+        .filter((row) => String(row.userId) !== String(handoverForm.fromUserId) && row.active && roles.includes(row.roleCode))
         .map((row) => [String(row.userId), row])
     ).values()
   )
-)
+}
 const canSubmitHandover = computed(() =>
   handoverPreviewReady.value && !handoverPreviewBusy.value && !handoverPreviewError.value &&
-  handoverRequirements.value.every((item) => receivers.value.some((person) =>
+  handoverRequirements.value.every((item) => receiversFor(item.domain).some((person) =>
     String(person.userId) === String(handoverForm.receivers[item.domain])))
 )
 const handoverRoleHint = (domain: string) => domain === 'franchise-crm'
@@ -748,7 +753,7 @@ const resetHandoverPreview = () => {
 const syncHandoverReceivers = () => {
   handoverForm.receivers = Object.fromEntries(Object.entries(handoverForm.receivers)
     .filter(([domain, userId]) => handoverRequirements.value.some((item) => item.domain === domain) &&
-      receivers.value.some((person) => String(person.userId) === String(userId))))
+      receiversFor(domain).some((person) => String(person.userId) === String(userId))))
 }
 const statusMeta: Record<
   string,
