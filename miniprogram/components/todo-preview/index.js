@@ -1,4 +1,3 @@
-const OwnerTodos = require('../../utils/owner-todo-view');
 Component({
   properties: {
     rows: { type: Array, value: [] },
@@ -20,7 +19,7 @@ Component({
   },
   methods: {
     renderRows(rows) {
-      const owner = this.data.ownerMode ? OwnerTodos.board(rows) : null;
+      const owner = this.data.ownerMode ? require('../../utils/owner-todo-view').board(rows) : null;
       const all = owner ? owner.rows : Array.isArray(rows) ? rows : [];
       this.__renderRows = all;
       const limit = 3;

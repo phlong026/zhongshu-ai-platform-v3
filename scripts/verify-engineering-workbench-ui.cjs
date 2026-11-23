@@ -399,8 +399,10 @@ test('工作台显示对应岗位的待办标题，积分卡异常态仍可重�
       require('node:vm').runInNewContext(fs.readFileSync(require.resolve('../miniprogram/components/todo-preview/index.js'), 'utf8'),
         {Component: value => Object.assign(definition, value)});
       const title = tag.match(/\btitle="([^"]+)"/)?.[1] || definition.properties.title.value;
-      const heading = rendered('components/todo-preview/index.wxml', {appearance:'home', title});
-      assert.ok(heading.some(node => node.text === (file.includes('admin/home') ? '待我决策' : '今日待办')), file);
+      const ownerMode = file.includes('admin/home');
+      if (ownerMode) assert.match(tag, /owner-mode="{{true}}"/);
+      const heading = rendered('components/todo-preview/index.wxml', {appearance:'home', title, ownerMode});
+      assert.ok(heading.some(node => node.text === '今日待办'), file);
     }
     assert.ok(!source.includes('platformTodos.count'), file);
   }
