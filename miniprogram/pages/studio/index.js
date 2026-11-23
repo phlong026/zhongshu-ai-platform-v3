@@ -655,7 +655,7 @@ this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(e
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 async openPublicationVideo(e) {
  const id=String(e.currentTarget.dataset.id||this.data.recordId||this.data.detail&&this.data.detail.id||'');
- if(!/^\\d+$/.test(id))return wx.showToast({title:'发布记录编号无效',icon:'none'});
+ if(!/^\d+$/.test(id))return wx.showToast({title:'发布记录编号无效',icon:'none'});
  try {
   const result=await contentApi.publications.playback(id);
   const url=String(result&&result.resultUrl||'');
