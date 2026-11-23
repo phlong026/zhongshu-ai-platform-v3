@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 
 /**
  * 获客聚合（D-1.5-11，1.16 零新表）：fr_lead/fr_customer 按来源（内容发布:{publicationId}）×内容×转化的
@@ -21,6 +22,52 @@ public class ContentGrowthService {
 
     public ContentGrowthService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /**
+     * Customer-visible video consultation sources. A publication must still be published and belong to
+     * the current organization; lead rows are additionally filtered by the current sales visibility.
+     */
+    public List<Map<String, Object>> customerSources(PostSnapshot post, long customerId) {
+        List<Map<String, Object>> customers = jdbcTemplate.queryForList(
+                "SELECT owner_user_id, team_id FROM fr_customer WHERE id = ? AND company_id = ?",
+                customerId, post.orgId());
+        if (customers.isEmpty()) return List.of();
+        Map<String, Object> customer = customers.get(0);
+        long ownerId = ((Number) customer.get("owner_user_id")).longValue();
+        Long teamId = customer.get("team_id") == null ? null : ((Number) customer.get("team_id")).longValue();
+        boolean boss = "boss".equals(post.roleCode()) || "owner".equals(post.roleCode());
+        boolean lead = "sales-lead".equals(post.roleCode());
+        boolean sales = "sales".equals(post.roleCode());
+        if (!boss && !(sales && ownerId == post.userId())
+                && !(lead && (ownerId == post.userId() || teamId != null && post.managedTeamIds().contains(teamId)))) {
+            return List.of();
+        }
+        String base = "SELECT p.id::text AS publicationId, p.work_id::text AS workId, p.title, "
+                + "p.published_url AS publishedUrl, l.id::text AS leadId, l.need, l.status, "
+                + "l.create_time AS createTime FROM fr_lead l "
+                + "JOIN fr_content_publication p ON p.company_id = l.company_id "
+                + "AND l.source = ? || p.id AND p.status = 'published' "
+                + "WHERE l.company_id = ? AND l.customer_id = ? ";
+        if (boss) {
+            return jdbcTemplate.queryForList(base + "ORDER BY l.create_time DESC", SOURCE_PREFIX, post.orgId(), customerId);
+        }
+        if (sales) {
+            return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
+                    SOURCE_PREFIX, post.orgId(), customerId, post.userId());
+        }
+        List<Long> teams = post.managedTeamIds();
+        if (teams == null || teams.isEmpty()) {
+            return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
+                    SOURCE_PREFIX, post.orgId(), customerId, post.userId());
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(teams.size(), "?"));
+        Object[] args = new Object[3 + teams.size() + 1];
+        args[0] = SOURCE_PREFIX; args[1] = post.orgId(); args[2] = customerId;
+        args[3] = post.userId();
+        for (int i = 0; i < teams.size(); i++) args[4 + i] = teams.get(i);
+        return jdbcTemplate.queryForList(base + "AND (l.registrar_user_id = ? OR l.team_id IN (" + placeholders + ")) "
+                + "ORDER BY l.create_time DESC", args);
     }
 
     public Map<String, Object> summary(long companyId) {
@@ -49,7 +96,7 @@ public class ContentGrowthService {
 
         // 按发布记录维度：每条 published 的客资数
         List<Map<String, Object>> perPublication = jdbcTemplate.queryForList(
-                "SELECT p.id::text AS id, p.title, p.published_url, COUNT(l.id) AS leads, "
+                "SELECT p.id::text AS id, p.id::text AS publicationId, p.work_id::text AS workId, p.title, p.published_url AS publishedUrl, COUNT(l.id) AS leads, "
                         + "SUM(CASE WHEN l.status IN ('LINKED','CONVERTED') THEN 1 ELSE 0 END) AS converted "
                         + "FROM fr_content_publication p "
                         + "LEFT JOIN fr_lead l ON l.company_id = p.company_id "
