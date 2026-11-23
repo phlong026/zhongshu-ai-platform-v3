@@ -195,6 +195,32 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void recordsVisitProgressAndClearsTheReminderOnlyOnce() {
+        long id = capture(salesA1, phone()).customerId();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var contact = new FollowCommand("已约好到店", today, "FOLLOW", null,
+                new CustomerService.FollowChanges("PROPOSAL", "AWAITING_REPLY", false));
+        var afterContact = as(salesA1, () -> customers.follow(salesA1, id, contact, "contact"));
+        assertThat(afterContact.customer().getSalesStage()).isEqualTo("PROPOSAL");
+        assertThat(afterContact.customer().getNextVisitDate()).isEqualTo(today);
+
+        var visit = new FollowCommand("", null, "VISIT", today,
+                new CustomerService.FollowChanges(null, "ARRIVED", true));
+        as(salesA1, () -> customers.follow(salesA1, id, visit, "arrived"));
+        var replay = as(salesA1, () -> customers.follow(salesA1, id, visit, "arrived"));
+        assertThat(replay.customer().getVisited()).isTrue();
+        assertThat(replay.customer().getSalesStage()).isEqualTo("PROPOSAL");
+        assertThat(replay.customer().getNextVisitDate()).isNull();
+        assertThat(replay.follows()).extracting(CustomerFollowDO::getOutcome)
+                .containsExactlyInAnyOrder("AWAITING_REPLY", "ARRIVED");
+
+        var invalidVisit = new FollowCommand("", null, "FOLLOW", today,
+                new CustomerService.FollowChanges(null, "ARRIVED", false));
+        assertError(() -> as(salesA1, () -> customers.follow(salesA1, id, invalidVisit, null)),
+                FOLLOW_INPUT_INVALID);
+    }
+
+    @Test
     void replayingTheSameIdempotencyKeyDoesNotFollowTwice() {
         long id = capture(salesA1, phone()).customerId();
 
