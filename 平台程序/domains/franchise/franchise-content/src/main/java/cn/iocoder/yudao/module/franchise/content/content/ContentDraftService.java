@@ -11,11 +11,14 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
@@ -73,7 +76,7 @@ public class ContentDraftService {
                     "INSERT INTO fr_content_draft (id, company_id, author_user_id, task_id, kind, title, script, "
                             + "configuration, status) VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), 'draft')",
                     id, companyId, userId, taskId, kind,
-                    title == null || title.isBlank() ? defaultTitle(task) : clip(title, 200),
+                    title == null || title.isBlank() ? ContentTaskTitle.forViewer(task, companyId, userId) : clip(title, 200),
                     scriptTextOf(task, kind),
                     JsonUtils.toJsonString(configuration));
         } catch (org.springframework.dao.DuplicateKeyException e) {
@@ -91,11 +94,51 @@ public class ContentDraftService {
     }
 
     public List<FrContentDraftDO> listWorks(long companyId, long userId) {
-        return drafts.selectList(new LambdaQueryWrapper<FrContentDraftDO>()
+        List<FrContentDraftDO> rows = drafts.selectList(new LambdaQueryWrapper<FrContentDraftDO>()
                 .eq(FrContentDraftDO::getCompanyId, companyId)
                 .eq(FrContentDraftDO::getAuthorUserId, userId)
                 .eq(FrContentDraftDO::getDeleted, false)
                 .orderByDesc(FrContentDraftDO::getUpdateTime));
+        List<FrContentDraftDO> recoverable = rows.stream()
+                .filter(row -> blankTitle(row) || legacyDefaultTitle(row))
+                .toList();
+        List<Long> taskIds = recoverable.stream().map(FrContentDraftDO::getTaskId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, WorkTitle> titles = new HashMap<>();
+        if (!taskIds.isEmpty()) {
+            // Match both author and organization before reading any input for a legacy title.
+            new NamedParameterJdbcTemplate(jdbcTemplate).query(
+                    "SELECT id, kind, input_snapshot FROM fr_content_task "
+                            + "WHERE company_id = :companyId AND author_user_id = :userId AND id IN (:taskIds)",
+                    Map.of("companyId", companyId, "userId", userId, "taskIds", taskIds), row -> {
+                        String kind = row.getString("kind");
+                        String title = ContentTaskTitle.fromSnapshot(kind, row.getString("input_snapshot"));
+                        titles.put(row.getLong("id"), new WorkTitle(title, !ContentTaskTitle.untitled(kind).equals(title)));
+                    });
+        }
+        for (FrContentDraftDO row : recoverable) {
+            WorkTitle candidate = titles.get(row.getTaskId());
+            if (blankTitle(row)) {
+                row.setTitle(candidate == null ? ContentTaskTitle.untitled(row.getKind()) : candidate.title());
+            } else if (candidate != null && candidate.hasTheme()) {
+                row.setTitle(candidate.title());
+            }
+        }
+        return rows;
+    }
+
+    private record WorkTitle(String title, boolean hasTheme) {}
+
+    private static boolean blankTitle(FrContentDraftDO row) {
+        return row.getTitle() == null || row.getTitle().isBlank();
+    }
+
+    private static boolean legacyDefaultTitle(FrContentDraftDO row) {
+        return switch (row.getKind() == null ? "" : row.getKind()) {
+            case "digital" -> "数字人口播作品".equals(row.getTitle());
+            case "ai_video" -> "AI 视频作品".equals(row.getTitle());
+            case "remix" -> "口播文案作品".equals(row.getTitle());
+            default -> false;
+        };
     }
 
     public FrContentDraftDO updateWorkStatus(long companyId, long workId, String status) {
@@ -224,14 +267,6 @@ public class ContentDraftService {
     }
 
     // ---------------- 工具 ----------------
-
-    private static String defaultTitle(FrContentTaskDO task) {
-        return switch (task.getKind()) {
-            case "digital" -> "数字人口播作品";
-            case "ai_video" -> "AI 视频作品";
-            default -> "口播文案作品";
-        };
-    }
 
     private static String scriptTextOf(FrContentTaskDO task, String draftKind) {
         if ("remix".equals(draftKind) && task.getResultSnapshot() != null) {

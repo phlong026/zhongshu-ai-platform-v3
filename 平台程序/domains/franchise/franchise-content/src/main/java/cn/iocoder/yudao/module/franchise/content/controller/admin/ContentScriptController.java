@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.content.controller.admin;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentScriptService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentTaskTitle;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentScriptDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentScriptMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
@@ -47,7 +48,8 @@ public class ContentScriptController {
         PostSnapshot post = post();
         String key = requireIdem(idem);
         var task = scripts.parseLink(post, String.valueOf(body.get("url")), key);
-        return success(Map.of("taskId", task.getId(), "status", task.getStatus()));
+        return success(Map.of("taskId", task.getId(), "status", task.getStatus(),
+                "title", ContentTaskTitle.forViewer(task, post.orgId(), post.userId())));
     }
 
     @PostMapping("/scripts/extract")
@@ -62,7 +64,8 @@ public class ContentScriptController {
                 body.get("sourceUrl") == null ? null : String.valueOf(body.get("sourceUrl")),
                 doubleOrNull(body.get("durationSec")),
                 body.get("sha256") == null ? null : String.valueOf(body.get("sha256")), key);
-        return success(Map.of("taskId", task.getId(), "status", task.getStatus()));
+        return success(Map.of("taskId", task.getId(), "status", task.getStatus(),
+                "title", ContentTaskTitle.forViewer(task, post.orgId(), post.userId())));
     }
 
     @PostMapping("/scripts/optimize")
@@ -73,7 +76,8 @@ public class ContentScriptController {
         PostSnapshot post = post();
         String key = requireIdem(idem);
         var task = scripts.optimize(post, body, key);
-        return success(Map.of("taskId", task.getId(), "status", task.getStatus()));
+        return success(Map.of("taskId", task.getId(), "status", task.getStatus(),
+                "title", ContentTaskTitle.forViewer(task, post.orgId(), post.userId())));
     }
 
     @GetMapping("/scripts")
