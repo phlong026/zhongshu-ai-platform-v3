@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 final class AssetSpool {
     private static final String LOCK = ".asset-spool.lock";
     private static final Pattern SNAPSHOT = Pattern.compile("fr-asset-v2-[0-9]+[.]tmp");
+    private static final Pattern MEDIA_DIRECTORY = Pattern.compile("fr-media-v1-[0-9]+");
     private final Path directory;
     private final long capacity;
     private FileChannel owner;
@@ -43,6 +44,15 @@ final class AssetSpool {
                 if (channel.tryLock() == null) throw new CapacityBusy();
             } catch (OverlappingFileLockException busy) { throw new CapacityBusy(); }
             retained = 0;
+            try (var children = Files.list(directory)) {
+                for (Path child : children.toList()) {
+                    if (!MEDIA_DIRECTORY.matcher(child.getFileName().toString()).matches()
+                            || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;
+                    try (var orphan = Files.walk(child)) {
+                        for (Path path : orphan.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+                    } catch (IOException stillOccupied) { /* Account unreclaimed bytes below. */ }
+                }
+            }
             try (var paths = Files.walk(directory)) {
                 for (var it = paths.iterator(); it.hasNext();) {
                     Path path = it.next();

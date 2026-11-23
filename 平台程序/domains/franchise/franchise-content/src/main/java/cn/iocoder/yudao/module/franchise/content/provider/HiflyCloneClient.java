@@ -33,6 +33,22 @@ public class HiflyCloneClient {
         }catch(RuntimeException e){throw new ContentProviderException.Unavailable("素材直传通道暂不可用，请稍后重试");}
         return new UploadGrant(url,type,file);
     }
+
+    /** Grant URL was validated by uploadGrant; no platform/provider authorization is sent to the object host. */
+    public void uploadFile(UploadGrant grant, byte[] bytes) {
+        var uri = java.net.URI.create(grant.url());
+        if (!"https".equalsIgnoreCase(uri.getScheme()) || !"upload.hifly.cc".equalsIgnoreCase(uri.getHost())
+                || uri.getRawUserInfo() != null || uri.getPort() != -1 || bytes == null || bytes.length == 0)
+            throw new ContentProviderException.Unavailable("素材上传通道暂不可用");
+        try {
+            var response = transport.exchange("PUT", grant.url(), Map.of("Content-Type", grant.contentType()), bytes, 90);
+            if (response.status() < 200 || response.status() >= 300)
+                throw new ContentProviderException.Unavailable("素材上传未完成，请重试确认");
+        } catch (java.io.IOException | InterruptedException error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            throw new ContentProviderException.Unavailable("素材上传暂未确认，请重试确认");
+        }
+    }
     public String createByFile(String kind,String title,String fileId,ProviderCallAudit audit) {
         var payload="AVATAR".equals(kind)?Map.<String,Object>of("title",title,"file_id",fileId,"aigc_flag",1)
                 :Map.<String,Object>of("title",title,"file_id",fileId,"voice_type",8);

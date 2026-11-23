@@ -71,7 +71,10 @@ public class ContentAssetController {
         var actor = actor(post, account);
         requireContentType(actor, assetId);
         var completed = assets.completeUpload(actor, assetId);
-        return success(Map.of("assetId", completed.assetId(), "status", completed.uploadStatus()));
+        var result = new java.util.LinkedHashMap<String, Object>();
+        result.put("assetId", completed.assetId()); result.put("status", completed.uploadStatus());
+        if (completed.rejectedReason() != null) result.put("message", completed.rejectedReason());
+        return success(result);
     }
 
     @PostMapping("{assetId}/download-tickets")

@@ -27,6 +27,14 @@ public class ContentCloneController {
     }
     public record FileFormat(String kind,String mimeType) {}
     public record FileReceipt(long sizeBytes,String sha256) {}
+    public record AssetUpload(String kind, long assetId) {}
+
+    @PostMapping("/personas/{personaId}/clone-asset-uploads")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
+    public CommonResult<Map<String,Object>> assetUpload(@PathVariable("personaId") long id, @RequestBody AssetUpload body) {
+        var post = posts.require(); clones.assertAccess(post, body.kind());
+        return success(uploads.importAsset(post, id, body.kind(), body.assetId()));
+    }
 
     @PostMapping("/personas/{personaId}/clone-file-tickets")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")

@@ -81,7 +81,7 @@ class LocalAssetServiceTest {
     }
 
     @Test
-    void maximumSizeVideoIsPublishedFromDiskWithItsOriginalDigest(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+    void maximumSizeFileWithOnlyAnMp4HeaderIsRejectedInsteadOfPublished(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
         var blobs=new LocalObjectStorageAdapter(dir.resolve("objects").toString());
         configureStorage(blobs);
         current = new PostSnapshot(11,22,33,"store","sales",null,false,Set.of());
@@ -100,10 +100,11 @@ class LocalAssetServiceTest {
         try(var input=java.nio.file.Files.newInputStream(file)) {
             service.receiveUpload(ACTOR,ticket.assetId(),ticket.uploadUrl().split("token=")[1],input);
         }
-        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
-        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
+        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("REJECTED");
+        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("REJECTED");
         var key=jdbc.queryForObject("SELECT object_key FROM fr_asset WHERE id=?",String.class,ticket.assetId());
-        assertThat(java.nio.file.Files.mismatch(file,dir.resolve("objects").resolve(key))).isEqualTo(-1);
+        assertThat(key).isNull();
+        assertThatThrownBy(() -> service.contentMetadata(ACTOR,ticket.assetId())).isInstanceOf(RuntimeException.class);
     }
 
     @Test void stagingCapacityIsReusableAfterFailure(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
@@ -116,9 +117,12 @@ class LocalAssetServiceTest {
         try(var entries=java.nio.file.Files.list(dir)){ assertThat(entries.map(p->p.getFileName().toString())).containsExactly(".asset-spool.lock"); }
         var retained=java.nio.file.Files.write(dir.resolve("unrelated.bin"),new byte[30]);
         var orphan=java.nio.file.Files.write(dir.resolve("fr-asset-v2-777.tmp"),new byte[60]);
+        var decoded=java.nio.file.Files.createDirectory(dir.resolve("fr-media-v1-12345"));
+        java.nio.file.Files.write(decoded.resolve("decoded-1.png"),new byte[25]);
         var restarted=new AssetSpool(dir,100);
         restarted.recover();
         assertThat(orphan).doesNotExist();
+        assertThat(decoded).doesNotExist();
         assertThat(retained).hasSize(30);
         assertThatThrownBy(()->restarted.reserve(71)).isInstanceOf(AssetSpool.CapacityBusy.class);
         try(var lease=restarted.reserve(70);var live=lease.file()) {
@@ -127,6 +131,29 @@ class LocalAssetServiceTest {
             assertThatThrownBy(()->another.reserve(1)).isInstanceOf(AssetSpool.CapacityBusy.class);
             assertThat(live.path).exists();
         }
+    }
+
+    @Test void contentMetadataAndInternalReadsUseAcceptedBytesNotTheOriginalUpload(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        current = new PostSnapshot(11,22,33,"store","sales",null,false,Set.of());
+        var source=dir.resolve("phone.wav");
+        var process=new ProcessBuilder("ffmpeg","-nostdin","-y","-v","error","-f","lavfi","-i","sine=frequency=440","-t","6",source.toString()).redirectErrorStream(true).redirectOutput(dir.resolve("ffmpeg.log").toFile()).start();
+        assertThat(process.waitFor(20,java.util.concurrent.TimeUnit.SECONDS)).isTrue(); assertThat(process.exitValue()).isZero();
+        byte[] original=java.nio.file.Files.readAllBytes(source);
+        var ticket=service.createUploadTicket(ACTOR,"CONTENT_ASSET","audio/wav",original.length,sha(original));
+        service.receiveUpload(ACTOR,ticket.assetId(),tokenOf(ticket.uploadUrl()),new ByteArrayInputStream(original));
+        assertThat(service.completeUpload(ACTOR,ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED");
+        var metadata=service.contentMetadata(ACTOR,ticket.assetId()); var canonical=service.readContentMedia(ACTOR,ticket.assetId());
+        assertThat(metadata.mimeType()).isEqualTo("audio/mpeg"); assertThat(canonical.mimeType()).isEqualTo(metadata.mimeType());
+        assertThat(metadata.sha256()).isEqualTo(sha(canonical.bytes())).isNotEqualTo(sha(original));
+        assertThat(metadata.sizeBytes()).isEqualTo(canonical.bytes().length); assertThat(canonical.durationSeconds()).isBetween(5.9,6.2);
+        assertThat(jdbc.queryForObject("SELECT sha256 FROM fr_asset WHERE id=?",String.class,ticket.assetId())).isEqualTo(sha(original));
+        assertThat(jdbc.queryForObject("SELECT declared_mime FROM fr_asset WHERE id=?",String.class,ticket.assetId())).isEqualTo("audio/wav");
+        current = new PostSnapshot(12,99,33,"store","sales",null,false,Set.of());
+        var colleague = new Actor(33,777,99,12);
+        assertThatThrownBy(() -> service.readContentMedia(colleague,ticket.assetId())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        current = new PostSnapshot(11,22,33,"store","sales",null,false,Set.of());
+        jdbc.update("UPDATE fr_asset SET accepted_sha256=? WHERE id=?","0".repeat(64),ticket.assetId());
+        assertThatThrownBy(() -> service.readContentMedia(ACTOR,ticket.assetId())).hasMessageContaining("摘要不一致");
     }
 
     @BeforeEach
@@ -216,8 +243,8 @@ class LocalAssetServiceTest {
         long finance = pending(PDF);
         service.completeUpload(ACTOR, finance);
         current = new PostSnapshot(11L, 22L, 33L, "store", "sales", null, false, Set.of());
-        byte[] audio = new byte[]{'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0, 1};
-        var ticket = service.createUploadTicket(ACTOR, "CONTENT_ASSET", "audio/mpeg", audio.length, sha(audio));
+        byte[] audio = png();
+        var ticket = service.createUploadTicket(ACTOR, "CONTENT_ASSET", "image/png", audio.length, sha(audio));
         service.receiveUpload(ACTOR, ticket.assetId(), ticket.uploadUrl().substring(ticket.uploadUrl().indexOf("token=") + 6),
                 new ByteArrayInputStream(audio));
         service.completeUpload(ACTOR, ticket.assetId());
