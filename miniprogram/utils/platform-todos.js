@@ -24,11 +24,11 @@ const LABELS = {
 const MAX_SAFE_CENTS = 9007199254740991; // Number.MAX_SAFE_INTEGER
 
 function initialState() {
-  return { status: 'idle', rows: [], count: 0, anomaly: 0, warning: '', message: '', postKey: '' };
+  return { status: 'idle', rows: [], count: 0, anomaly: 0, warning: '', message: '', postKey: '', refreshing: false, refreshError: '' };
 }
 
 function postKeyOf(post) {
-  return post ? [post.tenantId || '1', post.orgId, post.postId].join(':') : '';
+  return post ? [post.tenantId || '1', post.orgId, post.postId, post.orgType, post.roleCode].join(':') : '';
 }
 
 /** 触发决策：reset（回 idle）/ skip（自动合并）/ load（发起请求并携带三重有效性上下文） */
@@ -36,17 +36,29 @@ function planLoad(state, post, ctx) {
   if (!post) return { action: 'reset' };
   const postKey = postKeyOf(post);
   const sessionGen = ctx.sessionGen();
-  const merged = !ctx.manual && state.status === 'loading'
+  const merged = !ctx.manual && (state.status === 'loading' || state.refreshing)
     && state.postKey === postKey && state.sessionGen === sessionGen;
   if (merged) return { action: 'skip' };
   return { action: 'load', postKey, loadGen: ctx.nextLoadGen(), sessionGen };
+}
+
+/** 同会话同岗位的成功快照可原位刷新；身份变化或首次加载必须清空旧内容。 */
+function canRetain(state, ctx) {
+  return ['ready', 'partial', 'partial-empty'].includes(state.status)
+    && state.postKey === ctx.postKey && state.sessionGen === ctx.sessionGen;
+}
+
+function loadingState(state, ctx) {
+  return canRetain(state, ctx)
+    ? { ...state, refreshing: true, refreshError: '' }
+    : { ...initialState(), status: 'loading', postKey: ctx.postKey, sessionGen: ctx.sessionGen };
 }
 
 /** 请求成功：三重上下文（loadGen/sessionGen/postKey）与当前一致才写入，否则丢弃 */
 function applyResponse(state, res, ctx, now) {
   if (!valid(ctx, now)) return { state, changed: false };
   if (!res || typeof res !== 'object' || !Array.isArray(res.items)) {
-    return { state: degrade(state, '待办暂时无法加载'), changed: true };
+    return { state: degrade(state, '待办暂时无法加载', ctx), changed: true };
   }
   let anomaly = 0;
   const failedDomains = Array.isArray(res.failedDomains)
@@ -75,23 +87,26 @@ function applyResponse(state, res, ctx, now) {
       status, rows, count, postKey: ctx.postKey, sessionGen: ctx.sessionGen,
       anomaly: state.anomaly + anomaly,
       warning: [warning, mismatch].filter(Boolean).join('；'),
-      message: ''
+      message: '', refreshing: false, refreshError: ''
     }
   };
 }
 
-/** 请求失败（网络/超时/code≠0/403/形状非法）：degraded，保留会话 */
+/** 刷新失败保留同 scope 快照；权限失效清空，首载失败仍为 degraded。 */
 function applyFailure(state, err, ctx, now) {
   if (!valid(ctx, now)) return { state, changed: false };
-  return { changed: true, state: { ...initialState(), status: 'degraded', postKey: ctx.postKey, sessionGen: ctx.sessionGen, message: (err && err.message) || '' } };
+  const revoked = err && ([401, 403, 1103000002].includes(Number(err.code)) || err.postInvalid);
+  return { changed: true, state: degrade(state, (err && err.message) || '待办暂时无法加载', ctx, !revoked) };
 }
 
 function valid(ctx, now) {
   return ctx.loadGen === now.loadGen && ctx.sessionGen === now.sessionGen && ctx.postKey === now.postKey;
 }
 
-function degrade(state, message) {
-  return { ...initialState(), status: 'degraded', postKey: state.postKey, sessionGen: state.sessionGen, message };
+function degrade(state, message, ctx, retain = true) {
+  return retain && canRetain(state, ctx)
+    ? { ...state, refreshing: false, refreshError: message }
+    : { ...initialState(), status: 'degraded', postKey: ctx.postKey, sessionGen: ctx.sessionGen, message };
 }
 
 /** 条目清洗：非法返回 null（调用方计 anomaly） */
@@ -125,4 +140,4 @@ function formatAmount(cents) {
   return '¥' + (cents / 100).toFixed(2);
 }
 
-module.exports = { initialState, postKeyOf, planLoad, applyResponse, applyFailure, rowOf, typeLabelOf, formatAmount, LABELS };
+module.exports = { initialState, postKeyOf, planLoad, loadingState, applyResponse, applyFailure, rowOf, typeLabelOf, formatAmount, LABELS };

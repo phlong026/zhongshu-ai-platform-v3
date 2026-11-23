@@ -15,24 +15,33 @@ function init(page) {
 /** onShow 或手动重载入口；manual=true 强制新请求（绕过自动合并） */
 function refresh(page, manual) {
   const auth = require('../api/auth'); // 惰性引用，避免打包循环
-  const post = auth.currentApiPost();
+  const post = http.token() ? auth.currentApiPost() : null;
   const state = page.data.platformTodos || PT.initialState();
   const decision = PT.planLoad(state, post, {
     manual: !!manual,
     sessionGen: () => http.sessionGeneration(),
     nextLoadGen: () => { page.__ptLoadGen = (page.__ptLoadGen || 0) + 1; return page.__ptLoadGen; }
   });
-  if (decision.action === 'reset') { page.setData({ platformTodos: PT.initialState() }); return; }
+  if (decision.action === 'reset') {
+    page.__ptLoadGen = (page.__ptLoadGen || 0) + 1;
+    page.setData({ platformTodos: PT.initialState() });
+    return;
+  }
   if (decision.action === 'skip') return;
   const ctx = { loadGen: decision.loadGen, sessionGen: decision.sessionGen, postKey: decision.postKey };
-  page.setData({ platformTodos: { ...PT.initialState(), status: 'loading', postKey: decision.postKey, sessionGen: decision.sessionGen } });
+  page.setData({ platformTodos: PT.loadingState(state, ctx) });
   todos.list().then(res => {
     const r = PT.applyResponse(page.data.platformTodos, res, ctx, current(page));
     if (r.changed) page.setData({ platformTodos: r.state });
   }).catch(err => {
     if (err && err.silent) return; // 旧会话的 401 已被 http 层静默丢弃
     if (err && err.code === 401) { // 当前会话 401：http 层已清会话并回调 onUnauthorized，视图直接回 idle
-      page.setData({ platformTodos: PT.initialState() });
+      // http 清会话会推进 sessionGen；仅清除此请求仍持有的旧视图，不碰已载入的新身份。
+      const shown = page.data.platformTodos;
+      if (shown.postKey === ctx.postKey && shown.sessionGen === ctx.sessionGen
+          && (page.__ptLoadGen === ctx.loadGen || !http.token())) {
+        page.setData({ platformTodos: PT.initialState() });
+      }
       return;
     }
     const r = PT.applyFailure(page.data.platformTodos, err, ctx, current(page));
@@ -52,7 +61,7 @@ function open(page, e) {
 
 function current(page) {
   const auth = require('../api/auth');
-  const post = auth.currentApiPost();
+  const post = http.token() ? auth.currentApiPost() : null;
   return { loadGen: page.__ptLoadGen || 0, sessionGen: http.sessionGeneration(), postKey: post ? PT.postKeyOf(post) : '' };
 }
 
