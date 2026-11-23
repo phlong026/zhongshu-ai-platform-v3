@@ -15,6 +15,18 @@ const platformMetricCards=(m,taskCount=0)=>[{label:'已登记收款',value:displ
 // P1 批6：台账行来源前缀（r-=收款 p-=付款 f-=退款）→ 撤销动作按来源判定
 const sourceKindOf=key=>key&&key.indexOf('r-')===0?'receipt':(key&&key.indexOf('p-')===0?'payment':'refund');
 const {routeValue}=require('../../../utils/view-container');
+const closingRows=s=>!s?[]:s.legacy?[
+ {label:'原确认收款',value:displayFinanceMoney(s.incomeCents),count:s.receiptCount},
+ {label:'原确认净流出',value:displayFinanceMoney(s.paidCents),count:s.paymentCount},
+ {label:'原确认结余',value:displayFinanceMoney(s.netCents)}
+]:[
+ ['已登记收款','grossReceipts'],['客户退款','clientRefunds'],['净实收','netReceived'],
+ ['公司实付（含报销）','companyPaid'],['支出退回公司','companyReturned'],['公司净支出','netCompanyPaid'],
+ ['收支结余','net'],['员工垫付','employeeAdvance'],['垫付退回员工','employeeReturned']
+].map(([label,key])=>({label,value:displayFinanceMoney(s[key+'Cents']),count:s[key+'Count']}));
+const closingTime=value=>{if(!value)return '';const [time]=confirmationTime(value);return Number.isFinite(time)?new Date(time+8*3600000).toISOString().slice(0,16).replace('T',' '):String(value);};
+const confirmationTime=value=>{const text=String(value||''),fraction=text.match(/\.(\d+)/),time=Date.parse(text.replace(/\.(\d+)/,(_,digits)=>'.'+digits.padEnd(3,'0').slice(0,3)));return [time,((fraction&&fraction[1])||'').padEnd(9,'0').slice(3,9)];};
+const isNewerConfirmation=(left,right)=>{if(!left)return false;const [a,af]=confirmationTime(left.updateTime),[b,bf]=confirmationTime(right.updateTime);return a>b||(a===b&&af>bf);};
 Page({
  data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
  onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.options={...o,bookScope:routeValue(o.bookScope)};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({selectedMonth:/^\d{4}-(0[1-9]|1[0-2])$/.test(o.month||'')?o.month:'',view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
@@ -31,7 +43,7 @@ Page({
   if(this.__financeIdentity===financeIdentity)return false;
   this.__financeIdentity=financeIdentity;this.__messageSourceOpened=false;this.__homeStageOpened=false;this.__designReceipt=null;this.__financeLoadedIdentity='';this.__workbenchLoadedIdentity='';
   // 身份变化使旧锁owner与登记代次同时失效；旧Promise只能清自己的token，不能覆盖新岗位状态。
-  this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;
+  this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;this.__reconcileRequest=null;this.__monthClosingSeq=(this.__monthClosingSeq||0)+1;this.setData({monthClosing:null});
   this.wbGeneration=(this.wbGeneration||0)+1;this.setData({wbForm:null,wbBusy:false,workbenchBooks:[],reimbursementRows:[],workbenchStaff:[],collectionDeclarations:[],financialStages:[],bookResult:null,bookEntries:[],bookSummary:[],bookScope:''});this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
   this.__financeFacts=null;this.__journeyCash=null;this.__entryOrigin=null;this.__entryOptions=null;this.setData({journeyEnabled:false,journeyResult:null,journeyChoice:null,journeyCashRows:[],journeyPayables:[],journeyDeclaration:null,platformFinance:null,platformRegister:null,reconciliation:null,deskHome:null,busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false,paymentPending:false,paymentRetry:false,paymentNotice:''});
   return true;
@@ -106,7 +118,7 @@ Page({
   ...clean(),ready:true,title:views[view]||views.desk,platformNotice:{projects:'项目收支暂无平台视图，请前往「收支 · 对账」查看',project:'项目账目暂无平台视图，请前往「收支 · 对账」查看',partners:'加盟商往来即将上线',partner:'加盟商往来即将上线',statement:'设计款到账进度即将上线'}[view]||(view==='flows'&&!['ledger','reconcile'].includes(this.data.flowTab)?'该列表暂无平台数据，登记与台账请使用「流水」与登记入口':''),deskHome:{allowed:true,hq,lead:post.lead===true,name:post.nickname||post.userName||'财务同事',title:'财务工作台',company:post.orgName||'',date:'',sample:false,period:month,periodText:month,metrics:platformMetricCards(emptyMetrics),tasks:[],previewTasks:this.data.deskHome&&this.data.deskHome.previewTasks||[],taskCount:this.data.deskHome&&this.data.deskHome.taskCount||0,tasksUrl:D.url('tasks'),shortcuts:PF.shortcuts(hq),focus:this.data.deskHome&&this.data.deskHome.focus||[],focusUrl:D.url(hq?'partners':'progress')}});this.syncPlatformTasks();const pgAlive=httpApi.requestGuard('platformFinance'); // M08-T02/I03：A/B换岗乱序、退出、连续刷新——旧响应不得写当前页（sessionGen+序号双校验）
 const profileAlive=httpApi.requestGuard('financeProfile');httpApi.get('/platform/profile/mine').then(profile=>{if(profileAlive()&&profile&&profile.nickname)this.setData({'deskHome.name':profile.nickname});}).catch(error=>{if(profileAlive())console.warn('[finance-desk] profile lookup failed',{code:error&&error.code});});
 Promise.all([financeApi.receipts(),financeApi.payments(),financeApi.refunds(),financeApi.bankFlows(),financeApi.payables(),financeApi.receipts('待登记')]).then(([receipts,payments,refunds,flows,payables,pendingReceipts])=>{if(!pgAlive())return;this.__financeFacts={receipts,payments,refunds,payables};const m=PF.metrics(receipts,payments,refunds,month);const led=PF.ledgerRows(receipts,payments,refunds,this.data.flowScope==='all'?'':month);const refundedByReceipt=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection!=='expense').reduce((map,r)=>{map[r.receiptId]=(map[r.receiptId]||0)+(r.amountCents||0);return map;},{});const refundable=(receipts||[]).filter(r=>r.status==='已登记').map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents,refundableCents:r.amountCents-(refundedByReceipt[r.id]||0)}));const expenseRefundedByPayment=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection==='expense').reduce((map,r)=>{map[r.paymentId]=(map[r.paymentId]||0)+(r.amountCents||0);return map;},{});const expenseRefundable=(payments||[]).filter(p=>p.status==='已核实').map(p=>({id:p.id,label:'付款#'+p.id+' ¥'+PF.yuan(p.amountCents)+(p.payDate?' · '+p.payDate:'')+(p.transactionNo?' · '+p.transactionNo:''),amountCents:p.amountCents,refundableCents:p.amountCents-(expenseRefundedByPayment[p.id]||0)}));const payableOptions=PF.payableProgress(payables,payments,refunds).filter(p=>p.canPay).map(p=>({id:p.id,sourceType:p.sourceType,label:(p.name||({FULL:'设计费',FIRST:'设计首款',TAIL:'设计尾款',engineering:'材料采购'}[p.stage])||p.stage||p.recipient||'费用付款')+' 未付 ¥'+(PF.yuan(p.remainingCents)||'0.00'),totalCents:p.totalCents,paidCents:p.paidCents,remainingCents:p.remainingCents}));const flowRows=(led.rows||[]).map(r=>{const sourceKind=sourceKindOf(r.key);return{id:r.key,name:r.name,category:r.type,sign:r.sign,amountCents:r.amountCents,amountText:(r.sign==='+'?'':'-')+'¥'+PF.yuan(r.amountCents),status:r.status,date:r.date,dateText:r.date,detail:r.type,detailText:r.type+' '+r.status,tone:r.sign==='+'?'':'negative',revisionVersion:r.revisionVersion,sourceKind,canVoid:PF.canVoidPayment(post.roleCode,sourceKind,r.status)}});this.ledgerSource=flowRows;this._refundRows=refunds||[];this.setData({platformFinance:{status:'ready',month,metrics:m,ledger:led,bankFlows:(flows||[]).filter(f=>f.status==='待匹配')},platformRegister:{payables:payableOptions,refundable:refundable,expenseRefundable:expenseRefundable,pendingReceipts:(pendingReceipts||[]).map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents||0}))},platformLedger:flowRows.slice(0,PAGE_SIZE),ledgerAllCount:flowRows.length,ledgerPage:1,'deskHome.metrics':platformMetricCards(m,this.data.deskHome&&this.data.deskHome.taskCount||0)});if(this.refreshJourney)this.refreshJourney();}).catch(e=>{if(!pgAlive())return;this.setData({platformFinance:{status:'degraded',message:PF.errorMessage(e)},'deskHome.metrics':platformMetricCards({received:'—',paid:'—',refunded:'—',net:'—'},this.data.deskHome&&this.data.deskHome.taskCount||0),ledgerAllCount:0,ledgerPage:1});});// M08-T08 批次#34/R1 P2-2：对账独立于台账六接口并行启动（不串行依赖、台账失败仍拉取），同 pgAlive 守卫
-financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>displayFinanceMoney(c);this.setData({reconciliation:{status:'ready',month:rec.month,grossText:fx(rec.grossReceiptsCents),refundsText:fx(rec.clientRefundsCents),netText:fx(rec.netReceivedCents),abnormalCents:rec.abnormalPendingCents||0,abnormalText:fx(rec.abnormalPendingCents),abnormalCount:rec.abnormalPendingCount||0,datePendingText:fx(rec.abnormalDatePendingCents),datePendingCount:rec.abnormalDatePendingCount||0}});}).catch(err=>{if(!pgAlive())return;this.setData({reconciliation:{status:'degraded',message:PF.errorMessage(err)}});});},
+financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>displayFinanceMoney(c);this.setData({reconciliation:{status:'ready',month:rec.month,grossText:fx(rec.grossReceiptsCents),refundsText:fx(rec.clientRefundsCents),netText:fx(rec.netReceivedCents),abnormalCents:rec.abnormalPendingCents||0,abnormalText:fx(rec.abnormalPendingCents),abnormalCount:rec.abnormalPendingCount||0,datePendingText:fx(rec.abnormalDatePendingCents),datePendingCount:rec.abnormalDatePendingCount||0}});}).catch(err=>{if(!pgAlive())return;this.setData({reconciliation:{status:'degraded',message:PF.errorMessage(err)}});});if(this.data.flowTab==='reconcile')this.loadMonthClosing(month);},
  refreshFinanceTasks(){PTPage.refresh(this,true);},
  retryPlatformFinance(){this.loadPlatformFinance();},
  openFinanceShortcut(e){const type=e.currentTarget.dataset.type;if(type&&this.openRegister){if(this.rememberEntryOrigin)this.rememberEntryOrigin();this.setData({view:'flows',title:views.flows,flowTab:'ledger'});return this.openRegister({currentTarget:{dataset:{type}}});}return this.go(e);},
@@ -127,7 +139,7 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>dis
  restoreNavigationState(){this.refresh();},
  hasWorkspaceSubpage(){return !!this.data.journeyEnabled&&(!!this.data.wbForm||!!this.data.registerType||!!this.data.journeyResult||!!this.data.journeyDeclaration||['book','flows','reimbursements','progress'].includes(this.data.view));},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
- refresh(){if(this.data.platformApiMode)return this.renderPlatformShell(); // M+：平台 API 态跳过全部本地数据分支
+ refresh(){if(this.data.platformApiMode){if(this.data.view==='flows'&&this.data.flowTab==='reconcile')this.loadMonthClosing();return this.renderPlatformShell();} // M+：平台 API 态跳过全部本地数据分支
   // 切生产收口：本地账簿渲染体（M.load/D.flows/D.projectRows 本地链）已下线——非平台态统一错误态
   return this.setData({...clean(),error:auth.currentApiPost()?'当前岗位无财务权限，请从财务岗进入':'请先登录后端账号'});
  },
@@ -139,11 +151,43 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>dis
  month(e){if(this.data.platformApiMode){const value=e&&e.detail&&e.detail.value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value||''))return;this.setData({selectedMonth:value,period:value,periodText:value});return this.loadPlatformFinance();} // M+：平台态账期固定当月，不写本地月份偏好
   // 切生产收口：本地月份偏好写入（D.setPeriod 写 storage）下线
   wx.showToast({title:'请先登录财务岗位后操作',icon:'none'});},financeMonth(e){this.month(e);},
- reconcileBook(){ // M+：本地对账留痕（M.mutate）已下线，改走平台 operating.reconcile；失败仅提示不回落本地
-  if(this.data.busy)return;
-  const month=(this.data.reconciliation&&this.data.reconciliation.month)||new Date().getFullYear()+'-'+('0'+(new Date().getMonth()+1)).slice(-2);
+ loadMonthClosing(month){
+  const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode))return;
+  month=month||this.data.selectedMonth||(this.data.platformFinance&&this.data.platformFinance.month)||new Date().getFullYear()+'-'+('0'+(new Date().getMonth()+1)).slice(-2);
+  const sequence=this.__monthClosingSeq=(this.__monthClosingSeq||0)+1,guard=httpApi.requestGuard('monthClosing');
+  const previous=this.data.monthClosing&&this.data.monthClosing.period===month?this.data.monthClosing:{};
+  const retained={current:previous.current||null,currentRows:previous.currentRows||[],confirmed:previous.confirmed||null,confirmedRows:previous.confirmedRows||[],confirmedAt:previous.confirmedAt||'',needsReview:!!previous.needsReview};
+  this.setData({monthClosing:{status:'loading',period:month,...retained}});
+  const alive=()=>!this.__disposed&&!this.__financeHidden&&guard()&&sequence===this.__monthClosingSeq;
+  return Promise.resolve().then(()=>perfApi.operating.reconciliation(month)).then(result=>{
+   if(!alive())return;
+   if(!result||result.period!==month||!result.current||!result.current.sourceSignature)throw new Error('对账数据暂时无法加载，请重试');
+   this.setData({monthClosing:{status:'ready',period:month,current:result.current,currentRows:closingRows(result.current),confirmed:result.confirmed||null,confirmedRows:closingRows(result.confirmed),confirmedAt:closingTime(result.confirmed&&result.confirmed.updateTime),needsReview:!!result.needsReview}});
+  }).catch(error=>{if(alive())this.setData({monthClosing:{status:'degraded',period:month,...retained,message:PF.errorMessage(error)}});});
+ },
+ retryMonthClosing(){return this.loadMonthClosing();},
+ reconcileBook(){
+  const closing=this.data.monthClosing;
+  if(this.data.busy||!closing||closing.status!=='ready'||(closing.confirmed&&!closing.needsReview)||!closing.current||!closing.current.sourceSignature)return;
+  const period=closing.period,signature=closing.current.sourceSignature;
+  let request=this.__reconcileRequest;
+  if(!request||request.period!==period||request.signature!==signature){request={period,signature,key:financeApi.idemKey('month-reconcile')};this.__reconcileRequest=request;}
   const busyToken=this.beginFinanceBusy();if(!busyToken)return;
-  perfApi.operating.reconcile(month).then(()=>{if(!this.ownsFinanceBusy(busyToken))return;wx.showToast({title:'本月对账已完成并留痕',icon:'none'});this.loadPlatformFinance();}).catch(e=>{if(this.ownsFinanceBusy(busyToken))wx.showToast({title:(e&&(e.message||e.msg))||'对账失败，请稍后重试',icon:'none'});}).finally(()=>this.finishFinanceBusy(busyToken));
+  return perfApi.operating.reconcile(request.period,request.key,request.signature).then(saved=>{
+   if(!this.ownsFinanceBusy(busyToken))return;
+   if(!saved||saved.period!==period||saved.sourceSignature!==signature)throw new Error('对账结果未确认，请沿用本次请求重试');
+   this.__reconcileRequest=null;
+   if(this.__disposed||this.__financeHidden||!this.data.monthClosing||this.data.monthClosing.period!==period)return;
+   const latest=this.data.monthClosing;
+   const confirmed=isNewerConfirmation(latest.confirmed,saved)?latest.confirmed:saved,current=latest.current||closing.current;
+   this.setData({monthClosing:{...latest,current,confirmed,confirmedRows:closingRows(confirmed),confirmedAt:closingTime(confirmed.updateTime),needsReview:current.sourceSignature!==confirmed.sourceSignature}});
+   wx.showToast({title:'本月对账已完成并留痕',icon:'none'});
+   this.loadMonthClosing(period);
+  }).catch(error=>{
+   if(!this.ownsFinanceBusy(busyToken)||this.__disposed||this.__financeHidden||!this.data.monthClosing||this.data.monthClosing.period!==period)return;
+   wx.showToast({title:(error&&(error.message||error.msg))||'对账未确认，请重试',icon:'none'});
+   if(Number(error&&error.code)===1116000001){this.__reconcileRequest=null;this.loadMonthClosing(period);}
+  }).finally(()=>this.finishFinanceBusy(busyToken));
  },
  switchWorkspaceTab(tab){if(!['finance-home','finance-books','profile'].includes(tab.key))return false;const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode))return false;if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return true;this.wbGeneration=(this.wbGeneration||0)+1;this._registerSeq=(this._registerSeq||0)+1;this.__entryOrigin=null;this.__entryOptions=null;this.setData({wbForm:null,registerType:'',journeyResult:null,journeyDeclaration:null,bookEntryDetail:null});const next=tab.key==='profile'?'profile':tab.key==='finance-home'?'desk':post.orgType==='headquarters'?'flows':'projects';this.tabStates=this.tabStates||{};this.tabStates[this.data.view]={keyword:this.data.keyword,filter:this.data.filter,flowTab:this.data.flowTab,flowScope:this.data.view==='flows'?this.data.flowScope:'period',category:this.data.category,statusFilter:this.data.statusFilter};const saved=this.tabStates[next]||{};this.options={view:next};this.id='';this.setData({...clean(),ready:true,view:next,keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',...saved,flowScope:next==='flows'?(saved.flowScope||'period'):'period',...(next==='flows'?{flowTab:saved.flowTab||'ledger'}:{})});if(next==='profile')this.showFinanceProfile();else if(!this.__platformActions||this.__financeLoadedIdentity!==this.__financeIdentity)this.onShow();else this.refresh();wx.pageScrollTo({scrollTop:0,duration:0});return true;},
  back(){N.back({skipLocal:true,fallback:D.url(this.data.hq?'partners':'projects')});},home(){N.home();}

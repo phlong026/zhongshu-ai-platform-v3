@@ -346,7 +346,7 @@ async function main() {
     performanceApi.operating.reconcile = () => new Promise((resolve, reject) => { reconcileRequest = { resolve, reject }; });
     session = 60; post = { postId: 'reconcile-A', orgId: 'org-A' };
     switched.onShow(); switched.loads = 0;
-    switched.data.reconciliation = { month: '2026-11' };
+    switched.data.monthClosing = { status: 'ready', period: '2026-11', current: { sourceSignature: 'reviewed-version' } };
     switched.reconcileBook();
     assert.equal(switched.data.busy, true, 'A身份对账已挂起');
     session = 61; post = { postId: 'bank-B7', orgId: 'org-B' };
@@ -366,7 +366,7 @@ async function main() {
 
     session = 62; post = { postId: 'reconcile-A-fail', orgId: 'org-A' };
     switched.onShow(); switched.loads = 0;
-    switched.data.reconciliation = { month: '2026-11' };
+    switched.data.monthClosing = { status: 'ready', period: '2026-11', current: { sourceSignature: 'reviewed-version' } };
     switched.reconcileBook();
     session = 63; post = { postId: 'bank-B8', orgId: 'org-B' };
     switched.onShow(); switched.loads = 0;

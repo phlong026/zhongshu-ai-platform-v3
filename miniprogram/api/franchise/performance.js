@@ -81,7 +81,9 @@ const operating = {
   /** 快照列表 */
   snapshots: (period) => http.get('/franchise/performance/operating/snapshots', { period }),
   /** 月末对账（幂等；按月覆盖写） */
-  reconcile: (period, key) => http.post('/franchise/performance/operating/reconcile', { period }, idem(key, 'mreconcile')),
+  reconcile: (period, key, sourceSignature) => http.post('/franchise/performance/operating/reconcile', { period, ...(sourceSignature ? { sourceSignature } : {}) }, idem(key, 'mreconcile')),
+  /** 当前收支及上次确认，按月份独立读取 */
+  reconciliation: (period) => http.get('/franchise/performance/operating/reconciliation', { period }),
   /** 对账记录列表 */
   reconciliations: () => http.get('/franchise/performance/operating/reconciliations')
 };
