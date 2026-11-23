@@ -58,7 +58,7 @@ public class RechargePaymentService {
         }
     }
 
-    private record Payer(long bindingId, String openid) {
+    private record Payer(long bindingId, String openid, String appid) {
     }
 
     private record PrepayClaim(OrderSnapshot order, long attemptId, String token) {
@@ -102,13 +102,13 @@ public class RechargePaymentService {
     private OrderResponse createOrder(long planId, String key, Long version) {
         PaymentModeService.Snapshot modeSnapshot = paymentMode();
         if (modeSnapshot.mode() == PaymentMode.REAL) requireChannel("XPAY");
-        if (properties.getAppid() == null || properties.getAppid().isBlank()) throw new ServiceException(503, "小程序身份配置未就绪");
+        if (modeSnapshot.mode() == PaymentMode.REAL && (properties.getAppid() == null || properties.getAppid().isBlank())) throw new ServiceException(503, "小程序身份配置未就绪");
         PointAccountService.requireText(key, 128);
         return transaction("createOrder", () -> {
             var wallet = scope.require();
             var payer = requirePayer(wallet);
             String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
-                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), properties.getAppid(), payer.openid(), modeSnapshot.mode().name(), modeSnapshot.version())));
+                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), payer.appid(), payer.openid(), modeSnapshot.mode().name(), modeSnapshot.version())));
             if (version != null) hash = DigestUtil.sha256Hex("COMPANY:"+version+":"+hash);
             var replay = jdbc.query("SELECT * FROM pf_recharge_order WHERE tenant_id = ? AND wallet_id = ? AND idempotency_key = ?",
                     (rs, row) -> readOrder(rs), wallet.tenantId(), wallet.id(), key);
@@ -150,7 +150,7 @@ public class RechargePaymentService {
                     """, id, wallet.tenantId(), wallet.id(), wallet.orgId(), wallet.actorId(), wallet.postId(), payer.bindingId(),
                     "PFW" + id, planId, JsonUtils.toJsonString(Map.of("name", plan.get("name"), "version", plan.get("version"),
                             "priceFen", plan.get("price_fen"), "basePoints", base, "bonusPoints", bonus, "wxProductId", productId)),
-                    plan.get("price_fen"), base, bonus, properties.getAppid(), payer.openid(),
+                    plan.get("price_fen"), base, bonus, payer.appid(), payer.openid(),
                     modeSnapshot.mode()==PaymentMode.MOCK?"MOCK":"XPAY",
                     modeSnapshot.mode()==PaymentMode.MOCK?"MOCK":properties.getOfferId(),
                     modeSnapshot.mode()==PaymentMode.MOCK?0:properties.getEnvironment(), key, hash,
@@ -409,16 +409,16 @@ public class RechargePaymentService {
     private Payer requirePayer(WalletScope.Wallet wallet) {
         requirePermission(wallet, "platform:wallet:recharge");
         var rows = jdbc.query("""
-                SELECT b.id, b.openid, b.mobile_hash, u.mobile FROM pf_wechat_binding b JOIN system_users u ON u.id = b.user_id
-                WHERE b.appid = ? AND b.user_id = ? AND b.status = 'ACTIVE'
+                SELECT b.id, b.openid, b.appid, b.mobile_hash, u.mobile FROM pf_wechat_binding b JOIN system_users u ON u.id = b.user_id
+                WHERE (? IS NULL OR b.appid = ?) AND b.user_id = ? AND b.status = 'ACTIVE'
                   AND u.tenant_id = ? AND u.status = 0 AND u.deleted = 0 FOR SHARE OF b, u
                 """, (rs, row) -> {
                     String mobile = rs.getString("mobile");
                     if (mobile == null || mobile.isBlank() || !DigestUtil.sha256Hex(mobile.trim()).equals(rs.getString("mobile_hash"))) {
                         throw WalletException.unavailable();
                     }
-                    return new Payer(rs.getLong("id"), rs.getString("openid"));
-                }, properties.getAppid(), wallet.actorId(), wallet.tenantId());
+                    return new Payer(rs.getLong("id"), rs.getString("openid"), rs.getString("appid"));
+                }, properties.getAppid(), properties.getAppid(), wallet.actorId(), wallet.tenantId());
         if (rows.size() != 1 || rows.get(0).openid() == null || rows.get(0).openid().isBlank()) throw WalletException.unavailable();
         return rows.get(0);
     }
@@ -438,8 +438,8 @@ public class RechargePaymentService {
     private void requireOriginalPayer(WalletScope.Wallet wallet, Payer payer, OrderSnapshot order) {
         if (order.actorId() != wallet.actorId() || order.postId() != wallet.postId()
                 || order.bindingId() != payer.bindingId() || !order.openid().equals(payer.openid())
-                || !order.appid().equals(properties.getAppid())
-                || (order.paymentMode() == PaymentMode.REAL && (!order.offerId().equals(properties.getOfferId())
+                || !order.appid().equals(payer.appid())
+                || (order.paymentMode() == PaymentMode.REAL && (!order.appid().equals(properties.getAppid()) || !order.offerId().equals(properties.getOfferId())
                     || order.environment() != properties.getEnvironment()))) throw WalletException.unavailable();
     }
 
