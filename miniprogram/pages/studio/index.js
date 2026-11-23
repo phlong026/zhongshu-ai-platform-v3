@@ -544,7 +544,10 @@ async dismissTask(id) {
   this.setData({tasks:(this.data.tasks||[]).filter(row=>String(row.id)!==String(id)),taskCount:Math.max(0,this.data.taskCount-1)});
   wx.showToast({title:'已从任务中心移除',icon:'success'});
  } catch(error) {
-  if(alive())wx.showToast({title:P.degradeMessage(error),icon:'none'});
+  if(alive()) {
+   this.setData({tasks:(this.data.tasks||[]).map(row=>({...row,dismissing:String(row.id)===String(id)?false:row.dismissing}))});
+   wx.showToast({title:P.degradeMessage(error),icon:'none'});
+  }
  } finally {this.__dismissingTask=null;}
 },
 
