@@ -37,10 +37,11 @@ test('finance rapid taps retain a dedicated workbench target and drain from the 
 });
 
 test('finance home, books and shared profile switch inside one page and preserve the book filters',()=>{
- let definition,profileShows=0,coldLoads=0;const post={roleCode:'finance',orgType:'store'};
- vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/pages/admin/finance-desk/index.js'),'utf8'),{Page:d=>definition=d,require:id=>id==='../../../api/auth'?{currentApiPost:()=>post}:id==='../../profile/profile-page'?()=>({onShow(){profileShows++;},open(){},logout(){}}):{},wx:{pageScrollTo(){}}});
+ let definition,profileShows=0,profileHides=0,coldLoads=0;const post={roleCode:'finance',orgType:'store'};
+ vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/pages/admin/finance-desk/index.js'),'utf8'),{Page:d=>definition=d,require:id=>id==='../../../api/auth'?{currentApiPost:()=>post}:id==='../../profile/profile-page'?()=>({onShow(){profileShows++;},onHide(){profileHides++;},open(){},logout(){}}):{},wx:{pageScrollTo(){}}});
  const p={...definition,__platformActions:true,__financeIdentity:'159',__financeLoadedIdentity:'159',data:{...definition.data,platformApiMode:true,view:'projects',keyword:'验收账本',flowTab:'ledger',category:'材料'},setData(patch){Object.assign(this.data,patch)},refresh(){assert.equal(this.data.ready,true);},onShow(){coldLoads++;this.__financeLoadedIdentity=this.__financeIdentity;}};
  assert.equal(p.switchWorkspaceTab({key:'profile'}),true);assert.equal(p.data.view,'profile');assert.equal(profileShows,1);p.switchWorkspaceTab({key:'finance-home'});p.switchWorkspaceTab({key:'finance-books'});assert.equal(p.data.view,'projects');assert.equal(p.data.keyword,'验收账本');assert.equal(p.data.category,'材料');assert.equal(coldLoads,0);
+ assert.equal(profileHides,1,'离开共用我的视图必须使挂起资料和课程回调失效');
  p.__financeLoadedIdentity='';p.switchWorkspaceTab({key:'finance-home'});assert.equal(coldLoads,1);post.roleCode='sales';assert.equal(p.switchWorkspaceTab({key:'profile'}),false);
  const tabs=require('../miniprogram/utils/organization').navigation({active:true,loggedIn:true,role:'finance',orgType:'store'}).tabs;assert.equal(tabs.length,3);assert(tabs.every(t=>!t.native&&t.url.startsWith('/pages/admin/finance-desk/index')));
 });

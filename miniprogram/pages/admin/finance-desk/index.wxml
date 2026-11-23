@@ -6,7 +6,7 @@
 <view class="fin-page">
  <view wx:if="{{paymentNotice}}" class="journey-source"><text>{{paymentNotice}}</text><button wx:if="{{paymentPending}}" disabled="{{!paymentRetry}}" bindtap="retryPendingPayment">核验原单并重试</button></view>
 
- <block wx:if="{{view==='profile'&&ready}}"><template is="profile" data="{{loggedIn,name,role,company,identityText,identityOrganization,identityRole,learningAvailable,learningLabel,avatar,unread,progress,courseImage,courseTitle,entries,showStoreServices,showAdminMap,ownerProfile,managementEntries,nested:true}}"/></block>
+ <block wx:if="{{view==='profile'&&ready}}"><template is="profile" data="{{loggedIn,name,role,company,identityText,identityOrganization,identityRole,learningAvailable,learningLabel,learningLoading,learningError,courseId,profileLoading,profileError,avatar,unread,progress,courseImage,courseTitle,entries,showStoreServices,showAdminMap,ownerProfile,managementEntries,nested:true}}"/></block>
  <block wx:elif="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome,platformFinance:platformFinance,platformTodos:platformTodos}}"/></block>
  <block wx:else>
  <brand-header id="finance-page-header" wx:if="{{journeyEnabled&&(wbForm||registerType||journeyDeclaration||journeyResult||designReceiptForm)}}" action account-font title="{{journeyResult?'登记结果':journeyDeclaration?'核实业主到账':designReceiptForm?'核实设计款到账':wbForm?journeyEntryTitles[wbForm.type]:registerType==='payment'&&registerForm.reimbursement?'办理报销':journeyEntryTitles[registerType]}}" return-label="{{journeyReturnLabel||'返回上一页'}}" busy="{{wbBusy||registerBusy||revisionBusy||designReceiptBusy||busy}}" bind:return="returnFinanceEntry"/>
