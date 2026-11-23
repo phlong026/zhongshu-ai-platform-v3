@@ -24,7 +24,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   let page, scope = 'post-1', generation = 1;
   const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
-  const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
+  const studio = { title: '', imageFor: () => '/assets/creation-house.jpg', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => 'token', sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
@@ -349,12 +349,12 @@ test('digital submission accepts the real task DTO id and saves the same complet
   const h=harness('studio/index.js',{tasks:taskApi(async(url,body,headers)=>{
     if(url==='/franchise/content/tasks'){
       requests.push([plain(body),headers['Idempotency-Key']]);
-      return {id,kind:'digital',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
+      return {id,kind:'digital',title:'数字人口播｜张工',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
     }
     assert.equal(url,'/franchise/content/tasks/'+id+'/save-work');saves.push([id,body.title]);return {workId:'90071992547409932'};
   })});
   Object.assign(h.page.data,{script:'同一人物口播',title:'张工',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
-  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.deepEqual(saves,[['90071992547409931','张工']]);
+  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.equal(requests[0][0].title,'张工');assert.deepEqual(saves,[['90071992547409931','数字人口播｜张工']]);
   assert.deepEqual(h.calls,[['poll',id]]);
   assert.equal(h.page.data.digitalRetry,false);assert.equal(h.storage.size,0);assert.match(h.navigations[0],/view=tasks/);
 });
@@ -376,7 +376,7 @@ test('digital retry after a lost response replays the frozen request and resumes
   const retry=harness('studio/index.js',{tasks},'sales-lead',{storage:first.storage});
   retry.page.restoreDigitalAttempt();retry.page.data.script='重试不应替换原稿';await retry.page.generateDigitalOnline();
   assert.deepEqual(requests[0],requests[1]);assert.equal(accepted.size,1);
-  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.deepEqual(saves,[{title:'原标题'}]);
+  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.equal(requests[0][0].title,'原标题');assert.deepEqual(saves,[{}]);
   assert.equal(retry.page.data.digitalRetry,false);assert.equal(retry.storage.size,0);assert.match(retry.navigations[0],/view=tasks/);
 });
 
@@ -490,6 +490,124 @@ test('task center hides explicit test records but retains real text and video ta
  assert.equal(h.page.data.tasks[0].outputType,'text');assert.equal(h.page.data.tasks[1].stageLabel,'正在处理');
  assert.equal(h.page.data.tasks[1].progress,undefined);assert.match(h.page.data.tasks[1].image,/video-filled/);
 });
+test('task center and result detail preserve the input title across generation states', async () => {
+  const inputTitle = '文案二创｜乡墅采光';
+  const task = { id: '91', kind: 'copy', status: 'RUNNING', title: inputTitle };
+  const h = harness('studio/index.js', { tasks: { page: async () => [task], get: async () => task } });
+  h.page.data.view = 'tasks';
+  await h.page.syncApiTasks();
+  assert.equal(h.page.data.tasks[0].title, inputTitle);
+  Object.assign(task, { status: 'SUCCEEDED', result: { text: '另一段生成后的开场白' } });
+  await h.page.syncApiTasks();
+  assert.equal(h.page.data.tasks[0].title, inputTitle);
+  h.page.data.view = 'result';
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, inputTitle);
+  assert.equal(h.page.data.activeTask.resultText, '另一段生成后的开场白');
+});
+
+test('legacy task lists show a short available topic or a type-specific missing-title label', () => {
+  const h = harness('studio/index.js');
+  const initial = { id: '91', status: 'SUCCEEDED' };
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'copy', result: { text: '旧主题\n第二行' } }).title, '文案改写｜旧主题');
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'link_parse', result: { title: '参考片段', text: '解析结果' } }).title, '链接解析｜参考片段');
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'ai_video' }).title, 'AI视频｜未命名创作');
+});
+
+test('saving a video uses the authoritative title without persisting a legacy display placeholder', async () => {
+  const saves = [];
+  const task = { id: '91', kind: 'ai_video', status: 'SUCCEEDED', resultUrl: 'https://video.example/work.mp4' };
+  const h = harness('studio/index.js', { tasks: {
+    get: async () => task,
+    resultUrlStatus: async () => ({ expired: false }),
+    saveWork: async (id, title) => { saves.push([id, title]); return { workId: '92' }; }
+  } });
+  Object.assign(h.page.data, { view: 'result', taskId: task.id });
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, 'AI视频｜未命名创作');
+  await h.page.saveResult();
+  task.title = 'AI视频｜雨天的庭院';
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  await h.page.saveResult();
+  assert.deepEqual(saves, [[task.id, ''], [task.id, task.title]]);
+  h.page.videoError();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultError, '');
+  await h.page.saveResult();
+  assert.equal(saves.length, 2);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  assert.match(h.page.data.activeTask.image, /video-filled/);
+});
+
+test('saved work cards preserve a named work and identify missing covers by task type', async () => {
+  const h = harness('studio/index.js', { drafts: { works: async () => [
+    { id: '19', taskId: '91', kind: 'ai_video', title: '我的自定义作品名' },
+    { id: '20', taskId: '92', kind: 'digital', title: '数字人口播｜如何选址' }
+  ] } });
+  h.page.data.view = 'works';
+  await h.page.syncApiWorks();
+  assert.deepEqual(plain(h.page.data.works.map(work => [work.title, work.image, work.kindCaption])), [
+    ['我的自定义作品名', '/assets/video-filled.png', 'AI视频'],
+    ['数字人口播｜如何选址', '/assets/person-filled.png', '']
+  ]);
+});
+
+test('a completed video with missing media keeps its result context and can be reread', async () => {
+  const task = { id: '91', kind: 'digital', status: 'SUCCEEDED', title: '数字人口播｜雨天的庭院' };
+  let expire = false, statusFailed = false, statusChecks = 0;
+  const h = harness('studio/index.js', { tasks: {
+    get: async () => task,
+    resultUrlStatus: async () => {
+      statusChecks++;
+      if (statusFailed) throw Error('视频状态读取失败');
+      return { expired: expire };
+    }
+  } });
+  Object.assign(h.page.data, { view: 'result', taskId: task.id });
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultError, '');
+  assert.equal(statusChecks, 0);
+  task.resultUrl = 'https://video.example/work.mp4';
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, true);
+  statusFailed = true;
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultUrlNote, '暂时无法读取视频');
+  assert.equal(h.page.data.resultError, '');
+  statusFailed = false;
+  expire = true;
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultUrlNote, '视频链接已失效');
+  assert.equal(h.page.data.resultError, '');
+});
+
+test('a failed task read keeps its own error and retry available', async () => {
+  const h = harness('studio/index.js', { tasks: { get: async () => { throw Error('读取任务失败'); } } });
+  Object.assign(h.page.data, { view: 'result', taskId: '91' });
+  await h.page.loadApiResult('91');
+  assert.equal(h.page.data.activeTask, null);
+  assert.equal(h.page.data.resultError, '读取任务失败');
+  assert.equal(h.page.data.resultLoading, false);
+});
+
+test('result and works templates separate the empty state, inline retry and available video actions', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/index.wxml'), 'utf8');
+  const result = source.split("view === 'result'")[1].split("view === 'publish'")[0];
+  assert.match(result, /resultError && !activeTask/);
+  const placeholder = result.match(/<view wx:else class="[^"]*result-media-placeholder[^"]*">([\s\S]*?)<\/view>/)?.[1];
+  assert.match(placeholder || '', /bindtap="retryResult"/);
+  assert.doesNotMatch(placeholder, /kindLabel|成果待读取/);
+  assert.match(result, /wx:if="{{activeTask.outputType==='video' && activeTask.videoReady}}"[^>]*result-actions/);
+  const works = source.split("view === 'works'")[1].split("view === 'recent'")[0];
+  assert.match(works, /<block wx:elif=[^>]*>\s*<button wx:for="{{works}}"/);
+  assert.match(works, /<\/block>\s*<view wx:else class="empty">暂无已保存作品/);
+});
+
 test('task filter switches and account changes reject late task list responses',async()=>{
  const first=deferred(),second=deferred();let n=0;const h=harness('studio/index.js',{tasks:{page:()=>++n===1?first.promise:second.promise}});h.page.data.view='tasks';
  const a=h.page.syncApiTasks();h.page.data.taskFilter=2;const b=h.page.syncApiTasks();

@@ -261,6 +261,6 @@ test('LIVE-04 templates expose separate loading, failure and true empty states',
   for (const state of ['worksLoading', 'worksError', 'recordsLoading', 'recordsError']) {
     assert.match(wxml, new RegExp(state), 'template must render ' + state);
   }
-  assert.match(wxml, /!worksLoading\s*&&\s*!worksError\s*&&\s*!works\.length/);
+  assert.match(wxml, /wx:elif="{{works\[0\]}}">[\s\S]*?wx:for="{{works}}"[\s\S]*?<\/block>\s*<view wx:else class="empty">暂无已保存作品/);
   assert.match(wxml, /!recordsLoading\s*&&\s*!recordsError\s*&&\s*!records\.length/);
 });

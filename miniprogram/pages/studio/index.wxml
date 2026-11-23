@@ -24,19 +24,34 @@
     <block wx:elif="{{view === 'tasks'}}">
       <view class="studio-tabs filter-tabs"><button wx:for="{{taskTabs}}" wx:key="*this" class="{{taskFilter === index ? 'active' : ''}}" data-index="{{index}}" bindtap="changeTaskFilter">{{item}}</button></view>
       <view wx:if="{{tasksLoading && taskCount === 0}}" class="empty">正在加载任务…</view><view wx:elif="{{tasksError}}" class="empty">{{tasksError}}</view>
-      <block wx:elif="{{taskCount > 0}}"><view wx:for="{{tasks}}" wx:key="id" class="task-swipe-shell {{item.swiped?'is-swiped':''}}"><view class="task-swipe-action"><button class="task-dismiss-button" data-id="{{item.id}}" catchtap="dismissTaskTap" disabled="{{item.dismissing}}">{{item.dismissing?'移除中…':'移除'}}</button></view><view class="creation-card task-card" data-id="{{item.id}}" bindtouchstart="onTaskTouchStart" bindtouchmove="onTaskTouchMove" bindtouchend="onTaskTouchEnd" bindlongpress="onTaskLongPress"><view class="task-type-icon"><image src="{{item.image}}" mode="aspectFit"/></view><view class="task-info"><view class="task-title"><text>{{item.title}}</text></view><text class="task-subtitle studio-muted">{{item.kindLabel}}</text><view class="task-badges"><view class="task-badge {{item.status==='completed'?'green':item.status==='failed'?'red':'warm'}}"><text>{{item.stageLabel}}</text></view></view><text wx:if="{{item.status==='failed'}}" class="task-failure-note studio-muted">{{item.failedReason||'处理失败，请查看详情后重试。'}}</text><text wx:elif="{{item.status==='uncertain'}}" class="task-failure-note studio-muted">提交结果确认中，请稍后刷新查看。</text><button class="studio-primary task-action" data-id="{{item.id}}" bindtap="taskAction"><text>{{item.saveRetryable?'重试保存':item.status==='generating'?'查看进度':item.status==='completed'?'查看结果':'查看详情'}}</text></button></view></view></view>
+      <block wx:elif="{{taskCount > 0}}"><view wx:for="{{tasks}}" wx:key="id" class="task-swipe-shell {{item.swiped?'is-swiped':''}}"><view class="task-swipe-action"><button class="task-dismiss-button" data-id="{{item.id}}" catchtap="dismissTaskTap" disabled="{{item.dismissing}}">{{item.dismissing?'移除中…':'移除'}}</button></view><view class="creation-card task-card" data-id="{{item.id}}" bindtouchstart="onTaskTouchStart" bindtouchmove="onTaskTouchMove" bindtouchend="onTaskTouchEnd" bindlongpress="onTaskLongPress"><view class="task-type-icon"><image src="{{item.image}}" mode="aspectFit"/></view><view class="task-info"><view class="task-title"><text>{{item.title}}</text></view><text wx:if="{{item.kindCaption}}" class="task-subtitle studio-muted">{{item.kindCaption}}</text><view class="task-badges"><view class="task-badge {{item.status==='completed'?'green':item.status==='failed'?'red':'warm'}}"><text>{{item.stageLabel}}</text></view></view><text wx:if="{{item.status==='failed'}}" class="task-failure-note studio-muted">{{item.failedReason||'处理失败，请查看详情后重试。'}}</text><text wx:elif="{{item.status==='uncertain'}}" class="task-failure-note studio-muted">提交结果确认中，请稍后刷新查看。</text><button class="studio-primary task-action" data-id="{{item.id}}" bindtap="taskAction"><text>{{item.saveRetryable?'重试保存':item.status==='generating'?'查看进度':item.status==='completed'?'查看结果':'查看详情'}}</text></button></view></view></view>
       </block><view wx:elif="{{!tasksLoading}}" class="empty">暂无相关任务</view><view class="page-actions"><button class="studio-outline refresh-button" bindtap="refreshTasks" loading="{{tasksLoading}}" disabled="{{tasksLoading}}"><image src="/pages/studio/assets/studio-refresh.png"/><text>刷新状态</text></button></view>
     </block>
     <block wx:elif="{{view === 'result'}}">
-      <view wx:if="{{resultLoading}}" class="empty">正在读取成果…</view>
-      <view wx:if="{{resultError}}" class="creation-card" role="alert"><text>{{resultError}}</text><button class="studio-outline" bindtap="retryResult" disabled="{{resultLoading}}">重新读取</button></view>
+      <view wx:if="{{resultLoading && !activeTask}}" class="empty">正在读取成果…</view>
+      <view wx:if="{{resultError && !activeTask}}" class="creation-card" role="alert"><text>{{resultError}}</text><button class="studio-outline" bindtap="retryResult" disabled="{{resultLoading}}">重新读取</button></view>
       <view wx:if="{{activeTask}}" class="creation-card result-card">
-        <text class="studio-heading">{{activeTask.title}}</text>
+        <text class="studio-heading result-task-title">{{activeTask.title}}</text>
         <block wx:if="{{activeTask.outputType==='text'}}"><text class="result-text" selectable>{{activeTask.resultText}}</text><button class="studio-primary" bindtap="useTextResult" disabled="{{!activeTask.resultText}}">用于文案二创</button></block>
         <block wx:elif="{{activeTask.outputType==='source'}}"><text>{{activeTask.sourceTitle}}</text><video wx:if="{{activeTask.sourceVideoUrl}}" src="{{activeTask.sourceVideoUrl}}" controls object-fit="contain"/><text class="studio-muted">已解析，可回创作页提取文案</text></block>
-        <block wx:else><video wx:if="{{activeTask.videoReady}}" id="digital-result" class="result-video" src="{{activeTask.resultUrl}}" controls object-fit="contain" binderror="videoError"/><view class="result-status"><text>{{activeTask.videoReady?'生成完成':'成果待读取'}}</text><text wx:if="{{activeTask.videoReady}}">{{saved?'已保存':'未保存'}}</text></view><button wx:if="{{activeTask.videoReady}}" bindtap="editResult">返回修改</button></block>
+        <block wx:else>
+          <block wx:if="{{activeTask.videoReady}}">
+            <video id="digital-result" class="result-video" src="{{activeTask.resultUrl}}" controls object-fit="contain" binderror="videoError"/>
+            <view class="result-status"><text>生成完成</text><text>{{saved?'已保存':'未保存'}}</text></view>
+            <button bindtap="editResult">返回修改</button>
+          </block>
+          <view wx:else class="task-type-icon result-media-placeholder">
+            <image src="{{activeTask.image}}" mode="aspectFit"/>
+            <text>{{resultUrlNote || '视频暂不可播放'}}</text>
+            <button class="studio-outline" bindtap="retryResult" loading="{{resultLoading}}" disabled="{{resultLoading}}">重新读取</button>
+          </view>
+        </block>
       </view>
-      <view wx:if="{{activeTask.outputType==='video'}}" class="page-actions studio-bottom-pair result-actions"><button class="studio-outline" disabled="{{!activeTask.videoReady||resultLoading||resultSaving}}" bindtap="saveResult">{{saved?'已保存到我的作品':'保存到我的作品'}}</button><button class="studio-primary" disabled="{{!activeTask.videoReady||resultLoading||resultSaving}}" loading="{{resultSaving}}" bindtap="publishResult">保存并去发布</button></view>
+      <view wx:if="{{activeTask.outputType==='video' && activeTask.videoReady}}" class="page-actions studio-bottom-pair result-actions">
+        <view wx:if="{{resultError}}" class="result-action-error" role="alert">{{resultError}}</view>
+        <button class="studio-outline" disabled="{{resultLoading||resultSaving}}" bindtap="saveResult">{{saved?'已保存到我的作品':'保存到我的作品'}}</button>
+        <button class="studio-primary" disabled="{{resultLoading||resultSaving}}" loading="{{resultSaving}}" bindtap="publishResult">保存并去发布</button>
+      </view>
     </block>
     <block wx:elif="{{view === 'publish'}}">
       <view class="creation-card studio-card publish-preview"><button bindtap="playVideo" aria-label="预览作品"><image src="{{cover}}" class="publish-cover" mode="aspectFill" /></button><view class="publish-preview-info"><text class="publish-preview-title">{{title}}</text><view class="publish-saved-line"><text class="studio-muted">{{workId ? '已选择保存的作品' : '请先从我的作品选择作品'}}</text><button class="soft-text-button" bindtap="changeCover"><image src="/pages/studio/assets/studio-image.png" /><text>更换封面</text></button></view></view></view>
@@ -63,7 +78,19 @@
       <button wx:if="{{detail.status==='published'&&detail.id}}" class="studio-outline consultation-entry" bindtap="registerConsultation">登记咨询客资</button>
       <view class="creation-card studio-card publication-link"><view class="studio-heading"><text>发布链接与回采</text></view><button wx:if="{{detail.publishedUrl}}" class="saved-publication-url" bindtap="copyPublishedUrl">{{detail.publishedUrl}}</button><text wx:else class="studio-muted">待填写发布后的作品链接</text><text class="studio-muted receipt-help">{{detail.publishedUrl?'待回采 · 已关联该作品的发布信息':'填写链接后进入待回采记录'}}</text></view><view class="page-actions"><button class="studio-outline detail-return" bindtap="returnRecords">返回发布记录</button><button wx:if="{{detail.status === 'published'}}" class="studio-primary detail-primary detail-home" bindtap="returnHome">返回首页</button><button wx:else class="studio-primary detail-primary" bindtap="advancePublication"><text>{{detail.status === 'failed' ? '查看失败原因' : '填写发布链接'}}</text></button></view>
     </block>
-    <block wx:elif="{{view === 'works'}}"><view wx:if="{{worksLoading}}" class="empty">作品加载中…</view><view wx:elif="{{worksError}}" class="empty"><text>{{worksError}}</text><button class="studio-outline refresh-button" bindtap="refreshData">重新加载</button></view><button wx:for="{{works}}" wx:key="id" class="creation-card saved-work" data-task="{{item.taskId}}" bindtap="openWork"><image src="{{item.image}}" mode="aspectFill" /><view><text>{{item.title}}</text></view><image class="studio-chevron" src="/assets/creation-chevron.png" /></button><view wx:if="{{!worksLoading && !worksError && !works.length}}" class="empty">暂无已保存作品</view><view class="page-actions"><button class="studio-outline refresh-button" bindtap="openTasks">前往任务中心</button></view></block>
+    <block wx:elif="{{view === 'works'}}">
+      <view wx:if="{{worksLoading}}" class="empty">作品加载中…</view>
+      <view wx:elif="{{worksError}}" class="empty"><text>{{worksError}}</text><button class="studio-outline refresh-button" bindtap="refreshData">重新加载</button></view>
+      <block wx:elif="{{works[0]}}">
+        <button wx:for="{{works}}" wx:key="id" class="creation-card saved-work" data-task="{{item.taskId}}" bindtap="openWork">
+          <view class="task-type-icon"><image src="{{item.image}}" mode="aspectFit"/></view>
+          <view><text>{{item.title}}</text><text wx:if="{{item.kindCaption}}" class="studio-muted">{{item.kindCaption}}</text></view>
+          <image class="studio-chevron" src="/assets/creation-chevron.png" />
+        </button>
+      </block>
+      <view wx:else class="empty">暂无已保存作品</view>
+      <view class="page-actions"><button class="studio-outline refresh-button" bindtap="openTasks">前往任务中心</button></view>
+    </block>
     <block wx:elif="{{view === 'recent'}}"><button wx:for="{{recent}}" wx:key="id" class="creation-card saved-work" data-id="{{item.id}}" bindtap="openRecent"><image src="{{item.image}}" mode="aspectFill" /><view><text>{{item.title}}</text><text class="studio-muted">{{item.badge}} · {{item.action}}</text></view><image class="studio-chevron" src="/assets/creation-chevron.png" /></button><view wx:if="{{!recent.length}}" class="creation-empty">暂无最近创作</view></block><block wx:elif="{{view === 'library'}}"><include src="./material-library.wxml" /></block>
   </view>
 </view>
