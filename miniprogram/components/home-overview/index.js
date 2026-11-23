@@ -4,7 +4,7 @@ const auth=require('../../api/auth');
 const validMonth=value=>/^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 function context(component){
  const post=http.token()?auth.currentApiPost():null,role=component.properties.role,month=component.data.month;
- return {post,role,month,key:JSON.stringify([http.sessionGeneration(),http.currentUserId?.()||'',http.tenantId?.()||'',post?.userId||'',post?.tenantId||'',post?.orgId||'',post?.postId||'',role,month])};
+ return {post,role,month,key:JSON.stringify([http.sessionGeneration(),http.currentUserId?.()||'',http.tenantId?.()||'',post?.userId||'',post?.tenantId||'',post?.orgId||'',post?.postId||'',post?.roleCode||'',post?.orgType||'',role,month])};
 }
 Component({
  properties:{role:{type:String,value:'business',observer(){if(this.__attached&&!this.__hidden)this.load();}},period:{type:String,value:'',observer(value){if(validMonth(value)&&value!==this.data.month){this.setData({month:value});if(this.__attached&&!this.__hidden)this.load();}}}},

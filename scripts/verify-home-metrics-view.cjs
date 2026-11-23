@@ -59,7 +59,7 @@ test('same-scope overview refresh and network failure preserve visible metrics',
  assert.equal(f.page.data.error,'');
 });
 
-for(const change of ['session','user','tenant','organization','post','role','month'])test('overview clears data when '+change+' changes',async()=>{
+for(const change of ['session','user','tenant','organization','post','postRole','orgType','role','month'])test('overview clears data when '+change+' changes',async()=>{
  const f=overviewFixture(),first=f.page.load();f.pending[0].resolve(overviewResult(123400));await first;
  const old=f.page.load();
  if(change==='session')f.state.session++;
@@ -67,6 +67,8 @@ for(const change of ['session','user','tenant','organization','post','role','mon
  if(change==='tenant')f.state.tenantId='t2';
  if(change==='organization')f.state.post={...f.state.post,orgId:'o2'};
  if(change==='post')f.state.post={...f.state.post,postId:'p2'};
+ if(change==='postRole')f.state.post={...f.state.post,roleCode:'owner'};
+ if(change==='orgType')f.state.post={...f.state.post,orgType:'company'};
  if(change==='role')f.page.properties.role='owner';
  if(change==='month')f.page.data.month='2026-10';
  const fresh=f.page.load();assert.equal(f.page.data.board.metrics.signed.known,false);
