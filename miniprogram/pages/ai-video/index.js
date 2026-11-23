@@ -13,7 +13,7 @@ return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,draftConflicted:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameSource:{},lastFrameSource:{},firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,draftConflicted:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -33,7 +33,7 @@ if (draft) {
 let parameters;
 try { parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters); }
 catch(error){this.setData({draftStatus:error.message});parameters=this.data.parameters;}
-this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '', firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references), parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value)) });
+this.setData({ mode: draft.mode === 'reference' ? 'reference' : 'frames', description: draft.description || '', firstFrame: draft.firstFrame || '', lastFrame: draft.lastFrame || '',firstFrameSource:draft.firstFrameSource||{},lastFrameSource:draft.lastFrameSource||{}, firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references), parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value)) });
 }
 this.syncRatio();
 if(http.token()){this.restoreRemoteDraft();this.restoreMediaPreviews();}
@@ -61,7 +61,7 @@ finally{if(this.videoAlive())this.setData({taskLoading:false});}
 applyVideoForm(draft){
 const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
 this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
-  firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
+  firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameSource:draft.firstFrameSource||{},lastFrameSource:draft.lastFrameSource||{},firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
 this.syncRatio();this.restoreMediaPreviews();
 },
 restoreRemoteDraft() {
@@ -97,8 +97,8 @@ saveDraft(final=false) {
 videoSessionValid(){return !!http.token()&&this.actorScope===studio.scope()&&(!this.__draftSession||this.__draftSession());},
 videoAlive(){return !this.__closed&&this.videoSessionValid();},
 videoForm(){
-const {mode,description,firstFrame,lastFrame,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;
-return {mode,description,firstFrame,lastFrame,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(item=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
+const {mode,description,firstFrame,lastFrame,firstFrameSource,lastFrameSource,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;
+return {mode,description,firstFrame,lastFrame,firstFrameSource,lastFrameSource,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(item=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
 },
 saveVideoDraftSnapshot(key,draft){
 const {revision,...form}=draft;
@@ -112,22 +112,26 @@ const send=prepared=>{
 const needsUpload=['firstFrame','lastFrame'].some(field=>form[field]&&!form[field+'AssetId'])||form.references.some(item=>!item.assetId);
 if(!needsUpload)return send(form);
 if(this.videoAlive())this.setData({draftStatus:'正在上传素材，草稿暂存本机…'});
-return this.prepareVideoMedia(form,true).then(send);
+return this.prepareVideoMedia(form,true).then(send).then(result=>{
+  if(this.videoAlive())this.restoreMediaPreviews();
+  return result;
+});
 },
 async prepareVideoMedia(form,allowClosed=false){
 const prepared=JSON.parse(JSON.stringify(form)),alive=()=>allowClosed?this.videoSessionValid():this.videoAlive();
 const check=()=>{if(!alive())throw Error('工作身份已变化或页面已关闭');};
 check();
-const upload=path=>{
+const upload=(path,source)=>{
   if(!path)throw Error('参考素材缺少可用文件，请移除后重新选择');
   this.__mediaUploads=this.__mediaUploads||new Map();
   // The final draft may share an upload begun by generation; each caller checks its own page lifetime.
   const uploadAlive=()=>this.videoSessionValid();
-  if(!this.__mediaUploads.has(path))this.__mediaUploads.set(path,media.upload(path,uploadAlive).then(id=>{if(!uploadAlive())throw Error('工作身份已变化');if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(path);throw error;}));
-  return this.__mediaUploads.get(path);
+  const key=JSON.stringify([path,source]);
+  if(!this.__mediaUploads.has(key))this.__mediaUploads.set(key,media.upload(path,uploadAlive,source).then(id=>{if(!uploadAlive())throw Error('工作身份已变化');if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(key);throw error;}));
+  return this.__mediaUploads.get(key);
 };
 for(const field of ['firstFrame','lastFrame'])if(prepared[field]&&!prepared[field+'AssetId']){
-  const id=await upload(prepared[field]);check();prepared[field+'AssetId']=id;
+  const id=await upload(prepared[field],{...prepared[field+'Source'],type:'image'});check();prepared[field+'AssetId']=id;
   if(this.videoAlive()&&this.data[field]===form[field]&&assetId(this.data[field+'AssetId'])===assetId(form[field+'AssetId'])){
     this.setData({[field+'AssetId']:id});this.__draft?.cache();
   }
@@ -135,7 +139,7 @@ for(const field of ['firstFrame','lastFrame'])if(prepared[field]&&!prepared[fiel
 for(const item of prepared.references){
   if(!['image','video','audio'].includes(item.type))throw Error('参考素材类型无效，请移除后重新选择');
   if(item.assetId)continue;
-  const id=await upload(item.path);check();item.assetId=id;
+  const id=await upload(item.path,{name:item.sourceName||item.name,mimeType:item.mimeType,type:item.type});check();item.assetId=id;
   const current=this.data.references.find(row=>row.id===item.id&&row.path===item.path&&!assetId(row.assetId));
   if(current&&this.videoAlive()){this.setData({references:this.data.references.map(row=>row===current?{...row,assetId:id}:row)});this.__draft?.cache();}
 }
@@ -192,30 +196,36 @@ if (parameter && parameter.options && Number.isInteger(value) && value >= 0 && v
 chooseFrame(e) {
 const target = e.currentTarget.dataset.target;
 if(!['firstFrame','lastFrame'].includes(target))return;
+const session=http.sessionGuard(),valid=()=>session()&&this.videoAlive();
 const itemList = ['从手机添加', '从素材库选择'];
 if (this.data[target]||this.data[target+'AssetId']) itemList.push('移除图片');
 wx.showActionSheet({ itemList, success: ({ tapIndex }) => {
+if(!valid())return;
 if (tapIndex === 1) this.openLibrary(target);
-else if (tapIndex === 2) {this.setData({ [target]: '',[target+'AssetId']:'' });this.syncRatio();this.saveDraft();this.restoreMediaPreviews();}
+else if (tapIndex === 2) {this.setData({ [target]: '',[target+'AssetId']:'',[target+'Source']:{} });this.syncRatio();this.saveDraft();this.restoreMediaPreviews();}
 else wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album', 'camera'], success: async result => {
-try { this.setData({ [target]: await persistMedia(result.tempFiles[0].tempFilePath),[target+'AssetId']:'' });this.syncRatio(); this.saveDraft();this.restoreMediaPreviews(); } catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
+try { const file=result.tempFiles[0],path=await persistMedia(file.tempFilePath);if(!valid())return;this.setData({ [target]:path,[target+'AssetId']:'',[target+'Source']:{name:file.name||file.tempFilePath,mimeType:file.mimeType||''} });this.syncRatio(); this.saveDraft();this.restoreMediaPreviews(); } catch (error) { if(valid())wx.showToast({ title: error.message, icon: 'none' }); }
 }, fail: this.mediaFailure });
 } });
 },
 uploadReferences() {
+const session=http.sessionGuard(),valid=()=>session()&&this.videoAlive();
 wx.showActionSheet({ itemList: ['添加图片', '添加视频', '添加音频'], success: ({ tapIndex }) => {
+if(!valid())return;
 const type = ['image', 'video', 'audio'][tapIndex];
+if(!type)return;
 const existing = this.data.references.filter(item => item.type === type).length;
 const maximum = type === 'image' ? 8 : 3;
 const count = Math.min(maximum - existing, 12 - this.data.references.length);
 if (count <= 0) { wx.showToast({ title: '已达到素材数量上限', icon: 'none' }); return; }
 const success = async result => {
 try {
-const items = await Promise.all(result.tempFiles.map(async (file, i) => ({ id: Date.now() + '-' + i, type, path: await persistMedia(file.tempFilePath || file.path), name: file.name || ({ image: '图片', video: '视频', audio: '音频' })[type] })));
+const items = await Promise.all(result.tempFiles.map(async (file, i) => ({ id: Date.now() + '-' + i, type, path: await persistMedia(file.tempFilePath || file.path), name: file.name || ({ image: '图片', video: '视频', audio: '音频' })[type],sourceName:file.name||file.tempFilePath||file.path,mimeType:file.mimeType||'' })));
+if(!valid())return;
 this.addReferences(items); this.saveDraft();
-} catch (error) { wx.showToast({ title: error.message, icon: 'none' }); }
+} catch (error) { if(valid())wx.showToast({ title: error.message, icon: 'none' }); }
 };
-if (type === 'audio') wx.chooseMessageFile({ count, type: 'file', extension: ['mp3'], success, fail: this.mediaFailure });
+if (type === 'audio') wx.chooseMessageFile({ count, type: 'file', success, fail: this.mediaFailure });
 else wx.chooseMedia({ count, mediaType: [type], success, fail: this.mediaFailure });
 } });
 },
@@ -243,7 +253,7 @@ if(target==='references'){
 const maximum=asset.type==='image'?8:3;
 if(this.data.references.length>=12||this.data.references.filter(r=>r.type===asset.type).length>=maximum)throw Error('已达到素材数量上限');
 this.addReferences([{...asset,id:'material-'+asset.assetId,assetId:String(asset.assetId)}]);
-}else this.setData({[target]:asset.path||'',[target+'AssetId']:String(asset.assetId)});
+}else this.setData({[target]:asset.path||'',[target+'AssetId']:String(asset.assetId),[target+'Source']:{}});
 this.syncRatio();this.saveDraft();if(this.data.mediaError)this.restoreMediaPreviews();
 }catch(error){wx.showToast({title:error.message,icon:'none'});}
 }},fail:()=>{if(valid())wx.showToast({title:'素材库打开失败，请重试',icon:'none'});}});
