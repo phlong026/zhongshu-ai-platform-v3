@@ -2,7 +2,9 @@ const {money:displayFinanceMoney}=require('../../../utils/finance-workbench-view
 const D=require('../../../utils/finance-desk'),X=require('../../../utils/access'),N=require('../../../utils/page-navigation');
 const auth=require('../../../api/auth');
 const financeApi=require('../../../api/finance');
+const apiScope=require('../../../utils/api-scope');
 const httpApi=require('../../../api/http'); // M08-T02：loadPlatformFinance 乱序守卫用
+const financeDenied=e=>e&&(e.postInvalid||[e.code,e.status,e.statusCode].some(value=>[401,403,1103000002].includes(Number(value))));
 const PAGE_SIZE=100; // M5 F3：台账本地分页（指标/选择器仍全量——口径无损）
 const PF=require('../../../utils/platform-finance');
 const PTPage=require('../../../utils/platform-todos-page'); // M+：API 态 tasks 视图/工作台待办接平台待办
@@ -28,8 +30,8 @@ const closingTime=value=>{if(!value)return '';const [time]=confirmationTime(valu
 const confirmationTime=value=>{const text=String(value||''),fraction=text.match(/\.(\d+)/),time=Date.parse(text.replace(/\.(\d+)/,(_,digits)=>'.'+digits.padEnd(3,'0').slice(0,3)));return [time,((fraction&&fraction[1])||'').padEnd(9,'0').slice(3,9)];};
 const isNewerConfirmation=(left,right)=>{if(!left)return false;const [a,af]=confirmationTime(left.updateTime),[b,bf]=confirmationTime(right.updateTime);return a>b||(a===b&&af>bf);};
 Page({
- data:{ platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
- onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.options={...o,bookScope:routeValue(o.bookScope)};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({selectedMonth:/^\d{4}-(0[1-9]|1[0-2])$/.test(o.month||'')?o.month:'',view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
+ data:{ financeRefreshing:false,platformNotice:'',voidNotice:'',ledgerError:'',...clean(),view:'flows',title:'收支',keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',flowTab:'receivables',flowScope:'period',sort:'到期优先',statusOptions:['全部状态'],categoryOptions:['全部类别']},
+ onLoad(o={}){PTPage.init(this);this.__ledgerRouteIdentity=apiScope();this.options={...o,bookScope:routeValue(o.bookScope)};this.id=routeValue(o.id);const post=httpApi.token()?auth.currentApiPost():null,actor=post?{role:post.roleCode,orgType:post.orgType}:X.context(),financeRole=['finance','finance-lead'].includes(actor.role);this.setData({selectedMonth:/^\d{4}-(0[1-9]|1[0-2])$/.test(o.month||'')?o.month:'',view:views[o.view]?o.view:(financeRole?'desk':'flows'),flowTab:['receivables','payables','ledger','reconcile'].includes(o.tab)?o.tab:actor.orgType==='headquarters'?'payables':'receivables',flowScope:['all','current'].includes(o.scope)?o.scope:'period',filter:routeValue(o.filter)||'all',category:routeValue(o.category)||'全部类别',due:o.due||'',taskType:o.taskType||'',stage:o.stage==='first'?'first':'tail',version:o.version||''});},
  beginFinanceBusy(){
   if(this.data.busy)return null;
   const token={};this.__financeBusyOwner=token;this.setData({busy:true});return token;
@@ -41,18 +43,18 @@ Page({
  },
  syncFinanceIdentity(financeIdentity){
   if(this.__financeIdentity===financeIdentity)return false;
-  this.__financeIdentity=financeIdentity;this.__messageSourceOpened=false;this.__homeStageOpened=false;this.__designReceipt=null;this.__financeLoadedIdentity='';this.__workbenchLoadedIdentity='';
+  this.__financeReadEpoch=(this.__financeReadEpoch||0)+1;this.clearFinanceSnapshot();this.__financeIdentity=financeIdentity;this.__messageSourceOpened=false;this.__homeStageOpened=false;this.__designReceipt=null;this.__financeLoadedIdentity='';this.__workbenchLoadedIdentity='';
   // 身份变化使旧锁owner与登记代次同时失效；旧Promise只能清自己的token，不能覆盖新岗位状态。
   this.__financeBusyOwner=null;this.bankConfirmIdem=null;this.bankConfirmIdemCtx=null;this.__reconcileRequest=null;this.__monthClosingSeq=(this.__monthClosingSeq||0)+1;this.setData({monthClosing:null});
-  this.wbGeneration=(this.wbGeneration||0)+1;this.setData({wbForm:null,wbBusy:false,workbenchBooks:[],reimbursementRows:[],workbenchStaff:[],collectionDeclarations:[],financialStages:[],bookResult:null,bookEntries:[],bookSummary:[],bookScope:''});this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
-  this.__financeFacts=null;this.__journeyCash=null;this.__entryOrigin=null;this.__entryOptions=null;this.setData({journeyEnabled:false,journeyResult:null,journeyChoice:null,journeyCashRows:[],journeyPayables:[],journeyDeclaration:null,platformFinance:null,platformRegister:null,reconciliation:null,deskHome:null,busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false,paymentPending:false,paymentRetry:false,paymentNotice:''});
+  this.wbGeneration=(this.wbGeneration||0)+1;this.setData({wbForm:null,wbBusy:false,workbenchBooks:[],reimbursementRows:[],workbenchStaff:[],collectionDeclarations:[],financialStages:[],bookResult:null,bookEntryRows:[],bookEntryDetail:null,bookEntries:[],bookSummary:[],bookEmployeeRows:[],bookScope:'',bookName:'',bookNet:'—',bookCost:'—',bookLoading:false,bookError:'',canLinkBook:false,bookCollectionUrl:'',bookMaterialsUrl:'',bookExpensesUrl:'',allocationReceipts:[]});this.registerIdem=null;this._registerSeq=(this._registerSeq||0)+1;this._correctionCtx=null;
+  this.__financeFacts=null;this.__journeyCash=null;this.__commissionStages=null;this.__messageWorkbenchReady=false;this.__entryOrigin=null;this.__entryOptions=null;this.setData({journeyEnabled:false,journeyResult:null,journeyChoice:null,journeyCashRows:[],journeyCashTotal:0,journeyPayables:[],journeyPayableCount:0,journeyDeclarations:[],journeyReimbursements:[],journeyProgress:[],journeyAccounts:[],journeyTotals:null,journeyDeclaration:null,platformFinance:null,platformRegister:null,reconciliation:null,deskHome:null,busy:false,designFeeRows:[],designReceiptForm:null,designReceiptBusy:false,financeProjects:[],financeProjectTotal:0,financeProjectLoading:false,financeProjectError:'',projectBookName:'',projectBookNet:'—',projectLedgerEntries:[],projectLedgerSummary:[],projectLedgerTotal:0,ledgerProjectLoading:false,registerType:'',registerForm:{},registerBusy:false,paymentPending:false,paymentRetry:false,paymentNotice:''});
   return true;
  },
  onShow(){
   this.__disposed=false;this.__financeHidden=false;if(!this.__designFinance){require('./design-finance')(this,financeApi);this.__designFinance=true;}
   require('../../../utils/finance-keyboard').start(this);
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
-  const financeIdentity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();this.syncFinanceIdentity(financeIdentity);
+  const financeIdentity=apiScope();this.syncFinanceIdentity(financeIdentity);
   if(this.data.view==='profile'&&activePost&&['finance','finance-lead'].includes(activePost.roleCode))return this.showFinanceProfile();
   const boss=activePost&&['boss','owner'].includes(activePost.roleCode);
   if(boss||this.__readOnlyLedgerIdentity){
@@ -78,8 +80,8 @@ Page({
   if(this.data.platformApiMode&&this.data.view==='book')this.loadBookLedger();
   PTPage.refresh(this,false);this.syncPlatformTasks();
   },
- onHide(){require('../../profile/profile-page')(4).onHide.call(this);this.__financeHidden=true;this.__registerValidation=null;this._registerSeq=(this._registerSeq||0)+1;if(this.data.registerBusy&&!this.data.paymentPending)this.setData({registerBusy:false});require('../../../utils/finance-keyboard').stop(this);},
- onUnload(){require('../../profile/profile-page')(4).onUnload.call(this);this.__disposed=true;require('../../../utils/finance-keyboard').stop(this);},
+ onHide(){this.__financeReadEpoch=(this.__financeReadEpoch||0)+1;this.__monthClosingFlight=null;this.__financeFlight=null;this.setData({financeRefreshing:false});require('../../profile/profile-page')(4).onHide.call(this);this.__financeHidden=true;this.__registerValidation=null;this._registerSeq=(this._registerSeq||0)+1;if(this.data.registerBusy&&!this.data.paymentPending)this.setData({registerBusy:false});require('../../../utils/finance-keyboard').stop(this);},
+ onUnload(){this.__financeReadEpoch=(this.__financeReadEpoch||0)+1;this.__monthClosingFlight=null;this.__financeFlight=null;this.setData({financeRefreshing:false});require('../../profile/profile-page')(4).onUnload.call(this);this.__disposed=true;require('../../../utils/finance-keyboard').stop(this);},
  showFinanceProfile(){
   this.setData({view:'profile',ready:true,title:'我的',platformApiMode:true,error:''});
   require('../../profile/profile-page')(4).onShow.call(this);
@@ -87,7 +89,7 @@ Page({
  open(e){if(this.data.view==='profile')return require('../../profile/profile-page')(4).open.call(this,e);},
  logout(){if(this.data.view==='profile')return require('../../profile/profile-page')(4).logout.call(this);},
  canLoadProjectLedger(){
-  const post=auth.currentApiPost(),identity=String(httpApi.currentPostId())+':'+httpApi.sessionGeneration();
+  const post=auth.currentApiPost(),identity=apiScope();
   if(!httpApi.token()||!post||this.__disposed||this.data.view!=='project'||!/^[1-9]\d*$/.test(this.id)||identity!==this.__financeIdentity)return false;
   if(this.__readOnlyLedgerIdentity)return identity===this.__readOnlyLedgerIdentity&&post.orgType==='store'&&['boss','owner'].includes(post.roleCode);
   return ['finance','finance-lead'].includes(post.roleCode);
@@ -114,13 +116,61 @@ Page({
   const notice={projects:'项目收支暂无平台视图，请前往「收支 · 对账」查看',project:'项目账目暂无平台视图，请前往「收支 · 对账」查看',partners:'加盟商往来即将上线',partner:'加盟商往来即将上线',statement:'设计款到账进度即将上线'}[view]||(view==='flows'&&!['ledger','reconcile'].includes(this.data.flowTab)?'该列表暂无平台数据，登记与台账请使用「流水」与登记入口':'');
   this.setData({...clean(),ready:true,error:'',title:views[view],platformNotice:notice});
  },
- loadPlatformFinance(){const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode)){this.setData({platformFinance:null,platformApiMode:false,registerType:'',refundVoidable:false,reconciliation:null,voidNotice:'',ledgerError:''});return;}this.__financeLoadedIdentity=this.__financeIdentity;const month=this.data.selectedMonth||((new Date().getFullYear())+'-'+('0'+(new Date().getMonth()+1)).slice(-2));const view=this.data.view,hq=post.orgType==='headquarters',emptyMetrics=PF.metrics([],[],[],month);this.setData({platformApiMode:true,refundVoidable:['finance-lead','boss','owner'].includes(post.roleCode),platformFinance:{status:'loading',month,metrics:emptyMetrics,ledger:{rows:[],allCount:0},bankFlows:[]},platformRegister:null,reconciliation:{status:'loading'}, // M+：平台态自带渲染态——不再依赖本地 refresh 提供 ready/title/deskHome
-  ...clean(),ready:true,title:views[view]||views.desk,platformNotice:{projects:'项目收支暂无平台视图，请前往「收支 · 对账」查看',project:'项目账目暂无平台视图，请前往「收支 · 对账」查看',partners:'加盟商往来即将上线',partner:'加盟商往来即将上线',statement:'设计款到账进度即将上线'}[view]||(view==='flows'&&!['ledger','reconcile'].includes(this.data.flowTab)?'该列表暂无平台数据，登记与台账请使用「流水」与登记入口':''),deskHome:{allowed:true,hq,lead:post.lead===true,name:post.nickname||post.userName||'财务同事',title:'财务工作台',company:post.orgName||'',date:'',sample:false,period:month,periodText:month,metrics:platformMetricCards(emptyMetrics),tasks:[],previewTasks:this.data.deskHome&&this.data.deskHome.previewTasks||[],taskCount:this.data.deskHome&&this.data.deskHome.taskCount||0,tasksUrl:D.url('tasks'),shortcuts:PF.shortcuts(hq),focus:this.data.deskHome&&this.data.deskHome.focus||[],focusUrl:D.url(hq?'partners':'progress')}});this.syncPlatformTasks();const pgAlive=httpApi.requestGuard('platformFinance'); // M08-T02/I03：A/B换岗乱序、退出、连续刷新——旧响应不得写当前页（sessionGen+序号双校验）
-const profileAlive=httpApi.requestGuard('financeProfile');httpApi.get('/platform/profile/mine').then(profile=>{if(profileAlive()&&profile&&profile.nickname)this.setData({'deskHome.name':profile.nickname});}).catch(error=>{if(profileAlive())console.warn('[finance-desk] profile lookup failed',{code:error&&error.code});});
-Promise.all([financeApi.receipts(),financeApi.payments(),financeApi.refunds(),financeApi.bankFlows(),financeApi.payables(),financeApi.receipts('待登记')]).then(([receipts,payments,refunds,flows,payables,pendingReceipts])=>{if(!pgAlive())return;this.__financeFacts={receipts,payments,refunds,payables};const m=PF.metrics(receipts,payments,refunds,month);const led=PF.ledgerRows(receipts,payments,refunds,this.data.flowScope==='all'?'':month);const refundedByReceipt=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection!=='expense').reduce((map,r)=>{map[r.receiptId]=(map[r.receiptId]||0)+(r.amountCents||0);return map;},{});const refundable=(receipts||[]).filter(r=>r.status==='已登记').map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents,refundableCents:r.amountCents-(refundedByReceipt[r.id]||0)}));const expenseRefundedByPayment=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection==='expense').reduce((map,r)=>{map[r.paymentId]=(map[r.paymentId]||0)+(r.amountCents||0);return map;},{});const expenseRefundable=(payments||[]).filter(p=>p.status==='已核实').map(p=>({id:p.id,label:'付款#'+p.id+' ¥'+PF.yuan(p.amountCents)+(p.payDate?' · '+p.payDate:'')+(p.transactionNo?' · '+p.transactionNo:''),amountCents:p.amountCents,refundableCents:p.amountCents-(expenseRefundedByPayment[p.id]||0)}));const payableOptions=PF.payableProgress(payables,payments,refunds).filter(p=>p.canPay).map(p=>({id:p.id,sourceType:p.sourceType,label:(p.name||({FULL:'设计费',FIRST:'设计首款',TAIL:'设计尾款',engineering:'材料采购'}[p.stage])||p.stage||p.recipient||'费用付款')+' 未付 ¥'+(PF.yuan(p.remainingCents)||'0.00'),totalCents:p.totalCents,paidCents:p.paidCents,remainingCents:p.remainingCents}));const flowRows=(led.rows||[]).map(r=>{const sourceKind=sourceKindOf(r.key);return{id:r.key,name:r.name,category:r.type,sign:r.sign,amountCents:r.amountCents,amountText:(r.sign==='+'?'':'-')+'¥'+PF.yuan(r.amountCents),status:r.status,date:r.date,dateText:r.date,detail:r.type,detailText:r.type+' '+r.status,tone:r.sign==='+'?'':'negative',revisionVersion:r.revisionVersion,sourceKind,canVoid:PF.canVoidPayment(post.roleCode,sourceKind,r.status)}});this.ledgerSource=flowRows;this._refundRows=refunds||[];this.setData({platformFinance:{status:'ready',month,metrics:m,ledger:led,bankFlows:(flows||[]).filter(f=>f.status==='待匹配')},platformRegister:{payables:payableOptions,refundable:refundable,expenseRefundable:expenseRefundable,pendingReceipts:(pendingReceipts||[]).map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents||0}))},platformLedger:flowRows.slice(0,PAGE_SIZE),ledgerAllCount:flowRows.length,ledgerPage:1,'deskHome.metrics':platformMetricCards(m,this.data.deskHome&&this.data.deskHome.taskCount||0)});if(this.refreshJourney)this.refreshJourney();}).catch(e=>{if(!pgAlive())return;this.setData({platformFinance:{status:'degraded',message:PF.errorMessage(e)},'deskHome.metrics':platformMetricCards({received:'—',paid:'—',refunded:'—',net:'—'},this.data.deskHome&&this.data.deskHome.taskCount||0),ledgerAllCount:0,ledgerPage:1});});// M08-T08 批次#34/R1 P2-2：对账独立于台账六接口并行启动（不串行依赖、台账失败仍拉取），同 pgAlive 守卫
-financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>displayFinanceMoney(c);this.setData({reconciliation:{status:'ready',month:rec.month,grossText:fx(rec.grossReceiptsCents),refundsText:fx(rec.clientRefundsCents),netText:fx(rec.netReceivedCents),abnormalCents:rec.abnormalPendingCents||0,abnormalText:fx(rec.abnormalPendingCents),abnormalCount:rec.abnormalPendingCount||0,datePendingText:fx(rec.abnormalDatePendingCents),datePendingCount:rec.abnormalDatePendingCount||0}});}).catch(err=>{if(!pgAlive())return;this.setData({reconciliation:{status:'degraded',message:PF.errorMessage(err)}});});if(this.data.flowTab==='reconcile')this.loadMonthClosing(month);},
+ clearFinanceSnapshot(){
+  this.__monthClosingFlight=null;this.__monthClosingScope='';this.__financeFlight=null;this.__financeSnapshotKey='';this.__financeFacts=null;this.ledgerSource=[];this._refundRows=[];
+  this.__monthClosingSeq=(this.__monthClosingSeq||0)+1;
+  this.setData({platformFinance:null,platformRegister:null,reconciliation:null,monthClosing:null,deskHome:null,platformLedger:[],ledgerAllCount:0,ledgerPage:1,rows:[],journeyCashRows:[],journeyPayables:[],financeRefreshing:false});
+ },
+ financeReadGuard(domain){
+  const scope=apiScope();if(this.__financeIdentity!==scope)this.syncFinanceIdentity(scope);
+  const identity=this.__financeIdentity,epoch=this.__financeReadEpoch,guard=httpApi.requestGuard(domain);
+  return()=>{
+   if(this.__disposed||this.__financeHidden||epoch!==this.__financeReadEpoch||identity!==this.__financeIdentity)return false;
+   if(apiScope()!==identity){this.syncFinanceIdentity(apiScope());return false;}
+   return guard();
+  };
+ },
+ financeReadError(error,patch){if(financeDenied(error))this.invalidateFinanceAccess(error);else this.setData(patch);},
+ invalidateFinanceAccess(error){
+  const period=this.data.selectedMonth,message=PF.errorMessage(error);this.syncFinanceIdentity('');
+  this.setData({ready:true,platformApiMode:true,bookError:message,financeProjectError:message,platformFinance:{status:'degraded',message},reconciliation:{status:'degraded',message},monthClosing:{status:'degraded',period,currentRows:[],confirmedRows:[],message}});
+ },
+ loadPlatformFinance(force=false){
+  if(this.__disposed||this.__financeHidden)return;
+  const post=auth.currentApiPost(),scope=apiScope();
+  if(this.__financeIdentity!==scope)this.syncFinanceIdentity(scope);
+  if(!scope||!post||!['finance','finance-lead'].includes(post.roleCode)){this.clearFinanceSnapshot();this.setData({platformApiMode:false,registerType:'',refundVoidable:false,voidNotice:'',ledgerError:''});return;}
+  const month=this.data.selectedMonth||new Date().getFullYear()+'-'+('0'+(new Date().getMonth()+1)).slice(-2),view=this.data.view;
+  const key=JSON.stringify([scope,month,view,this.data.flowTab,this.data.flowScope]);
+  if(!force&&this.__financeFlight&&this.__financeFlight.key===key)return this.__financeFlight.promise;
+  const retain=this.__financeSnapshotKey===key;
+  if(!retain)this.clearFinanceSnapshot();
+  const flight=this.__financeFlight={key};this.__financeSnapshotKey=key;this.__financeLoadedIdentity=this.__financeIdentity;
+  const hq=post.orgType==='headquarters',emptyMetrics=PF.metrics([],[],[],month);
+  if(!retain)this.setData({platformApiMode:true,financeRefreshing:true,refundVoidable:['finance-lead','boss','owner'].includes(post.roleCode),platformFinance:{status:'loading',month,metrics:emptyMetrics,ledger:{rows:[],allCount:0},bankFlows:[]},platformRegister:null,reconciliation:{status:'loading'}, // M+：平台态自带渲染态——不再依赖本地 refresh 提供 ready/title/deskHome
+  ...clean(),ready:true,title:views[view]||views.desk,platformNotice:{projects:'项目收支暂无平台视图，请前往「收支 · 对账」查看',project:'项目账目暂无平台视图，请前往「收支 · 对账」查看',partners:'加盟商往来即将上线',partner:'加盟商往来即将上线',statement:'设计款到账进度即将上线'}[view]||(view==='flows'&&!['ledger','reconcile'].includes(this.data.flowTab)?'该列表暂无平台数据，登记与台账请使用「流水」与登记入口':''),deskHome:{allowed:true,hq,lead:post.lead===true,name:post.nickname||post.userName||'财务同事',title:'财务工作台',company:post.orgName||'',date:'',sample:false,period:month,periodText:month,metrics:platformMetricCards(emptyMetrics),tasks:[],previewTasks:this.data.deskHome&&this.data.deskHome.previewTasks||[],taskCount:this.data.deskHome&&this.data.deskHome.taskCount||0,tasksUrl:D.url('tasks'),shortcuts:PF.shortcuts(hq),focus:this.data.deskHome&&this.data.deskHome.focus||[],focusUrl:D.url(hq?'partners':'progress')}});
+  else this.setData({financeRefreshing:true,...(this.data.platformFinance?.message?{'platformFinance.message':''}:{}),...(this.data.reconciliation?.message?{'reconciliation.message':''}:{})});
+  this.syncPlatformTasks();
+  const guard=httpApi.requestGuard('platformFinance');
+  const pgAlive=()=>{
+   if(this.__disposed||this.__financeHidden||this.__financeFlight!==flight)return false;
+   if(apiScope()!==scope){this.syncFinanceIdentity(apiScope());return false;}
+   return guard()&&(!this.data.selectedMonth||this.data.selectedMonth===month);
+  };
+  const fail=(error,target)=>{
+   if(!pgAlive())return;const message=PF.errorMessage(error);
+   if(financeDenied(error)){this.invalidateFinanceAccess(error);return;}
+   if(target==='reconciliation'){this.setData({reconciliation:this.data.reconciliation?.status==='ready'?{...this.data.reconciliation,message}:{status:'degraded',message}});return;}
+   this.setData(this.data.platformFinance?.status==='ready'?{platformFinance:{...this.data.platformFinance,message}}:{platformFinance:{status:'degraded',message},'deskHome.metrics':platformMetricCards({received:'—',paid:'—',refunded:'—',net:'—'},this.data.deskHome?.taskCount||0),ledgerAllCount:0,ledgerPage:1});
+  };
+  const profileRead=httpApi.get('/platform/profile/mine').then(profile=>{if(pgAlive()&&profile&&profile.nickname)this.setData({'deskHome.name':profile.nickname});}).catch(error=>{if(pgAlive()&&financeDenied(error))this.setData({'deskHome.name':'财务同事'});});
+  const ledgerRead=Promise.all([financeApi.receipts(),financeApi.payments(),financeApi.refunds(),financeApi.bankFlows(),financeApi.payables(),financeApi.receipts('待登记')]).then(([receipts,payments,refunds,flows,payables,pendingReceipts])=>{if(!pgAlive())return;const m=PF.metrics(receipts,payments,refunds,month);const led=PF.ledgerRows(receipts,payments,refunds,this.data.flowScope==='all'?'':month);const refundedByReceipt=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection!=='expense').reduce((map,r)=>{map[r.receiptId]=(map[r.receiptId]||0)+(r.amountCents||0);return map;},{});const refundable=(receipts||[]).filter(r=>r.status==='已登记').map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents,refundableCents:r.amountCents-(refundedByReceipt[r.id]||0)}));const expenseRefundedByPayment=(refunds||[]).filter(r=>r.status==='已核实'&&r.refundDirection==='expense').reduce((map,r)=>{map[r.paymentId]=(map[r.paymentId]||0)+(r.amountCents||0);return map;},{});const expenseRefundable=(payments||[]).filter(p=>p.status==='已核实').map(p=>({id:p.id,label:'付款#'+p.id+' ¥'+PF.yuan(p.amountCents)+(p.payDate?' · '+p.payDate:'')+(p.transactionNo?' · '+p.transactionNo:''),amountCents:p.amountCents,refundableCents:p.amountCents-(expenseRefundedByPayment[p.id]||0)}));const payableOptions=PF.payableProgress(payables,payments,refunds).filter(p=>p.canPay).map(p=>({id:p.id,sourceType:p.sourceType,label:(p.name||({FULL:'设计费',FIRST:'设计首款',TAIL:'设计尾款',engineering:'材料采购'}[p.stage])||p.stage||p.recipient||'费用付款')+' 未付 ¥'+(PF.yuan(p.remainingCents)||'0.00'),totalCents:p.totalCents,paidCents:p.paidCents,remainingCents:p.remainingCents}));const flowRows=(led.rows||[]).map(r=>{const sourceKind=sourceKindOf(r.key);return{id:r.key,name:r.name,category:r.type,sign:r.sign,amountCents:r.amountCents,amountText:(r.sign==='+'?'':'-')+'¥'+PF.yuan(r.amountCents),status:r.status,date:r.date,dateText:r.date,detail:r.type,detailText:r.type+' '+r.status,tone:r.sign==='+'?'':'negative',revisionVersion:r.revisionVersion,sourceKind,canVoid:PF.canVoidPayment(post.roleCode,sourceKind,r.status)}});this.__financeFacts={receipts,payments,refunds,payables};const ledgerPage=Math.min(Math.max(1,this.data.ledgerPage||1),Math.max(1,Math.ceil(flowRows.length/PAGE_SIZE)));this.ledgerSource=flowRows;this._refundRows=refunds||[];this.setData({platformFinance:{status:'ready',month,metrics:m,ledger:led,bankFlows:(flows||[]).filter(f=>f.status==='待匹配')},platformRegister:{payables:payableOptions,refundable:refundable,expenseRefundable:expenseRefundable,pendingReceipts:(pendingReceipts||[]).map(r=>({id:r.id,label:r.name+' ¥'+PF.yuan(r.amountCents),amountCents:r.amountCents||0}))},platformLedger:flowRows.slice(0,ledgerPage*PAGE_SIZE),ledgerAllCount:flowRows.length,ledgerPage,'deskHome.metrics':platformMetricCards(m,this.data.deskHome&&this.data.deskHome.taskCount||0)});if(this.refreshJourney)this.refreshJourney();}).catch(error=>fail(error,'ledger'));
+  const reconciliationRead=financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>displayFinanceMoney(c);this.setData({reconciliation:{status:'ready',month:rec.month,grossText:fx(rec.grossReceiptsCents),refundsText:fx(rec.clientRefundsCents),netText:fx(rec.netReceivedCents),abnormalCents:rec.abnormalPendingCents||0,abnormalText:fx(rec.abnormalPendingCents),abnormalCount:rec.abnormalPendingCount||0,datePendingText:fx(rec.abnormalDatePendingCents),datePendingCount:rec.abnormalDatePendingCount||0}});}).catch(error=>fail(error,'reconciliation'));
+  const closingRead=this.data.flowTab==='reconcile'?this.loadMonthClosing(month):null;
+  return flight.promise=Promise.all([profileRead,ledgerRead,reconciliationRead,closingRead]).finally(()=>{if(this.__financeFlight===flight){this.__financeFlight=null;this.setData({financeRefreshing:false});}});
+ },
  refreshFinanceTasks(){PTPage.refresh(this,true);},
- retryPlatformFinance(){this.loadPlatformFinance();},
+ retryPlatformFinance(){if(this.data.workbenchError&&this.loadWorkbench)this.loadWorkbench();return this.loadPlatformFinance(true);},
  openFinanceShortcut(e){const type=e.currentTarget.dataset.type;if(type&&this.openRegister){if(this.rememberEntryOrigin)this.rememberEntryOrigin();this.setData({view:'flows',title:views.flows,flowTab:'ledger'});return this.openRegister({currentTarget:{dataset:{type}}});}return this.go(e);},
  dismissVoidNotice(){this.setData({voidNotice:'',ledgerError:''});},
  copyFrLink(){ // P1 §5.4：复制 /fr/finance 站内链接（主机=config/env.js FR_HOST 或 storage 覆写；不含任何 token）
@@ -151,30 +201,45 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>dis
  month(e){if(this.data.platformApiMode){const value=e&&e.detail&&e.detail.value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(value||''))return;this.setData({selectedMonth:value,period:value,periodText:value});return this.loadPlatformFinance();} // M+：平台态账期固定当月，不写本地月份偏好
   // 切生产收口：本地月份偏好写入（D.setPeriod 写 storage）下线
   wx.showToast({title:'请先登录财务岗位后操作',icon:'none'});},financeMonth(e){this.month(e);},
- loadMonthClosing(month){
-  const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode))return;
+ loadMonthClosing(month,force=false){
+  if(this.__disposed||this.__financeHidden)return;
+  const post=auth.currentApiPost(),scope=apiScope();
+  if(this.__financeIdentity!==scope)this.syncFinanceIdentity(scope);
+  if(!scope||!post||!['finance','finance-lead'].includes(post.roleCode)){this.clearFinanceSnapshot();return;}
   month=month||this.data.selectedMonth||(this.data.platformFinance&&this.data.platformFinance.month)||new Date().getFullYear()+'-'+('0'+(new Date().getMonth()+1)).slice(-2);
-  const sequence=this.__monthClosingSeq=(this.__monthClosingSeq||0)+1,guard=httpApi.requestGuard('monthClosing');
-  const previous=this.data.monthClosing&&this.data.monthClosing.period===month?this.data.monthClosing:{};
+  const key=JSON.stringify([scope,month]);
+  if(!force&&this.__monthClosingFlight?.key===key)return this.__monthClosingFlight.promise;
+  const flight=this.__monthClosingFlight={key},sequence=this.__monthClosingSeq=(this.__monthClosingSeq||0)+1,guard=httpApi.requestGuard('monthClosing');
+  const previous=this.__monthClosingScope===scope&&this.data.monthClosing?.period===month?this.data.monthClosing:{};
   const retained={current:previous.current||null,currentRows:previous.currentRows||[],confirmed:previous.confirmed||null,confirmedRows:previous.confirmedRows||[],confirmedAt:previous.confirmedAt||'',needsReview:!!previous.needsReview};
-  this.setData({monthClosing:{status:'loading',period:month,...retained}});
-  const alive=()=>!this.__disposed&&!this.__financeHidden&&guard()&&sequence===this.__monthClosingSeq;
-  return Promise.resolve().then(()=>perfApi.operating.reconciliation(month)).then(result=>{
+  this.__monthClosingScope=scope;this.setData({monthClosing:{status:'loading',period:month,...retained}});
+  const alive=()=>{
+   if(this.__disposed||this.__financeHidden||this.__monthClosingFlight!==flight||sequence!==this.__monthClosingSeq)return false;
+   if(apiScope()!==scope){this.syncFinanceIdentity(apiScope());return false;}
+   return guard()&&(!this.data.selectedMonth||this.data.selectedMonth===month);
+  };
+  return flight.promise=Promise.resolve().then(()=>perfApi.operating.reconciliation(month)).then(result=>{
    if(!alive())return;
    if(!result||result.period!==month||!result.current||!result.current.sourceSignature)throw new Error('对账数据暂时无法加载，请重试');
    this.setData({monthClosing:{status:'ready',period:month,current:result.current,currentRows:closingRows(result.current),confirmed:result.confirmed||null,confirmedRows:closingRows(result.confirmed),confirmedAt:closingTime(result.confirmed&&result.confirmed.updateTime),needsReview:!!result.needsReview}});
-  }).catch(error=>{if(alive())this.setData({monthClosing:{status:'degraded',period:month,...retained,message:PF.errorMessage(error)}});});
+  }).catch(error=>{
+   if(!alive())return;
+   if(financeDenied(error))return this.invalidateFinanceAccess(error);
+   this.setData({monthClosing:{status:'degraded',period:month,...retained,message:PF.errorMessage(error)}});
+  }).finally(()=>{if(this.__monthClosingFlight===flight)this.__monthClosingFlight=null;});
  },
- retryMonthClosing(){return this.loadMonthClosing();},
+ retryMonthClosing(){return this.loadMonthClosing(undefined,true);},
  reconcileBook(){
   const closing=this.data.monthClosing;
   if(this.data.busy||!closing||closing.status!=='ready'||(closing.confirmed&&!closing.needsReview)||!closing.current||!closing.current.sourceSignature)return;
+  const scope=apiScope();if(scope!==this.__financeIdentity){this.syncFinanceIdentity(scope);return;}
   const period=closing.period,signature=closing.current.sourceSignature;
   let request=this.__reconcileRequest;
   if(!request||request.period!==period||request.signature!==signature){request={period,signature,key:financeApi.idemKey('month-reconcile')};this.__reconcileRequest=request;}
   const busyToken=this.beginFinanceBusy();if(!busyToken)return;
   return perfApi.operating.reconcile(request.period,request.key,request.signature).then(saved=>{
    if(!this.ownsFinanceBusy(busyToken))return;
+   if(apiScope()!==scope){this.syncFinanceIdentity(apiScope());return;}
    if(!saved||saved.period!==period||saved.sourceSignature!==signature)throw new Error('对账结果未确认，请沿用本次请求重试');
    this.__reconcileRequest=null;
    if(this.__disposed||this.__financeHidden||!this.data.monthClosing||this.data.monthClosing.period!==period)return;
@@ -182,11 +247,11 @@ financeApi.reconciliation(month).then(rec=>{if(!pgAlive())return;const fx=c=>dis
    const confirmed=isNewerConfirmation(latest.confirmed,saved)?latest.confirmed:saved,current=latest.current||closing.current;
    this.setData({monthClosing:{...latest,current,confirmed,confirmedRows:closingRows(confirmed),confirmedAt:closingTime(confirmed.updateTime),needsReview:current.sourceSignature!==confirmed.sourceSignature}});
    wx.showToast({title:'本月对账已完成并留痕',icon:'none'});
-   this.loadMonthClosing(period);
+   this.loadMonthClosing(period,true);
   }).catch(error=>{
    if(!this.ownsFinanceBusy(busyToken)||this.__disposed||this.__financeHidden||!this.data.monthClosing||this.data.monthClosing.period!==period)return;
    wx.showToast({title:(error&&(error.message||error.msg))||'对账未确认，请重试',icon:'none'});
-   if(Number(error&&error.code)===1116000001){this.__reconcileRequest=null;this.loadMonthClosing(period);}
+   if(Number(error&&error.code)===1116000001){this.__reconcileRequest=null;this.loadMonthClosing(period,true);}
   }).finally(()=>this.finishFinanceBusy(busyToken));
  },
  switchWorkspaceTab(tab){if(!['finance-home','finance-books','profile'].includes(tab.key))return false;const post=auth.currentApiPost();if(!post||!['finance','finance-lead'].includes(post.roleCode))return false;if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return true;if(this.data.view==='profile'&&tab.key!=='profile')require('../../profile/profile-page')(4).onHide.call(this);this.wbGeneration=(this.wbGeneration||0)+1;this._registerSeq=(this._registerSeq||0)+1;this.__entryOrigin=null;this.__entryOptions=null;this.setData({wbForm:null,registerType:'',journeyResult:null,journeyDeclaration:null,bookEntryDetail:null});const next=tab.key==='profile'?'profile':tab.key==='finance-home'?'desk':post.orgType==='headquarters'?'flows':'projects';this.tabStates=this.tabStates||{};this.tabStates[this.data.view]={keyword:this.data.keyword,filter:this.data.filter,flowTab:this.data.flowTab,flowScope:this.data.view==='flows'?this.data.flowScope:'period',category:this.data.category,statusFilter:this.data.statusFilter};const saved=this.tabStates[next]||{};this.options={view:next};this.id='';this.setData({...clean(),ready:true,view:next,keyword:'',filter:'all',category:'全部类别',statusFilter:'全部状态',due:'',...saved,flowScope:next==='flows'?(saved.flowScope||'period'):'period',...(next==='flows'?{flowTab:saved.flowTab||'ledger'}:{})});if(next==='profile')this.showFinanceProfile();else if(!this.__platformActions||this.__financeLoadedIdentity!==this.__financeIdentity)this.onShow();else this.refresh();wx.pageScrollTo({scrollTop:0,duration:0});return true;},

@@ -27,7 +27,7 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     page.setData({ registerType: '', registerForm: {}, registerBusy: false, paymentPending: false,
       paymentRetry: false, registerError: '', paymentNotice: kind(entry).label + '已登记，单号 ' + id });
     page.financeEntrySaved?.(entry.type || 'payment', entry.form, result);
-    page.loadPlatformFinance();
+    page.loadPlatformFinance(true);
     page.loadWorkbench?.();
     page.loadDesignFees?.();
     page.refreshFinanceTasks?.();

@@ -92,6 +92,7 @@ function financeDeskHarness(data) {
       if (request === '../../../api/auth') return { currentApiPost: () => ({ roleCode: 'finance', orgType: 'store', orgName: 'TEST ONLY 门店' }) };
       if (request === '../../../api/finance') return api;
       if (request === '../../../api/http') return http;
+      if (request === '../../../utils/api-scope') return () => 'finance-test-scope';
       if (request === '../../../utils/platform-finance') return platformFinance();
       if (request.endsWith('/platform-todos-page')) return { init() {}, refresh() {} };
       if (request.endsWith('/franchise/performance')) return { operating: {} };

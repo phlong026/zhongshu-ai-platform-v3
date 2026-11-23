@@ -9,7 +9,7 @@ const base = '/franchise/finance/workbench';
 module.exports = function (page, api) {
   page.loadWorkbench = async function () {
     this.__messageWorkbenchReady=false;
-    const alive = http.requestGuard('fin-workbench');
+    const alive = this.financeReadGuard?this.financeReadGuard('fin-workbench'):http.requestGuard('fin-workbench');
     this.setData({ workbenchError: '' });
     try {
       const [books, reimbursements, staff, declarations, stages, receipts,commission] = await Promise.all([http.get(base + '/books'), http.get(base + '/reimbursements'), http.get(base + '/staff'),http.get('/franchise/sales/collection-declarations'),http.get('/franchise/sales/financial-stages'),api.receipts(),http.get('/franchise/performance/commission/rows').catch(()=>null)]);
@@ -22,7 +22,7 @@ module.exports = function (page, api) {
       this.__commissionStages=commission===null?null:commission.flatMap(r=>r.stages||[]);
       this.__messageWorkbenchReady=true;
       if(this.refreshJourney)this.refreshJourney();if (this.data.view === 'projects') this.loadFinanceProjects();if(this.data.view==='book'&&this.data.bookEntryRows)this.updateBookEmployees();
-    } catch (e) { if (alive() && !this.__disposed) this.setData({ workbenchError: e.message || e.msg || '账本及报销加载失败' }); }
+    } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.returnCollectionDeclaration=function(e){
     const id=String(e.currentTarget.dataset.id),alive=http.sessionGuard();
@@ -37,19 +37,20 @@ module.exports = function (page, api) {
     const id=String(e.currentTarget.dataset.id);if(this.data.wbBusy)return;
     this.declarationKeys=this.declarationKeys||{};if(!this.declarationKeys[id])this.declarationKeys[id]=api.idemKey('collect-confirm');
     const alive=http.sessionGuard();this.setData({wbBusy:true,workbenchError:''});
-    try{const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/confirm',{}, {'Idempotency-Key':this.declarationKeys[id]});if(!alive()||this.__disposed)return;delete this.declarationKeys[id];if(this.financeEntrySaved&&this.data.journeyDeclaration){const d=this.data.journeyDeclaration;this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);}this.loadWorkbench();this.loadPlatformFinance();if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});}
+    try{const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/confirm',{}, {'Idempotency-Key':this.declarationKeys[id]});if(!alive()||this.__disposed)return;delete this.declarationKeys[id];if(this.financeEntrySaved&&this.data.journeyDeclaration){const d=this.data.journeyDeclaration;this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);}this.loadWorkbench();this.loadPlatformFinance(true);if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});}
     catch(e){if(alive()&&!this.__disposed)this.setData({workbenchError:e.message||e.msg||'核实失败'});}finally{if(alive()&&!this.__disposed)this.setData({wbBusy:false});}
   };
   page.loadFinanceProjects = async function () {
-    const alive=http.requestGuard('finance-projects');this.setData({financeProjectLoading:true,financeProjectError:''});
+    const alive=this.financeReadGuard?this.financeReadGuard('finance-projects'):http.requestGuard('finance-projects');this.setData({financeProjectLoading:true,financeProjectError:''});
     try{const books=await http.get(base+'/books');if(!alive()||this.__disposed)return;
       this.setData({financeProjectLoading:false,workbenchBooks:books});this.filterFinanceBooks();if(this.refreshJourney)this.refreshJourney();
-    }catch(e){if(alive()&&!this.__disposed)this.setData({financeProjectLoading:false,financeProjectError:e.message||'账本加载失败'});}
+    }catch(e){if(alive()&&!this.__disposed){const patch={financeProjectLoading:false,financeProjectError:e.message||'账本加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);}}
   };
   page.filterFinanceBooks=function(){const rows=BookView.books(this.data.workbenchBooks,this.data.keyword||'',this.data.bookListTab||'all');this.setData({financeProjects:rows,financeProjectTotal:rows.length});};
   page.changeBookListTab=function(e){this.setData({bookListTab:e.currentTarget.dataset.tab});this.filterFinanceBooks();};
   page.loadBookLedger = async function () {
-    const scope=this.options.bookScope,alive=http.requestGuard('finance-book-ledger');
+    const scope=this.options.bookScope,alive=this.financeReadGuard?this.financeReadGuard('finance-book-ledger'):http.requestGuard('finance-book-ledger');
+    if(scope!==this.data.bookScope)this.setData({bookResult:null,bookEntryRows:[],bookEntryDetail:null,bookEntries:[],bookSummary:[],bookEmployeeRows:[],bookName:'',bookNet:'—',bookCost:'—',bookCollectionUrl:'',bookMaterialsUrl:'',bookExpensesUrl:''});
     this.setData({bookLoading:true,bookError:'',bookScope:scope,canLinkBook:String(scope||'').startsWith('book:')});
     try{
       const [result,books]=await Promise.all([http.get(base+'/ledger',{scope}),http.get(base+'/books')]);
@@ -58,7 +59,7 @@ module.exports = function (page, api) {
       this.setData({bookLoading:false,bookResult:result,workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
         bookFlowTab:this.data.bookFlowTab||'cash',bookSummary:BookView.summary(s),
         bookNet:BookView.money(Number(s.received_cents)+Number(s.expense_refunded_cents)-Number(s.paid_cents)-Number(s.refunded_cents)),bookCost:BookView.money(s.committed_cents),bookEntryDetail:null,bookCollectionUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=collection',bookMaterialsUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=materials',bookExpensesUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=expenses'});this.filterBookEntries();this.updateBookEmployees();
-    }catch(e){if(alive()&&!this.__disposed)this.setData({bookLoading:false,bookError:e.message||'账本加载失败'});}
+    }catch(e){if(alive()&&!this.__disposed){const patch={bookLoading:false,bookError:e.message||'账本加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);}}
   };
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
@@ -161,7 +162,7 @@ module.exports = function (page, api) {
       if (!alive()) return;
       if(f.type==='linkbook'){this.options={...this.options,bookScope:f.scope};this.setData({bookScope:f.scope,canLinkBook:false});}
       if(this.financeEntrySaved)this.financeEntrySaved(f.type,f,result);
-      this.setData({ wbForm: null }); this.loadWorkbench(); this.loadPlatformFinance();
+      this.setData({ wbForm: null }); this.loadWorkbench(); this.loadPlatformFinance(true);
       if (this.data.view === 'book') this.loadBookLedger();if(this.data.view==='projects')this.loadFinanceProjects();
       wx.showToast({ title: ['payment','expense'].includes(f.type) ? '付款登记完成' : '已登记' });wx.pageScrollTo({scrollTop:0,duration:0});if(this.refreshFinanceTasks)this.refreshFinanceTasks();
     } catch (e) { if (alive()) this.setData({ wbError: e.message || e.msg || '登记失败，请重试' }); }

@@ -80,7 +80,7 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
 
 test('空待办、加载和失败分别显示，岗位概览始终可见', () => {
   const owner=require('../miniprogram/utils/platform-owner-home').view({name:'李明',period:'2026-11'});
-  const cases=[['business/index',{isSalesHome:true,salesName:'李明',salesShortcuts:[]}],['admin/home/index',{ready:true,desk:owner}],['admin/finance-desk/index',{ready:true,view:'desk',deskHome:{name:'陈晨',hq:false,tasks:[]},platformFinance:{status:'ready'}}]];
+  const cases=[['business/index',{isSalesHome:true,salesName:'李明',salesShortcuts:[]}],['admin/home/index',{ready:true,desk:owner}],['admin/finance-desk/index',{financeRefreshing:false,ready:true,view:'desk',deskHome:{name:'陈晨',hq:false,tasks:[]},platformFinance:{status:'ready'}}]];
   for(const [file,data] of cases)for(const status of ['loading','degraded','partial-empty','ready']){
     const nodes=flatten(render(path.resolve(__dirname,'../miniprogram/pages',file+'.wxml'),{...data,guest:false,platformTodos:{status,rows:[],count:0}}));
     const top=nodes.find(n=>n.tag==='home-overview');assert.ok(top,file+' overview');

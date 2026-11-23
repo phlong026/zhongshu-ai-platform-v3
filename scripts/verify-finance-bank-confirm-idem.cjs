@@ -18,6 +18,8 @@ function loadFinancePageSpec() {
 }
 
 async function main() {
+  const originalToken = http.token;
+  http.token = () => 'TEST ONLY authenticated session';
   const originalSessionGeneration = http.sessionGeneration;
   const originalCurrentPostId = http.currentPostId;
   const originalCurrentPost = auth.currentApiPost;
@@ -387,6 +389,7 @@ async function main() {
   } finally {
     http.sessionGeneration = originalSessionGeneration;
     http.currentPostId = originalCurrentPostId;
+    http.token = originalToken;
     auth.currentApiPost = originalCurrentPost;
     if (todosPage && originalTodosRefresh) todosPage.refresh = originalTodosRefresh;
     if (performanceApi && originalReconcile) performanceApi.operating.reconcile = originalReconcile;

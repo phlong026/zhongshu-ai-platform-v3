@@ -105,7 +105,7 @@ module.exports = function attach(page, financeApi, PF) {
         if (!ownsBusy(this, busyToken)) return;
         if (this.bankConfirmIdemCtx === context) { this.bankConfirmIdem = null; this.bankConfirmIdemCtx = null; }
         if (!stillSameScope()) return;
-        wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance();
+        wx.showToast({ title: '已确认入账' }); this.loadPlatformFinance(true);
       })
       .catch(err => { if (ownsBusy(this, busyToken) && stillSameScope()) wx.showToast({ title: PF.errorMessage(err), icon: 'none' }); })
       .finally(() => finishBusy(this, busyToken));
@@ -182,7 +182,7 @@ module.exports = function attach(page, financeApi, PF) {
       .then(result => {
         if (recoverable || !alive()) return; // 恢复模块持有原请求；身份/代次过期不得清理新表单
         if(this.financeEntrySaved)this.financeEntrySaved(type,form,result);
-        wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance();if(this.loadWorkbench)this.loadWorkbench();
+        wx.showToast({ title: type === 'payment' ? '付款登记完成' : ['refund', 'expense-refund'].includes(type) ? '退款登记完成' : '已登记' }); this.registerIdem = null; this.setData({ registerType: '', registerForm: {} }); this.loadPlatformFinance(true);if(this.loadWorkbench)this.loadWorkbench();
         if (this.loadDesignFees) this.loadDesignFees();
         if(this.refreshFinanceTasks)this.refreshFinanceTasks();
       })
@@ -225,7 +225,7 @@ module.exports = function attach(page, financeApi, PF) {
                   amount: yuanText, reason: row.reason || '', date: originalDate,
                   transactionNo: row.transactionNo || '', replacesId: row.id };
             if (!finishBusy(this, busyToken, { registerType: type, registerForm: form, registerError: '',bookEntryDetail:null,journeyResult:null,wbForm:null })) return;
-            this.loadPlatformFinance();
+            this.loadPlatformFinance(true);
           })
           .catch(err => finishBusy(this, busyToken, { registerError: PF.errorMessage(err) }));
       }
@@ -277,7 +277,7 @@ module.exports = function attach(page, financeApi, PF) {
             // 作废释放额度：台账行已消失，联动提示说明应付余额恢复（刷新后不再出现该笔）
             if (!finishBusy(this, busyToken, { voidNotice: PF.voidNoticeText(row),bookEntryDetail:null })) return;
             wx.showToast({ title: '付款已撤销', icon: 'none' });
-            this.loadPlatformFinance();
+            this.loadPlatformFinance(true);
             if(this.loadWorkbench)this.loadWorkbench();
             if(this.data.view==='book'&&this.loadBookLedger)this.loadBookLedger();
           })
@@ -327,7 +327,7 @@ module.exports = function attach(page, financeApi, PF) {
     if (!String(form.note || '').trim()) return this.setData({ registerError: '请填写修订说明（留痕）' });
     this.setData({ revisionBusy: true });
     financeApi.reviseReceipt(form.receiptId, form.baseRevisionVersion, amountCents, form.note)
-      .then(() => { this.setData({ registerType: '', revisionForm: null, revisionKey: null }); this.loadPlatformFinance(); wx.showToast({ title: '已修订留痕' }); })
+      .then(() => { this.setData({ registerType: '', revisionForm: null, revisionKey: null }); this.loadPlatformFinance(true); wx.showToast({ title: '已修订留痕' }); })
       .catch(err => {
         const raw = err && (err.data || err);
         // R2 P1-4：按错误码 1102000003 识别冲突（弃文案 indexOf）→ 回读当前收款+历史刷新基准与原金额（保留用户输入）

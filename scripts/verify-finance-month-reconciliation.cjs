@@ -1,5 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../miniprogram/pages/admin/finance-desk/index.js'),'utf8');
+const {render}=require('./role-page-runtime.cjs');
+const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children)).join('');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};};
 function facts(overrides={}){return{grossReceiptsCents:100000,grossReceiptsCount:1,clientRefundsCents:0,clientRefundsCount:0,netReceivedCents:100000,companyPaidCents:20000,companyPaidCount:1,companyReturnedCents:0,companyReturnedCount:0,netCompanyPaidCents:20000,netCents:80000,employeeAdvanceCents:30000,employeeAdvanceCount:1,employeeReturnedCents:0,employeeReturnedCount:0,sourceSignature:'v1',...overrides};}
@@ -7,7 +9,9 @@ function harness({strictDate=false}={}){
  let page,session=1,post={roleCode:'finance',orgType:'store',orgName:'测试门店',postId:'post-1'},sequence=0;
  const calls={reads:[],writes:[],toasts:[]};
  const state={read:async period=>({period,current:facts(),confirmed:null,needsReview:false}),write:async(period,key,signature)=>({...facts(),period,sourceSignature:signature,byName:'财务甲',updateTime:'2026-11-23T03:00:00Z'})};
- const http={token:()=>true,currentPostId:()=>post.postId,sessionGeneration:()=>session,requestGuard:()=>{const old=session;return()=>old===session;}};
+ const http={token:()=>true,currentUserId:()=> 'user-1',tenantId:()=> 'tenant-1',currentPostId:()=>post.postId,sessionGeneration:()=>session,requestGuard:()=>{const old=session;return()=>old===session;}};
+ const scopeModule={exports:{}};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/utils/api-scope.js'),'utf8'),{module:scopeModule,require:n=>n.endsWith('/http')?http:{currentApiPost:()=>post}});
+ const scope=scopeModule.exports;
  vm.runInNewContext(source,{Page:definition=>{page=definition;},require(request){
   if(request.endsWith('/finance-workbench-view'))return require('../miniprogram/utils/finance-workbench-view');
   if(request.endsWith('/finance-desk'))return {url:()=>''};
@@ -15,6 +19,9 @@ function harness({strictDate=false}={}){
   if(request.endsWith('/auth'))return {currentApiPost:()=>post};
   if(request.endsWith('/api/finance'))return {idemKey:()=>`test-${++sequence}`};
   if(request.endsWith('/api/http'))return http;
+  if(request.endsWith('/api-scope'))return scope;
+  if(request.endsWith('/profile/profile-page'))return()=>({onHide(){},onUnload(){}});
+  if(request.endsWith('/finance-keyboard'))return{stop(){}};
   if(request.endsWith('/platform-finance'))return {errorMessage:error=>error.message||'读取失败'};
   if(request.endsWith('/franchise/performance'))return {operating:{reconciliation:period=>{calls.reads.push(period);return state.read(period);},reconcile:(...args)=>{calls.writes.push(args);return state.write(...args);}}};
   if(request.endsWith('/view-container'))return {routeValue:value=>value||''};
@@ -22,8 +29,8 @@ function harness({strictDate=false}={}){
  },wx:{showToast:options=>calls.toasts.push(options.title)},console,Date:strictDate?class extends Date{static parse(value){return /\.\d{4,}/.test(value)?NaN:Date.parse(value);}}:Date,Promise});
  page.data={...page.data,view:'flows',flowTab:'reconcile',selectedMonth:'2026-11',platformApiMode:true};
  page.setData=patch=>{for(const[key,value]of Object.entries(patch)){const keys=key.split('.');let target=page.data;for(const part of keys.slice(0,-1))target=target[part]||(target[part]={});target[keys.at(-1)]=value;}};
- page.syncFinanceIdentity('post-1:1');
- return{page,calls,state,switchIdentity(){session++;post={...post,postId:'post-2'};page.syncFinanceIdentity(`post-2:${session}`);}};
+ page.syncFinanceIdentity(scope());
+ return{page,calls,state,changePost(patch){post={...post,...patch};},switchIdentity(){session++;post={...post,postId:'post-2'};page.syncFinanceIdentity(scope());}};
 }
 
 test('company cash and employee advances are shown with matching counts; confirmation stays readable after reopening',async()=>{
@@ -144,4 +151,34 @@ test('server confirmation order keeps microseconds even on engines accepting onl
  await h.page.loadMonthClosing();h.state.read=async()=>{throw new Error('刷新超时');};
  write.resolve({...facts(),period:'2026-11',byName:'较旧财务',updateTime:'2026-11-23T03:00:00.123100Z'});await pending;await tick();
  assert.equal(h.page.data.monthClosing.confirmed.byName,'较新财务');assert.equal(h.page.data.monthClosing.needsReview,false);
+});
+
+
+test('month closing keeps confirmed and current amounts mounted through a coalesced refresh and ordinary read failure',async()=>{
+ const h=harness(),saved={...facts(),period:'2026-11',byName:'财务甲',updateTime:'2026-11-23T03:00:00Z'};
+ h.state.read=async period=>({period,current:facts(),confirmed:saved,needsReview:true});await h.page.loadMonthClosing();
+ const before=JSON.stringify([h.page.data.monthClosing.currentRows,h.page.data.monthClosing.confirmedRows]),pending=deferred();h.state.read=()=>pending.promise;
+ const first=h.page.loadMonthClosing(),second=h.page.loadMonthClosing();await tick();assert.equal(h.calls.reads.length,2,'same query shares its pending month read');
+ const html=text(render(path.join(__dirname,'../miniprogram/pages/admin/finance-desk/month-reconciliation.wxml'),h.page.data));
+ assert(html.includes('员工垫付')&&html.includes('¥300.00'));assert(html.includes('更新中'));assert.equal(h.page.data.monthClosing.status,'loading');await h.page.reconcileBook();assert.equal(h.calls.writes.length,0);
+ pending.reject({status:500,message:'offline'});await Promise.all([first,second]);assert.equal(JSON.stringify([h.page.data.monthClosing.currentRows,h.page.data.monthClosing.confirmedRows]),before);
+ assert(text(render(path.join(__dirname,'../miniprogram/pages/admin/finance-desk/month-reconciliation.wxml'),h.page.data)).includes('更新失败'));await h.page.reconcileBook();assert.equal(h.calls.writes.length,0);
+});
+test('month closing clears both snapshots for each explicit denial representation',async()=>{
+ for(const error of [{code:401},{code:403},{status:401},{status:403},{statusCode:401},{statusCode:403},{code:1103000002},{postInvalid:true}]){
+  const h=harness();h.state.read=async period=>({period,current:facts(),confirmed:{...facts(),byName:'财务甲'},needsReview:true});await h.page.loadMonthClosing();
+  h.state.read=async()=>{throw error;};await h.page.loadMonthClosing();const result=h.page.data.monthClosing;
+  assert(!result.current&&!result.confirmed,error);assert.equal((result.currentRows||[]).length,0);assert.equal((result.confirmedRows||[]).length,0);assert.equal(h.page.data.platformRegister,null);
+ }
+});
+test('a same-post permission change invalidates existing and late month amounts without a new onShow',async()=>{
+ for(const change of [{roleCode:'finance-lead'},{orgType:'headquarters'},{permissions:['changed:scope']}]){
+  const h=harness();await h.page.loadMonthClosing();const pending=deferred();h.state.read=()=>pending.promise;const read=h.page.loadMonthClosing();await tick();h.changePost(change);
+  pending.resolve({period:'2026-11',current:facts({sourceSignature:'old-scope'}),confirmed:null});await read;assert.equal(h.page.data.monthClosing,null);
+ }
+});
+test('returning after hide starts a new month read and rejects an older denial',async()=>{
+ const h=harness();await h.page.loadMonthClosing();const old=deferred(),next=deferred();h.state.read=()=>old.promise;const first=h.page.loadMonthClosing();await tick();h.page.onHide();h.page.__financeHidden=false;
+ h.state.read=()=>next.promise;const second=h.page.loadMonthClosing();await tick();assert.equal(h.calls.reads.length,3);
+ next.resolve({period:'2026-11',current:facts({sourceSignature:'new'}),confirmed:null});await second;old.reject({statusCode:403});await first;assert.equal(h.page.data.monthClosing.current.sourceSignature,'new');
 });
