@@ -93,6 +93,8 @@ const publications = {
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
   /** 发布列表（?status= publishing|published|verify|failed|scheduled） */
   page: (status) => http.get('/franchise/content/publications', status ? { status } : undefined),
+  /** Resolve a published record to its original saved video; backend checks organization and published status. */
+  playback: id => http.get('/franchise/content/publications/' + encodeURIComponent(id) + '/playback'),
   /** 演示已发布 → 待回执核验；幂等键由调用方生成存 this（重试复用） */
   verify: (id, key) => http.post('/franchise/content/publications/' + id + '/verify', {}, idem(key, 'pub-verify')),
   /** 回执发布链接（全局唯一，重复登记 1_114_000_003）；幂等键由调用方生成存 this（重试复用） */
