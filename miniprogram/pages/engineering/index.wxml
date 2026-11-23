@@ -22,7 +22,8 @@
       <block wx:elif="{{platformTodos.status==='degraded'}}"><text class="hint">{{platformTodos.message||'待办暂时无法加载'}}</text><button class="guest-section-link" bindtap="retryPlatformTodos">重新加载<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></block>
       <block wx:elif="{{platformTodos.status==='partial-empty'}}"><text class="hint">已加载部分暂无待办</text><button class="guest-section-link" bindtap="retryPlatformTodos">重新加载<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></block>
       <block wx:elif="{{platformTodos.status==='ready'&&platformTodos.rows.length===0}}"><text class="hint">暂无待办</text></block>
-      <block wx:else><todo-preview id="today-todos" rows="{{platformTodos.rows}}" scope="{{platformTodos.postKey}}" bind:activate="openPlatformTodo"/></block>
+      <block wx:else><todo-preview id="today-todos" rows="{{platformTodos.rows}}" scope="{{platformTodos.sessionGen+':'+platformTodos.postKey}}" bind:activate="openPlatformTodo"/></block>
+      <view wx:if="{{platformTodos.refreshError}}"><text class="hint">待办更新失败：{{platformTodos.refreshError}}</text><button class="guest-section-link" bindtap="retryPlatformTodos">重试<image src="/pages/engineering/assets/arrow.png" mode="aspectFit"/></button></view>
     </view>
     <view class="section guest-shortcuts"><view class="section-heading"><text class="section-title">快捷操作</text></view><view class="guest-shortcut-grid"><button wx:for="{{tools}}" wx:key="title" data-action="{{item.action}}" bindtap="openAction" hover-class="pressed"><image src="/pages/engineering/assets/{{item.icon}}.png" mode="aspectFit"/><text class="guest-shortcut-title">{{item.title}}</text></button></view></view>
   </block></view>

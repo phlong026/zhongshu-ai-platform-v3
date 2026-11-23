@@ -187,7 +187,7 @@ auth.switchPost('p-boss');
 requestLog.length = 0; pendingRequests.length = 0;
 PTPage.refresh(page, false);
 assert.equal(requestLog.length, 1);
-assert.equal(requestLog[0].url, 'http://127.0.0.1:48080/admin-api/platform/todos', '请求地址正确');
+assert.equal(requestLog[0].url, require('../miniprogram/config/env').API_BASE.replace(/\/$/, '') + '/platform/todos', '请求地址使用项目配置');
 assert.equal(requestLog[0].header['X-Post-Id'], 'p-boss');
 assert.equal(requestLog[0].header['tenant-id'], '1', 'tenant-id 头');
 assert.ok(/Bearer /.test(requestLog[0].header.Authorization), 'Bearer 头');
