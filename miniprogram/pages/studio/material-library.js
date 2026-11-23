@@ -3,7 +3,7 @@ const studio = require('../../utils/studio');
 const { hashFile } = require('../../utils/sha256-stream');
 const { putTicketBytes } = require('../../utils/b-asset-upload');
 const { downloadTicketFile } = require('../../utils/b-asset-download');
-const Audio = require('./characters/audio-preview');
+const Audio = require('../../utils/audio-preview');
 const api = require('../../api/franchise/content').materials;
 const message = e => e && (e.msg || e.message || e.errMsg) || '暂时无法完成，请重试';
 const call = (method, args) => new Promise((resolve, reject) => wx[method](Object.assign({}, args, {success:resolve, fail:reject})));

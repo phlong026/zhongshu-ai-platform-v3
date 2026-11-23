@@ -411,7 +411,7 @@ Page({
   playAudioPreview(key,url) {
     if(!this.alive()||!url)return;
     if(wx.createVideoContext)wx.createVideoContext('clone-source-video',this).pause();
-    if(!this.__previewAudio)this.__previewAudio=require('./audio-preview').create({createAudio:()=>wx.createInnerAudioContext(),valid:()=>this.alive(),onChange:patch=>this.setData(patch)});
+    if(!this.__previewAudio)this.__previewAudio=require('../../../utils/audio-preview').create({createAudio:()=>wx.createInnerAudioContext(),valid:()=>this.alive(),onChange:patch=>this.setData(patch)});
     this.__previewAudio.toggle(key,url);
   },
   toggleSourceAudio() {this.playAudioPreview('upload',this.data.cloneAudioPath);},

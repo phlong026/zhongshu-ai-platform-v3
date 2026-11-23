@@ -23,16 +23,32 @@
 .generate-button { margin-top: 24rpx; }
 .duration-input input{flex:1;min-width:0;width:100%;font-size:var(--zs-font-emphasis)}.parameter-note{display:block;margin-top:16rpx;color:var(--creation-muted);font-size:var(--zs-font-meta);line-height:1.6}.parameter-error{color:#bd4838}
 
-.reference-upload { margin-top: 16rpx; min-height: 248rpx; padding: 24rpx 8rpx; border: 1rpx dashed #c5b8a8; border-radius: 16rpx; background: var(--creation-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
-.library-button { border: 1rpx solid var(--creation-brand); border-radius: 16rpx; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 16rpx; font-size:var(--zs-font-emphasis); margin-top: 16rpx; padding: 12rpx; width: 100%; }
-.library-button image { width: 36rpx; height: 36rpx; }
+.reference-actions { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
+.reference-actions button { display: flex; align-items: center; justify-content: center; gap: 12rpx; min-height: 44px; width: 100%; padding: 12rpx; border-radius: 16rpx; font-size: var(--zs-font-emphasis); }
+.reference-actions image { width: 36rpx; height: 36rpx; flex-shrink: 0; }
+.reference-upload { border: 1rpx dashed #c5b8a8; background: var(--creation-bg); }
+.library-button { border: 1rpx solid var(--creation-border); }
 .reference-limits { display: flex; align-items: center; font-size:var(--zs-font-meta); line-height: 36rpx; margin-top: 8rpx; gap: 8rpx; }
 .reference-limits text { flex: 1; }
 .reference-limits button { min-width: 44px; min-height: 44px; display: flex; justify-content: center; align-items: center; }
 .reference-limits image { width: 32rpx; height: 32rpx; }
-.reference-items { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 16rpx; }
-.reference-item { width: 144rpx; font-size:var(--zs-font-meta); overflow-wrap: anywhere; }
-.reference-item image { width: 144rpx; height: 96rpx; border-radius: 16rpx; }
-.reference-item button { color: var(--creation-brand); font-size:var(--zs-font-body); min-height: 44px; width: 100%; }
+.reference-items { display: flex; flex-direction: column; gap: 12rpx; margin-top: 16rpx; }
+.reference-item { min-width: 0; padding: 8rpx 12rpx; border: 1rpx solid var(--creation-border); border-radius: 16rpx; }
+.reference-row { display: flex; align-items: center; gap: 8rpx; }
+.reference-open { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8rpx; margin: 0; padding: 0; border-radius: 10rpx; text-align: left; }
+.reference-thumb { position: relative; display: flex; align-items: center; justify-content: center; flex: none; width: 76rpx; height: 60rpx; border-radius: 10rpx; overflow: hidden; background: var(--creation-soft); color: var(--creation-brand); font-size: var(--zs-font-meta); }
+.reference-thumb image { position: absolute; inset: 0; width: 100%; height: 100%; }
+.reference-play-icon { width: 0; height: 0; margin-left: 3rpx; border: 10rpx solid transparent; border-right: 0; border-left: 16rpx solid var(--creation-brand); }
+.reference-pause-icon { width: 14rpx; height: 20rpx; border-left: 5rpx solid var(--creation-brand); border-right: 5rpx solid var(--creation-brand); }
+.reference-collapse-icon { width: 18rpx; height: 4rpx; border-radius: 2rpx; background: var(--creation-brand); }
+.reference-info { flex: 1; min-width: 0; padding: 0 4rpx; }
+.reference-label { display: block; font-size: var(--zs-font-body); font-weight: 600; line-height: 1.35; }
+.reference-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--zs-font-meta); line-height: 1.45; }
+.reference-remove { flex: none; min-height: 44px; min-width: 44px; margin: 0; padding: 0 6rpx; color: var(--creation-muted); font-size: var(--zs-font-meta); white-space: nowrap; }
+.reference-video { display: block; width: 100%; height: 226rpx; margin: 8rpx 0 4rpx; border-radius: 10rpx; background: #231e19; }
+.reference-audio-progress { display: flex; align-items: center; gap: 12rpx; margin: 0 6rpx 8rpx; color: var(--creation-muted); font-size: var(--zs-font-meta); }
+.reference-audio-track { flex: 1; height: 6rpx; overflow: hidden; border-radius: 99rpx; background: var(--creation-soft); }
+.reference-audio-track view { height: 100%; background: var(--creation-brand); }
+.reference-play-error { display: block; padding: 0 6rpx 8rpx; color: #ad3927; font-size: var(--zs-font-meta); }
 
 .video-draft-status{padding:20rpx 28rpx;color:#824019;background:#fff4e8;font-size:24rpx;}

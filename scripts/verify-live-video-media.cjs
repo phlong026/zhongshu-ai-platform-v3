@@ -295,3 +295,124 @@ test('signed preview addresses avoid platform byte headers and denied access can
   const denied=mediaSource({localExists:true,ticket:async()=>{throw {code:403,message:'素材已移除'};}});
   await assert.rejects(denied.source('901',{type:'image',localPath:'/saved/private.png'}),e=>e.code===403);
 });
+
+function referencePreviewPage(media, wx) {
+  const page = load({
+    '../../utils/creation': {},
+    '../../utils/studio': { scope: () => 'actor', allowed: () => true },
+    '../../utils/platform-content': require('../miniprogram/utils/platform-content'),
+    '../../api/http': { token: () => 'session', sessionGuard: () => () => true },
+    '../../api/franchise/content': {},
+    '../../utils/content-media': media,
+    '../../utils/audio-preview': require('../miniprogram/utils/audio-preview')
+  }, wx);
+  page.data.mode = 'reference';
+  return page;
+}
+
+const referenceEvent = id => ({ currentTarget: { dataset: { id } } });
+
+test('reference rows count each media type independently in selection and submission order', () => {
+  const page = referencePreviewPage({}, {});
+  page.addReferences([
+    { id: 'a', type: 'image', path: '/phone/kitchen.jpg' },
+    { id: 'b', type: 'video', path: '/phone/motion.mp4' },
+    { id: 'c', type: 'image', assetId: '901' },
+    { id: 'd', type: 'audio', path: '/phone/voice.mp3' },
+    { id: 'e', type: 'video', path: '/phone/detail.mp4' }
+  ]);
+  assert.deepEqual(Array.from(page.data.references, item => item.referenceLabel), ['图1', '视频1', '图2', '音频1', '视频2']);
+  page.restoreMediaPreviews = () => {};
+  page.removeReference(referenceEvent('a'));
+  assert.deepEqual(Array.from(page.data.references, item => [item.id, item.referenceLabel]), [
+    ['b', '视频1'], ['c', '图1'], ['d', '音频1'], ['e', '视频2']
+  ]);
+  page.applyVideoForm({
+    mode: 'reference',
+    parameters: { resolution: '768P', duration: 8, ratio: '9:16' },
+    references: [
+      { role: 'reference_audio', assetId: '901' },
+      { role: 'reference_video', assetId: '902' },
+      { role: 'reference_audio', assetId: '903' }
+    ]
+  });
+  assert.deepEqual(Array.from(page.data.references, item => item.referenceLabel), ['音频1', '视频1', '音频2']);
+  assert.ok(page.videoForm().references.every(item => !('referenceLabel' in item)));
+});
+
+test('images open immediately and library video opens inline using the normalized authorized file', async () => {
+  const displayed = [], requested = [];
+  const page = referencePreviewPage({ async source(id, alive, options) {
+    assert.ok(alive());
+    requested.push([id, options.type, options.playback]);
+    return '/normalized/motion.mp4';
+  } }, {
+    previewImage: ({ current }) => displayed.push(['image', current]),
+    previewMedia: ({ sources }) => displayed.push([sources[0].type, sources[0].url])
+  });
+  page.addReferences([
+    { id: 'photo', type: 'image', path: '/phone/photo.png' },
+    { id: 'video', type: 'video', assetId: '902' }
+  ]);
+  await page.previewReference(referenceEvent('photo'));
+  await page.previewReference(referenceEvent('video'));
+  assert.deepEqual(requested, [['902', 'video', true]]);
+  assert.deepEqual(displayed, [['image', '/phone/photo.png']]);
+  assert.equal(page.data.referenceVideoId, 'video');
+  assert.equal(page.data.referenceVideoUrl, '/normalized/motion.mp4');
+  await page.previewReference(referenceEvent('video'));
+  assert.equal(page.data.referenceVideoUrl, '');
+});
+
+test('audio can play and pause, then stops when the selected row is removed', async () => {
+  const controls = [], events = {};
+  const wx = {
+    createInnerAudioContext() {
+      return {
+        onCanplay: fn => events.canPlay = fn,
+        onPlay: fn => events.play = fn,
+        onPause: fn => events.pause = fn,
+        onEnded() {}, onTimeUpdate() {}, onError() {},
+        play() { controls.push(['play', this.src]); events.play(); },
+        pause() { controls.push(['pause']); events.pause(); },
+        destroy() { controls.push(['destroy']); }
+      };
+    }
+  };
+  const page = referencePreviewPage({}, wx);
+  page.addReferences([{ id: 'voice', type: 'audio', path: '/phone/narration.m4a' }]);
+  await page.previewReference(referenceEvent('voice'));
+  assert.equal(page.data.previewAudioPlaying, true);
+  await page.previewReference(referenceEvent('voice'));
+  assert.equal(page.data.previewAudioPlaying, false);
+  page.removeReference(referenceEvent('voice'));
+  assert.deepEqual(controls, [['play', '/phone/narration.m4a'], ['pause'], ['destroy']]);
+  assert.equal(page.data.previewAudioId, '');
+});
+
+test('changing page while loading a preview does not open the player late', async () => {
+  let resolveFile;
+  const displayed = [];
+  const page = referencePreviewPage({
+    source: () => new Promise(resolve => { resolveFile = resolve; })
+  }, { previewMedia: args => displayed.push(args) });
+  page.addReferences([{ id: 'video', type: 'video', assetId: '902' }]);
+  const pending = page.previewReference(referenceEvent('video'));
+  page.onHide();
+  resolveFile('/normalized/motion.mp4');
+  await pending;
+  assert.equal(displayed.length, 0);
+  assert.equal(page.data.referencePreviewLoadingId, '');
+  assert.equal(page.data.referenceVideoUrl, '');
+});
+
+test('saved audio and video previews open fresh signed media without replacing the default restore behavior', async () => {
+  const signed = mediaSource({ ticket: async id => ({ downloadUrl: 'https://cos.example/' + id + '?signed=t' }) });
+  assert.equal(await signed.source('902', { type: 'video' }), '');
+  assert.equal(await signed.source('902', { type: 'video', playback: true }), 'https://cos.example/902?signed=t');
+  assert.equal(await signed.source('903', { type: 'audio', playback: true }), 'https://cos.example/903?signed=t');
+  assert.equal(signed.calls.filter(([kind]) => kind === 'download').length, 0);
+  const proxy = mediaSource();
+  await proxy.source('903', { type: 'audio', playback: true });
+  assert.deepEqual(proxy.calls.map(([kind]) => kind), ['ticket', 'download']);
+});

@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const Audio=require('../miniprogram/pages/studio/characters/audio-preview');
+const Audio=require('../miniprogram/utils/audio-preview');
 function audioHarness(){
  const players=[],patches=[];let valid=true;
  const preview=Audio.create({valid:()=>valid,onChange:p=>patches.push(p),createAudio(){
