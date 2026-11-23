@@ -655,14 +655,17 @@ this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(e
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 async openPublicationVideo(e) {
  const id=String(e.currentTarget.dataset.id||this.data.recordId||this.data.detail&&this.data.detail.id||'');
- if(!/^\d+$/.test(id))return wx.showToast({title:'发布记录编号无效',icon:'none'});
+ if(!/^\\d+$/.test(id))return wx.showToast({title:'发布记录编号无效',icon:'none'});
+ const scope=this.actorScope,alive=http.requestGuard('studio-publication-playback');
+ const current=()=>!this.__closed&&alive()&&scope===this.actorScope&&scope===studio.scope();
  try {
   const result=await contentApi.publications.playback(id);
+  if(!current())return;
   const url=String(result&&result.resultUrl||'');
   if(!url)return wx.showToast({title:'原视频暂不可播放',icon:'none'});
   if(wx.previewMedia)wx.previewMedia({sources:[{url,type:'video'}]});
   else wx.showToast({title:'当前微信版本暂不支持视频预览',icon:'none'});
- } catch(error) { wx.showToast({title:P.degradeMessage(error),icon:'none'}); }
+ } catch(error) { if(current())wx.showToast({title:P.degradeMessage(error),icon:'none'}); }
 },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.id)wx.navigateTo({url:'/pages/growth/index?view=capture&publicationId='+encodeURIComponent(record.id)});},
