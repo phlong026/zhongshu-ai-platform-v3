@@ -51,6 +51,8 @@ public class RefundPaymentService {
             var wallet = scope.require();
             payment.requirePermission(wallet, "platform:wallet:refund");
             var order = payment.order(wallet.tenantId(), wallet.id(), orderId);
+            PaymentPort orderChannel = payment.requireChannel(order.channel());
+            if (orderChannel instanceof VirtualPaymentAdapter adapter) throw adapter.refundSubmissionUnavailable();
             String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
                     wallet.actorId(), orderId, reason)));
             var replay = jdbc.queryForList("SELECT * FROM pf_refund_order WHERE tenant_id = ? AND wallet_id = ? AND request_key = ?",
