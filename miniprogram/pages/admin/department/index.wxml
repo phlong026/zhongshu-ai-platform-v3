@@ -4,11 +4,11 @@
   <view class="hello wb-greeting"><text>{{nickname?'你好，'+nickname:'你好'}}</text></view>
   <view class="section overview">
     <view class="head"><text>{{area==='business'?'业务概览':'工程概览'}}</text><picker mode="date" fields="month" value="{{period}}" bindchange="month" aria-label="选择统计月份"><view class="month">{{period}}<image src="/assets/creation-down.png"/></view></picker></view>
-    <text wx:if="{{busy}}" class="muted">正在读取业务记录…</text><button wx:if="{{error}}" class="link" bindtap="reload">{{error}} · 重试</button>
+    <view class="department-status" aria-live="polite"><button wx:if="{{error}}" class="link" bindtap="reload">{{error}} · 重试</button><text wx:else class="muted">{{busy||refreshing?'正在更新业务记录…':''}}</text></view>
     <view class="hero"><button wx:for="{{large}}" wx:key="key" id="k-{{item.key}}" data-key="{{item.key}}" bindtap="metric"><image class="hero-icon" src="./art/{{item.key}}.png" mode="aspectFit"/><view class="hero-copy"><view class="label">{{item.label}}<image class="arrow" src="/assets/creation-chevron.png"/></view><view class="big {{item.value.length>6?'long':''}}">{{item.value}}<text class="unit">{{item.unit}}</text></view></view></button></view>
     <view class="tiles"><button wx:for="{{small}}" wx:key="key" id="k-{{item.key}}" data-key="{{item.key}}" bindtap="metric"><image class="tile-icon" src="./art/{{item.key}}.png" mode="aspectFit"/><view class="label">{{item.label}}<image class="arrow" src="/assets/creation-chevron.png"/></view><view class="value">{{item.value}}<text class="unit">{{item.unit}}</text></view></button></view>
   </view>
-  <block wx:if="{{!busy&&!error}}">
+  <block wx:if="{{viewReady}}">
     <view class="section team"><view class="head"><text>{{area==='business'?'团队业务':'工程分工'}}</text><button class="link" bindtap="toggleTeam">共 {{members.length}} 人 ›</button></view>
       <button wx:for="{{members}}" wx:key="id" wx:if="{{index<2}}" class="person" data-id="{{item.id}}" bindtap="showMember">
         <image class="avatar" src="./art/{{area==='business'?'sales':'engineer'}}.png"/><text class="name">{{item.name}}</text><text class="person-stat">{{area==='business'?'名下客户':'在建'}} <text class="count">{{item.assigned}}</text>{{area==='engineering'?' 个':''}}</text><text class="person-stat last">{{area==='business'?'待跟进':'待处理'}} <text class="count">{{item.pending}}</text>{{area==='engineering'?' 项':''}}</text><image class="arrow" src="/assets/creation-chevron.png"/>
@@ -31,10 +31,10 @@
   <view class="head"><text>{{focusOpen?(area==='business'?'客户跟进':'重点项目'):selected?selected.name:'全部人员'}}</text><button id="close-member" class="link" bindtap="closeMember">关闭</button></view>
   <block wx:if="{{focusOpen}}">
     <button class="record" wx:for="{{focus}}" wx:key="id" data-id="{{item.id}}" bindtap="original"><view class="grow"><text class="name">{{item.title}}</text><text class="record-note">{{item.note}}</text></view><text class="pill">{{item.owner||'待分配'}} ›</text></button>
-    <text wx:if="{{!focus.length}}" class="muted">暂无对应记录</text><button wx:if="{{focusMore}}" class="all" disabled="{{focusBusy}}" bindtap="expandFocus">{{focusError||'加载更多'}} ›</button></block>
+    <text wx:if="{{!focus.length}}" class="muted">暂无对应记录</text><button wx:if="{{focusMore}}" class="all" disabled="{{focusBusy||busy||refreshing}}" bindtap="expandFocus">{{focusError||'加载更多'}} ›</button></block>
   <block wx:elif="{{!selected}}"><button class="record" wx:for="{{members}}" wx:key="id" data-id="{{item.id}}" bindtap="showMember"><image class="avatar" src="./art/{{area==='business'?'sales':'engineer'}}.png"/><text class="grow name">{{item.name}}</text><text>{{area==='business'?'名下客户':'在建'}} {{item.assigned}} ›</text></button></block>
   <block wx:else><view class="filters"><button wx:for="{{filters}}" wx:key="0" data-kind="{{item[0]}}" class="{{kind===item[0]?'active':''}}" bindtap="selectKind">{{item[1]}}</button></view>
   <text wx:if="{{kind==='visitCustomers'}}" class="muted">按本人登记的实际接待客户去重</text>
   <button id="personal-{{index}}" class="record" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" data-project="{{item.project_id}}" data-node="{{item.node_id}}" data-kind="{{item.kind}}" bindtap="original"><view class="grow"><text class="name">{{item.title}}</text><text class="record-note">{{item.note}}</text></view>›</button>
-  <text wx:if="{{memberBusy||memberError||!records.length}}" class="muted">{{memberBusy?'正在读取…':memberError||'暂无对应记录'}}</text><button wx:if="{{more&&!memberBusy}}" class="link" bindtap="moreRows">加载更多</button></block>
+  <text wx:if="{{memberBusy||memberError||!records.length}}" class="muted">{{memberBusy?'正在读取…':memberError||'暂无对应记录'}}</text><button wx:if="{{more}}" disabled="{{memberBusy||busy||refreshing}}" class="link" bindtap="moreRows">加载更多</button></block>
 </scroll-view></view>
