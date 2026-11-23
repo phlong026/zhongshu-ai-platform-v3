@@ -12,13 +12,15 @@ class CommissionSimulatedPaymentsModeTest {
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(true);
         CommissionSimulatedPayments payments = new CommissionSimulatedPayments(jdbc);
         assertThat(payments.allowed(101L, 202L)).isTrue();
-        verify(jdbc).queryForObject(contains("pf_payment_runtime_mode"), eq(Boolean.class));
+        verify(jdbc).queryForObject(contains("SELECT mode = 'MOCK'"), eq(Boolean.class));
     }
 
     @Test void globalRealModeDisablesDesignSimulationRegardlessOfLegacyAllowList() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(false);
+        when(jdbc.queryForObject(contains("to_regclass"), eq(Boolean.class))).thenReturn(true);
         CommissionSimulatedPayments payments = new CommissionSimulatedPayments(jdbc);
+        payments.configureSimulationOrganizations("101,202");
         assertThat(payments.allowed(101L, 202L)).isFalse();
     }
 }

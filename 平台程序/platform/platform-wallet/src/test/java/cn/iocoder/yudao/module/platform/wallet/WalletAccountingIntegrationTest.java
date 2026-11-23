@@ -43,10 +43,12 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
     private WalletChargeService charges;
     private PostSnapshot post;
     private long tenant;
+    private java.util.Map<String, Object> originalPaymentMode;
 
     @BeforeEach
     void setUp() {
         jdbc = new JdbcTemplate(dataSource);
+        originalPaymentMode = jdbc.queryForMap("SELECT mode, version FROM pf_payment_runtime_mode WHERE id=1");
         tx = new TransactionTemplate(transactionManager);
         tenant = IdWorker.getId();
         TenantContextHolder.setTenantId(tenant);
@@ -63,6 +65,9 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        if (originalPaymentMode != null)
+            jdbc.update("UPDATE pf_payment_runtime_mode SET mode=?, version=? WHERE id=1",
+                    originalPaymentMode.get("mode"), originalPaymentMode.get("version"));
         TenantContextHolder.clear();
         current.remove();
     }
@@ -373,6 +378,8 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     private RechargePaymentService paymentService(PaymentPort channel) {
+        // These legacy scenarios verify real-channel contracts, independently of the safe MOCK default.
+        jdbc.update("UPDATE pf_payment_runtime_mode SET mode='REAL' WHERE id=1");
         var properties = new WechatXPayProperties();
         properties.setEnabled(true);
         properties.setAppid("wallet-app");
@@ -382,6 +389,146 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
         beans.addBean("payment", channel);
         return new RechargePaymentService(dataSource, transactionManager, scope, points,
                 new PaymentFactValidator(), properties, beans.getBeanProvider(PaymentPort.class));
+    }
+
+    @Test
+    void mockPaymentWithoutProviderConfigurationCreditsOnlyAfterConfirmation() {
+        long planId = paymentFixture();
+        var payment = mockPaymentService();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId), "mock-payment", 1);
+        assertCompanyPayment(order, 8, 0);
+        assertThat(payment.payParams(order.id(), "fresh-code", "mock-confirm", true))
+                .containsEntry("mode", "MOCK").containsEntry("status", "CREDITED");
+        assertCompanyPayment(order, 20, 1);
+        mockRecoveryJob(payment).runOnce(100);
+        assertCompanyPayment(order, 20, 1);
+    }
+
+    @Test
+    void merelyCreatedOrUnconfirmedMockOrdersCannotBePaidByRecovery() {
+        long planId = paymentFixture();
+        var payment = mockPaymentService();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId), "mock-unconfirmed", 1);
+        long orderId = Long.parseLong(order.id());
+        long walletId = jdbc.queryForObject("SELECT wallet_id FROM pf_recharge_order WHERE id=?", Long.class, orderId);
+        var job = mockRecoveryJob(payment);
+        job.runOnce(100);
+        assertCompanyPayment(order, 8, 0);
+        jdbc.update("""
+                INSERT INTO pf_payment_attempt(id,tenant_id,wallet_id,order_id,attempt_key,state,lease_token,lease_until)
+                VALUES(?,?,?,?,?,'PROCESSING','expired',clock_timestamp()-interval '1 minute')
+                """, IdWorker.getId(), tenant, walletId, orderId, "unfinished");
+        for (String state : java.util.List.of("PROCESSING", "UNKNOWN")) {
+            jdbc.update("UPDATE pf_payment_attempt SET state=? WHERE tenant_id=? AND order_id=?", state, tenant, orderId);
+            jdbc.update("UPDATE pf_wallet_recovery_task SET next_attempt_at=now() WHERE tenant_id=? AND order_id=?", tenant, orderId);
+            job.runOnce(100);
+            assertCompanyPayment(order, 8, 0);
+        }
+        var fabricated = new PaymentPort.ChannelQueryResult("SUCCEEDED", order.orderNo(), "MOCK", "wallet-app", "MOCK", 0,
+                "openid-" + post.userId(), "MOCK-" + order.orderNo(), 100L, "FEN", java.time.Instant.now(), 0);
+        assertThatThrownBy(() -> payment.processPaymentFact(tenant, walletId, orderId, fabricated))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertCompanyPayment(order, 8, 0);
+    }
+
+    @Test
+    void failedFinalMockAuthorizationCannotBeRecoveredAsPayment() {
+        long planId = paymentFixture();
+        var payment = mockPaymentService();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId), "mock-revoked", 1);
+        var validations = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            if (validations.incrementAndGet() == 2) throw new IllegalStateException("revoked before confirmation");
+            return null;
+        }).when(posts).revalidateActivePost(post.userId(), post.postId());
+        assertThatThrownBy(() -> payment.payParams(order.id(), "fresh-code", "revoked-confirm", true))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT state FROM pf_payment_attempt WHERE tenant_id=? AND order_id=?",
+                String.class, tenant, Long.parseLong(order.id()))).isEqualTo("UNKNOWN");
+        mockRecoveryJob(payment).runOnce(100);
+        assertCompanyPayment(order, 8, 0);
+    }
+
+    @Test
+    void confirmedMockPaymentSurvivesRestartAndModeChangeAndCreditsOnce() {
+        long planId = paymentFixture();
+        var payment = mockPaymentService();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId), "mock-recovery", 1);
+        long orderId = Long.parseLong(order.id());
+        long walletId = jdbc.queryForObject("SELECT wallet_id FROM pf_recharge_order WHERE id=?", Long.class, orderId);
+        var interrupted = org.mockito.Mockito.spy(payment);
+        doThrow(new IllegalStateException("restart after committed confirmation")).when(interrupted)
+                .processPaymentFact(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.eq(walletId),
+                        org.mockito.ArgumentMatchers.eq(orderId), org.mockito.ArgumentMatchers.any());
+        assertThatThrownBy(() -> interrupted.payParams(order.id(), "fresh-code", "confirmed-before-restart", true))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT state FROM pf_payment_attempt WHERE tenant_id=? AND order_id=?",
+                String.class, tenant, orderId)).isEqualTo("SUCCEEDED");
+        assertCompanyPayment(order, 8, 0);
+        jdbc.update("UPDATE pf_payment_runtime_mode SET mode='REAL',version=version+1 WHERE id=1");
+        current.remove(); // A confirmed order must recover using its snapshot, without the original post.
+        var job = mockRecoveryJob(payment);
+        job.runOnce(100);
+        job.runOnce(100);
+        job.runOnce(100);
+        assertCompanyPayment(order, 20, 1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=? AND type='COMPANY_RECHARGE'",
+                Long.class, post.orgId())).isOne();
+    }
+
+    @Test
+    void idempotentCompanyOrderIgnoresLaterModeAndVersionChanges() {
+        assertModeIndependentReplay(false);
+    }
+
+    @Test
+    void firstReleaseCompanyOrderHashReplaysUsingItsOriginalModeSnapshot() {
+        assertModeIndependentReplay(true);
+    }
+
+    private void assertModeIndependentReplay(boolean legacyHash) {
+        long planId = paymentFixture();
+        var payment = mockPaymentService();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var order = payment.createCompanyOrder(Long.toString(planId), "mode-independent", 1);
+        if (legacyHash) {
+            var snapshot = jdbc.queryForMap("SELECT wallet_id,binding_id,payment_mode_version FROM pf_recharge_order WHERE id=?", Long.parseLong(order.id()));
+            String oldHash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                    java.util.List.of(tenant, snapshot.get("wallet_id"), post.userId(), post.postId(), planId, snapshot.get("binding_id"),
+                            "wallet-app", "openid-" + post.userId(), "MOCK", snapshot.get("payment_mode_version"))));
+            jdbc.update("UPDATE pf_recharge_order SET request_hash=? WHERE id=?",
+                    cn.hutool.crypto.digest.DigestUtil.sha256Hex("COMPANY:1:" + oldHash), Long.parseLong(order.id()));
+        }
+        for (String mode : java.util.List.of("MOCK", "REAL")) {
+            jdbc.update("UPDATE pf_payment_runtime_mode SET mode=?,version=version+1 WHERE id=1", mode);
+            // No live adapter is configured. Replaying an existing order must not require one.
+            assertThat(payment.createCompanyOrder(Long.toString(planId), "mode-independent", 1).id()).isEqualTo(order.id());
+            assertThatThrownBy(() -> payment.createCompanyOrder(Long.toString(planId + 1), "mode-independent", 1))
+                    .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_recharge_order WHERE tenant_id=?", Long.class, tenant)).isOne();
+    }
+
+    private RechargePaymentService mockPaymentService() {
+        jdbc.update("UPDATE pf_payment_runtime_mode SET mode='MOCK' WHERE id=1");
+        return new RechargePaymentService(dataSource, transactionManager, scope, points, new PaymentFactValidator(),
+                new WechatXPayProperties(), new org.springframework.beans.factory.support.StaticListableBeanFactory().getBeanProvider(PaymentPort.class));
+    }
+
+    private WalletRecoveryJob mockRecoveryJob(RechargePaymentService payment) {
+        return new WalletRecoveryJob(dataSource, transactionManager, payment,
+                new RefundPaymentService(dataSource, transactionManager, scope, points, payment, new PaymentFactValidator()),
+                new WechatXPayProperties(), new org.springframework.beans.factory.support.StaticListableBeanFactory().getBeanProvider(PaymentPort.class));
+    }
+
+    private void assertCompanyPayment(RechargePaymentService.OrderResponse order, long balance, long facts) {
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?", Long.class, post.orgId())).isEqualTo(balance);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_payment_transaction WHERE tenant_id=? AND order_id=?",
+                Long.class, tenant, Long.parseLong(order.id()))).isEqualTo(facts);
     }
 
     @Test

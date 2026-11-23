@@ -95,26 +95,35 @@ public class RechargePaymentService {
 
     public OrderResponse createCompanyOrder(String planId, String key, long version) {
         if (version < 1) throw WalletException.invalidRequest();
-        requireCompanyRecovery();
         return createOrder(parseId(planId),key,version);
     }
 
     private OrderResponse createOrder(long planId, String key, Long version) {
-        PaymentModeService.Snapshot modeSnapshot = paymentMode();
-        if (modeSnapshot.mode() == PaymentMode.REAL) requireChannel("XPAY");
-        if (modeSnapshot.mode() == PaymentMode.REAL && (properties.getAppid() == null || properties.getAppid().isBlank())) throw new ServiceException(503, "小程序身份配置未就绪");
         PointAccountService.requireText(key, 128);
         return transaction("createOrder", () -> {
             var wallet = scope.require();
             var payer = requirePayer(wallet);
             String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
-                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), payer.appid(), payer.openid(), modeSnapshot.mode().name(), modeSnapshot.version())));
+                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), payer.appid(), payer.openid())));
             if (version != null) hash = DigestUtil.sha256Hex("COMPANY:"+version+":"+hash);
             var replay = jdbc.query("SELECT * FROM pf_recharge_order WHERE tenant_id = ? AND wallet_id = ? AND idempotency_key = ?",
                     (rs, row) -> readOrder(rs), wallet.tenantId(), wallet.id(), key);
             if (!replay.isEmpty()) {
-                if (!hash.equals(replay.get(0).requestHash())) throw WalletException.conflict();
-                return replay.get(0).response();
+                var existing = replay.get(0);
+                // Orders created by the first mode-aware release included configuration in the hash.
+                // Check that legacy format against the order's immutable snapshot, never today's mode.
+                String legacyHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
+                        wallet.actorId(), wallet.postId(), planId, payer.bindingId(), payer.appid(), payer.openid(),
+                        existing.paymentMode().name(), existing.paymentModeVersion())));
+                if (version != null) legacyHash = DigestUtil.sha256Hex("COMPANY:"+version+":"+legacyHash);
+                if (!hash.equals(existing.requestHash()) && !legacyHash.equals(existing.requestHash())) throw WalletException.conflict();
+                return existing.response();
+            }
+            PaymentModeService.Snapshot modeSnapshot = paymentMode();
+            if (modeSnapshot.mode() == PaymentMode.REAL) {
+                if (version != null) requireCompanyRecovery();
+                requireChannel("XPAY");
+                if (properties.getAppid() == null || properties.getAppid().isBlank()) throw new ServiceException(503, "小程序身份配置未就绪");
             }
             var plans = jdbc.queryForList("SELECT * FROM pf_recharge_plan WHERE tenant_id = ? AND id = ? AND status = 'ACTIVE' FOR SHARE",
                     wallet.tenantId(), planId);
@@ -298,6 +307,8 @@ public class RechargePaymentService {
             transaction("paymentFact", () -> {
                 lockWallet(tenantId, walletId);
                 var order = order(tenantId, walletId, orderId);
+                if (order.paymentMode() == PaymentMode.MOCK && !new MockPaymentAdapter(jdbc).confirmed(order.identity()))
+                    throw WalletException.invalidState();
                 validator.validate(order.identity(), fact);
                 jdbc.update("""
                         INSERT INTO pf_payment_transaction (id, tenant_id, wallet_id, order_id, channel, appid,
@@ -386,7 +397,7 @@ public class RechargePaymentService {
     }
 
     PaymentPort requireChannel(String channel) {
-        if ("MOCK".equals(channel)) return new MockPaymentAdapter();
+        if ("MOCK".equals(channel)) return new MockPaymentAdapter(jdbc);
         if (!channelEnabled()) throw new ServiceException(503, "支付通道尚未启用");
         return ports.getObject();
     }
@@ -431,7 +442,7 @@ public class RechargePaymentService {
         requirePermission(wallet, "platform:wallet:recharge");
         var rows = jdbc.query("""
                 SELECT b.id, b.openid, b.appid, b.mobile_hash, u.mobile FROM pf_wechat_binding b JOIN system_users u ON u.id = b.user_id
-                WHERE (? IS NULL OR b.appid = ?) AND b.user_id = ? AND b.status = 'ACTIVE'
+                WHERE (CAST(? AS VARCHAR) IS NULL OR b.appid = ?) AND b.user_id = ? AND b.status = 'ACTIVE'
                   AND u.tenant_id = ? AND u.status = 0 AND u.deleted = 0 FOR SHARE OF b, u
                 """, (rs, row) -> {
                     String mobile = rs.getString("mobile");

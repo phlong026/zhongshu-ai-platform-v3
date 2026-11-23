@@ -290,15 +290,18 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(detail.submissions().get(0).getSchemeSnapshot()).doesNotContain("伪造电话","99999");
         assertError(()->as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("完成",true),key())),FIRST_PAYMENT_NOT_READY);
         assertError(()->as(outsider,()->commissions.paymentReceipt(outsider,id)),COMMISSION_NOT_FOUND);
-        String payKey=key();var pay=new CommissionService.SimulatePayCommand("WECHAT",true);
+        for (String channel : java.util.List.of("WECHAT", "ALIPAY"))
+            assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand(channel,true),key())),SUBMISSION_INPUT_INVALID);
+        String payKey=key();var pay=new CommissionService.SimulatePayCommand("MOCK",true);
         var paid=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
         var again=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
         assertThat(again.commission().getRevision()).isEqualTo(paid.commission().getRevision());
         assertThat(as(finance,()->commissions.paymentReceipt(finance,id)).paid()).isTrue();
         assertThat(as(hqFinance,()->commissions.paymentReceipt(hqFinance,id)).paid()).isTrue();
+        assertThat(jdbc.queryForObject("SELECT channel FROM fr_commission_simulated_order WHERE commission_id=?",String.class,id)).isEqualTo("MOCK");
         assertThat(as(design,()->commissions.get(design,id)).allowedActions()).contains("design-complete");
         assertThat(as(design,()->commissions.get(design,id)).submissions().get(0).getSchemeSnapshot()).doesNotContain("\"phone\"","123456");
-        assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("ALIPAY",true),key())),COMMISSION_STATE_INVALID);
+        assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("MOCK",true),key())),COMMISSION_STATE_INVALID);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE customer_id=?",Long.class,customer)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
         as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("演练完成",true),key()));
@@ -308,6 +311,54 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(design,()->commissions.get(design,id)).allowedActions()).doesNotContain("design-dispatch");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_dispatch_manifest WHERE commission_id=?",Long.class,id)).isZero();
     }
+    @Test void mockChannelMigrationPreservesHistoricalSimulationReceipts() throws Exception {
+        String schema="commission_mock_"+UUID.randomUUID().toString().replace("-","");
+        try (var connection=jdbc.getDataSource().getConnection();var statement=connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("CREATE SCHEMA "+schema);
+                statement.execute("SET LOCAL search_path TO "+schema);
+                statement.execute("CREATE TABLE fr_commission(id BIGINT PRIMARY KEY)");
+                statement.execute("CREATE TABLE pf_message(route TEXT CONSTRAINT ck_pf_message_route CHECK(route='customer'))");
+                try (var source=new org.springframework.core.io.ClassPathResource(
+                        "db/migration/franchise/V20261116.942__commission_simulated_payment.sql").getInputStream()) {
+                    statement.execute(new String(source.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+                }
+                statement.execute("INSERT INTO fr_commission VALUES(1),(2),(3)");
+                statement.execute("""
+                    INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,
+                        order_number,amount_cents,status,channel,paid_by_user_id,paid_at)
+                    VALUES(1,1,10,20,'SIM-1',100,'PAID','WECHAT',30,now()),
+                          (2,1,10,20,'SIM-2',200,'PAID','ALIPAY',30,now())
+                    """);
+                String mockInsert="""
+                    INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,
+                        order_number,amount_cents,status,channel,paid_by_user_id,paid_at)
+                    VALUES(3,1,10,20,'SIM-3',300,'PAID','MOCK',30,now())
+                    """;
+                var before=connection.setSavepoint();
+                assertThatThrownBy(()->statement.execute(mockInsert)).isInstanceOf(java.sql.SQLException.class);
+                connection.rollback(before);
+                try (var source=new org.springframework.core.io.ClassPathResource(
+                        "db/migration/franchise/V20261123.999__commission_mock_payment_channel.sql").getInputStream()) {
+                    statement.execute(new String(source.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+                }
+                statement.execute(mockInsert);
+                try (var rows=statement.executeQuery("SELECT channel,amount_cents FROM fr_commission_simulated_order ORDER BY commission_id")) {
+                    for (String channel:java.util.List.of("WECHAT","ALIPAY","MOCK")) {
+                        assertThat(rows.next()).isTrue();
+                        assertThat(rows.getString("channel")).isEqualTo(channel);
+                    }
+                    assertThat(rows.next()).isFalse();
+                }
+                assertThatThrownBy(()->statement.execute("UPDATE fr_commission_simulated_order SET channel='REAL' WHERE commission_id=3"))
+                        .isInstanceOf(java.sql.SQLException.class);
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
     @Test void oldClientPaymentMarkerCreatesOnlyFormalPayablesAndReplaysSafely() {
         var store=fixture.store();
         var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
@@ -350,7 +401,7 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
                 budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,"TEST_SIMULATION");
         simulations.configureSimulationOrganizations(store.orgId()+","+design.orgId());
         long id=as(sales,()->commissions.submit(sales,customer,input,key())).commission().getId();
-        as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("WECHAT",true),key()));
+        as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("MOCK",true),key()));
         as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("历史演练完成",true),key()));
         org.mockito.Mockito.when(assets.validateReference(org.mockito.ArgumentMatchers.any(AssetAccessPort.Actor.class),
                 org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anySet())).thenReturn(true);
