@@ -17,7 +17,7 @@ const franchiseCourses = {
   finance: ['finance'], 'finance-lead': ['finance']
 };
 
-async function setup(role, handler=()=>undefined) {
+async function setup(role, handler=()=>undefined, imageInfo) {
   const runtime=await connect(),auth=require('../miniprogram/api/auth');
   const post={postId:'post-'+role,userId:7,orgId:'store',orgType:role==='hq-design-admin'?'headquarters':'store',roleCode:role,orgName:'合家美宅-江西南昌-高新区合家美宅-裴火荣'};
   auth.saveLogin({accessToken:'test-token',userId:7});auth.savePosts([post]);auth.switchPost(post.postId);
@@ -26,6 +26,7 @@ async function setup(role, handler=()=>undefined) {
   wx.request=options=>{
     const url=new URL(options.url).pathname.replace('/admin-api','');calls.push({url,method:options.method,data:options.data});
     let data=handler(url,options);
+    if(data&&data.__pending)return;
     if(data===undefined&&url.startsWith('/training/app/')){
       const role=auth.currentApiPost()?.roleCode,allowed=Learning.coursesFor(role);
       const categories={'ai-video':'AI短视频获客',sales:'业务销售',engineering:'工程施工',finance:'财务对账',design:'设计交付',management:'经营管理'};
@@ -45,8 +46,146 @@ async function setup(role, handler=()=>undefined) {
     if(data===undefined)data=url==='/platform/messages/unread-count'?{count:0}:[];
     setImmediate(()=>options.success({statusCode:200,data:data&&data.__error?{code:403,msg:data.__error,data:null}:{code:0,data}}));
   };
+  wx.getImageInfo=options=>imageInfo?imageInfo(options):setImmediate(()=>options.success({path:'wxfile://'+new URL(options.src).pathname.slice(1)}));
   return {runtime,auth,post,calls,async open(url){await runtime.callWxMethod('navigateTo',{url});await flush();return getCurrentPages().at(-1);}};
 }
+
+const liveCourse=(completed=3,extra={})=>({id:'live-course',title:'服务端实操课程',category:'业务销售',lessons:8,completed,percent:completed/8*100,coverVersionId:'',...extra});
+const replyCourse=(request,completed=5,extra={})=>request.success({statusCode:200,data:{code:0,data:[liveCourse(completed,extra)]}});
+const profileMarkup=()=>path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml');
+test('我的页同身份后台更新保留课程进度，重复show合并，完成后再次返回读取最新进度',async()=>{
+ let hold=false;const requests=[];
+ const env=await setup('sales',(url,options)=>{if(url==='/training/app/courses'){if(hold){requests.push(options);return {__pending:true};}return [liveCourse()];}});
+ const page=await env.open('/pages/profile/index');assert.equal(page.data.progress.completed,3);
+ hold=true;page.onShow();page.onShow();
+ assert.equal(page.data.courseId,'live-course');assert.equal(page.data.progress.completed,3);assert.equal(requests.length,1);
+ assert(allText(render(profileMarkup(),page.data)).includes('已完成3/8节'));
+ replyCourse(requests[0],5);await flush();assert.equal(page.data.progress.completed,5);
+ page.onHide();page.onShow();assert.equal(requests.length,2);assert.equal(page.data.progress.completed,5);
+ replyCourse(requests[1],6);await flush();assert.equal(page.data.progress.completed,6);
+});
+test('同课程和封面版本刷新保留已展示海报，直到新票据返回',async()=>{
+ let hold=false;const tickets=[];
+ const env=await setup('sales',(url,options)=>{
+  if(url==='/training/app/courses')return [liveCourse(3,{coverVersionId:'v1'})];
+  if(url.endsWith('/ticket')){if(hold){tickets.push(options);return {__pending:true};}return {path:'/training/poster/first'};}
+ });
+ const page=await env.open('/pages/profile/index'),first=page.data.courseImage;assert(first.endsWith('/training/poster/first'));
+ hold=true;page.onShow();await flush();assert.equal(page.data.courseImage,first);assert.equal(tickets.length,1);
+ tickets[0].success({statusCode:200,data:{code:0,data:{path:'/training/poster/next'}}});await flush();assert(page.data.courseImage.endsWith('/training/poster/next'));
+});
+test('我的页后台课程网络失败保留已学进度，在原课程提示槽展示失败',async()=>{
+ let pending;const env=await setup('sales',(url,options)=>{if(url==='/training/app/courses'){if(pending===false){pending=options;return {__pending:true};}return [liveCourse()];}});
+ const page=await env.open('/pages/profile/index');pending=false;page.onShow();pending.fail({errMsg:'offline'});await flush();
+ assert.equal(page.data.courseId,'live-course');assert.equal(page.data.progress.completed,3);assert(page.data.learningError);
+ const rendered=allText(render(profileMarkup(),page.data));assert(rendered.includes('已完成3/8节'));assert(rendered.includes('更新失败'));
+});
+test('同post服务端角色或组织类型改变立即清旧课程，旧拒权不能清新身份进度',async()=>{
+ for(const field of ['roleCode','orgType']){
+  let hold=false;const requests=[];const env=await setup('sales',(url,options)=>{if(url==='/training/app/courses'){if(hold){requests.push(options);return {__pending:true};}return [liveCourse()];}});
+  const page=await env.open('/pages/profile/index');hold=true;page.onShow();
+  env.auth.savePosts([{...env.post,[field]:field==='roleCode'?'finance':'headquarters'}]);page.onShow();
+  assert.equal(page.data.courseId,'',field);assert.equal(page.data.progress.completed,0,field);assert.equal(requests.length,2,field);
+  replyCourse(requests[1],2,{id:'fresh-course'});await flush();
+  requests[0].success({statusCode:200,data:{code:403,msg:'old role denied'}});await flush();
+  assert.equal(page.data.courseId,'fresh-course',field);assert.equal(page.data.progress.completed,2,field);
+ }
+});
+test('hide和unload使课程、资料及未读迟到响应全部失效，再show另发刷新',async()=>{
+ for(const action of ['onHide','onUnload']){
+  let hold=false;const requests=[];const env=await setup('sales',(url,options)=>{
+   if(hold&&['/training/app/courses','/platform/profile/mine','/platform/messages/center/summary'].includes(url)){requests.push({url,options});return {__pending:true};}
+   if(url==='/training/app/courses')return [liveCourse()];
+  });
+  const page=await env.open('/pages/profile/index'),name=page.data.name;hold=true;page.onShow();page[action]();
+  for(const {url,options} of requests){const data=url==='/training/app/courses'?[liveCourse(8)]:url==='/platform/profile/mine'?{id:7,nickname:'隐藏后旧姓名'}:{count:99};options.success({statusCode:200,data:{code:0,data}});}
+  await flush();assert.equal(page.data.progress.completed,3);assert.equal(page.data.name,name);assert.notEqual(page.data.unread,99);
+  const count=requests.length;page.onShow();assert.equal(requests.length,count+3);
+  for(const {url,options} of requests.slice(count)){const data=url==='/training/app/courses'?[liveCourse(5)]:url==='/platform/profile/mine'?{id:7,nickname:name}:{count:1};options.success({statusCode:200,data:{code:0,data}});}
+  await flush();assert.equal(page.data.progress.completed,5);
+ }
+});
+test('当前课程401、403和岗位失效清除受保护进度，退出后不回填旧课程',async()=>{
+ for(const code of [401,403,1103000002]){
+  let request;const env=await setup('sales',(url,options)=>{if(url==='/training/app/courses'){if(request===false){request=options;return {__pending:true};}return [liveCourse()];}});
+  const page=await env.open('/pages/profile/index');request=false;page.onShow();request.success({statusCode:200,data:{code,msg:'access denied'}});await flush();
+  assert.notEqual(page.data.courseId,'live-course',String(code));assert.equal(page.data.progress.completed,0,String(code));
+ }
+});
+test('四个真实我的模板显式传递课程标识及异步状态，不依赖测试渲染器继承外层变量',()=>{
+ for(const file of ['profile/index.wxml','account/sales/index.wxml','admin/profile/index.wxml','admin/finance-desk/index.wxml']){
+  const source=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages',file),'utf8'),bindings=source.match(/<template is="profile" data="([^"]+)"/)[1];
+  for(const field of ['courseId','learningLoading','learningError','profileLoading','profileError'])assert.match(bindings,new RegExp('\\b'+field+'\\b'),file+': '+field);
+ }
+});
+test('财务兼容我的页也委托隐藏和卸载生命周期，旧课程不回填且返回发起新刷新',async()=>{
+ for(const action of ['onHide','onUnload']){
+  let hold=false;const requests=[];
+  const env=await setup('finance',(url,options)=>{if(url==='/training/app/courses'){if(hold){requests.push(options);return {__pending:true};}return [liveCourse()];}});
+  const page=await env.open('/pages/admin/finance-desk/index?view=profile');hold=true;page.onShow();page[action]();
+  replyCourse(requests[0],8);await flush();assert.equal(page.data.progress.completed,3,action);
+  page.onShow();assert.equal(requests.length,2);replyCourse(requests[1],5);await flush();assert.equal(page.data.progress.completed,5);
+ }
+});
+test('资料权限被拒后再次刷新也不重新显示此前的本地资料缓存',async()=>{
+ let hold=false;const requests=[];
+ const env=await setup('sales',(url,options)=>{if(hold&&url==='/platform/profile/mine'){requests.push(options);return {__pending:true};}if(url==='/training/app/courses')return [liveCourse()];});
+ const page=await env.open('/pages/profile/index');assert(page.data.name);hold=true;page.onShow();
+ requests[0].success({statusCode:200,data:{code:403,msg:'profile denied'}});await flush();assert.equal(page.data.name,'');
+ page.onShow();assert.equal(page.data.name,'');requests[1].success({statusCode:200,data:{code:0,data:{id:7,nickname:'重新授权资料'}}});await flush();assert.equal(page.data.name,'重新授权资料');
+});
+test('部分请求已完成时重复show不把已完成课程重新锁在加载态',async()=>{
+ const requests=[];const env=await setup('sales',(url,options)=>{
+  if(url==='/platform/profile/mine'){requests.push(options);return {__pending:true};}
+  if(url==='/training/app/courses')return [liveCourse()];
+ });
+ const page=await env.open('/pages/profile/index');assert.equal(page.data.learningLoading,false);assert.equal(page.data.profileLoading,true);
+ page.onShow();assert.equal(requests.length,1);assert.equal(page.data.learningLoading,false);
+ requests[0].success({statusCode:200,data:{code:0,data:{id:7,nickname:'资料已就绪'}}});await flush();
+ assert.equal(page.data.learningLoading,false);assert.equal(page.data.profileLoading,false);
+});
+test('课程海报重签后保持已加载图片，候选图片实际读完才替换，网络失败保留',async()=>{
+ let poster='first';const images=[];
+ const env=await setup('sales',url=>url==='/training/app/courses'?[liveCourse(3,{coverVersionId:'v1'})]:url.endsWith('/ticket')?{path:'/poster/'+poster}:undefined,
+  options=>{if(options.src.endsWith('/first'))options.success({path:'wxfile://first.jpg'});else images.push(options);});
+ const page=await env.open('/pages/profile/index');assert.equal(page.data.courseImage,'wxfile://first.jpg');
+ poster='next';page.onShow();await flush();assert.equal(images.length,1);assert.equal(page.data.courseImage,'wxfile://first.jpg');
+ images[0].fail({errMsg:'download timeout'});await flush();assert.equal(page.data.courseImage,'wxfile://first.jpg');
+ page.onShow();await flush();assert.equal(page.data.courseImage,'wxfile://first.jpg');images[1].success({path:'wxfile://next.jpg'});await flush();assert.equal(page.data.courseImage,'wxfile://next.jpg');
+});
+test('隐藏和同post换权限后，旧课程海报预读不能覆盖新版本',async()=>{
+ let poster='first',version='v1';const images=[];
+ const env=await setup('sales',url=>url==='/training/app/courses'?[liveCourse(3,{coverVersionId:version})]:url.endsWith('/ticket')?{path:'/poster/'+poster}:undefined,
+  options=>{if(options.src.endsWith('/first'))options.success({path:'wxfile://first.jpg'});else images.push(options);});
+ const page=await env.open('/pages/profile/index');poster='old';page.onShow();await flush();page.onHide();
+ env.auth.savePosts([{...env.post,roleCode:'finance'}]);poster='new';version='v2';page.onShow();await flush();
+ assert.notEqual(page.data.courseImage,'wxfile://first.jpg');assert.equal(images.length,2);
+ images[1].success({path:'wxfile://new.jpg'});await flush();images[0].success({path:'wxfile://old.jpg'});await flush();assert.equal(page.data.courseImage,'wxfile://new.jpg');
+});
+test('当前课程海报预读明确拒权时清除旧图，普通图片失败不扩大到课程进度',async()=>{
+ let poster='first',image;
+ const env=await setup('sales',url=>url==='/training/app/courses'?[liveCourse(3,{coverVersionId:'v1'})]:url.endsWith('/ticket')?{path:'/poster/'+poster}:undefined,
+  options=>{if(options.src.endsWith('/first'))options.success({path:'wxfile://first.jpg'});else image=options;});
+ const page=await env.open('/pages/profile/index');poster='forbidden';page.onShow();await flush();assert(image);
+ image.fail({code:403});await flush();assert.equal(page.data.courseImage,'');assert.equal(page.data.progress.completed,3);
+});
+test('新建个人页不能复活已经被403拒绝的资料缓存',async()=>{
+ let hold=false;const requests=[];
+ const env=await setup('sales',(url,options)=>{if(hold&&url==='/platform/profile/mine'){requests.push(options);return {__pending:true};}if(url==='/training/app/courses')return [liveCourse()];});
+ const page=await env.open('/pages/profile/index');assert.ok(page.data.name);
+ hold=true;page.onShow();requests[0].success({statusCode:200,data:{code:403,msg:'profile revoked'}});await flush();assert.equal(page.data.name,'');
+ page.onUnload();await env.runtime.callWxMethod('reLaunch',{url:'/pages/profile/index'});await flush();const fresh=getCurrentPages().at(-1);
+ assert.notEqual(fresh,page);assert.equal(fresh.data.name,'');assert.equal(fresh.data.avatar,Profile.emptyProfile().avatar);
+});
+test('旧账号迟到403不能清除新账号已经核验的姓名和持久缓存',async()=>{
+ let hold=false;const requests=[];
+ const env=await setup('sales',(url,options)=>{if(hold&&url==='/platform/profile/mine'){requests.push(options);return {__pending:true};}if(url==='/training/app/courses')return [liveCourse()];});
+ const page=await env.open('/pages/profile/index');hold=true;page.onShow();
+ env.auth.saveLogin({accessToken:'new-token',userId:8});env.auth.savePosts([{...env.post,userId:8,postId:'new-post'}]);env.auth.switchPost('new-post');page.onShow();
+ requests[1].success({statusCode:200,data:{code:0,data:{id:8,nickname:'新账号资料',avatar:'https://example.com/new-user.png'}}});await flush();
+ requests[0].success({statusCode:200,data:{code:403,msg:'old denied'}});await flush();
+ assert.equal(page.data.name,'新账号资料');const cached=require('../miniprogram/utils/account').load().profile;assert.equal(cached.apiUserId,'8');assert.equal(cached.name,'新账号资料');
+});
 
 test('姓名下只保留品牌、地区、岗位，删除组织名称中重复品牌和负责人姓名',()=>{
   assert.equal(Profile.compactIdentity('合家美宅-江西南昌-高新区合家美宅-裴火荣','老板'),'合家美宅 · 江西南昌高新 · 老板');

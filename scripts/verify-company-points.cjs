@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs'),path = require('node:path'),vm = require('node:vm');
+const { render } = require('./role-page-runtime.cjs');
 
 const storage = {};
 const requests = [];
@@ -171,4 +173,78 @@ test('point asset card exposes a retryable error without showing backend details
 
   assert.equal(instance.data.state, 'error');
   assert.equal(instance.data.errorMessage, '积分信息加载失败，请稍后重试');
+});
+
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+// Real component + company-points API; only the HTTP boundary and identity storage are replaced.
+function pointCard(options={}){
+ const root=path.resolve(__dirname,'../miniprogram'),cache=new Map(),requests=[],patches=[];
+ const session={token:'token-1',generation:1,userId:'user-1',tenantId:'tenant-1',postId:'post-1',post:{userId:'user-1',tenantId:'tenant-1',postId:'post-1',orgId:'org-1',roleCode:'sales',orgType:'store',permissions:['points:read']}};
+ const http={token:()=>session.token,sessionGeneration:()=>session.generation,currentUserId:()=>session.userId,tenantId:()=>session.tenantId,currentPostId:()=>session.postId,
+  get:url=>url.endsWith('/simulated-packages')?(options.packages?options.packages():Promise.resolve([{id:'plan-1'}])):new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
+ let definition;
+ function load(file){
+  file=path.resolve(root,file);if(!path.extname(file))file+='.js';if(cache.has(file))return cache.get(file).exports;
+  const module={exports:{}};cache.set(file,module);
+  vm.runInNewContext('(function(require,module,exports){'+fs.readFileSync(file,'utf8')+'\n})',{Component:v=>definition=v,console:{warn(){}},wx:{navigateTo(){}}},{filename:file})(name=>{
+   const dependency=path.resolve(path.dirname(file),name);
+   if(dependency===path.join(root,'api/http'))return http;
+   if(dependency===path.join(root,'api/auth'))return {currentApiPost:()=>session.post};
+   return load(dependency);
+  },module,module.exports);return module.exports;
+ }
+ load('components/point-asset-card/index.js');
+ const card={...definition.methods,data:structuredClone(definition.data),setData(patch){patches.push(structuredClone(patch));Object.assign(this.data,patch);}};
+ const respond=(start=0,balance='80',used='3')=>requests.slice(start,start+2).forEach(r=>r.resolve(r.url.endsWith('/summary')?{balance,status:'ACTIVE'}:{used}));
+ return {card,definition,requests,patches,session,respond};
+}
+test('point card attached/show share one loading render and one pair of pending API reads',async()=>{
+ const h=pointCard();h.definition.lifetimes.attached.call(h.card);h.definition.pageLifetimes.show.call(h.card);
+ assert.equal(h.requests.length,2);assert.equal(h.patches.filter(p=>p.state==='loading').length,1);
+ h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
+});
+test('same-scope point refresh keeps amounts, state and package entry until the latest balances arrive',async()=>{
+ const h=pointCard();h.card.refresh();h.respond();await tick();assert.equal(h.card.data.purchaseAvailable,true);
+ h.card.refresh();h.card.refresh();assert.equal(h.requests.length,4);
+ assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'3');assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.purchaseAvailable,true);
+ h.respond(2,'65','18');await tick();assert.equal(h.card.data.balanceText,'65');assert.equal(h.card.data.usedText,'18');
+});
+test('ordinary point refresh failure keeps amounts with a retry hint in the existing heading',async()=>{
+ const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.requests[2].reject({code:500,message:'offline'});h.requests[3].resolve({used:'3'});await tick();
+ assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.state,'ready');assert(h.card.data.errorMessage);
+ const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children)).join('');
+ const nodes=render(path.resolve(__dirname,'../miniprogram/components/point-asset-card/index.wxml'),h.card.data);
+ assert(text(nodes).includes('更新失败'));assert(text(nodes).includes('80'));
+ h.card.retry();h.respond(4,'70');await tick();assert.equal(h.card.data.balanceText,'70');assert.equal(h.card.data.errorMessage,'');
+});
+test('point API reads and the card isolate complete session/post permissions, including same-post role changes',async()=>{
+ for(const field of ['generation','userId','tenantId','postId','post.userId','post.tenantId','post.orgId','post.postId','post.roleCode','post.orgType','post.permissions']){
+  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();
+  if(field.startsWith('post.')){const key=field.slice(5);h.session.post[key]=key==='permissions'?['points:new']:h.session.post[key]+'-new';}else h.session[field]+='-new';
+  h.card.refresh();assert.equal(h.card.data.balanceText,'--',field);assert.equal(h.requests.length,6,field);
+  h.respond(4,'50','6');await tick();h.respond(2,'999','999');await tick();assert.equal(h.card.data.balanceText,'50',field);
+ }
+});
+test('hidden or detached point reads cannot update the card and a return starts fresh reads before old requests settle',async()=>{
+ for(const detached of [false,true]){
+  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();
+  const stop=detached?h.definition.lifetimes.detached:h.definition.pageLifetimes.hide;assert.equal(typeof stop,'function');stop.call(h.card);
+  h.definition.pageLifetimes.show.call(h.card);assert.equal(h.requests.length,6,'return cannot reuse the pre-operation request');
+  h.respond(4,'40','9');await tick();h.requests[2].reject({code:403});h.requests[3].resolve({used:'99'});await tick();
+  assert.equal(h.card.data.balanceText,'40');assert.equal(h.card.data.usedText,'9');
+ }
+});
+test('current point permission failures discard cached balances while late logout responses cannot refill them',async()=>{
+ for(const error of [{code:401},{code:403},{postInvalid:true}]){
+  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.requests[2].reject(error);h.requests[3].resolve({used:'3'});await tick();
+  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+ }
+ const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.session.token='';h.session.generation++;h.respond(2,'999');await tick();
+ assert.equal(h.card.data.visible,false);assert.equal(h.card.data.balanceText,'--');
+});
+test('a current permission failure from the later package check also clears private balances',async()=>{
+ for(const error of [{code:401},{code:403},{postInvalid:true}]){
+  let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
+  reject(error);await tick();assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+ }
 });

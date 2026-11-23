@@ -6,6 +6,7 @@ const M = require('../../utils/platform-messages');
 const http = require('../../api/http');
 const Learning = require('../../utils/learning-catalog');
 const Profile = require('../../utils/platform-profile');
+const apiScope = require('../../utils/api-scope');
 const { canViewAllStores } = require('../../utils/store-map-access');
 
 const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager': ['工程团队', 'engineering-team'], 'finance-lead': ['财务管理', 'finance-team'], owner: ['门店团队与交接', 'staff'] };
@@ -23,6 +24,10 @@ const ACTIONS = {
 };
 // actions that need a signed-in account
 const LOGIN_ONLY = ['profile', 'messages', 'performance', 'storeMap', 'academy'];
+const emptyCourse = () => ({ learningLabel: '', courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
+const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
+const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyProfile().avatar, unread: 0, role: '', company: '',
+  identityText: '', identityOrganization: '', identityRole: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false });
 
 // Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
@@ -63,69 +68,91 @@ function entries(a) {
 
 module.exports = function (tabIndex) {
   return {
-    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, progress: { completed: 0, total: 8, percent: 0 }, courseImage: A.courseImage, courseTitle: 'AI短视频获客实战', courseId: 'ai-video', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
+    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, ...emptyCourse(), learningAvailable: false, learningLoading: false, learningError: '', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
     logout() { return require('../../utils/session-actions').logout(); },
-    onHide() { this.__profileGeneration = (this.__profileGeneration || 0) + 1; },
+    onHide() { this.__profileHidden = true; this.__profileFlight = null; },
     onUnload() { this.onHide(); },
     onShow() {
       const s = A.load(), c = A.company(s), a = A.access.context(s);
-      // 联合调试修复（2026-11-08）：登录态必须含 API 会话——纯 API 登录（微信一键/短信）下
-      // 本地 session.loggedIn 恒 false，「我的」页永远显示登录按钮。API 岗位/昵称为真源展示。
-      const apiPost = (() => { try { return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
-      const apiLoggedIn = !!apiPost;
-      const loggedIn = s.session.loggedIn || apiLoggedIn;
-      const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
-      const engineeringProfile = !!(apiLoggedIn && ['engineer', 'project-manager'].includes(apiPost.roleCode)) || !!(a.active && O.has(a.role, 'engineer') && !apiLoggedIn);
-      const ownerProfile = !!(apiLoggedIn && ['boss', 'owner'].includes(apiPost.roleCode)) || !!(a.active && require('../../utils/access').isBoss(a) && !apiLoggedIn);
-      const courses = Learning.coursesFor(actor.active ? actor.role : '');
-      const course = loggedIn
-        ? (ownerProfile && courses.find(item => item.id === 'management')) || courses[0] || null
-        : Learning.courses.find(item => item.id === 'ai-video') || null;
-      const company=apiLoggedIn?(apiPost.orgName||''):(c?c.name:'');
-      const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
-      this.setData({
-        identityText:Profile.compactIdentity(company,role),identityOrganization:Profile.compactIdentity(company,''),identityRole:Profile.compactIdentity('',role),learningAvailable:apiLoggedIn?true:!!course,learningLoading:apiLoggedIn,learningError:'',learningLabel:apiLoggedIn?'':course?course.category+'培训':'',
-        engineeringProfile, courseId:course?course.id:'',courseTitle:course?course.name:'',courseImage:course?course.image:'',
-        loggedIn, showStoreServices: !loggedIn || actor.orgType === 'store',
-        showAdminMap: canViewAllStores(apiPost),
-        entries: entries(actor),
-        ownerProfile, managementEntries: managementEntries(actor),
-        name: s.profile.name, avatar: s.profile.avatar, profileLoading: !!http.token(), profileError: '',
-        role,
-        company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
-        unread: apiLoggedIn ? (this.apiUnread || 0) : M.totalUnread(A.scoped(s, s.messages).filter(x => !x.read).length, 0), progress: { completed: 0, total:course?course.lessons:0, percent: 0 }
-      });
-      // 课程进度代次守卫（Codex R2 P2）：递增移到 token 检查外——退出/换会话（无新请求）也使旧挂起响应失效
-      this.__courseGen = (this.__courseGen || 0) + 1; const courseGen = this.__courseGen;
-      if (http.token()) {
-        // 姓名真源（2026-11-09）：posts/mine 不含 name——apiPost.name 恒空，此前只显示登录前旧缓存；
-        // 经 profile/mine 同步后端最新 nickname（后台改名即生效，与 account 身份页同模式）
-        const profileSessionAlive = http.requestGuard('profile'), profileGeneration = this.__profileGeneration || 0;
-        const profileAlive = () => profileSessionAlive() && profileGeneration === (this.__profileGeneration || 0);
-        const profileUserId = http.currentUserId();
-        http.get('/platform/profile/mine').then(remote => {
-          if (!profileAlive()) return;
-          const PP = require('../../utils/platform-profile');
-          const profile = PP.mergeProfile(A.load().profile, remote, profileUserId);
-          A.mutate(s => { s.profile = profile; });
-          this.setData({ name: profile.name, avatar: profile.avatar, profileLoading: false, profileError: '' });
-        }).catch(error => { if (profileAlive() && !(error && error.silent)) this.setData({ profileLoading: false, profileError: '资料暂未加载，请进入个人资料重试' }); });
-        const unreadAlive = http.requestGuard('unread');
-        http.get('/platform/messages/center/summary').then(r => {
-          if (!unreadAlive()) return;
-          this.apiUnread = (r && r.count) || 0;
-          this.setData({ unread: this.apiUnread });
-        }).catch(() => {if(unreadAlive())this.setData({unread:'—',unreadError:'消息未能加载，请进入消息中心重试'});});
-        const training=require('../../api/training'),identity=training.identity();
-        training.courses('').then(rows => {
-          if (courseGen !== this.__courseGen||identity!==training.identity()) return;
-          const available=Array.isArray(rows)?rows:Array.isArray(rows&&rows.list)?rows.list:[],next=available.find(c=>c.completed>0&&c.percent<100)||available.find(c=>['boss','owner'].includes(apiPost.roleCode)&&c.category==='经营管理')||available[0];
-          this.setData({learningAvailable:true,learningLoading:false,learningLabel:next?next.category+'培训':'',courseId:next?next.id:'',courseTitle:next?next.title:'',courseImage:next?A.courseImage:'',progress:{completed:next?next.completed:0,total:next?next.lessons:0,percent:next?next.percent:0}});
-          if(next&&next.coverVersionId)training.ticket(next.id,next.coverVersionId,'poster').then(t=>{if(courseGen===this.__courseGen&&identity===training.identity())this.setData({courseImage:training.url(t)});}).catch(()=>{});
-        }).catch(() => { if(courseGen===this.__courseGen&&identity===training.identity())this.setData({learningLoading:false,learningError:'课程未能加载，请进入课程中心重试'}); });
-      }
+      const apiPost = http.token() ? require('../../api/auth').currentApiPost() : null;
+      const key = apiScope(), sameScope = !!key && key === this.__profileKey;
+      this.__profileHidden = false;
+      if (!sameScope) { this.__profileFlight = null; this.__courseCover = ''; this.apiUnread = 0; this.__profileDenied = false; }
+      this.__profileKey = key;
       const bar = this.getTabBar && this.getTabBar();
       if (bar) { bar.refresh && bar.refresh(); bar.setData({ selected: tabIndex, hidden: false }); }
+      if (this.__profileFlight) return this.__profileFlight.promise;
+      const apiLoggedIn = !!apiPost, loggedIn = s.session.loggedIn || apiLoggedIn;
+      const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
+      const engineeringProfile = apiLoggedIn ? ['engineer','project-manager'].includes(apiPost.roleCode) : !!(a.active && O.has(a.role,'engineer'));
+      const ownerProfile = apiLoggedIn ? ['boss','owner'].includes(apiPost.roleCode) : !!(a.active && require('../../utils/access').isBoss(a));
+      const courses = Learning.coursesFor(actor.active ? actor.role : '');
+      const course = apiLoggedIn ? null : loggedIn
+        ? (ownerProfile && courses.find(item => item.id === 'management')) || courses[0] || null
+        : Learning.courses.find(item => item.id === 'ai-video') || null;
+      const company = apiLoggedIn ? (apiPost.orgName || '') : (c ? c.name : '');
+      const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
+      this.setData({
+        identityText: Profile.compactIdentity(company,role), identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
+        ...(sameScope ? {} : { ...emptyCourse(), learningLabel: course ? course.category+'培训' : '', courseId: course ? course.id : '',
+          courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
+        learningAvailable: apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
+        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || actor.orgType === 'store',
+        showAdminMap: canViewAllStores(apiPost), entries: entries(actor), managementEntries: managementEntries(actor),
+        name: this.__profileDenied ? '' : s.profile.name, avatar: this.__profileDenied ? Profile.emptyProfile().avatar : s.profile.avatar, profileLoading: !!http.token(), profileError: '', role,
+        company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
+        unread: apiLoggedIn ? (this.apiUnread || 0) : M.totalUnread(A.scoped(s,s.messages).filter(x => !x.read).length,0)
+      });
+      if (!http.token()) return;
+      const flight = this.__profileFlight = {};
+      const alive = () => {
+        if (this.__profileHidden || this.__profileFlight !== flight) return false;
+        if (apiScope() !== key) { this.__profileFlight = null; this.setData({ ...emptyPrivate(), loggedIn: !!http.token() }); return false; }
+        return true;
+      };
+      const profileUserId = http.currentUserId();
+      const clearProfile = () => { this.__profileDenied = true; A.mutate(s => { s.profile = Profile.emptyProfile(profileUserId); }); };
+      const failed = (error, patch, reset) => {
+        if (!alive()) return;
+        if (error && error.postInvalid) { clearProfile(); this.__profileFlight = null; this.apiUnread = 0; this.setData(emptyPrivate()); return; }
+        this.setData({ ...patch, ...(denied(error) ? reset : {}) });
+      };
+      const profileRead = http.get('/platform/profile/mine').then(remote => {
+        if (!alive()) return;
+        const profile = Profile.mergeProfile(A.load().profile,remote,profileUserId);
+        A.mutate(s => { s.profile = profile; });
+        this.__profileDenied = false;
+        this.setData({ name: profile.name, avatar: profile.avatar, profileLoading: false, profileError: '' });
+      }).catch(error => {
+        if (alive() && denied(error)) clearProfile();
+        failed(error, { profileLoading: false, profileError: '资料暂未加载，请进入个人资料重试' }, { name: '', avatar: Profile.emptyProfile().avatar });
+      });
+      const unreadRead = http.get('/platform/messages/center/summary').then(r => {
+        if (!alive()) return;
+        this.apiUnread = (r && r.count) || 0;
+        this.setData({ unread: this.apiUnread, unreadError: '' });
+      }).catch(error => {
+        if (alive() && denied(error)) this.apiUnread = 0;
+        failed(error, { unreadError: '消息未能加载，请进入消息中心重试' }, { unread: '—' });
+      });
+      const training = require('../../api/training');
+      const courseRead = apiPost ? training.courses('').then(rows => {
+        if (!alive()) return;
+        const available = Array.isArray(rows) ? rows : Array.isArray(rows && rows.list) ? rows.list : [];
+        const next = available.find(c => c.completed > 0 && c.percent < 100) || available.find(c => ['boss','owner'].includes(apiPost.roleCode) && c.category === '经营管理') || available[0];
+        const cover = next ? JSON.stringify([next.id,next.coverVersionId]) : '';
+        const image = cover && cover === this.__courseCover ? this.data.courseImage : A.courseImage;
+        this.__courseCover = cover;
+        this.setData({ learningLoading: false, learningLabel: next ? next.category+'培训' : '', courseId: next ? next.id : '',
+          courseTitle: next ? next.title : '', courseImage: next ? image : '',
+          progress: { completed: next ? next.completed : 0, total: next ? next.lessons : 0, percent: next ? next.percent : 0 } });
+        if (next && next.coverVersionId) return training.ticket(next.id,next.coverVersionId,'poster').then(async t => {
+          if (!alive()) return;
+          const image = await new Promise((resolve,reject) => wx.getImageInfo({ src: training.url(t), success: resolve, fail: reject }));
+          if (alive() && image.path) this.setData({ courseImage: image.path });
+        }).catch(error => failed(error, {}, { courseImage: '' }));
+      }).catch(error => failed(error, { learningLoading: false, learningError: '课程未能加载，请进入课程中心重试' }, emptyCourse())) : Promise.resolve();
+      return flight.promise = Promise.all([profileRead,unreadRead,courseRead]).finally(() => { if (this.__profileFlight === flight) this.__profileFlight = null; });
     },
     open(e) {
       const d = e.currentTarget.dataset;
