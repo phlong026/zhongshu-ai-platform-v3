@@ -20,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +46,8 @@ public class ContentTaskController {
     private FrContentTaskMapper taskMapper;
     @Resource
     private cn.iocoder.yudao.module.franchise.content.provider.VideoGenerationPort video;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     private PostSnapshot post() {
         return currentPost.require();
@@ -70,9 +73,30 @@ public class ContentTaskController {
                 .eq(FrContentTaskDO::getCompanyId, post.orgId())
                 .eq(FrContentTaskDO::getAuthorUserId, post.userId())
                 .eq(status != null && !status.isBlank(), FrContentTaskDO::getStatus, status)
+                // Exclude hidden rows in SQL before LIMIT so older visible tasks fill the page.
+                .notInSql(FrContentTaskDO::getId,
+                        "SELECT task_id FROM fr_content_task_hidden WHERE company_id = " + post.orgId()
+                                + " AND author_user_id = " + post.userId())
                 .orderByDesc(FrContentTaskDO::getCreateTime)
                 .last("LIMIT 100"));
         return success(rows.stream().map(ContentTaskController::viewOf).toList());
+    }
+
+    @PostMapping("{id}/dismiss")
+    @Operation(summary = "从本人任务中心移除任务（不删除任务、不影响生成与积分结算）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Boolean> dismiss(@PathVariable("id") Long id) {
+        PostSnapshot post = post();
+        // Company existence is not enough: the task center is personal, so verify the task author too.
+        FrContentTaskDO task = tasks.requireOwned(post.orgId(), id);
+        if (!java.util.Objects.equals(task.getAuthorUserId(), post.userId())) {
+            throw exception(INPUT_INVALID); // same generic response; do not reveal another user's task
+        }
+        jdbcTemplate.update(
+                "INSERT INTO fr_content_task_hidden (company_id, author_user_id, task_id, actor_post_id) "
+                        + "VALUES (?, ?, ?, ?) ON CONFLICT (company_id, author_user_id, task_id) DO NOTHING",
+                post.orgId(), post.userId(), id, post.postId());
+        return success(Boolean.TRUE);
     }
 
     @GetMapping("{id}")
