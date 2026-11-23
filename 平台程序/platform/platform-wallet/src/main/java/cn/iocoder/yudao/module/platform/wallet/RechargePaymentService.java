@@ -42,7 +42,7 @@ public class RechargePaymentService {
                          long bindingId, long planId, String orderNo, String appid, String openid,
                          String channel, String offerId, int environment, long priceFen, long basePoints,
                          long bonusPoints, String productId, String paymentState, String creditState,
-                         String requestHash, Instant createTime, boolean company, long planVersion) {
+                         String requestHash, Instant createTime, boolean company, long planVersion, PaymentMode paymentMode, long paymentModeVersion) {
         PaymentPort.OrderIdentity identity() {
             return new PaymentPort.OrderIdentity(tenantId, walletId, id, orderNo, channel, appid, offerId,
                     environment, openid, priceFen);
@@ -100,13 +100,15 @@ public class RechargePaymentService {
     }
 
     private OrderResponse createOrder(long planId, String key, Long version) {
-        requireChannel();
+        PaymentModeService.Snapshot modeSnapshot = paymentMode();
+        if (modeSnapshot.mode() == PaymentMode.REAL) requireChannel("XPAY");
+        if (properties.getAppid() == null || properties.getAppid().isBlank()) throw new ServiceException(503, "小程序身份配置未就绪");
         PointAccountService.requireText(key, 128);
         return transaction("createOrder", () -> {
             var wallet = scope.require();
             var payer = requirePayer(wallet);
             String hash = DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(wallet.tenantId(), wallet.id(),
-                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), properties.getAppid(), payer.openid())));
+                    wallet.actorId(), wallet.postId(), planId, payer.bindingId(), properties.getAppid(), payer.openid(), modeSnapshot.mode().name(), modeSnapshot.version())));
             if (version != null) hash = DigestUtil.sha256Hex("COMPANY:"+version+":"+hash);
             var replay = jdbc.query("SELECT * FROM pf_recharge_order WHERE tenant_id = ? AND wallet_id = ? AND idempotency_key = ?",
                     (rs, row) -> readOrder(rs), wallet.tenantId(), wallet.id(), key);
@@ -141,14 +143,17 @@ public class RechargePaymentService {
             int inserted = jdbc.update("""
                     INSERT INTO pf_recharge_order (id, tenant_id, wallet_id, org_id, actor_id, post_id, binding_id,
                         order_no, plan_id, plan_snapshot, price_fen, base_points, bonus_points,
-                        payer_appid, payer_openid, channel, offer_id, environment, idempotency_key, request_hash,credit_target)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, 'XPAY', ?, ?, ?, ?,?)
+                        payer_appid, payer_openid, channel, offer_id, environment, idempotency_key, request_hash,credit_target,payment_mode,payment_mode_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT DO NOTHING
                     """, id, wallet.tenantId(), wallet.id(), wallet.orgId(), wallet.actorId(), wallet.postId(), payer.bindingId(),
                     "PFW" + id, planId, JsonUtils.toJsonString(Map.of("name", plan.get("name"), "version", plan.get("version"),
                             "priceFen", plan.get("price_fen"), "basePoints", base, "bonusPoints", bonus, "wxProductId", productId)),
-                    plan.get("price_fen"), base, bonus, properties.getAppid(), payer.openid(), properties.getOfferId(),
-                    properties.getEnvironment(), key, hash,version==null?"WALLET":"COMPANY");
+                    plan.get("price_fen"), base, bonus, properties.getAppid(), payer.openid(),
+                    modeSnapshot.mode()==PaymentMode.MOCK?"MOCK":"XPAY",
+                    modeSnapshot.mode()==PaymentMode.MOCK?"MOCK":properties.getOfferId(),
+                    modeSnapshot.mode()==PaymentMode.MOCK?0:properties.getEnvironment(), key, hash,
+                    version==null?"WALLET":"COMPANY",modeSnapshot.mode().name(),modeSnapshot.version());
             if (inserted != 1) throw WalletException.conflict();
             return order(wallet.tenantId(), wallet.id(), id).response();
         });
@@ -182,7 +187,6 @@ public class RechargePaymentService {
     public Map<String, String> payParams(String id, String code, String attemptKey, boolean company) {
         requireNoTransaction();
         if (company) requireCompanyRecovery();
-        PaymentPort port = requireChannel();
         PointAccountService.requireText(code, 512);
         PointAccountService.requireText(attemptKey, 128);
         long orderId = parseId(id);
@@ -220,7 +224,14 @@ public class RechargePaymentService {
             return new PrepayClaim(order, attemptId, token);
         });
         try {
+            PaymentPort port = requireChannel(claim.order().channel());
             var result = port.createPrepay(claim.order().identity(), claim.order().productId(), code);
+            if (claim.order().paymentMode() == PaymentMode.MOCK) {
+                var fact = port.queryOrder(claim.order().identity());
+                processPaymentFact(claim.order().tenantId(), claim.order().walletId(), orderId, fact);
+                fulfillOrder(claim.order().tenantId(), claim.order().walletId(), orderId);
+                return Map.of("mode", "MOCK", "status", "CREDITED");
+            }
             if (result == null || result.callParams() == null) throw new ServiceException(503, "支付参数未就绪");
             var params = result.callParams();
             for (String field : List.of("signData", "mode", "paySig", "signature")) {
@@ -265,7 +276,6 @@ public class RechargePaymentService {
     /** 仅由可信渠道查单驱动；通知体不能直接调用此方法构造事实。 */
     public void processPaymentFact(long tenantId, long walletId, long orderId, PaymentPort.ChannelQueryResult fact) {
         requireNoTransaction();
-        requireChannel();
         try {
             transaction("paymentFact", () -> {
                 lockWallet(tenantId, walletId);
@@ -325,7 +335,16 @@ public class RechargePaymentService {
     }
 
     boolean companyPaymentsEnabled() {
-        return recoveryEnabled && channelEnabled();
+        return recoveryEnabled && (paymentMode().mode() == PaymentMode.MOCK || channelEnabled());
+    }
+
+    private PaymentModeService.Snapshot paymentMode() {
+        return jdbc.queryForObject("""
+            SELECT mode, version, updated_at, updated_by, reason
+            FROM pf_payment_runtime_mode WHERE id=1
+            """, (rs, row) -> new PaymentModeService.Snapshot(PaymentMode.parse(rs.getString("mode")),
+                rs.getLong("version"), rs.getTimestamp("updated_at").toInstant(),
+                rs.getString("updated_by"), rs.getString("reason")));
     }
 
     private void requireCompanyRecovery() {
@@ -339,9 +358,12 @@ public class RechargePaymentService {
     }
 
     PaymentPort requireChannel() {
-        if (!channelEnabled()) {
-            throw new ServiceException(503, "支付通道尚未启用");
-        }
+        return requireChannel(paymentMode().mode() == PaymentMode.MOCK ? "MOCK" : "XPAY");
+    }
+
+    PaymentPort requireChannel(String channel) {
+        if ("MOCK".equals(channel)) return new MockPaymentAdapter();
+        if (!channelEnabled()) throw new ServiceException(503, "支付通道尚未启用");
         return ports.getObject();
     }
 
@@ -413,8 +435,9 @@ public class RechargePaymentService {
     private void requireOriginalPayer(WalletScope.Wallet wallet, Payer payer, OrderSnapshot order) {
         if (order.actorId() != wallet.actorId() || order.postId() != wallet.postId()
                 || order.bindingId() != payer.bindingId() || !order.openid().equals(payer.openid())
-                || !order.appid().equals(properties.getAppid()) || !order.offerId().equals(properties.getOfferId())
-                || order.environment() != properties.getEnvironment()) throw WalletException.unavailable();
+                || !order.appid().equals(properties.getAppid())
+                || (order.paymentMode() == PaymentMode.REAL && (!order.offerId().equals(properties.getOfferId())
+                    || order.environment() != properties.getEnvironment()))) throw WalletException.unavailable();
     }
 
     private static void requirePayable(OrderSnapshot order) {
@@ -472,6 +495,7 @@ public class RechargePaymentService {
                 rs.getInt("environment"), rs.getLong("price_fen"), rs.getLong("base_points"), rs.getLong("bonus_points"),
                 (String) snapshot.get("wxProductId"), rs.getString("payment_state"), rs.getString("credit_state"),
                 rs.getString("request_hash"), rs.getTimestamp("create_time").toInstant(),"COMPANY".equals(rs.getString("credit_target")),
-                ((Number)snapshot.getOrDefault("version",0)).longValue());
+                ((Number)snapshot.getOrDefault("version",0)).longValue(),
+                PaymentMode.parse(rs.getString("payment_mode")),rs.getLong("payment_mode_version"));
     }
 }
