@@ -6,6 +6,13 @@ const TaskDisplay=require('./task-display');
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const http=require('../../api/http');
 const keyboard=require('../../utils/creation-keyboard');
+// Remove only an explicit leading title; a normal spoken opener is never guessed to be a title.
+function spokenBody(value) {
+const text=String(value||'').trim();
+const lines=text.split(/\r?\n/);
+if(!/^(?:#{1,6}\s*)?(?:\*\*)?(?:标题|title)(?:\*\*)?\s*[:：]/i.test(lines[0]))return text;
+return lines.slice(1).join('\n').trim().replace(/^(?:\*\*)?(?:口播正文|口播文案|正文)(?:\*\*)?\s*[:：](?:\*\*)?\s*/, '');
+}
 const titles = { remix: '文案二创', digital: '数字人口播', tasks: '任务中心', result: '视频结果', publish: '手动发布登记', receipt:'登记发布链接', records: '发布记录', detail: '发布详情', works: '我的作品', library: '素材库', recent: '全部创作' };
 const statusInfo = {
 publishing: { label: '待登记链接', icon: 'clock', tone: 'warm', action: '补填链接' },
@@ -297,11 +304,11 @@ if(P.taskView(task.status)!=='completed'){
 const error=Error(task.failedReason||'生成未完成，请稍后在任务中心查看');
 error.taskFailed=task.status==='FAILED'&&!P.saveFailure(task);throw error;
 }
-const text=String((task.result&&(task.result.text||task.result.script))||'').trim();
+const text=spokenBody(task.result&&(task.result.text||task.result.script));
 if(!text)throw Error('未返回文案，请稍后重试');return text;
 });
 }
-const text=String((res&&(res.text||res.script))||'').trim();
+const text=spokenBody(res&&(res.text||res.script));
 if(!text)throw Error('未返回文案，请稍后重试');
 return text;
 });
