@@ -227,6 +227,10 @@
       {
         "type": "file",
         "value": "pages/workflow/assets/biz-reference-plan.jpg"
+      },
+      {
+        "type": "file",
+        "value": "utils/performance-tasks.js"
       }
     ],
     "include": []
