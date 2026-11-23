@@ -95,7 +95,7 @@ public class RefundPaymentService {
             result = null;
         }
         final var received = result;
-        return transaction("refundAcknowledgement", () -> {
+        RefundResponse acknowledgement = transaction("refundAcknowledgement", () -> {
             var order = claim.order();
             payment.lockWallet(order.tenantId(), order.walletId());
             var row = refund(order.tenantId(), order.walletId(), claim.refundNo());
@@ -121,6 +121,14 @@ public class RefundPaymentService {
                     """, order.tenantId(), order.walletId(), order.id(), claim.id(), claim.token());
             return response(refund(order.tenantId(), order.walletId(), claim.refundNo()));
         });
+        if (claim.order().paymentMode() == PaymentMode.MOCK && received != null) {
+            // Mock provider results are deterministic and local; finish the same refund-fact
+            // pipeline synchronously so mock refunds do not depend on the live recovery scheduler.
+            processRefundFact(claim.order().tenantId(), claim.order().walletId(), claim.order().id(), received);
+            return transaction("readMockRefund", () ->
+                    response(refund(claim.order().tenantId(), claim.order().walletId(), claim.refundNo())));
+        }
+        return acknowledgement;
     }
 
     /** 仅接受可信逐笔查单事实；无控制器入口，不能传入通知体伪造此对象。 */
