@@ -44,7 +44,7 @@ Page({
     if(this.__draft&&this.data.editing)this.__draft.flush().catch(()=>{});
     // 素材选择会触发 onShow，不能清空尚未保存的定位或制作表单。
     if(!this.data.editing&&!this.data.cloneBusy)this.load();
-    if(this.data.digitalPersona&&!this.data.cloneBusy)this.loadClones();
+    if(this.data.digitalPersona){if(this.data.cloneBusy)this.scheduleRefresh();else this.loadClones();}
   },
   onUnload() {this.resetAudioPreview();this.flushDraft(true);this.__closed = true;this.stopUploadClock();this.stopRefresh();if(wx.offNetworkStatusChange&&this.__draftNetwork)wx.offNetworkStatusChange(this.__draftNetwork); if(this.__audio)this.__audio.destroy(); },
   onHide() {this.pauseAudioPreview();if(this.data.clonePreviewOpen&&wx.createVideoContext)wx.createVideoContext('clone-preview-player',this).pause();this.flushDraft();this.__hidden=true;this.stopRefresh(); if(this.__audio)this.__audio.stop(); },
@@ -215,7 +215,8 @@ Page({
   refreshingRows() {return this.data.view==='avatar'?this.data.avatarCloneRows:this.data.cloneRows;},
   scheduleRefresh() {this.stopRefresh();if(this.__hidden||!['avatar','resources'].includes(this.data.view)||!this.refreshingRows().some(r=>['SUBMITTING','RUNNING'].includes(r.status)||(r.status==='READY'&&!r.ready)))return;this.__refreshTimer=setTimeout(()=>this.refreshAll(),8000);},
   async refreshAll() {
-    if(!this.alive()||this.data.cloneBusy||this.data.cloneRetry||!this.data.digitalPersona)return;
+    if(!this.alive()||!this.data.digitalPersona)return;
+    if(this.data.cloneBusy||this.data.cloneRetry)return this.scheduleRefresh();
     const person=this.data.digitalPersona.id,guard=http.requestGuard('clone-refresh');this.setData({cloneBusy:true,cloneError:''});
     try{for(const row of this.refreshingRows().filter(r=>r.status!=='FAILED'&&!(r.status==='READY'&&r.ready))){if(!guard()||!this.alive()||!this.data.digitalPersona||this.data.digitalPersona.id!==person)return;await api.clones.refresh(row.id);}if(guard()&&this.alive()){this.setData({cloneBusy:false});await this.loadClones();}}
     catch(e){if(guard()&&this.alive())this.setData({cloneBusy:false,cloneError:P.degradeMessage(e)});}
@@ -313,7 +314,7 @@ Page({
       }
     } finally {
       if (tick && this.__uploadTick === tick) this.stopUploadClock();
-      if(alive()) this.setData({cloneBusy:false,cloneSelecting:false,cloneUploading:false});
+      if(alive()){this.setData({cloneBusy:false,cloneSelecting:false,cloneUploading:false});this.scheduleRefresh();}
     }
   },
   async replayUpload() {

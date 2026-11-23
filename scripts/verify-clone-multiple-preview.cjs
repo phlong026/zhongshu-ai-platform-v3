@@ -30,19 +30,19 @@ test('audio errors are recoverable and a retry clears the prior error',()=>{
  assert.equal(h.patches.at(-1).previewAudioPlaying,true);
 });
 function clonePage(){
- let definition;const rows=[],requests=[],storage=new Map();let reject=false;
+ let definition;const rows=[],requests=[],storage=new Map(),timers=new Map();let reject=false,nextTimer=0;
  const person={id:'42',name:'李丽',enabled:true,canManage:true};
  const api={clones:{list:async()=>rows,quote:async()=>({available:true,credits:5,consentVersion:'v1'}),create:async(id,body,key)=>{
   requests.push({id,body:structuredClone(body),key});if(reject){reject=false;throw Error('network');}
   const row={...body,id:String(rows.length+1),ready:false,status:'RUNNING'};rows.push(row);return row;
  }}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.js'),'utf8'),{
-  Page:p=>definition=p,require:p=>p.endsWith('/api/franchise/content')?api:p.endsWith('/http')?{token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>true}:p.endsWith('/studio')?{scope:()=>1,scopedKey:k=>k}:p.endsWith('/auth')?{currentApiPost:()=>({roleCode:'sales'})}:{rowsOf:r=>r,degradeMessage:e=>e.message},
-  wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),removeStorageSync:k=>storage.delete(k),pageScrollTo(){}},setTimeout:()=>1,clearTimeout(){}
+  Page:p=>definition=p,require:p=>p.endsWith('/api/franchise/content')?api:p.endsWith('/http')?{token:()=>true,sessionGeneration:()=>1,requestGuard:()=>()=>true}:p.endsWith('/studio')?{scope:()=>1,scopedKey:k=>k,guard:()=>true}:p.endsWith('/auth')?{currentApiPost:()=>({roleCode:'sales'})}:{rowsOf:r=>r,degradeMessage:e=>e.message},
+  wx:{getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),removeStorageSync:k=>storage.delete(k),pageScrollTo(){}},setTimeout:callback=>{const id=++nextTimer;timers.set(id,callback);return id;},clearTimeout:id=>timers.delete(id)
  });
  const page={...definition,__scope:1,__generation:1,data:structuredClone(definition.data),setData:p=>Object.assign(page.data,p)};
  Object.assign(page.data,{rows:[person],digitalPeople:[person],digitalPersona:person,canManage:true});
- return {page,rows,requests,api,rejectNext:()=>reject=true};
+ return {page,rows,requests,api,timers,rejectNext:()=>reject=true};
 }
 const event=kind=>({currentTarget:{dataset:{kind}}}),flush=()=>new Promise(r=>setImmediate(r));
 test('one persona can create two avatars and two voices without overwriting or reusing submissions',async()=>{
@@ -75,6 +75,21 @@ test('portrait avatar page only shows the active person video clones and ignores
  const wxml=fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.wxml'),'utf8');
  assert.match(wxml,/inline-avatar-list[\s\S]*?wx:for="{{avatarCloneRows}}"/);
  assert.match(wxml,/<button wx:else class="resource-link"/);
+});
+test('avatar polling survives a busy tick and returning from the native picker',async()=>{
+ const h=clonePage(),refreshed=[];
+ h.rows.push({id:'avatar-1',kind:'AVATAR',status:'RUNNING',ready:false});
+ h.api.clones.refresh=async id=>{refreshed.push(id);h.rows[0].status='READY';h.rows[0].ready=true;};
+ h.page.openDigital(event('AVATAR'));await flush();
+ assert.equal(h.timers.size,1);
+ const first=h.page.__refreshTimer;h.page.data.cloneBusy=true;
+ await h.timers.get(first)();
+ assert.equal(h.timers.size,1);assert.notEqual(h.page.__refreshTimer,first);assert.deepEqual(refreshed,[]);
+ h.page.onHide();assert.equal(h.timers.size,0);
+ h.page.onShow();assert.equal(h.timers.size,1);
+ h.page.data.cloneBusy=false;
+ await h.timers.get(h.page.__refreshTimer)();
+ assert.deepEqual(refreshed,['avatar-1']);assert.equal(h.timers.size,0);
 });
 test('uncertain clone retries preserve the exact request and do not become an accidental second resource',async()=>{
  const h=clonePage();h.page.openDigital(event('VOICE'));await flush();
