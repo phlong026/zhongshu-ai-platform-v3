@@ -26,6 +26,7 @@ public class FrPerfReconciliationDO {
     private Integer receiptCount;
     private Integer paymentCount;
     private Long byUserId;
+    private String sourceSnapshot;
     private OffsetDateTime createTime;
     private OffsetDateTime updateTime;
 }

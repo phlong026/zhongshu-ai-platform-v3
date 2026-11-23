@@ -6,8 +6,100 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.springframework.context.annotation.Import;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+@Import({PerfOperatingService.class, FranchiseCommands.class, CommandLogImpl.class})
 class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource JdbcTemplate jdbc;
+ @Resource PerfOperatingService operating;
+ @Resource FranchiseCommands commands;
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void monthConfirmationSeparatesCompanyPaymentsFromAdvancesAndKeepsSavedFactsAfterChanges(){
+  createCashTables();
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
+  jdbc.update("INSERT INTO fr_fin_receipt VALUES(1,?,100000,'已登记','2026-11-01')",org);
+  jdbc.update("INSERT INTO fr_fin_payment VALUES(2,?,20000,'已核实','2026-11-02','COMPANY'),(3,?,30000,'已核实','2026-11-03','EMPLOYEE'),(4,?,99999,'已核实','2026-11-02','COMPANY'),(5,?,88888,'已作废','2026-11-02','COMPANY'),(6,?,77777,'已核实','2026-12-01','COMPANY')",org,org,org+1,org,org);
+  var preview=operating.monthReconciliation(actor,"2026-11");
+  var current=(Map<String,Object>)preview.get("current");
+  assertThat(preview.get("confirmed")).isNull();
+  assertThat(current.get("companyPaidCents")).isEqualTo(20000L);
+  assertThat(current.get("companyPaidCount")).isEqualTo(1);
+  assertThat(current.get("paymentCount")).isEqualTo(1);
+  assertThat(current.get("employeeAdvanceCents")).isEqualTo(30000L);
+  assertThat(current.get("employeeAdvanceCount")).isEqualTo(1);
+  String signature=(String)current.get("sourceSignature");
+  var saved=operating.reconcile(actor,"2026-11",signature,"month-first");
+  assertThat(saved.get("paidCents")).isEqualTo(20000L);
+  assertThat(saved.get("netCents")).isEqualTo(80000L);
+  assertThat(saved.get("byUserId")).isEqualTo(String.valueOf(actor.userId()));
+  assertThat(saved.get("byName")).isNotNull();assertThat(saved.get("updateTime")).isInstanceOf(String.class);
+  assertThat(java.time.OffsetDateTime.parse((String)saved.get("updateTime"))).isNotNull();
+  assertThat(operating.monthReconciliation(actor,"2026-11").get("needsReview")).isEqualTo(false);
+  // A later reimbursement is COMPANY cash out, while the original employee advance stays separate.
+  jdbc.update("INSERT INTO fr_fin_payment VALUES(7,?,10000,'已核实','2026-11-05','COMPANY')",org);
+  jdbc.update("INSERT INTO fr_fin_refund VALUES(8,?,1000,'已核实','2026-11-05',NULL,'client','COMPANY'),(9,?,4000,'已核实','2026-11-05',NULL,'expense','COMPANY'),(10,?,2000,'已核实','2026-11-05',NULL,'expense','EMPLOYEE'),(11,?,7000,'已核实','2026-11-05',12,'expense','COMPANY')",org,org,org,org);
+  var after=operating.monthReconciliation(actor,"2026-11");
+  var latest=(Map<String,Object>)after.get("current");
+  var confirmed=(Map<String,Object>)after.get("confirmed");
+  assertThat(after.get("needsReview")).isEqualTo(true);
+  assertThat(latest.get("companyPaidCents")).isEqualTo(30000L);
+  assertThat(latest.get("companyPaidCount")).isEqualTo(2);
+  assertThat(latest.get("netCompanyPaidCents")).isEqualTo(26000L);
+  assertThat(latest.get("netReceivedCents")).isEqualTo(99000L);
+  assertThat(latest.get("netCents")).isEqualTo(73000L);
+  assertThat(latest.get("employeeNetAdvanceCents")).isEqualTo(28000L);
+  assertThat(confirmed.get("netCents")).isEqualTo(saved.get("netCents"));
+  assertThat(confirmed.get("updateTime")).isEqualTo(saved.get("updateTime"));
+  // Lost acknowledgement retries the exact confirmation; it cannot silently confirm newly entered cash.
+  assertThat(JsonUtils.toJsonString(operating.reconcile(actor,"2026-11",signature,"month-first"))).isEqualTo(JsonUtils.toJsonString(saved));
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE org_id=? AND command='perf-month-reconcile'",Long.class,org)).isEqualTo(1);
+  // Explicitly confirming the newer ledger does not erase the first command's immutable acknowledgement.
+  operating.reconcile(actor,"2026-11",(String)latest.get("sourceSignature"),"month-second");
+  assertThat(JsonUtils.toJsonString(operating.reconcile(actor,"2026-11",signature,"month-first"))).isEqualTo(JsonUtils.toJsonString(saved));
+  var latestConfirmed=(Map<String,Object>)operating.monthReconciliation(actor,"2026-11").get("confirmed");
+  assertThat(latestConfirmed.get("netCents")).isEqualTo(73000L);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE org_id=? AND command='perf-month-reconcile'",Long.class,org)).isEqualTo(2);
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void stalePreviewCannotConfirmAndEqualTotalsStillDetectChangedSourceRows(){
+  createCashTables();var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
+  jdbc.update("INSERT INTO fr_fin_payment VALUES(1,?,20000,'已核实','2026-11-03','COMPANY')",org);
+  var current=(Map<String,Object>)operating.monthReconciliation(actor,"2026-11").get("current");
+  String old=(String)current.get("sourceSignature");
+  operating.reconcile(actor,"2026-11",old,"before-change");
+  jdbc.update("UPDATE fr_fin_payment SET id=2 WHERE id=1");
+  assertThat(operating.monthReconciliation(actor,"2026-11").get("needsReview")).isEqualTo(true);
+  assertThatThrownBy(()->operating.reconcile(actor,"2026-11",old,"stale-preview"))
+      .isInstanceOf(ServiceException.class).hasMessageContaining("账有变化");
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE org_id=? AND command='perf-month-reconcile'",Long.class,org)).isEqualTo(1);
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void legacyConfirmationKeepsItsOriginalAmountsAndReplaysOldFingerprint(){
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId(),id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_perf_reconciliation(id,company_id,period,income_cents,paid_cents,net_cents,receipt_count,payment_count,by_user_id) VALUES(?,?,'2026-11',100000,20000,80000,1,2,?)",id,org,actor.userId());
+  commands.record(actor,PerfOperatingService.AGGREGATE,id,1,"perf-month-reconcile",Map.of("period","2026-11"),"old-version");
+  var saved=operating.reconcile(actor,"2026-11","old-version");
+  assertThat(saved.get("legacy")).isEqualTo(true);
+  assertThat(saved.get("netCents")).isEqualTo(80000L);
+  assertThat(saved.get("paymentCount")).isEqualTo(2);
+  assertThat(saved).doesNotContainKey("sourceSignature");
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE org_id=? AND command='perf-month-reconcile'",Long.class,org)).isEqualTo(1);
+ }
+
+ private void createCashTables(){
+  // Only cross-domain cash facts are temporary; confirmation and idempotency use migrated production tables.
+  jdbc.execute("CREATE TEMP TABLE fr_fin_receipt(id bigint,company_id bigint,amount_cents bigint,status text,received_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_fin_payment(id bigint,company_id bigint,amount_cents bigint,status text,pay_date date,funding_type text)");
+  jdbc.execute("CREATE TEMP TABLE fr_fin_refund(id bigint,company_id bigint,amount_cents bigint,status text,date date,replaced_by_id bigint,refund_direction text,funding_type text)");
+ }
+
 
  @Test @org.springframework.transaction.annotation.Transactional
  void allocatedDepositAndRefundUseOneCurrentOwnerAndTheirOriginalOccurrenceMonths(){
