@@ -96,7 +96,7 @@ test('task response loss retries the same payload and idempotency key without up
     '../../api/franchise/content': { assets:{downloadUrl:async()=>({downloadUrl:'https://signed.example/media'})},tasks: { create: async (body, key) => {
       calls.push({ body, key }); if (calls.length === 1) throw Error('timeout'); return { id: 'task' };
     } } }
-  }, { showToast() {}, navigateTo() {} });
+  }, { showToast() {}, navigateTo() {}, showModal:options=>options.success({confirm:true}) });
   Object.assign(p.data, { description: '庭院', firstFrame: '/tmp/first.jpg' });
   await p.generateOnline(); await p.generateOnline();
   assert.equal(calls.length, 2);

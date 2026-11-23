@@ -367,7 +367,7 @@ test('a lost task receipt is confirmed with the frozen request before checking r
     if(ledger.has(key))return ledger.get(key);
     if(revoked)throw{code:403,message:'素材已撤回'};
     const task={id:'301'};ledger.set(key,task);throw Error('timeout');
-  }});await tick();h.wx.navigateTo=options=>navigations.push(options.url);
+  }});await tick();h.wx.navigateTo=options=>navigations.push(options.url);h.wx.showModal=options=>options.success({confirm:true});
   h.page.setData({description:'原始文案',firstFrameAssetId:'901'});await h.page.generate();
   assert.equal(ledger.size,1);revoked=true;await h.page.generate();
   assert.equal(attempts.length,2);assert.equal(attempts[0].key,attempts[1].key);assert.deepEqual(attempts[0].body,attempts[1].body);
@@ -376,7 +376,7 @@ test('a lost task receipt is confirmed with the frozen request before checking r
 });
 
 test('an unconfirmed request is recovered even after the current description and duration become invalid',async()=>{
-  const attempts=[];const h=harness({create:async(body,key)=>{attempts.push({body:structuredClone(body),key});if(attempts.length===1)throw Error('timeout');return{id:'302'};}});await tick();
+  const attempts=[];const h=harness({create:async(body,key)=>{attempts.push({body:structuredClone(body),key});if(attempts.length===1)throw Error('timeout');return{id:'302'};}});await tick();h.wx.showModal=options=>options.success({confirm:true});
   h.page.inputDescription({detail:{value:'已提交文案'}});await h.page.generate();
   h.page.inputDescription({detail:{value:''}});h.page.inputDuration({detail:{value:'99'}});await h.page.generate();
   assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);assert.equal(h.page.data.description,'');
@@ -386,7 +386,7 @@ test('new tasks still check material access and uncertain unaccepted requests ke
   const denied=harness({download:async()=>{throw{code:403,message:'素材已撤回'};}});await tick();
   denied.page.setData({description:'新任务',firstFrameAssetId:'901'});await denied.page.generate();
   assert.equal(denied.submissions.length,0);
-  const keys=[];const h=harness({create:async(body,key)=>{keys.push(key);if(keys.length===1)throw Error('timeout');throw{code:403,message:'素材已撤回'};}});await tick();
+  const keys=[];const h=harness({create:async(body,key)=>{keys.push(key);if(keys.length===1)throw Error('timeout');throw{code:403,message:'素材已撤回'};}});await tick();h.wx.showModal=options=>options.success({confirm:true});
   h.page.inputDescription({detail:{value:'尚未确认'}});await h.page.generate();
   h.page.inputDescription({detail:{value:'后续修改'}});await h.page.generate();await h.page.generate();
   assert.equal(keys.length,3);assert.equal(new Set(keys).size,1);assert.ok(h.page.__videoSubmission);
@@ -400,6 +400,55 @@ test('an explicit initial task rejection allows correcting the form while an ide
   assert.equal(attempts[1].body.description,'更正后的文案');assert.notEqual(attempts[0].key,attempts[1].key);
   const stale=harness({create:async()=>{throw Error('timeout');}});await tick();stale.page.inputDescription({detail:{value:'待确认'}});await stale.page.generate();
   stale.invalidate();await stale.page.generateOnline();assert.equal(stale.submissions.length,1);
+});
+
+for(const accepted of [false,true])test('retry consent protects the original draft when the first request was '+(accepted?'accepted':'never received'),async()=>{
+  const ledger=new Map(),attempts=[],modals=[];
+  const h=harness({create:async(body,key)=>{
+    attempts.push({body:structuredClone(body),key});
+    if(attempts.length===1){if(accepted)ledger.set(key,{id:'301'});throw Error('timeout');}
+    if(!ledger.has(key))ledger.set(key,{id:'301'});return ledger.get(key);
+  }});await tick();h.page.inputDescription({detail:{value:'首次原文案'}});await h.page.generate();
+  const original=h.page.__videoSubmission;
+  h.page.inputDescription({detail:{value:'当前新文案'}});
+  h.wx.showModal=options=>{modals.push(options);options.success({confirm:false});};
+  await h.page.generate();assert.equal(attempts.length,1);assert.equal(ledger.size,accepted?1:0);
+  assert.equal(h.page.__videoSubmission,original);assert.equal(h.page.data.submissionPending,true);
+  assert.equal(modals[0].title,'按原内容重试');assert.match(modals[0].content,/创建.*计费/);assert.match(modals[0].content,/首次原文案/);
+  const {render}=require('./role-page-runtime.cjs'),flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
+  const nodes=flat(render(require.resolve('../miniprogram/pages/ai-video/index.wxml'),h.page.data));
+  assert.ok(nodes.some(n=>n.text==='按原内容重试'));
+  h.wx.showModal=options=>options.success({confirm:true});await h.page.generate();
+  assert.equal(attempts.length,2);assert.equal(ledger.size,1);assert.deepEqual(attempts[0],attempts[1]);
+  assert.equal(attempts[1].body.description,'首次原文案');assert.equal(h.page.data.description,'当前新文案');
+});
+
+test('original-task fallback also requires fresh retry consent after an uncertain response',async()=>{
+  const attempts=[],titles=[],h=harness({task:'101',read:async()=>{throw Error('draft timeout');},create:async(body,key)=>{attempts.push({body:structuredClone(body),key});if(attempts.length===1)throw Error('timeout');return{id:'301'};}});await tick();
+  h.wx.showModal=options=>{titles.push(options.title);options.success({confirm:titles.length===1});};
+  await h.page.useOriginalTask();await h.page.useOriginalTask();
+  assert.equal(attempts.length,1);assert.deepEqual(titles,['用原任务另建','按原内容重试']);
+  h.wx.showModal=options=>options.success({confirm:true});await h.page.useOriginalTask();
+  assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1]);
+});
+
+for(const leave of ['identity','unload'])test('retry confirmation cannot submit after '+leave+' and repeated taps open only one dialog',async()=>{
+  const h=harness({create:async()=>{throw Error('timeout');}});await tick();
+  h.page.inputDescription({detail:{value:'首次文案'}});await h.page.generate();
+  let confirm,count=0;h.wx.showModal=options=>{count++;confirm=options.success;};
+  const attempt=h.page.generate();await h.page.generateOnline();
+  assert.equal(count,1);assert.equal(h.submissions.length,1);
+  if(leave==='identity')h.invalidate();else h.page.onUnload();
+  confirm({confirm:true});await attempt;assert.equal(h.submissions.length,1);
+});
+
+test('a draft conflict arriving during retry confirmation prevents submitting the frozen draft',async()=>{
+  const cloud=new Map(),h=harness({cloud,create:async()=>{throw Error('timeout');}});await tick();
+  h.page.inputDescription({detail:{value:'首次文案'}});await h.page.generate();
+  let confirm;h.wx.showModal=options=>{confirm=options.success;};const attempt=h.page.generate();
+  cloud.set('new',{...taskInput('101','另一设备'),exists:true,revision:2});
+  h.page.inputDescription({detail:{value:'本机新版本'}});await h.page.saveDraft();
+  confirm({confirm:true});await attempt;assert.equal(h.submissions.length,1);assert.equal(h.page.__draft.conflicted(),true);
 });
 
 test('pausing after edits autosaves the latest form and coalesces consecutive input',async()=>{
