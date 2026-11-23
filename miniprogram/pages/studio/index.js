@@ -6,6 +6,12 @@ const TaskDisplay=require('./task-display');
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const http=require('../../api/http');
 const keyboard=require('../../utils/creation-keyboard');
+function listIdentity() {
+const post=require('../../api/auth').currentApiPost()||{};
+return JSON.stringify([studio.scope(),http.sessionGeneration(),http.tenantId(),post.orgId,post.postId,post.userId,post.orgType,post.roleCode]);
+}
+function listQuery(data,kind) { return kind==='tasks'?data.taskFilter:kind==='records'?(data.view==='detail'?String(data.recordId||''):data.recordFilter):''; }
+function emptyList(kind,view) { return kind==='tasks'?{tasks:[],taskCount:0}:kind==='works'?{works:[]}:view==='detail'?{detail:null,timeline:[]}:{records:[]}; }
 // Remove only an explicit leading title; a normal spoken opener is never guessed to be a title.
 function spokenBody(value) {
 const text=String(value||'').trim();
@@ -32,12 +38,13 @@ view: 'remix', pageTitle: '', original: '', script: '', title: studio.title, rew
 ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}], selectedPersonaId: '', requirement: '',digitalSubmitting:false,digitalRetry:false,
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 taskCount:0,tasks: [], records: [], works: [],  publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
+tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
 publishText: '',
 tags: '', cover: '', workId: '', saved: false,
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
-if(!studio.guard())return;this.__closed=false;this.actorScope=studio.scope();this.actorSessionGeneration=http.sessionGeneration();
+if(!studio.guard())return;this.__closed=false;this.__initialShow=true;this.actorScope=studio.scope();this.actorSessionGeneration=http.sessionGeneration();
 const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
@@ -69,9 +76,12 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){wx.redirectTo({url:'/pages/studio/index?view='+this.data.view});return;}if(this.data.sheet==='editor')keyboard.open(this);if (this.options) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
+onShow() {if(!studio.guard()){this.resetLists();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+(this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):'' )});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
   },
-onHide() { this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
+onHide() {
+// A return may follow an edit on another page. Keep the snapshot, but never reuse its pre-hide read.
+if(this.__listFlights){this.__listFlights={};this.setData({tasksLoading:false,worksLoading:false,recordsLoading:false});}
+this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
 onUnload() { this.stopOptimization();if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); if(this.data.view==='library')this.materialUnload(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
 if(!studio.allowed()||this.actorScope!==studio.scope())return;
@@ -93,67 +103,85 @@ if (['remix', 'digital'].includes(this.data.view)) { // 编辑器文案（草稿
 const state = studio.read();
 this.setData({ title: state.title, original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), scriptLength: state.script.length, estimatedSeconds: Math.ceil(state.script.replace(/\s/g, '').length / 4), extraction: state.extraction || null, rewriteVersion: (state.rewriteHistory[state.rewriteHistory.length - 1] || {}).version || 0, optimizationRetry:!!state.optimizationAttempt });
 }
-if (this.data.view === 'library') this.materialInit();
-if (this.data.view === 'tasks') this.syncApiTasks();
-if (this.data.view === 'works') this.syncApiWorks();
-if (this.data.view === 'records') this.syncApiRecords();
-if (this.data.view === 'detail') this.syncApiRecords(this.data.recordId);
+if (this.data.view === 'library') return this.materialInit();
+if (this.data.view === 'tasks') return this.syncApiTasks();
+if (this.data.view === 'works') return this.syncApiWorks();
+if (this.data.view === 'records') return this.syncApiRecords();
+if (this.data.view === 'detail') return this.syncApiRecords(this.data.recordId);
 return;
 }
 // 无 token：清空演示集合并提示登录（不回落本地数据）
+this.resetLists();
 this.setData({ taskCount:0,tasks: [], records: [], works: [], recent: [], activeTask: null, detail: null, tasksError: '', invalidMessage: '请先登录后使用创作中心' });
 return;
 },
+resetLists() {
+this.__listFlights={};this.__listSnapshots={};this.__listIdentity='';this.__taskListSeq=(this.__taskListSeq||0)+1;
+this.__dismissingTask=null;this.__retryingSave=null;
+this.setData({tasks:[],taskCount:0,works:[],records:[],detail:null,timeline:[],tasksLoaded:false,worksLoaded:false,recordsLoaded:false,tasksLoading:false,worksLoading:false,recordsLoading:false,tasksError:'',worksError:'',recordsError:''});
+},
+/** Reuse only a matching in-flight read; a successful snapshot stays mounted during refresh. */
+loadList(kind,request,render) {
+if(this.__closed)return;
+if(!http.token()||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){this.resetLists();return;}
+const identity=listIdentity(),view=this.data.view,query=listQuery(this.data,kind);
+if(this.__listIdentity!==identity){this.resetLists();this.__listIdentity=identity;}
+const key=JSON.stringify([identity,view,query]),previous=this.__listFlights[kind];
+if(previous&&previous.key===key&&previous.current())return previous.promise;
+const guard=http.requestGuard('studio-'+kind),sequence=kind==='tasks'?(this.__taskListSeq=(this.__taskListSeq||0)+1):0;
+const flight={key};this.__listFlights[kind]=flight;
+const current=flight.current=()=>!this.__closed&&this.__listFlights[kind]===flight&&guard()&&http.token()&&identity===listIdentity()&&this.actorScope===studio.scope()&&this.actorSessionGeneration===http.sessionGeneration()&&view===this.data.view&&query===listQuery(this.data,kind)&&(kind!=='tasks'||sequence===this.__taskListSeq);
+const loaded=this.__listSnapshots[kind]===key;
+this.setData(Object.assign({[kind+'Loading']:true,[kind+'Loaded']:loaded,[kind+'Error']:''},loaded?{}:emptyList(kind,view),view==='detail'?{invalidMessage:''}:{}));
+flight.promise=request().then(rows=>{
+if(!current())return;
+const patch=render(rows);this.__listSnapshots[kind]=key;
+this.setData(Object.assign({},patch,{[kind+'Loaded']:true,[kind+'Loading']:false,[kind+'Error']:''}));
+}).catch(error=>{
+const denied=error&&(error.postInvalid||[401,403,1103000002].includes(Number(error.code)));
+// HTTP may expire the session before delivering 401. Only this still-owned request may clear its old frame.
+if(!current()&&!(denied&&!this.__closed&&this.__listFlights[kind]===flight&&view===this.data.view))return;
+const clear=denied||error&&error.notFound,message=kind==='tasks'?'任务列表加载失败，请重试':P.degradeMessage(error);
+if(clear)delete this.__listSnapshots[kind];
+this.setData(Object.assign({[kind+'Loading']:false,[kind+'Error']:message},clear?Object.assign(emptyList(kind,view),{[kind+'Loaded']:false},view==='detail'?{invalidMessage:message}:{}):{}));
+}).finally(()=>{if(this.__listFlights[kind]===flight)delete this.__listFlights[kind];});
+return flight.promise;
+},
 /** 在线任务列表：tasks.page 七态 → 页面四态（generating/completed/failed/uncertain），异常页签含 failed/uncertain */
 syncApiTasks() {
-const filter=this.data.taskFilter,scope=this.actorScope,guard=http.requestGuard('studio-tasks');
-const sequence=this.__taskListSeq=(this.__taskListSeq||0)+1;
-const current=()=>!this.__closed&&guard()&&scope===studio.scope()&&this.data.view==='tasks'&&sequence===this.__taskListSeq;
-this.setData({tasksLoading:true,tasksError:''});
-return contentApi.tasks.page().then(rows=>{
-if(!current())return;
+const filter=this.data.taskFilter;
+return this.loadList('tasks',()=>contentApi.tasks.page(),rows=>{
+const previous=new Map((this.data.tasks||[]).map(task=>[task.id,task]));
 const mapped=P.rowsOf(rows).map(task=>this.mapApiTask(task)).filter(Boolean);
-const tasks=mapped.filter(task=>filter===0||(filter===1&&task.status==='generating')||(filter===2&&task.status==='completed')||(filter===3&&task.status!=='generating'&&task.status!=='completed'));
-this.setData({tasks,taskCount:tasks.length,tasksError:'',tasksLoading:false});
-}).catch(()=>{if(current())this.setData({tasksError:'任务列表加载失败，请重试',tasks:[],taskCount:0,tasksLoading:false});});
+const tasks=mapped.filter(task=>filter===0||(filter===1&&task.status==='generating')||(filter===2&&task.status==='completed')||(filter===3&&task.status!=='generating'&&task.status!=='completed')).map(task=>{
+const shown=previous.get(task.id);return shown?Object.assign(task,{swiped:!!shown.swiped,dismissing:!!shown.dismissing}):task;
+});
+return {tasks,taskCount:tasks.length};
+});
 },
 /** 在线作品列表：drafts.works 返回本人作品；异步结果只允许写回发起时的会话、岗位与页面。 */
 syncApiWorks() {
-const alive=http.requestGuard('studio-works'),scope=this.actorScope;
-this.setData({worksLoading:true,worksError:''});
-contentApi.drafts.works().then(rows=>{
-if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='works')return;
+return this.loadList('works',()=>contentApi.drafts.works(),rows=>{
 const works=P.rowsOf(rows).map(row=>{
 if(!row||row.id==null||row.id==='')return null;
 const kind=row.kind==='ai_video'?'ai':(row.kind==='digital'?'digital':'remix');
 return{id:String(row.id),taskId:row.taskId==null?'':String(row.taskId),title:String(row.title||'未命名作品'),kind,status:String(row.status||'draft'),image:studio.imageFor({kind})};
 }).filter(Boolean);
-this.setData({works,worksLoading:false,worksError:''});
-}).catch(error=>{
-if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!=='works')return;
-this.setData({works:[],worksLoading:false,worksError:P.degradeMessage(error)});
+return {works};
 });
 },
 /** 发布记录列表与详情共用 publications.page；状态筛选在页面端完成。 */
 syncApiRecords(recordId) {
-const alive=http.requestGuard('studio-records'),scope=this.actorScope,view=this.data.view,filter=this.data.recordFilter;
-this.setData({recordsLoading:true,recordsError:''});
-contentApi.publications.page().then(rows=>{
-if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!==view)return;
+const filter=this.data.recordFilter;
+return this.loadList('records',()=>contentApi.publications.page(),rows=>{
 const mapped=P.rowsOf(rows).map(row=>this.mapApiPublication(row)).filter(Boolean);
 if(recordId!=null&&recordId!==''){
 const detail=mapped.find(item=>item.id===String(recordId));
-if(!detail)throw Error('发布记录不存在或已清理');
-this.setData({detail,timeline:this.publicationTimeline(detail),recordsLoading:false,recordsError:'',invalidMessage:''});
-return;
+if(!detail)throw {notFound:true,message:'发布记录不存在或已清理'};
+return {detail,timeline:this.publicationTimeline(detail),invalidMessage:''};
 }
 const records=mapped.filter(item=>filter===0||(filter===1&&['publishing','verify','scheduled'].includes(item.status))||(filter===2&&item.status==='published')||(filter===3&&item.status==='failed'));
-this.setData({records,recordsLoading:false,recordsError:''});
-}).catch(error=>{
-if(!alive()||this.actorScope!==scope||studio.scope()!==scope||this.data.view!==view)return;
-const message=P.degradeMessage(error);
-if(recordId!=null&&recordId!=='')this.setData({detail:null,timeline:[],recordsLoading:false,recordsError:message,invalidMessage:message});
-else this.setData({records:[],recordsLoading:false,recordsError:message});
+return {records};
 });
 },
 mapApiPublication(row) {
@@ -542,12 +570,13 @@ async dismissTask(id) {
  if(this.__dismissingTask)return;
  const shown=(this.data.tasks||[]).find(row=>String(row.id)===String(id));
  if(!shown)return;
- const alive=http.requestGuard('studio-task-dismiss'),scope=this.actorScope;
- this.__dismissingTask=String(id);
+ const alive=http.requestGuard('studio-task-dismiss'),scope=this.actorScope,identity=listIdentity(),attempt={};
+ const current=()=>alive()&&!this.__closed&&this.__dismissingTask===attempt&&scope===studio.scope()&&identity===listIdentity()&&this.data.view==='tasks';
+ this.__dismissingTask=attempt;
  this.setData({tasks:(this.data.tasks||[]).map(row=>({...row,dismissing:String(row.id)===String(id)}))});
  try {
   await contentApi.tasks.dismiss(id);
-  if(!alive()||this.__closed||scope!==studio.scope())return;
+  if(!current())return;
   // Invalidate any list response started before dismissal; then refresh the current status filter.
   this.__taskListSeq=(this.__taskListSeq||0)+1;
   const remaining=(this.data.tasks||[]).filter(row=>String(row.id)!==String(id));
@@ -555,24 +584,26 @@ async dismissTask(id) {
   wx.showToast({title:'已从任务中心移除',icon:'success'});
   this.syncApiTasks();
  } catch(error) {
-  if(alive()) {
+  if(current()) {
    this.setData({tasks:(this.data.tasks||[]).map(row=>({...row,dismissing:String(row.id)===String(id)?false:row.dismissing}))});
    wx.showToast({title:P.degradeMessage(error),icon:'none'});
   }
- } finally {this.__dismissingTask=null;}
+ } finally {if(this.__dismissingTask===attempt)this.__dismissingTask=null;}
 },
 
 async retryTaskSave(id) {
  if(this.__retryingSave)return;
- const alive=http.requestGuard('studio-retry-save'),scope=this.actorScope;
- this.__retryingSave=true;
+ const alive=http.requestGuard('studio-retry-save'),scope=this.actorScope,identity=listIdentity(),attempt={};
+ const current=()=>alive()&&!this.__closed&&this.__retryingSave===attempt&&scope===studio.scope()&&identity===listIdentity()&&this.data.view==='tasks';
+ this.__retryingSave=attempt;
  try {
   await contentApi.tasks.retrySave(id);
-  if(!alive()||this.__closed||scope!==studio.scope())return;
+  if(!current())return;
   wx.showToast({title:'正在恢复保存，不会再次扣点',icon:'none'});
+  this.__taskListSeq=(this.__taskListSeq||0)+1;
   await this.syncApiTasks();
- }catch(e){if(alive()&&!this.__closed&&scope===studio.scope())wx.showToast({title:P.degradeMessage(e),icon:'none'});}
- finally{this.__retryingSave=false;}
+ }catch(e){if(current())wx.showToast({title:P.degradeMessage(e),icon:'none'});}
+ finally{if(this.__retryingSave===attempt)this.__retryingSave=null;}
 },
 refreshTasks() { return this.syncApiTasks(); },
 playVideo() {
@@ -726,7 +757,7 @@ async openPublicationVideo(e) {
   else wx.showToast({title:'当前微信版本暂不支持视频预览',icon:'none'});
  } catch(error) { if(current())wx.showToast({title:P.degradeMessage(error),icon:'none'}); }
 },
-refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
+refreshRecords() { return this.refreshData(); },
 registerConsultation(){const record=this.data.detail;if(record?.status==='published'&&record.id)wx.navigateTo({url:'/pages/growth/index?view=capture&publicationId='+encodeURIComponent(record.id)});},
 inputPublishedUrl(e){this.setData({publishedUrlInput:e.detail.value,receiptError:'',receiptSaved:false});},
 receiptWriteError(){

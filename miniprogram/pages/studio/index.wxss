@@ -58,6 +58,7 @@
 .task-action { height: auto; margin-top: 16rpx; width: 100%; font-size:var(--zs-font-body); padding: 8rpx 12rpx; }
 .task-failure-note { font-size:var(--zs-font-meta); line-height: 36rpx; margin-top: 8rpx; }
 .refresh-button { width: 100%; margin-top: 24rpx; }
+.list-feedback { min-height: 36rpx; font-size: var(--zs-font-meta); line-height: 36rpx; }
 .result-card { padding: 24rpx; }
 .video-stage { height: 640rpx; position: relative; width: 100%; border-radius: 16rpx; overflow: hidden; display: block; background: #292621; }
 .video-poster { width: 100%; height: 100%; display: block; }
