@@ -249,6 +249,7 @@ public class LeadService {
             return new ImportNewCustomerResult(existing.getId(), existing.getCustomerId());
         }
         CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        validatePublicationSource(post, input.source());
         long leadId = IdWorker.getId();
         CustomerDO customer = new CustomerDO().setId(IdWorker.getId()).setCompanyId(orgId)
                 .setTeamId(post.teamId()).setOwnerUserId(post.userId()).setName(input.name())
@@ -284,6 +285,7 @@ public class LeadService {
             return new ImportLinkRequiredResult(replay.get().getAggregateId());
         }
         CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        validatePublicationSource(post, input.source());
         LeadDO lead = new LeadDO().setId(IdWorker.getId()).setCompanyId(orgId).setTeamId(post.teamId())
                 .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
                 .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L)
