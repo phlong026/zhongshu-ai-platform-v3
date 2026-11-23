@@ -47,9 +47,9 @@ public class ContentGrowthService {
 
         // Once a user can read this customer, show the full set of its linked video consultations,
         // including consultations registered by colleagues. Each consultation remains a separate lead.
-        String sql = "SELECT p.id::text AS \\"publicationId\\", p.work_id::text AS \\"workId\\", p.title, "
-                + "p.published_url AS \\"publishedUrl\\", l.id::text AS \\"leadId\\", l.need, l.status, "
-                + "l.create_time AS \\"createTime\\" FROM fr_lead l "
+        String sql = "SELECT p.id::text AS \"publicationId\", p.work_id::text AS \"workId\", p.title, "
+                + "p.published_url AS \"publishedUrl\", l.id::text AS \"leadId\", l.need, l.status, "
+                + "l.create_time AS \"createTime\" FROM fr_lead l "
                 + "JOIN fr_content_publication p ON p.company_id = l.company_id "
                 + "AND l.source = ? || p.id AND p.status = 'published' "
                 + "WHERE l.company_id = ? AND l.customer_id = ? ORDER BY l.create_time DESC";
@@ -82,7 +82,7 @@ public class ContentGrowthService {
 
         // 按发布记录维度：每条 published 的客资数
         List<Map<String, Object>> perPublication = jdbcTemplate.queryForList(
-                "SELECT p.id::text AS id, p.id::text AS \\"publicationId\\", p.work_id::text AS \\"workId\\", p.title, p.published_url AS \\"publishedUrl\\", COUNT(l.id) AS leads, "
+                "SELECT p.id::text AS id, p.id::text AS \"publicationId\", p.work_id::text AS \"workId\", p.title, p.published_url AS \"publishedUrl\", COUNT(l.id) AS leads, "
                         + "SUM(CASE WHEN l.status IN ('LINKED','CONVERTED') THEN 1 ELSE 0 END) AS converted "
                         + "FROM fr_content_publication p "
                         + "LEFT JOIN fr_lead l ON l.company_id = p.company_id "
