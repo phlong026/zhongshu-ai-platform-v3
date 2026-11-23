@@ -62,6 +62,7 @@ class OrgPointFlywayUpgradeIntegrationTest extends PlatformPgIntegrationTest {
         // This historical snapshot includes the order fields used by the later company recharge migration.
         jdbc.execute("CREATE TABLE " + schema + ".pf_recharge_order (id bigint PRIMARY KEY, tenant_id bigint,"
                 + "org_id bigint, actor_id bigint, post_id bigint, create_time timestamptz)");
+        jdbc.execute("CREATE TABLE " + schema + ".pf_payment_transaction (id bigint PRIMARY KEY, tenant_id bigint, paid_at timestamptz)");
         jdbc.update("INSERT INTO " + schema + ".pf_recharge_order(id) VALUES (7)");
 
         Flyway current = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
