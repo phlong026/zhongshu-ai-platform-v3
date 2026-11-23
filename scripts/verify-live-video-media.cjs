@@ -53,19 +53,19 @@ test('reference media keeps asset ids and type roles; stale uploads never submit
   assert.equal(sent.length, 0);
 });
 
-function uploader(ticketUrl, response = { statusCode: 200, data: '' }) {
+function uploader(ticketUrl, response = { statusCode: 200, data: '' }, options = {}) {
   const requests = [], completed = [], tickets = [];
   let upload;
   const http = { base: () => 'https://platform.example/admin-api', token: () => 'private-token',
     currentPostId: () => 'post', tenantId: () => 'tenant' };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../miniprogram/utils/content-media.js'), 'utf8'), {
     module: { set exports(value) { upload = value.upload; } },
-    require: id => id === '../api/http' ? http : id === '../api/finance' ? require('../miniprogram/api/finance') : { assets: {
+    require: id => id === '../api/http' ? http : id === '../api/finance' ? require('../miniprogram/api/finance') : id === './media-formats' ? require('../miniprogram/utils/media-formats') : { assets: {
       uploadTicket: async body => { tickets.push(body); return { assetId: '9007199254740993', uploadUrl: ticketUrl }; },
-      complete: async id => { completed.push(id); return { status: 'ACCEPTED' }; }
+      complete: async id => { completed.push(id); return options.complete ? options.complete(completed.length) : { status: 'ACCEPTED' }; }
     } },
-    wx: { getFileSystemManager: () => ({ readFile: o => o.success({ data: new ArrayBuffer(4) }) }),
-      request: o => { requests.push(o); o.success(response); } }, ArrayBuffer, Promise
+    wx: { getFileSystemManager: () => ({ readFile: o => o.success({ data: options.bytes || new ArrayBuffer(4) }) }),
+      request: o => { requests.push(o); o.success(response); } }, ArrayBuffer, Promise, setTimeout: callback => callback()
   });
   return { upload, requests, completed, tickets };
 }
@@ -116,9 +116,75 @@ test('upload HTTP/business failures and unsupported files never complete an asse
     assert.equal(u.completed.length, 0);
   }
   const u = uploader('https://bucket.example/object');
-  await assert.rejects(u.upload('/tmp/a.wav', () => true), /暂仅支持/);
+  await assert.rejects(u.upload('/tmp/a.zip', () => true), /无法识别/);
   await assert.rejects(u.upload('/tmp/a.png', () => false), /工作身份/);
   assert.equal(u.requests.length, 0);
+});
+
+test('common phone media retain their actual input format for server normalization', async () => {
+  for (const [name, type, mimeType] of [
+    ['IMG_1234.MOV','video','video/quicktime'], ['clip.mkv','video','video/x-matroska'],
+    ['camera.3gp','video','video/3gpp'], ['clip.webm','video','video/webm'],
+    ['recording.M4A','audio','audio/mp4'], ['voice.aac','audio','audio/aac'],
+    ['voice.WAV','audio','audio/wav'], ['voice.amr','audio','audio/amr'],
+    ['voice.flac','audio','audio/flac'], ['voice.opus','audio','audio/ogg'],
+    ['IMG_1234.HEIC','image','image/heic'], ['photo.heif','image','image/heif'],
+    ['photo.webp','image','image/webp'], ['photo.avif','image','image/avif'],
+    ['photo.gif','image','image/gif'], ['photo.tiff','image','image/tiff']
+  ]) {
+    const u = uploader('https://bucket.example/object');
+    await u.upload('/saved/opaque-file', () => true, {name,type});
+    assert.equal(u.tickets[0].mimeType, mimeType, name);
+    assert.equal(u.requests[0].header['content-type'], mimeType, name);
+    assert.equal(u.completed.length, 1);
+  }
+});
+
+test('extensionless WeChat temporary files are detected from bytes and wrong media roles are rejected', async () => {
+  const formats = require('../miniprogram/utils/media-formats');
+  const ftyp = brand => Buffer.concat([Buffer.from([0,0,0,24]), Buffer.from('ftyp'+brand), Buffer.alloc(12)]);
+  assert.equal(formats.mimeType('/saved/tmp', ftyp('heic'), {type:'image'}), 'image/heic');
+  assert.equal(formats.mimeType('/saved/tmp', ftyp('qt  '), {type:'video'}), 'video/quicktime');
+  assert.equal(formats.mimeType('/saved/tmp', ftyp('M4A '), {type:'audio'}), 'audio/mp4');
+  assert.equal(formats.mimeType('/saved/tmp.mp4', Buffer.from('RIFF1234WAVE'), {type:'audio', name:'voice.wav'}), 'audio/wav');
+  assert.equal(formats.mimeType('/saved/tmp', Buffer.from('RIFF1234WEBP'), {type:'image'}), 'image/webp');
+  const u = uploader('https://bucket.example/object', undefined, {bytes:ftyp('heic')});
+  await assert.rejects(u.upload('/saved/opaque', () => true, {type:'video'}), /文件类型不符/);
+  assert.equal(u.tickets.length, 0);
+  assert.equal(u.requests.length, 0);
+});
+
+test('normalization retries the same accepted upload after response loss without reuploading or claiming a false completion', async () => {
+  const stages = [];
+  const u = uploader('https://bucket.example/object', undefined, {complete:count => {
+    if (count === 1) throw {code:-1, message:'timeout'};
+    return {status:count === 2 ? 'VALIDATING' : 'ACCEPTED'};
+  }});
+  assert.equal(await u.upload('/tmp/sample.mov', () => true, {type:'video',onStage:stage=>stages.push(stage)}), '9007199254740993');
+  assert.equal(u.requests.length, 1);
+  assert.equal(u.tickets.length, 1);
+  assert.deepEqual(u.completed, ['9007199254740993','9007199254740993','9007199254740993']);
+  assert.deepEqual(stages, ['reading','uploading','processing','complete']);
+  const rejected = uploader('https://bucket.example/object', undefined, {complete:()=>({status:'REJECTED',message:'文件已损坏'})});
+  const rejectedStages = [];
+  await assert.rejects(rejected.upload('/tmp/sample.mp4',()=>true,{onStage:stage=>rejectedStages.push(stage)}), /文件已损坏/);
+  assert.equal(rejectedStages.includes('complete'),false);
+});
+
+test('phone audio selection accepts recorder formats and carries original metadata across a renamed saved path', async () => {
+  const h=libraryVideo({persist:async()=>'/saved/opaque'});
+  let picker;
+  h.wx.showActionSheet=o=>o.success({tapIndex:2});
+  h.wx.chooseMessageFile=o=>{picker=o;};
+  h.page.uploadReferences();
+  assert.equal(picker.extension, undefined);
+  await picker.success({tempFiles:[{path:'/tmp/voice',name:'华为录音.M4A',mimeType:'audio/mp4'}]});
+  assert.equal(h.page.data.references[0].name,'华为录音.M4A');
+  assert.equal(h.page.data.references[0].mimeType,'audio/mp4');
+  assert.equal(h.page.data.references[0].path,'/saved/opaque');
+  h.invalidate();
+  await picker.success({tempFiles:[{path:'/tmp/old',name:'不应串入.wav'}]});
+  assert.equal(h.page.data.references.length,1);
 });
 
 test('video picker indices resolve to selected parameter labels', () => {
@@ -215,11 +281,11 @@ function mediaSource({ticket=async()=>({downloadUrl:'/admin-api/franchise/assets
   });return{source:(id,options)=>mod.exports.source(id,()=>valid,options),calls,invalidate:()=>valid=false};
 }
 
-test('asset previews renew missing local files through the authorized B downloader and keep accessible local files',async()=>{
+test('asset previews use accepted canonical bytes even when an undecodable original file still exists locally',async()=>{
   const missing=mediaSource();assert.equal(await missing.source('901',{type:'image',localPath:'/expired/901.png'}),'/renewed/901.png');
   assert.deepEqual(missing.calls,[['ticket','901'],['download','/admin-api/franchise/assets/901/content?token=t']]);
-  const live=mediaSource({localExists:true});assert.equal(await live.source('901',{type:'image',localPath:'/saved/901.png'}),'/saved/901.png');
-  assert.deepEqual(live.calls,[['ticket','901']]);
+  const live=mediaSource({localExists:true});assert.equal(await live.source('901',{type:'image',localPath:'/saved/opaque-heic'}),'/renewed/901.png');
+  assert.deepEqual(live.calls,[['ticket','901'],['download','/admin-api/franchise/assets/901/content?token=t']]);
   assert.equal(await missing.source('902',{type:'video'}),'');assert.equal(missing.calls.filter(c=>c[0]==='download').length,1);
 });
 

@@ -72,10 +72,10 @@ const materials = {
 };
 
 const assets = {
-  /** 内容素材上传票据（CONTENT_ASSET：jpeg/png/mp3/mp4 ≤50MB，B_END 免审）→ {assetId,uploadUrl} */
+  /** 常见媒体原文件 ≤50MB；B 校验并转换为生成服务可使用的格式。 */
   uploadTicket: (data) => http.post('/franchise/content/assets/upload-tickets', data),
-  /** 上传完成（免审直 ACCEPTED）→ {assetId,status} */
-  complete: (assetId) => http.post('/franchise/content/assets/' + assetId + '/complete'),
+  /** 完成上传及格式处理；重试始终使用同一 assetId。 */
+  complete: (assetId) => http.post('/franchise/content/assets/' + assetId + '/complete', undefined, undefined, { timeout: 120000 }),
   /** 下载地址（生产=COS 签名 URL，供生成服务拉取）→ {downloadUrl,expiresAt} */
   downloadUrl: (assetId) => http.post('/franchise/content/assets/' + encodeURIComponent(assetId) + '/download-tickets')
 };

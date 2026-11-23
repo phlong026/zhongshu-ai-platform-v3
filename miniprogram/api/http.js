@@ -261,7 +261,7 @@ function request(method, path, data, extraHeader, opts) {
       url: baseUrl + path,
       method,
       data,
-      timeout: TIMEOUT,
+      timeout: Math.max(TIMEOUT, Math.min(120000, Number(opts && opts.timeout) || TIMEOUT)),
       header: Object.assign(
         { 'content-type': 'application/json', 'tenant-id': tenantId() },
         sentToken ? { Authorization: 'Bearer ' + sentToken } : {},
@@ -386,7 +386,7 @@ module.exports = {
   request,
   upload,
   get: (path, params) => request('GET', path, params),
-  post: (path, data, extraHeader) => request('POST', path, data, extraHeader),
+  post: (path, data, extraHeader, opts) => request('POST', path, data, extraHeader, opts),
   put: (path, data, extraHeader) => request('PUT', path, data, extraHeader),
   del: (path, data, extraHeader) => request('DELETE', path, data, extraHeader)
 };
