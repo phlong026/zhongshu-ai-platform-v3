@@ -59,19 +59,27 @@ public class ContentCloneService {
     }
     public List<Map<String,Object>> list(PostSnapshot post,long persona) {
         requirePersona(post.orgId(),persona,false);
-        Set<Long> defaults=new HashSet<>(jdbc.queryForList("SELECT clone_id FROM fr_content_clone_default WHERE company_id=? AND persona_id=?",Long.class,post.orgId(),persona));
+        Set<Long> defaults=new HashSet<>(jdbc.queryForList("SELECT clone_id FROM fr_content_clone_personal_default WHERE company_id=? AND user_id=? AND persona_id=?",Long.class,post.orgId(),post.userId(),persona));
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND persona_id=? ORDER BY id DESC",mapper,post.orgId(),persona)
-                .stream().map(row->view(row,defaults.contains(row.id()))).toList();
+                .stream().map(row->view(post,row,defaults.contains(row.id()))).toList();
     }
     public Map<String,Object> setDefault(PostSnapshot post,long id) {
-        if(!Set.of("sales-lead","boss","owner").contains(post.roleCode()))throw invalid("当前岗位不能设置人物默认资源");
         return tx.execute(status->{
-            CloneRow row=require(post.orgId(),id);requirePersona(post.orgId(),row.persona(),true);
+            CloneRow row=requireManageable(post,id);requirePersona(post.orgId(),row.persona(),true);
             if(!usable(row))throw invalid("只能将已就绪并完成结算的分身或声音设为默认");
-            jdbc.update("INSERT INTO fr_content_clone_default(company_id,persona_id,kind,clone_id,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(company_id,persona_id,kind) DO UPDATE SET clone_id=EXCLUDED.clone_id,updated_by=EXCLUDED.updated_by,update_time=now()",
-                    post.orgId(),row.persona(),row.kind(),row.id(),post.userId());
-            return view(row,true);
+            jdbc.update("INSERT INTO fr_content_clone_personal_default(company_id,user_id,persona_id,kind,clone_id) VALUES(?,?,?,?,?) ON CONFLICT(company_id,user_id,persona_id,kind) DO UPDATE SET clone_id=EXCLUDED.clone_id,update_time=now()",
+                    post.orgId(),post.userId(),row.persona(),row.kind(),row.id());
+            return view(post,row,true);
         });
+    }
+    private static boolean canManage(PostSnapshot post,CloneRow row) {
+        return ContentPersonaService.canCreate(post)&&row.company()==post.orgId()&&row.author()==post.userId();
+    }
+    /** Management never inherits the broader company-persona administrator scope. */
+    private CloneRow requireManageable(PostSnapshot post,long id) {
+        if(!ContentPersonaService.canCreate(post))throw invalid("当前岗位不能管理分身或声音");
+        return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND id=? FOR UPDATE",mapper,
+                post.orgId(),post.userId(),id).stream().findFirst().orElseThrow(()->invalid("分身或声音不存在或无权管理，只能管理本人创建的资源"));
     }
     private CloneRow require(long company,long id) {
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND id=?",mapper,company,id).stream().findFirst().orElseThrow(()->invalid("分身或声音不存在或无权使用"));
@@ -83,7 +91,7 @@ public class ContentCloneService {
         if(!CONSENT_VERSION.equals(consent))throw invalid("请确认本人素材或已获授权，允许在本公司制作和使用分身、声音");
         String hash=hash(List.of(persona,kind,clean,source,consent,credits).toString());
         var replay=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key);
-        if(!replay.isEmpty()) { if(!hash.equals(replay.get(0).hash()))throw invalid("请求参数已变化，请重新确认制作"); return view(replay.get(0)); }
+        if(!replay.isEmpty()) { if(!hash.equals(replay.get(0).hash()))throw invalid("请求参数已变化，请重新确认制作"); return view(post,replay.get(0)); }
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
         var uploaded=uploads.requireUploaded(post,persona,source,kind);
         long id=IdWorker.getId();
@@ -95,7 +103,7 @@ public class ContentCloneService {
             jdbc.update("UPDATE fr_content_digital_clone SET operation_id=? WHERE id=?",operation,id);
             return true;
         }));
-        if(!inserted){var row=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key).get(0);if(!hash.equals(row.hash()))throw invalid("请求参数已变化，请重新确认制作");return view(row);}
+        if(!inserted){var row=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key).get(0);if(!hash.equals(row.hash()))throw invalid("请求参数已变化，请重新确认制作");return view(post,row);}
         // 预扣和提交意图已提交；外呼绝不能放进事务或自动重试。
         try {
             String task=provider.createByFile(kind,clean,uploaded.fileId(),new ProviderCallAudit(post.orgId(),id));
@@ -106,7 +114,7 @@ public class ContentCloneService {
             jdbc.update("UPDATE fr_content_digital_clone SET status='UNKNOWN',failure_reason=?,update_time=now() WHERE id=?", "提交结果待核实，请勿重复制作，请联系管理员核查",id);
         }
         settle(require(post.orgId(),id));
-        return view(require(post.orgId(),id));
+        return view(post,require(post.orgId(),id));
     }
     /** 旧版本只允许回读已经提交的同笔制作，禁止新增经平台云存储的制作。 */
     public Map<String,Object> replayLegacy(PostSnapshot post,long persona,String kind,String title,long source,String consent,String key,long credits) {
@@ -115,7 +123,7 @@ public class ContentCloneService {
         String hash=hash(List.of(persona,kind,title==null?"":title.trim(),source,consent,credits).toString());
         var rows=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key);
         if(rows.isEmpty()||!hash.equals(rows.get(0).hash()))throw invalid("上传方式已更新，请重新上传素材");
-        return view(rows.get(0));
+        return view(post,rows.get(0));
     }
     public Map<String,Object> refresh(PostSnapshot post,long id) {
         CloneRow row=require(post.orgId(),id); requirePersona(post.orgId(),row.persona(),false);
@@ -130,7 +138,7 @@ public class ContentCloneService {
             finally { jdbc.update("UPDATE fr_content_digital_clone SET refresh_until=NULL WHERE id=?",id); }
         }
         settle(require(post.orgId(),id));
-        return view(require(post.orgId(),id));
+        return view(post,require(post.orgId(),id));
     }
     private void settle(CloneRow row) {
         if(!"PENDING".equals(row.billing()))return;
@@ -147,17 +155,18 @@ public class ContentCloneService {
                 ||!"SETTLED".equals(a.billing())||!"SETTLED".equals(v.billing()))throw invalid("请选择同一人物名下已就绪的数字分身和克隆声音");
         return new DigitalSelection(a.persona(),a.resource(),v.resource());
     }
-    public Map<String,Object> view(CloneRow row) {
-        boolean selected=Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_content_clone_default WHERE company_id=? AND persona_id=? AND kind=? AND clone_id=?)",Boolean.class,row.company(),row.persona(),row.kind(),row.id()));
-        return view(row,selected);
+    private Map<String,Object> view(PostSnapshot post,CloneRow row) {
+        boolean selected=Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_content_clone_personal_default WHERE company_id=? AND user_id=? AND persona_id=? AND kind=? AND clone_id=?)",Boolean.class,row.company(),post.userId(),row.persona(),row.kind(),row.id()));
+        return view(post,row,selected);
     }
     private static boolean usable(CloneRow row) {
         return "READY".equals(row.status())&&"SETTLED".equals(row.billing())&&row.resource()!=null&&!row.resource().isBlank();
     }
-    private Map<String,Object> view(CloneRow row,boolean selected) {
+    private Map<String,Object> view(PostSnapshot post,CloneRow row,boolean selected) {
         var view=new LinkedHashMap<String,Object>();
         view.put("id",String.valueOf(row.id()));view.put("personaId",String.valueOf(row.persona()));view.put("kind",row.kind());view.put("title",row.title());
         view.put("status",row.status());view.put("ready",usable(row));view.put("isDefault",selected&&usable(row));
+        view.put("canManage",canManage(post,row));
         view.put("failureReason",row.failure()==null?"":row.failure());
         // 供应商试听短链仅供当前页使用，不作为声音永久标识。
         view.put("demoUrl",row.demo()==null?"":row.demo());

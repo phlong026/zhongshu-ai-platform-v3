@@ -24,7 +24,7 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
     ContentProviderProperties properties;
     final PostSnapshot post=new PostSnapshot(11L,22L,33L,"store","sales-lead",null,false,Set.of());
     @BeforeEach void setup() {
-        jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_clone_default,fr_content_digital_clone,fr_content_hifly_upload");
+        jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_clone_personal_default,fr_content_clone_default,fr_content_digital_clone,fr_content_hifly_upload");
         personas=mock(ContentPersonaService.class);points=mock(OrgPointPort.class);
         when(personas.list(33)).thenReturn(List.of(new FrContentPersonaDO().setId(21L).setEnabled(true),new FrContentPersonaDO().setId(23L).setEnabled(false)));
         when(personas.requireWritable(eq(post),eq(21L))).thenReturn(new FrContentPersonaDO().setId(21L).setEnabled(true));
@@ -130,7 +130,7 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         var rows=service.list(post,21);
         assertThat(rows).hasSize(3);
         assertThat(rows.stream().filter(row->Boolean.TRUE.equals(row.get("isDefault"))).map(row->row.get("id"))).containsExactlyInAnyOrder("202","301");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_default WHERE company_id=33 AND persona_id=21",Long.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_personal_default WHERE company_id=33 AND user_id=22 AND persona_id=21",Long.class)).isEqualTo(2);
         verifyNoInteractions(points);assertThat(transport.calls).isEmpty();
     }
     @Test void separateCreationCommandsCreateMultipleResourcesForTheSamePersonaAndKind() {
@@ -143,16 +143,27 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(service.list(post,21)).hasSize(2);assertThat(transport.calls).hasSize(2);
         verify(points,times(2)).reserveConfirmed(any(),eq(5L));
     }
+    @Test void createAndLegacyReplaysKeepTheCurrentUsersPersonalDefaultWithoutAnotherCharge() {
+        var transport=new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200,"{\"code\":0,\"task_id\":\"avatar\"}",0),
+                ContentProviderTransport.json(200,"{\"code\":0,\"status\":3,\"avatar\":\"resource\"}",0));
+        var service=service(transport);var created=create(service,"AVATAR","personal-replay");
+        long id=Long.parseLong((String)created.get("id"));service.refresh(post,id);service.setDefault(post,id);
+        assertThat(create(service,"AVATAR","personal-replay")).containsEntry("isDefault",true).containsEntry("canManage",true);
+        assertThat(service.replayLegacy(post,21,"AVATAR","顾问",101,ContentCloneService.CONSENT_VERSION,"personal-replay",5))
+                .containsEntry("isDefault",true).containsEntry("canManage",true);
+        assertThat(transport.calls).hasSize(2);verify(points,times(1)).reserveConfirmed(any(),eq(5L));
+    }
     @Test void defaultsRejectUnsettledDisabledAndForeignResources() {
         readyClone(201,21,"AVATAR","PENDING");readyClone(202,23,"AVATAR","SETTLED");
         var service=service(new ContentProviderTransport.Scripted());
         assertThatThrownBy(()->service.setDefault(post,201)).hasMessageContaining("结算");
         assertThatThrownBy(()->service.setDefault(post,202)).hasMessageContaining("停用");
         var foreign=new PostSnapshot(12L,22L,34L,"store","sales-lead",null,false,Set.of());
-        assertThatThrownBy(()->service.setDefault(foreign,201)).hasMessageContaining("无权使用");
-        var sales=new PostSnapshot(13L,22L,33L,"store","sales",null,false,Set.of());
-        assertThatThrownBy(()->service.setDefault(sales,201)).hasMessageContaining("不能设置");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_default",Long.class)).isZero();
+        assertThatThrownBy(()->service.setDefault(foreign,201)).hasMessageContaining("无权管理");
+        var sales=new PostSnapshot(13L,99L,33L,"store","sales",null,false,Set.of());
+        assertThatThrownBy(()->service.setDefault(sales,201)).hasMessageContaining("本人创建");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_personal_default",Long.class)).isZero();
     }
     @Test void concurrentDefaultChangesKeepExactlyOneDefaultForThePersonaAndKind() throws Exception {
         readyClone(201,21,"AVATAR","SETTLED");readyClone(202,21,"AVATAR","SETTLED");
