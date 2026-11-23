@@ -73,12 +73,12 @@ public class ContentTaskController {
                 .eq(FrContentTaskDO::getCompanyId, post.orgId())
                 .eq(FrContentTaskDO::getAuthorUserId, post.userId())
                 .eq(status != null && !status.isBlank(), FrContentTaskDO::getStatus, status)
+                // Exclude hidden rows in SQL before LIMIT so older visible tasks fill the page.
+                .notInSql(FrContentTaskDO::getId,
+                        "SELECT task_id FROM fr_content_task_hidden WHERE company_id = " + post.orgId()
+                                + " AND author_user_id = " + post.userId())
                 .orderByDesc(FrContentTaskDO::getCreateTime)
                 .last("LIMIT 100"));
-        List<Long> hidden = jdbcTemplate.queryForList(
-                "SELECT task_id FROM fr_content_task_hidden WHERE company_id = ? AND author_user_id = ?",
-                Long.class, post.orgId(), post.userId());
-        if (!hidden.isEmpty()) rows.removeIf(row -> hidden.contains(row.getId()));
         return success(rows.stream().map(ContentTaskController::viewOf).toList());
     }
 
