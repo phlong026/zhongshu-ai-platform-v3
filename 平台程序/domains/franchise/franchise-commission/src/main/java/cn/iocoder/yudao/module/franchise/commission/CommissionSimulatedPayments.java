@@ -31,7 +31,15 @@ public class CommissionSimulatedPayments {
     }
 
     boolean allowed(long storeId, long designOrgId) {
-        return simulationOrgIds.contains(storeId) && simulationOrgIds.contains(designOrgId);
+        // The global payment mode controls whether all service-payment flows are simulated.
+        // Keep the legacy allow-list only for older test fixtures where the mode registry
+        // has not yet been migrated; a configured REAL mode never falls back to simulation.
+        try {
+            return Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT mode = 'MOCK' FROM pf_payment_runtime_mode WHERE id = 1", Boolean.class));
+        } catch (org.springframework.dao.DataAccessException missingRegistry) {
+            return simulationOrgIds.contains(storeId) && simulationOrgIds.contains(designOrgId);
+        }
     }
 
     boolean blocked(CommissionDO commission) {
