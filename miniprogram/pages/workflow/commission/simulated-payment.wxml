@@ -7,17 +7,13 @@
  <block wx:if="{{paymentDetails||view==='receipt'}}"><view class="commission-row"><text class="commission-muted">订单编号</text><text class="payment-order-number" selectable>{{paymentOrder.number}}</text></view>
  <view class="commission-row"><text class="commission-muted">委托版本</text><text>V{{paymentOrder.submissionVersion}}</text></view></block>
  <block wx:if="{{paymentOrder.status==='PAID'}}">
-  <view wx:if="{{paymentOrder.channel&&(paymentDetails||view==='receipt')}}" class="commission-row"><text class="commission-muted">模拟方式</text><text>{{paymentOrder.channel==='WECHAT'?'微信':'支付宝'}}</text></view>
+  <view wx:if="{{paymentOrder.status==='PAID'}}" class="commission-row"><text class="commission-muted">支付方式</text><text>模拟支付</text></view>
   <view wx:if="{{paymentOrder.timeText&&(paymentDetails||view==='receipt')}}" class="commission-row"><text class="commission-muted">登记时间</text><text>{{paymentOrder.timeText}}</text></view>
   <text class="commission-muted">模拟付款登记凭据已保存</text>
   <text wx:if="{{paymentOrder.storeFinanceConfigured===false}}" class="commission-muted">门店财务未配置</text>
   <text wx:if="{{paymentOrder.headquartersFinanceConfigured===false}}" class="commission-muted">总部财务未配置</text>
   <button wx:if="{{view==='pay'}}" class="commission-secondary" bindtap="showProgress">查看委托进度</button>
  </block>
- <view wx:elif="{{view==='pay'&&primary}}" class="payment-options">
-  <button class="commission-secondary {{paymentChannel==='WECHAT'?'payment-selected':''}}" data-channel="WECHAT" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-wechat"><image src="/pages/workflow/assets/commission/wechat-pay.png"/></view>微信（模拟）</button>
-  <button class="commission-secondary {{paymentChannel==='ALIPAY'?'payment-selected':''}}" data-channel="ALIPAY" bindtap="choosePayment" disabled="{{busy||simulationPhase||simulationUncertain}}"><view class="payment-logo payment-logo-alipay"><image src="/pages/workflow/assets/commission/alipay.png"/></view>支付宝（模拟）</button>
- </view>
- <text class="payment-disclaimer">仅模拟登记，不发生真实扣款，不计入实际收支</text>
+ <view wx:elif="{{view==='pay'&&primary}}" class="payment-options"><text class="commission-muted">当前为系统模拟支付模式，确认后自动完成模拟付款，不会产生真实扣款。</text></view> <text class="payment-disclaimer">仅模拟登记，不发生真实扣款，不计入实际收支</text>
 </view>
 <text wx:if="{{view==='pay'&&paymentNotice}}" class="payment-notice" role="status">{{paymentNotice}}</text>

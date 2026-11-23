@@ -28,10 +28,10 @@ module.exports = function({ http, commissions, paymentView, delay = () => new Pr
     paymentSheetNoop() {},
     async confirmSimulationPayment() {
       if(this.data.busy || this.data.simulationPhase !== 'confirm' || this.data.paymentOrder?.status !== 'PENDING')return;
-      const alive=guard(this), id=this.id, channel=this.data.paymentChannel, key=this.cmdKey('simulate-pay');
+      const alive=guard(this), id=this.id, key=this.cmdKey('simulate-pay');
       this.setData({busy:true,simulationPhase:'processing',simulationChecking:false,simulationError:'',error:''});
       const visible=delay();let failure;
-      try { await commissions.simulatePay(id,{channel,confirmed:true},key); } catch(error) { failure=error; }
+      try { await commissions.simulatePay(id,{channel:'MOCK',confirmed:true},key); } catch(error) { failure=error; }
       if(!alive())return;
       try {
         const order=validate(this,await commissions.simulatedReceipt(id));await visible;if(!alive())return;
