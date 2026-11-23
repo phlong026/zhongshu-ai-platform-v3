@@ -55,8 +55,9 @@ jobs:
         run: |
           candidate="${HEAD_BRANCH/-backend-/-}"
           if git ls-remote --exit-code origin "refs/heads/$candidate" >/dev/null 2>&1; then
-            echo "FRONTEND_REF=$candidate" >> "$GITHUB_ENV"
-            echo "Paired frontend branch: $candidate"
+            frontend_sha="$(git rev-parse "refs/remotes/origin/$candidate")"
+            echo "FRONTEND_REF=$frontend_sha" >> "$GITHUB_ENV"
+            echo "Paired frontend branch: $candidate ($frontend_sha)"
           else
             echo "No matching frontend branch found; retain configured FRONTEND_REF=$FRONTEND_REF"
           fi
