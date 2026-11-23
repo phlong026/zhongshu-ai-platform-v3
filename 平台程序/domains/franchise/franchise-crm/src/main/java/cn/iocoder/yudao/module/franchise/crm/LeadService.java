@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,12 +56,18 @@ public class LeadService {
     private final FranchiseCommands commands;
     private final JdbcTemplate jdbcTemplate;
 
+    @Autowired
     public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands,
                        JdbcTemplate jdbcTemplate) {
         this.leadMapper = leadMapper;
         this.customerMapper = customerMapper;
         this.commands = commands;
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /** Compatibility constructor for focused domain tests that do not exercise publication attribution. */
+    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands) {
+        this(leadMapper, customerMapper, commands, null);
     }
 
     @Transactional(rollbackFor = Exception.class)
