@@ -186,7 +186,7 @@ test('全部真实工作台模板保留刷新中的 todo-preview，并提供局�
  const surfaces=[
   ['pages/business/index.wxml',{guest:false,isSalesHome:true}],
   ['pages/engineering/index.wxml',{guest:false,canWork:true}],
-  ['pages/build/home/index.wxml',{eng:{}}],
+  ['pages/build/home/index.wxml',{eng:{},homeMounted:true,workspaceView:'home'}],
   ['pages/admin/home/index.wxml',{desk:{}}],
   ['pages/admin/finance-desk/index.wxml',{view:'desk',ready:true}],
   ['pages/admin/finance-desk/index.wxml',{view:'tasks',ready:true}]

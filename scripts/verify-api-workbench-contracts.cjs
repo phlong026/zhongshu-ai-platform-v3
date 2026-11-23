@@ -181,7 +181,7 @@ async function main() {
   await racePage.loadOnline();
   assert.ok(racePage.data.eng, '加载失败保留工作台结构');
   assert.equal(racePage.data.eng.stats.length, 4);
-  assert.match(racePage.data.error, /网络异常/);
+  assert.match(racePage.data.homeError, /网络异常/);
 
   engineering.api.projects.page = () => Promise.reject(Object.assign(new Error('登录已失效'), { statusCode: 401 }));
   await racePage.loadOnline();

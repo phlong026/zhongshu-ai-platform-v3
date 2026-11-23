@@ -13,3 +13,6 @@
 .engineering-home .eng-hello{margin-bottom:0}
 .engineering-home .eng-tools{gap:0}.engineering-home .eng-tool-icon{background:#f8f3ec;border-radius:50%;width:74rpx;height:74rpx}.engineering-home .eng-shortcut{font-size:25rpx;gap:8rpx}.engineering-home .eng-recent{padding:0;background:transparent}.engineering-home .eng-recent-project{background:#fff;border-radius:24rpx;padding:20rpx;min-height:200rpx}.engineering-home .eng-thumb{width:258rpx;height:154rpx;border-radius:14rpx}.engineering-home .eng-name{font-size:29rpx;font-weight:650}.engineering-home .eng-tag{background:none;padding:0;border:0;font-size:25rpx;color:#817b74;margin:8rpx 0;display:block}.engineering-home .eng-muted{font-size:24rpx;color:#898177}.engineering-home .eng-recent-footer{padding:12rpx 18rpx}.engineering-home .eng-arrow{width:12rpx;height:23rpx}
 @import "../../../styles/role-home.wxss";
+
+@import "../projects/view.wxss";
+.workspace-hidden{display:none!important}
