@@ -4,6 +4,8 @@
 !deploy/platform/Dockerfile
 !deploy/platform/Dockerfile.dockerignore
 !deploy/platform/Healthcheck.java
+!deploy/platform/CapabilitySmoke.java
+!deploy/platform/media-smoke.sh
 !yudao-platform-server/
 !yudao-platform-server/target/
 !yudao-platform-server/target/yudao-platform-server.jar

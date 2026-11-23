@@ -58,6 +58,7 @@ public class LocalAssetService implements AssetAccessPort {
     private final TransactionTemplate tx;
     private final ObjectStoragePort storage;
     private final AssetContentScanner scanner;
+    private final ContentMediaNormalizer mediaNormalizer = new ContentMediaNormalizer();
     private final CurrentPost posts;
     private final StoreServiceAccountPort accounts;
     private final CommissionDeliverableAccessPort deliverables;
@@ -91,7 +92,10 @@ public class LocalAssetService implements AssetAccessPort {
 
     private record Asset(long id, long tenant, long org, long account, long user, long post,
                          String type, String mime, long size, String sha, String uploadKey,
-                         String objectKey, String status, String reason, String validationToken) { }
+                         String objectKey, String status, String reason, String validationToken,
+                         long acceptedSize, String acceptedSha) {
+        String contentMime() { return "CONTENT_ASSET".equals(type) ? ContentMediaNormalizer.outputMime(mime) : mime; }
+    }
     public record DownloadContent(byte[] bytes, String mimeType) { }
 
     @Override
@@ -182,11 +186,18 @@ public class LocalAssetService implements AssetAccessPort {
                     + " WHERE asset_id=? AND tenant_id=? AND org_id=?", id, tenant, actor.orgId());
             return updated;
         }));
-        if (claimed != 1) throw invalid("资产正在校验，请稍后重试");
+        if (claimed != 1) {
+            Asset current = owned(tenant, actor, id);
+            if (Set.of("VALIDATING", "ACCEPTED", "REJECTED").contains(current.status())) return completed(current);
+            throw invalid("资产尚未上传完成，请重试");
+        }
         boolean image = original.mime().startsWith("image/");
-        long outputLimit = image ? MAX_BYTES.get(original.type()) : 0;
-        try (var reservation=spool.reserve(original.size()+outputLimit);
-             var raw=reservation.file(); var sanitized=image ? reservation.file() : null) {
+        boolean media = "CONTENT_ASSET".equals(original.type());
+        boolean normalize = image || media;
+        long outputLimit = normalize ? MAX_BYTES.get(original.type()) : 0;
+        boolean heif = Set.of("image/heic", "image/heif", "image/avif").contains(original.mime());
+        try (var reservation=spool.reserve(original.size()+outputLimit*(heif ? 2 : 1)+(media ? 4L << 20 : 0));
+             var raw=reservation.file(); var sanitized=normalize ? reservation.file() : null) {
             String rejection = null;
             AssetUploadFile.Integrity verified = null;
             if (!storage.existsWithSize(original.uploadKey(), original.size())) rejection = "SIZE_MISMATCH";
@@ -197,16 +208,18 @@ public class LocalAssetService implements AssetAccessPort {
                 if (verified.size() != original.size()) rejection = "SIZE_MISMATCH";
                 else if (!original.sha().equals(verified.sha())) rejection = "SHA256_MISMATCH";
             }
-            if (rejection == null) rejection = scanner.scan(original.mime(), raw.path, image ? sanitized.path : null, outputLimit);
-            if (rejection == null && image) {
+            if (rejection == null) rejection = media
+                    ? mediaNormalizer.normalize(original.mime(), raw.path, sanitized.path, outputLimit, scanner)
+                    : scanner.scan(original.mime(), raw.path, image ? sanitized.path : null, outputLimit);
+            if (rejection == null && normalize) {
                 long limit = MAX_BYTES.get(original.type());
                 verified = sanitized.integrity(limit);
                 if (verified.size() > limit) rejection = "SANITIZED_SIZE_LIMIT";
             }
             String acceptedKey = null;
             if (rejection == null) {
-                acceptedKey = "franchise/" + tenant + "/" + actor.orgId() + "/accepted/" + id + "/" + validation + extension(original.mime());
-                storage.putObject(acceptedKey, image ? sanitized.path : raw.path);
+                acceptedKey = "franchise/" + tenant + "/" + actor.orgId() + "/accepted/" + id + "/" + validation + extension(original.contentMime());
+                storage.putObject(acceptedKey, normalize ? sanitized.path : raw.path);
             }
             String finalReason = truncate(rejection, 1024);
             String finalScan = rejection == null ? "PASSED:integrity,magic,pixel,metadata,malware-marker" : truncate(rejection, 2048);
@@ -231,7 +244,8 @@ public class LocalAssetService implements AssetAccessPort {
             db("release-validation", id, () -> jdbc.update("UPDATE fr_asset SET upload_status='PENDING',validation_token=NULL,"
                             + "update_time=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND org_id=? AND upload_status='VALIDATING'"
                             + " AND validation_token=?", id, tenant, actor.orgId(), validation));
-            throw invalid("资产校验暂未完成，请重试");
+            throw invalid(e instanceof IOException && e.getMessage() != null && e.getMessage().startsWith("媒体")
+                    ? e.getMessage() : "资产校验暂未完成，请重试");
         }
     }
 
@@ -315,7 +329,7 @@ public class LocalAssetService implements AssetAccessPort {
                 if (!ref.equals(current)) throw exception(RESOURCE_FORBIDDEN);
                 scopedAsset(tenant, actor, current);
             }
-            return new DownloadContent(bytes, asset.mime());
+            return new DownloadContent(bytes, asset.contentMime());
         } catch (IOException | RuntimeException e) {
             if (e instanceof ServiceException serviceException) throw serviceException;
             log.warn("B asset download failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
@@ -406,7 +420,27 @@ public class LocalAssetService implements AssetAccessPort {
         Asset row = accepted(tenant, actor, id);
         requireChannel(actor, row.type());
         if (!"CONTENT_ASSET".equals(row.type())) throw exception(RESOURCE_FORBIDDEN);
-        return new ContentMetadata(row.mime(), row.sha(), row.size());
+        return new ContentMetadata(row.contentMime(), row.acceptedSha(), row.acceptedSize());
+    }
+
+    @Override public ContentMedia readContentMedia(Actor actor, long id) {
+        long tenant = authorize(actor);
+        Asset asset = accepted(tenant, actor, id);
+        requireChannel(actor, asset.type());
+        if (!"CONTENT_ASSET".equals(asset.type()) || asset.user() != actor.userId()) throw exception(RESOURCE_FORBIDDEN);
+        long limit = MAX_BYTES.get("CONTENT_ASSET");
+        try (var reservation = spool.reserve(limit + 1024 * 1024); var file = reservation.file(); var probe = reservation.file();
+             var input = storage.getObject(asset.objectKey())) {
+            var integrity = file.copy(input, limit);
+            if (integrity.size() != asset.acceptedSize() || !integrity.sha().equals(asset.acceptedSha()))
+                throw invalid("素材内容与已校验摘要不一致，请重新上传");
+            var facts = mediaNormalizer.inspect(file.path, probe.path);
+            accepted(authorize(actor), actor, id);
+            return new ContentMedia(java.nio.file.Files.readAllBytes(file.path), asset.contentMime(), integrity.sha(),
+                    facts.duration(), facts.width(), facts.height());
+        } catch (IOException error) {
+            throw invalid("媒体读取或解码暂不可用，请重试");
+        }
     }
 
     @Override public String assetTypeOf(Actor actor, long id) {
@@ -462,7 +496,7 @@ public class LocalAssetService implements AssetAccessPort {
                         rs.getLong("org_id"), rs.getLong("service_account_id"), rs.getLong("creator_user_id"), rs.getLong("creator_post_id"),
                         rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
                         rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
-                        rs.getString("validation_token")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
+                        rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
         if (row != null && "CONTENT_ASSET".equals(row.type())) {
             for (var policy : visibilityPolicies) policy.requireReadable(tenant, actor, id);
         }
@@ -482,7 +516,7 @@ public class LocalAssetService implements AssetAccessPort {
         return switch (type) {
             case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT", "DESIGN_DELIVERABLE" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
             case "ENG_SITE_PHOTO", "DESIGN_REFERENCE" -> Set.of("image/jpeg", "image/png").contains(mime);
-            case "CONTENT_ASSET" -> Set.of("image/jpeg", "image/png", "audio/mpeg", "video/mp4").contains(mime);
+            case "CONTENT_ASSET" -> ContentMediaNormalizer.supported(mime);
             default -> false;
         };
     }
@@ -496,7 +530,12 @@ public class LocalAssetService implements AssetAccessPort {
     private static String extension(String mime) {
         return switch (mime) {
             case "image/jpeg" -> ".jpg"; case "image/png" -> ".png"; case "application/pdf" -> ".pdf";
-            case "audio/mpeg" -> ".mp3"; case "video/mp4" -> ".mp4"; default -> throw invalid("类型不支持");
+            case "audio/mpeg" -> ".mp3"; case "video/mp4" -> ".mp4";
+            default -> {
+                String suffix = ContentMediaNormalizer.inputExtension(mime);
+                if (suffix == null) throw invalid("类型不支持");
+                yield suffix;
+            }
         };
     }
     private static String token() { byte[] bytes = new byte[32]; RANDOM.nextBytes(bytes); return HexFormat.of().formatHex(bytes); }

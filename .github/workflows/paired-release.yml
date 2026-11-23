@@ -62,6 +62,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
+      - name: Install production media decoders
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libheif-examples libheif-plugin-libde265 libheif-plugin-x265 libheif-plugin-aomdec
       - name: Check the frozen mini program
         working-directory: ${{ runner.temp }}/mini
         run: |
@@ -85,6 +87,11 @@ jobs:
           -Dtest=HandoverFreezeIntegrationTest#receivingAnotherEngineersManualProjectRequiresExplicitTransfer
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dfranchise.handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-handover.cjs"
+      - name: Verify real content formats and canonical asset ownership
+        run: >-
+          mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test
+          -Dtest=ContentMediaNormalizerTest,LocalAssetServiceTest
+          -Dsurefire.failIfNoSpecifiedTests=false
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
       - name: Summarize accepted pair

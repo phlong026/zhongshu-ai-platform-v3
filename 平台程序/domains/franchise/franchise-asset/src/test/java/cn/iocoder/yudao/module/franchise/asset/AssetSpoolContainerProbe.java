@@ -57,9 +57,9 @@ public final class AssetSpoolContainerProbe {
                         try(var input=Files.newInputStream(source)){service.receiveUpload(actor,ticket.assetId(),ticket.uploadUrl().split("token=")[1],input);}
                         for(int i=0;i<2;i++)if(!"ACCEPTED".equals(service.completeUpload(actor,ticket.assetId()).uploadStatus()))throw new AssertionError("Rejected");
                         var row=jdbc.queryForMap("SELECT object_key,accepted_sha256 FROM fr_asset WHERE id=?",ticket.assetId());
-                        if(!hash.equals(row.get("accepted_sha256"))||!hash.equals(sha(work.resolve("objects").resolve(row.get("object_key").toString()))))
+                        if(!row.get("accepted_sha256").equals(sha(work.resolve("objects").resolve(row.get("object_key").toString()))))
                             throw new AssertionError("Digest mismatch");
-                        return hash;
+                        return row.get("accepted_sha256").toString();
                     } finally { TenantContextHolder.clear(); }
                 }));
             }

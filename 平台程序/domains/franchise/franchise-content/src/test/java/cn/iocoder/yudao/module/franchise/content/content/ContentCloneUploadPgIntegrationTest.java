@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPersonaDO;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -99,6 +100,91 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         } finally { pool.shutdownNow(); }
         assertThatThrownBy(()->service.completeFileUpload(post,id,101,sha)).hasMessageContaining("变化");
         assertThat(service.requireUploaded(post,21,id,"VOICE").sha256()).isEqualTo(sha);
+    }
+
+    AssetAccessPort mediaAssets(String mime, double duration, int width, int height) {
+        var assets = mock(AssetAccessPort.class);
+        when(assets.contentMetadata(any(), eq(700L))).thenReturn(new AssetAccessPort.ContentMetadata(mime,sha,100));
+        when(assets.readContentMedia(any(), eq(700L))).thenReturn(new AssetAccessPort.ContentMedia(new byte[100],mime,sha,duration,width,height));
+        return assets;
+    }
+    @Test void normalizedImportTransfersVerifiedBytesAndReplaysReceiptWithoutAnotherUpload() {
+        var transport = new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/sample.mp3?Signature=fixture\",\"content_type\":\"audio/mp3\",\"file_id\":\"normalized-provider-file\"}",0),
+                ContentProviderTransport.json(200,"",0));
+        var service = service(transport); var assets = mediaAssets("audio/mpeg",6,0,0); service.setAssets(assets,org -> 88L);
+        var first = service.importAsset(post,21,"VOICE",700);
+        assertThat(first).containsEntry("status","UPLOADED").containsEntry("assetId","700").containsEntry("mimeType","audio/mpeg");
+        assertThat(service.importAsset(post,21,"VOICE",700)).isEqualTo(first);
+        assertThat(transport.calls).hasSize(2);
+        assertThat(transport.calls.get(1).method()).isEqualTo("PUT");
+        assertThat(transport.calls.get(1).body()).hasSize(100);
+        assertThat(transport.calls.get(1).headers()).containsOnly(entry("Content-Type","audio/mp3"));
+        verify(assets,times(2)).readContentMedia(new AssetAccessPort.Actor(33,88,22,11),700L);
+        long id = Long.parseLong(first.get("uploadId").toString());
+        assertThat(service.requireUploaded(post,21,id,"VOICE").fileId()).isEqualTo("normalized-provider-file");
+        assertThatThrownBy(() -> service.complete(post,id)).hasMessageContaining("原素材");
+        assertThatThrownBy(() -> service.completeFileUpload(post,id,100,sha)).hasMessageContaining("原素材");
+        var otherPost = new PostSnapshot(12L,22L,33L,"store","sales",null,false,Set.of());
+        assertThatThrownBy(() -> service.requireUploaded(otherPost,21,id,"VOICE")).hasMessageContaining("岗位");
+        when(assets.readContentMedia(any(),eq(700L))).thenThrow(new IllegalArgumentException("source access revoked"));
+        assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("source access revoked");
+        assertThat(transport.calls).hasSize(2);
+    }
+    @Test void invalidKindsDurationsAndSourceIntegrityCannotReachTheProvider() {
+        var transport = new ContentProviderTransport.Scripted(); var service = service(transport);
+        var assets = mediaAssets("audio/mpeg",4,0,0); service.setAssets(assets,org -> 88L);
+        assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("5秒");
+        assertThatThrownBy(() -> service.importAsset(post,21,"AVATAR",700)).hasMessageContaining("人物视频");
+        when(assets.readContentMedia(any(),eq(700L))).thenReturn(new AssetAccessPort.ContentMedia(new byte[100],"audio/mpeg","b".repeat(64),6,0,0));
+        assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("摘要不一致");
+        when(assets.contentMetadata(any(),eq(700L))).thenThrow(new IllegalStateException("revoked"));
+        assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("revoked");
+        assertThat(transport.calls).isEmpty();
+    }
+    @Test void concurrentImportsCannotDuplicateTheProviderTransfer() throws Exception {
+        var started = new java.util.concurrent.CountDownLatch(1); var release = new java.util.concurrent.CountDownLatch(1);
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        ContentProviderTransport transport = (method,url,headers,bytes,timeout) -> {
+            count.incrementAndGet();
+            if ("PUT".equals(method)) { started.countDown(); release.await(5,java.util.concurrent.TimeUnit.SECONDS); return ContentProviderTransport.json(200,"",0); }
+            return ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/sample.mp3\",\"content_type\":\"audio/mp3\",\"file_id\":\"concurrent-provider-file\"}",0);
+        };
+        var service = service(transport); service.setAssets(mediaAssets("audio/mpeg",6,0,0),org -> 88L);
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var first = pool.submit(() -> service.importAsset(post,21,"VOICE",700));
+            assertThat(started.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700))
+                    .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e -> assertThat(e.getCode()).isEqualTo(1_114_000_012));
+            release.countDown();
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
+            assertThat(count.get()).isEqualTo(2);
+        } finally { release.countDown(); pool.shutdownNow(); }
+    }
+    @Test void concurrentImportsHoldABoundedNumberOfMediaBuffersAndReleaseTheirSlots() throws Exception {
+        when(personas.requireWritable(eq(post),eq(24L))).thenReturn(new FrContentPersonaDO().setId(24L).setEnabled(true));
+        var started=new java.util.concurrent.CountDownLatch(2); var release=new java.util.concurrent.CountDownLatch(1);
+        var grants=new java.util.concurrent.atomic.AtomicInteger();
+        ContentProviderTransport transport=(method,url,headers,bytes,timeout)->{
+            if("PUT".equals(method)){started.countDown();release.await(8,java.util.concurrent.TimeUnit.SECONDS);return ContentProviderTransport.json(200,"",0);}
+            return ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/sample.mp3\",\"content_type\":\"audio/mp3\",\"file_id\":\"bounded-"+grants.incrementAndGet()+"\"}",0);
+        };
+        var service=service(transport); var assets=mediaAssets("audio/mpeg",6,0,0);service.setAssets(assets,org->88L);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try{
+            var first=pool.submit(()->service.importAsset(post,21,"VOICE",700));
+            var second=pool.submit(()->service.importAsset(post,24,"VOICE",700));
+            assertThat(started.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(()->service.importAsset(post,21,"VOICE",701))
+                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e->assertThat(e.getCode()).isEqualTo(1_114_000_012));
+            verify(assets,never()).readContentMedia(any(),eq(701L));
+            release.countDown();
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
+            assertThat(second.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
+            assertThat(service.importAsset(post,21,"VOICE",700)).containsEntry("status","UPLOADED");
+            assertThat(grants.get()).isEqualTo(2);
+        }finally{release.countDown();pool.shutdownNow();}
     }
 
     String undo() throws Exception {

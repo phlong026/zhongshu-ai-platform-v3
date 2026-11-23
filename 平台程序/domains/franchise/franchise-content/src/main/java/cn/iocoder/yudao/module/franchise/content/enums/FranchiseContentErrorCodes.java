@@ -20,4 +20,5 @@ public interface FranchiseContentErrorCodes {
 
     ErrorCode PERSONA_VERSION_CONFLICT = new ErrorCode(1_114_000_010, "正式人物已更新，草稿已保留，请核对最新人物后重新确认");
     ErrorCode VIDEO_DRAFT_CONFLICT = new ErrorCode(1_114_000_011, "视频草稿已在另一处更新，本机内容已保留，请重新核对");
+    ErrorCode CLONE_UPLOAD_RETRYABLE = new ErrorCode(1_114_000_012, "素材上传待确认，请重试同一素材");
 }
