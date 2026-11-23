@@ -15,7 +15,8 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
   const wx = {
     getStorageSync: key => storage.has(key) ? plain(storage.get(key)) : '',
     setStorageSync(key, value) { if (failStorage) throw Error('存储空间不足'); storage.set(key, plain(value)); },
-    showToast: value => toasts.push(value.title), redirectTo() {}, nextTick: fn => fn()
+    showToast: value => toasts.push(value.title), redirectTo() {}, nextTick: fn => fn(),
+    showLoading() {}, hideLoading() {}, removeStorageSync: key => storage.delete(key)
   };
   const http = {
     token: () => 'token', sessionGeneration: () => generation,
@@ -43,7 +44,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
   const utility = { ...P, api, pollTask(id) { polls.push(id); return poll ? poll(id) : Promise.resolve({ id, status: 'SUCCEEDED', result: { text: '优化后的稿件' } }); } };
   studio.write({ ...studio.read(), original: '建房原文', script: '已有二创稿', scriptEdited: true });
   wx.setStorageSync(studio.scopedKey('creation-draft'), { text: '建房原文', rewrittenText: '已有二创稿' });
-  function page() {
+  function page(options = { view: 'remix' }) {
     let value;
     vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/studio/index'), 'utf8'), {
       Page: item => { value = item; }, wx,
@@ -60,7 +61,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
     });
     value.data = plain(value.data);
     value.setData = patch => Object.assign(value.data, patch);
-    value.onLoad({ view: 'remix' });
+    value.onLoad(options);
     return value;
   }
   return { page, studio, wx, storage, requests, polls, toasts,
@@ -126,6 +127,7 @@ test('known task survives polling failure and re-entry; retry polls it without a
 });
 
 for (const [label, edit] of [
+  ['inline edit', p => { p.inputRewrittenScript(input('原位修改后的稿件')); }],
   ['saved edit reverted to the original text', p => { p.editScript(); p.inputEdit(input('临时修改')); p.inputEdit(input('已有二创稿')); p.saveScript(); }],
   ['unsaved editor buffer', p => { p.editScript(); p.inputEdit(input('还没保存的改稿')); }],
   ['new source', p => { p.inputOriginal(input('另一篇原文')); }]
@@ -216,4 +218,78 @@ test('rewrite in progress blocks optimization and WXML disables both entry and s
   assert.match(source, /copy-optimize"[^>]*disabled="\{\{[^}]*optimizing/);
   assert.match(source, /rewrite-generate"[^>]*disabled="\{\{[^}]*optimizationRetry/);
   assert.match(source, /sheet-confirm"[^>]*bindtap="optimizeScript"[^>]*loading="\{\{optimizing\}\}"[^>]*disabled="\{\{optimizing/);
+});
+
+test('rewrite result is a body-only inline editor, including after clearing its contents', () => {
+  const source = fs.readFileSync(require.resolve('../miniprogram/pages/studio/index').replace(/\.js$/, '.wxml'), 'utf8');
+  const result = source.slice(source.indexOf('class="creation-card studio-card rewritten-card"'), source.indexOf('class="page-actions studio-bottom-pair"'));
+  assert.doesNotMatch(result, /\{\{title\}\}|rewritten-title/);
+  assert.match(result, /<textarea[^>]*value="\{\{script\}\}"[^>]*bindinput="inputRewrittenScript"/);
+  assert.doesNotMatch(result, /wx:if="\{\{script\}\}"/);
+});
+
+test('inline edits save exact paragraphs immediately and reach the actual oral generation request', async () => {
+  const f = fixture({ submit: async () => ({ id: 'oral-task' }) }), page = f.page();
+  const body = '先看预算，再定方案。\n\n标题只是作品名称，不该混入口播正文。';
+  const revision = f.studio.read().copyRevision;
+  page.inputRewrittenScript(input(body));
+  assert.equal(page.data.script, body);
+  assert.equal(page.data.scriptLength, body.length);
+  assert.equal(f.studio.read().script, body);
+  assert.equal(f.studio.read().scriptEdited, true);
+  assert.ok(f.studio.read().copyRevision > revision);
+  assert.equal(f.wx.getStorageSync(f.studio.scopedKey('creation-draft')).rewrittenText, body);
+  let destination;
+  page.go = view => { destination = view; };
+  page.makeDigital();
+  assert.equal(destination, 'digital');
+  const oral = f.page({ view: 'digital' });
+  assert.equal(oral.data.script, body);
+  Object.assign(oral.data, { avatarCloneId: 'avatar-1', voiceCloneId: 'voice-1' });
+  oral.go = () => {};
+  await oral.generateDigital();
+  assert.equal(f.requests[0].body.kind, 'digital');
+  assert.equal(f.requests[0].body.text, body);
+  assert.equal(f.page().data.script, body);
+});
+
+test('clearing inline text persists an empty body and lets the user keep editing', () => {
+  const f = fixture(), page = f.page();
+  page.inputRewrittenScript(input(''));
+  assert.equal(f.studio.read().script, '');
+  assert.equal(f.wx.getStorageSync(f.studio.scopedKey('creation-draft')).rewrittenText, '');
+  assert.equal(f.page().data.script, '');
+  page.makeDigital();
+  assert.equal(f.toasts.at(-1), '请先生成二创文案');
+  page.inputRewrittenScript(input('重新输入的正文'));
+  assert.equal(f.studio.read().script, '重新输入的正文');
+});
+
+for (const [label, edit] of [
+  ['inline edit', p => p.inputRewrittenScript(input('人工确认的正文'))],
+  ['source replacement', p => p.inputOriginal(input('另一份原文'))]
+]) test('late regeneration preserves ' + label + ' and retains the generated result in history', async () => {
+  const pending = deferred(), f = fixture({ poll: () => pending.promise }), page = f.page();
+  const run = page.regenerate();
+  await flush();
+  edit(page);
+  const edited = plain(f.studio.read());
+  pending.resolve({ status: 'SUCCEEDED', result: { text: '迟到的二创结果' } });
+  await run;
+  await flush();
+  const state = f.studio.read();
+  assert.equal(state.script, edited.script);
+  assert.equal(state.original, edited.original);
+  assert.equal(state.rewriteHistory.at(-1).script, '迟到的二创结果');
+  assert.equal(state.rewriteHistory.at(-1).applied, false);
+  assert.equal(page.data.rewriting, false);
+});
+
+for (const change of ['changeSession', 'changePost']) test('inline edit after ' + change + ' cannot write another session draft', () => {
+  const f = fixture(), page = f.page();
+  const before = plain(Array.from(f.storage));
+  f[change]();
+  page.inputRewrittenScript(input('过期输入事件'));
+  assert.deepEqual(plain(Array.from(f.storage)), before);
+  assert.equal(page.data.script, '已有二创稿');
 });
