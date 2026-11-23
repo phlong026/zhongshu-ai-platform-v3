@@ -63,6 +63,34 @@ class ContentDigitalFlowPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT title FROM fr_content_draft WHERE id=1903", String.class)).isEqualTo(" ");
     }
 
+    @Test void historicalTypeDefaultsShowOwnedTaskThemesWithoutChangingStoredNames() {
+        var jdbc = new JdbcTemplate(dataSource);
+        var drafts = new ContentDraftService(draftMapper, null, null, null, jdbc);
+        store.insert(911L, 74L, 22L, "digital", "{\"text\":\"人字屋顶的采光\"}", null);
+        store.insert(912L, 74L, 22L, "ai_video", "{\"description\":\"山间小屋的日落\"}", null);
+        store.insert(913L, 74L, 22L, "copy", "{\"sourceText\":\"地下室如何通风\"}", null);
+        store.insert(914L, 74L, 79L, "digital", "{\"text\":\"同组织其他作者的正文\"}", null);
+        store.insert(915L, 75L, 22L, "digital", "{\"text\":\"其他组织的正文\"}", null);
+        store.insert(916L, 74L, 22L, "digital", "{}", null);
+        store.insert(917L, 74L, 22L, "ai_video", "{\"description\":\"用于检查类型匹配\"}", null);
+        store.insert(918L, 74L, 22L, "copy", "{\"sourceText\":\"用于检查精确匹配\"}", null);
+        jdbc.update("""
+                INSERT INTO fr_content_draft(id,company_id,author_user_id,task_id,kind,title) VALUES
+                (1911,74,22,911,'digital','数字人口播作品'), (1912,74,22,912,'ai_video','AI 视频作品'),
+                (1913,74,22,913,'remix','口播文案作品'), (1914,74,22,914,'digital','数字人口播作品'),
+                (1915,74,22,915,'digital','数字人口播作品'), (1916,74,22,916,'digital','数字人口播作品'),
+                (1917,74,22,917,'ai_video','数字人口播作品'), (1918,74,22,918,'remix','口播文案作品合集')
+                """);
+
+        assertThat(drafts.listWorks(74L, 22L)).extracting(FrContentDraftDO::getId, FrContentDraftDO::getTitle)
+                .containsExactlyInAnyOrder(tuple(1911L, "数字人口播｜人字屋顶的采光"), tuple(1912L, "AI视频｜山间小屋的日落"),
+                        tuple(1913L, "文案改写｜地下室如何通风"), tuple(1914L, "数字人口播作品"),
+                        tuple(1915L, "数字人口播作品"), tuple(1916L, "数字人口播作品"),
+                        tuple(1917L, "数字人口播作品"), tuple(1918L, "口播文案作品合集"));
+        assertThat(jdbc.queryForList("SELECT title FROM fr_content_draft WHERE id BETWEEN 1911 AND 1913 ORDER BY id", String.class))
+                .containsExactly("数字人口播作品", "AI 视频作品", "口播文案作品");
+    }
+
     @Test void ipToTwoClonesToDigitalVideoAndOneSavedWorkOverActualHttp() throws Exception {
         JdbcTemplate jdbc=new JdbcTemplate(dataSource);
         jdbc.execute("TRUNCATE fr_content_persona, fr_content_digital_clone, fr_content_task, fr_content_draft,fr_content_hifly_upload");

@@ -32,7 +32,7 @@ bash script/platform/build-platform.sh
 
 `POST /admin-api/franchise/content/tasks`、`GET /admin-api/franchise/content/tasks` 和任务详情返回顶层 `title`。链接解析、语音转写和文案改写的创建响应也包含 `title`。标题采用 `类型｜输入主题`，整条最多 24 个 Unicode 码点。数字人口播从当次正文取首个可用行，AI 视频取描述，文案改写取来源文案。缺少安全的文本来源时显示 `类型｜未命名创作`。派生标题仅向任务作者返回，同组织其他查询者看到类型兜底。输入快照继续保留在服务端。
 
-`POST /admin-api/franchise/content/tasks/{id}/save-work` 优先使用显式作品标题。未填写时沿用任务命名规则。`GET /admin-api/franchise/content/drafts` 为标题为空的历史作品生成显示标题，保留已保存的非空标题。
+`POST /admin-api/franchise/content/tasks/{id}/save-work` 优先使用显式作品标题。未填写时沿用任务命名规则。`GET /admin-api/franchise/content/drafts` 为标题为空的历史作品生成显示标题。与作品类型匹配的旧系统默认名在有可用任务主题时也会更新展示。列表回显不写入数据库，其余已保存的标题直接展示原名。
 
 ## 管理台与部署
 

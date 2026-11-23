@@ -99,23 +99,46 @@ public class ContentDraftService {
                 .eq(FrContentDraftDO::getAuthorUserId, userId)
                 .eq(FrContentDraftDO::getDeleted, false)
                 .orderByDesc(FrContentDraftDO::getUpdateTime));
-        List<FrContentDraftDO> untitled = rows.stream()
-                .filter(row -> row.getTitle() == null || row.getTitle().isBlank())
+        List<FrContentDraftDO> recoverable = rows.stream()
+                .filter(row -> blankTitle(row) || legacyDefaultTitle(row))
                 .toList();
-        List<Long> taskIds = untitled.stream().map(FrContentDraftDO::getTaskId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, String> titles = new HashMap<>();
+        List<Long> taskIds = recoverable.stream().map(FrContentDraftDO::getTaskId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, WorkTitle> titles = new HashMap<>();
         if (!taskIds.isEmpty()) {
-            // Only blank works need a task read. Match both author and organization before reading any input.
+            // Match both author and organization before reading any input for a legacy title.
             new NamedParameterJdbcTemplate(jdbcTemplate).query(
                     "SELECT id, kind, input_snapshot FROM fr_content_task "
                             + "WHERE company_id = :companyId AND author_user_id = :userId AND id IN (:taskIds)",
                     Map.of("companyId", companyId, "userId", userId, "taskIds", taskIds), row -> {
-                        titles.put(row.getLong("id"), ContentTaskTitle.fromSnapshot(row.getString("kind"),
-                                row.getString("input_snapshot")));
+                        String kind = row.getString("kind");
+                        String title = ContentTaskTitle.fromSnapshot(kind, row.getString("input_snapshot"));
+                        titles.put(row.getLong("id"), new WorkTitle(title, !ContentTaskTitle.untitled(kind).equals(title)));
                     });
         }
-        untitled.forEach(row -> row.setTitle(titles.getOrDefault(row.getTaskId(), ContentTaskTitle.untitled(row.getKind()))));
+        for (FrContentDraftDO row : recoverable) {
+            WorkTitle candidate = titles.get(row.getTaskId());
+            if (blankTitle(row)) {
+                row.setTitle(candidate == null ? ContentTaskTitle.untitled(row.getKind()) : candidate.title());
+            } else if (candidate != null && candidate.hasTheme()) {
+                row.setTitle(candidate.title());
+            }
+        }
         return rows;
+    }
+
+    private record WorkTitle(String title, boolean hasTheme) {}
+
+    private static boolean blankTitle(FrContentDraftDO row) {
+        return row.getTitle() == null || row.getTitle().isBlank();
+    }
+
+    private static boolean legacyDefaultTitle(FrContentDraftDO row) {
+        return switch (row.getKind() == null ? "" : row.getKind()) {
+            case "digital" -> "数字人口播作品".equals(row.getTitle());
+            case "ai_video" -> "AI 视频作品".equals(row.getTitle());
+            case "remix" -> "口播文案作品".equals(row.getTitle());
+            default -> false;
+        };
     }
 
     public FrContentDraftDO updateWorkStatus(long companyId, long workId, String status) {
