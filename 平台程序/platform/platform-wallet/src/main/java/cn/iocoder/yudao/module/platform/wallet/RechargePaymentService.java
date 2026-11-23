@@ -228,6 +228,23 @@ public class RechargePaymentService {
             PaymentPort port = requireChannel(claim.order().channel());
             var result = port.createPrepay(claim.order().identity(), claim.order().productId(), code);
             if (claim.order().paymentMode() == PaymentMode.MOCK) {
+                transaction("completeMockPrepay", () -> {
+                    var wallet = scope.require();
+                    var payer = requirePayer(wallet);
+                    var currentOrder = order(wallet.tenantId(), wallet.id(), orderId);
+                    requireCurrentQuote(currentOrder);
+                    requireOriginalPayer(wallet, payer, currentOrder);
+                    requirePayable(currentOrder);
+                    int updated = jdbc.update("""
+                        UPDATE pf_payment_attempt SET state = 'SUCCEEDED'
+                        WHERE tenant_id = ? AND wallet_id = ? AND order_id = ? AND id = ?
+                          AND lease_token = ? AND state = 'PROCESSING' AND lease_until > clock_timestamp()
+                        """, wallet.tenantId(), wallet.id(), orderId, claim.attemptId(), claim.token());
+                    if (updated != 1) throw new ServiceException(409, "模拟支付尝试已失效，请刷新订单");
+                    jdbc.update("UPDATE pf_recharge_order SET payment_state = 'PENDING', update_time = now() WHERE tenant_id = ? AND wallet_id = ? AND id = ?",
+                            wallet.tenantId(), wallet.id(), orderId);
+                    return null;
+                });
                 var fact = port.queryOrder(claim.order().identity());
                 processPaymentFact(claim.order().tenantId(), claim.order().walletId(), orderId, fact);
                 fulfillOrder(claim.order().tenantId(), claim.order().walletId(), orderId);
@@ -336,8 +353,12 @@ public class RechargePaymentService {
         });
     }
 
+    boolean mockMode() {
+        return paymentMode().mode() == PaymentMode.MOCK;
+    }
+
     boolean companyPaymentsEnabled() {
-        return paymentMode().mode() == PaymentMode.MOCK || (recoveryEnabled && channelEnabled());
+        return mockMode() || (recoveryEnabled && channelEnabled());
     }
 
     private PaymentModeService.Snapshot paymentMode() {

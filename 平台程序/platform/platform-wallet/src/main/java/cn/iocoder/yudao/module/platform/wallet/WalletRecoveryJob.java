@@ -45,7 +45,7 @@ public class WalletRecoveryJob {
 
     @Scheduled(fixedDelayString = "${platform.wallet.recovery.interval-ms:60000}", initialDelayString = "${platform.wallet.recovery.initial-delay-ms:30000}")
     public void tick() {
-        if (!enabled) return;
+        if (!enabled && !payment.mockMode()) return;
         try { runOnce(50); }
         catch (RuntimeException failure) {
             log.error("[walletRecovery][failureType={}] 补偿批次失败，下轮重新领取", failure.getClass().getSimpleName());
