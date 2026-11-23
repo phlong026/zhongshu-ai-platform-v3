@@ -290,6 +290,111 @@ test('a late response cannot restore the previous keyword while the next search 
   await c.tick(); assert.equal(c.page.data.customers.length, 0);
 });
 
+test('customer return preserves visible rows and merges overlapping refreshes', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  c.page.more();
+  const before = JSON.stringify(c.page.data.visibleCustomers), pending = deferred();
+  let calls = 0;
+  c.api.customers.page = () => { calls++; return pending.promise; };
+  c.page.onShow(); c.page.onShow();
+  assert.equal(JSON.stringify(c.page.data.visibleCustomers), before);
+  assert.equal(c.page.data.platformStatus, 'ready');
+  assert.equal(c.page.data.platformRefreshing, true);
+  assert.equal(calls, 1);
+  pending.resolve({ list: c.database.slice(0, 50), total: 60 }); await flush();
+  assert.equal(c.page.data.visibleCustomers.length, 20);
+  assert.equal(c.page.data.platformRefreshing, false);
+});
+
+test('customer refresh preserves every loaded server page until the replacement is ready', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  for (let i = 0; i < 5; i++) { c.page.more(); await flush(); }
+  assert.equal(c.page.data.visibleCustomers.length, 60);
+  const before = JSON.stringify(c.page.data.visibleCustomers);
+  c.page.onShow();
+  assert.equal(JSON.stringify(c.page.data.visibleCustomers), before);
+  await flush();
+  assert.equal(c.page.data.visibleCustomers.length, 60);
+  assert.equal(c.page.__pageNo, 2);
+  assert.deepEqual(c.calls.slice(-2).map(call => call.pageNo), [1, 2]);
+});
+
+test('customer return starts a fresh read after an edit while the pre-hide read is pending', async () => {
+  const c=customers();c.page.onShow();await flush();
+  const old=deferred(),fresh=deferred();let calls=0;
+  c.api.customers.page=()=>++calls===1?old.promise:fresh.promise;
+  c.page.onShow();const before=JSON.stringify(c.page.data.visibleCustomers);
+  c.page.onHide?.();c.page.onShow();
+  assert.equal(calls,2);assert.equal(JSON.stringify(c.page.data.visibleCustomers),before);
+  fresh.resolve({list:[{...c.database[0],name:'详情修改后的名字'}],total:1});await flush();
+  old.resolve({list:[{...c.database[0],name:'旧名字'}],total:1});await flush();
+  assert.equal(c.page.data.visibleCustomers[0].name,'详情修改后的名字');
+});
+
+test('customer background failure retains this query but authorization failure clears it', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  const before = JSON.stringify(c.page.data.visibleCustomers);
+  c.api.customers.page = () => Promise.reject({ message: 'network unavailable' });
+  c.page.onShow(); await flush();
+  assert.equal(JSON.stringify(c.page.data.visibleCustomers), before);
+  assert.equal(c.page.data.platformStatus, 'ready');
+  assert.match(c.page.data.platformError, /network unavailable/);
+  assert.equal(c.page.data.platformRefreshing, false);
+  c.api.customers.page = () => Promise.reject({ code: 403, message: 'permission removed' });
+  c.page.onShow(); await flush();
+  assert.equal(c.page.data.visibleCustomers.length, 0);
+  assert.equal(c.page.data.customers.length, 0);
+  assert.equal(c.page.data.platformStatus, 'degraded');
+});
+
+test('customer refresh clears same-post data on session change and discards the old response', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  const old = deferred(), next = deferred(); let calls = 0;
+  c.api.customers.page = () => (++calls === 1 ? old.promise : next.promise);
+  c.page.onShow();
+  c.session.generation++; c.page.onShow();
+  assert.equal(c.page.data.visibleCustomers.length, 0);
+  assert.equal(c.page.data.platformStatus, 'loading');
+  old.resolve({ list: [c.database[0]], total: 1 }); await flush();
+  assert.equal(c.page.data.visibleCustomers.length, 0);
+  next.resolve({ list: [c.database[1]], total: 1 }); await flush();
+  assert.equal(c.page.data.visibleCustomers[0].id, '2');
+});
+
+test('returning from an edited customer refreshes the first page even when an append is pending', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  for (let i = 0; i < 4; i++) c.page.more();
+  assert.equal(c.page.data.visibleCustomers.length, 50);
+  const pending = deferred(), requested = [];
+  c.api.customers.page = pageNo => { requested.push(pageNo); return pageNo === 2 ? pending.promise : Promise.resolve({ list: c.database.slice(0, 50), total: 60 }); };
+  c.page.more();
+  c.database[0].name = '详情已修改的客户';
+  c.page.onShow(); await flush();
+  assert.deepEqual(requested, [2, 1]);
+  assert.equal(c.page.data.customers.find(row => row.id === '1').name, '详情已修改的客户');
+  pending.resolve({ list: c.database.slice(50), total: 60 }); await flush();
+  assert.equal(c.page.__pageNo, 1);
+  assert.equal(c.page.data.customers.length, 50);
+  assert.equal(c.page.data.customers.find(row => row.id === '1').name, '详情已修改的客户');
+});
+
+test('customer role changes under the same post do not share requests or retain old action permissions', async () => {
+  const c = customers(); c.page.onShow(); await flush();
+  assert.equal(c.page.data.visibleCustomers[0].canFollow, true);
+  const old = deferred(), next = deferred(); let calls = 0;
+  c.api.customers.page = () => (++calls === 1 ? old.promise : next.promise);
+  c.page.onShow();
+  c.session.post = { ...c.session.post, roleCode: 'boss' }; c.page.onShow();
+  assert.equal(calls, 2);
+  assert.equal(c.page.data.visibleCustomers.length, 0);
+  assert.equal(c.page.data.isBossView, true);
+  old.resolve({ list: [c.database[0]], total: 1 }); await flush();
+  assert.equal(c.page.data.visibleCustomers.length, 0);
+  next.resolve({ list: [c.database[1]], total: 1 }); await flush();
+  assert.equal(c.page.data.visibleCustomers[0].canFollow, false);
+  assert.equal(c.page.data.canRegister, false);
+});
+
 function home() {
   const session = { generation: 1, post: { postId: 'sales-1', orgId: 'audit-org', roleCode: 'sales' } };
   const calls = { customers: 0, commissions: 0, profile: 0 };
