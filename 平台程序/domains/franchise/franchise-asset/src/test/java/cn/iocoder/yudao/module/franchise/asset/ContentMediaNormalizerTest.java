@@ -49,6 +49,12 @@ class ContentMediaNormalizerTest {
             assertThat(info.audio()).isTrue(); assertThat(info.video()).isFalse(); assertThat(info.duration()).isBetween(5.0, 5.6);
         }
     }
+    @Test void spatialRecordingIsDownmixedToAnMp3CompatibleTrack() throws Exception {
+        Path source=directory.resolve("spatial.wav");
+        ffmpeg("-f","lavfi","-i","anullsrc=r=48000:cl=5.1","-t","5.2",source.toString());
+        var result=normalizer.inspect(convert("audio/wav",source),directory.resolve("spatial.txt"));
+        assertThat(result.audio()).isTrue(); assertThat(result.duration()).isBetween(5.0,5.6);
+    }
     @Test void webpGifAndAvifBecomeActualPng() throws Exception {
         for (var item : List.of(new String[]{"webp", "libwebp"}, new String[]{"gif", "gif"}, new String[]{"avif", "libaom-av1"})) {
             Path source = directory.resolve("photo." + item[0]);

@@ -52,7 +52,7 @@ final class ContentMediaNormalizer {
         Path working = Files.createTempDirectory(source.getParent(), "fr-media-v1-");
         try {
             Path input = source;
-            if (Set.of("image/heic", "image/heif").contains(mime)) {
+            if (Set.of("image/heic", "image/heif", "image/avif").contains(mime)) {
                 if (!safeHeifDimensions(source)) return "PIXEL_GUARD: HEIF 图片尺寸无效或超过4000万像素";
                 Path png = working.resolve("decoded.png");
                 if (!run(List.of(binary("heif", "heif-convert"), source.toString(), png.toString()),
@@ -78,8 +78,8 @@ final class ContentMediaNormalizer {
             else if (video) command.addAll(List.of("-map", "0:v:0", "-map", "0:a:0?", "-vf",
                     "scale=w='min(1920,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
                     "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-threads", "2",
-                    "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-f", "mp4"));
-            else command.addAll(List.of("-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"));
+                    "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000", "-movflags", "+faststart", "-f", "mp4"));
+            else command.addAll(List.of("-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k", "-ac", "2", "-ar", "44100", "-f", "mp3"));
             command.addAll(List.of("-fs", Long.toString(limit + 1), output.toString()));
             if (!run(command, working.resolve("convert.log"), Duration.ofSeconds(90), output, limit))
                 return "MEDIA_DECODE: 素材无法完整转换，请检查文件或缩短素材";

@@ -16,6 +16,7 @@ import java.util.*;
 @Service
 public class ContentCloneUploadService {
     private static final long DIRECT_UPLOAD_LIMIT = 20L * 1024 * 1024;
+    private static final java.util.concurrent.Semaphore IMPORT_SLOTS = new java.util.concurrent.Semaphore(2);
     private final JdbcTemplate jdbc;
     private final ContentPersonaService personas;
     private final ContentProviderProperties properties;
@@ -120,6 +121,12 @@ public class ContentCloneUploadService {
     }
 
     public Map<String,Object> importAsset(PostSnapshot post, long persona, String kind, long assetId) {
+        if (!IMPORT_SLOTS.tryAcquire()) throw retryable("素材处理繁忙，请稍后重试同一素材");
+        try { return importOwnedAsset(post, persona, kind, assetId); }
+        finally { IMPORT_SLOTS.release(); }
+    }
+
+    private Map<String,Object> importOwnedAsset(PostSnapshot post, long persona, String kind, long assetId) {
         persona(post, persona);
         if (kind == null || !Set.of("AVATAR", "VOICE").contains(kind) || assetId <= 0) throw invalid("请选择人物视频或声音素材");
         if (assets == null || accounts == null) throw invalid("素材处理通道尚未配置");

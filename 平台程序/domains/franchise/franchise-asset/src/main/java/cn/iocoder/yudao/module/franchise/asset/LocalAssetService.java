@@ -195,7 +195,7 @@ public class LocalAssetService implements AssetAccessPort {
         boolean media = "CONTENT_ASSET".equals(original.type());
         boolean normalize = image || media;
         long outputLimit = normalize ? MAX_BYTES.get(original.type()) : 0;
-        boolean heif = Set.of("image/heic", "image/heif").contains(original.mime());
+        boolean heif = Set.of("image/heic", "image/heif", "image/avif").contains(original.mime());
         try (var reservation=spool.reserve(original.size()+outputLimit*(heif ? 2 : 1)+(media ? 4L << 20 : 0));
              var raw=reservation.file(); var sanitized=normalize ? reservation.file() : null) {
             String rejection = null;

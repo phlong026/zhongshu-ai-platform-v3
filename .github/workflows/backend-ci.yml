@@ -47,7 +47,7 @@ jobs:
           -pl domains/franchise/franchise-finance,domains/franchise/franchise-content,domains/franchise/franchise-asset
           -am -DskipTests install
       - name: Install media decoders used in production
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libheif-examples
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libheif-examples libheif-plugin-libde265 libheif-plugin-x265 libheif-plugin-aomdec
       - name: Run full finance and content test suites
         run: >-
           mvn -B -ntp -f 平台程序/pom.xml
@@ -102,7 +102,7 @@ jobs:
           python3 -I 平台程序/script/verify-platform-deploy.py
           python3 -I 平台程序/deploy/platform/test_capability_deployment.py
       - name: Install media decoders used in production
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libheif-examples
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libheif-examples libheif-plugin-libde265 libheif-plugin-x265 libheif-plugin-aomdec
       - name: Test release paths and package the platform server
         # CONTENT_ASSET now verifies real media bytes; release tests need the same codecs as the image.
         run: >-
