@@ -145,7 +145,8 @@ Page({
       if (!login.code) throw Error('获取支付凭证失败，请重试');
       const params = await http.post(base + '/orders/' + encodeURIComponent(order.id) + '/pay-params', { code: login.code });
       if (!this.current(actor) || !this.foreground) return;
-      if (params && params.mode === 'MOCK' && params.status === 'CREDITED') {
+      if (params && params.mode === 'MOCK') {
+        if (params.status !== 'CREDITED') throw Error('模拟支付结果待确认，请刷新订单状态');
         this.setData({ note: '模拟支付成功，积分已到账（未发生真实扣款）。' });
       } else {
         if (typeof wx.requestVirtualPayment !== 'function') throw Error('当前微信版本不支持此支付方式，请升级后重试');

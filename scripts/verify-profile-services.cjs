@@ -114,3 +114,61 @@ test('连续点击只建一单，支付返回后仍以公司积分订单状态�
     p.dismissOrder(); await p.refresh(); assert.equal(p.data.order, null);
   } finally { global.wx = originalWx; }
 });
+
+test('模拟充值以服务端 CREDITED 确认到账，没有真实支付 SDK 也可完成', async t => {
+  t.mock.method(points, 'fingerprint', key);
+  let order = null;
+  t.mock.method(http, 'get', async () => ({ ...catalog(offer), currentOrder: order }));
+  const calls = [];
+  t.mock.method(http, 'post', async (path, data, headers) => {
+    calls.push(path);
+    if (path.endsWith('/orders')) {
+      assert.deepEqual(data, { planId: 'p1', planVersion: '1' });
+      assert.ok(headers['Idempotency-Key']);
+      return order = { id: 'mock-1', amountCents: 1200, credits: '120', status: 'CREATED' };
+    }
+    assert.equal(path, '/franchise/company-points/recharge/orders/mock-1/pay-params');
+    assert.deepEqual(data, { code: 'mock-login' });
+    order.status = 'CREDITED';
+    return { mode: 'MOCK', status: 'CREDITED' };
+  });
+  const originalWx = global.wx;
+  global.wx = { login: options => options.success({ code: 'mock-login' }) };
+  try {
+    const p = page(); await p.refresh(); p.choose({ currentTarget: { dataset: { id: 'p1' } } });
+    await Promise.all([p.checkout(), p.checkout()]);
+    assert.equal(calls.length, 2);
+    assert.equal(p.data.order.status, 'CREDITED');
+    assert.equal(p.data.order.label, '积分已到账');
+    assert.match(p.data.note, /模拟支付成功.*未发生真实扣款/);
+  } finally { global.wx = originalWx; }
+});
+
+test('模拟充值未确认到账时保持待确认，不调用真实 SDK 或显示到账成功', async t => {
+  t.mock.method(points, 'fingerprint', key);
+  let order = null, status;
+  t.mock.method(http, 'get', async () => ({ ...catalog(offer), currentOrder: order }));
+  t.mock.method(http, 'post', async path => {
+    if (path.endsWith('/orders'))
+      return order = { id: 'mock-pending', amountCents: 1200, credits: '120', status: 'CREATED' };
+    order.status = 'PAID';
+    // Even an unexpected mock response containing signature fields must never reach the real cashier.
+    return { mode: 'MOCK', status, signData: 'fixture', signature: 'fixture', paySig: 'fixture' };
+  });
+  const originalWx = global.wx;
+  let sdkCalls = 0;
+  global.wx = { login: options => options.success({ code: 'mock-login' }),
+    requestVirtualPayment: options => { sdkCalls++; options.success({}); } };
+  try {
+    for (status of ['PAID', 'PROCESSING', undefined]) {
+      order = null;
+      const p = page(); await p.refresh(); p.choose({ currentTarget: { dataset: { id: 'p1' } } });
+      await p.checkout();
+      assert.equal(p.data.order.status, 'PAID');
+      assert.equal(p.data.order.label, '积分到账中');
+      assert.match(p.data.note, /结果待确认/);
+      assert.doesNotMatch(p.data.note, /支付成功|已到账/);
+    }
+    assert.equal(sdkCalls, 0);
+  } finally { global.wx = originalWx; }
+});
