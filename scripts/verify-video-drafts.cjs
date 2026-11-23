@@ -287,6 +287,51 @@ test('task draft read failure blocks ordinary generation until retry loads the l
   await h.page.generate();assert.equal(h.submissions.length,1);assert.equal(h.submissions[0].description,latest.description);
 });
 
+for(const task of [undefined,'101'])for(const useLocal of [false,true])test('post-load conflict blocks generation until '+(useLocal?'local':'cloud')+' is selected for '+(task||'new'),async()=>{
+  const cloud=new Map(),h=harness({cloud,task});await tick();
+  const key=task?'task:'+task:'new';h.page.inputDescription({detail:{value:'本机修改稿'}});
+  cloud.set(key,{...taskInput('101','云端修改稿'),exists:true,revision:1});
+  await h.page.saveDraft();assert.equal(h.page.__draft.conflicted(),true);
+  await h.page.generate();await h.page.generateOnline();await h.page.useOriginalTask();
+  assert.equal(h.submissions.length,0);
+  const {render}=require('./role-page-runtime.cjs'),flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
+  const nodes=flat(render(require.resolve('../miniprogram/pages/ai-video/index.wxml'),h.page.data));
+  assert.equal(nodes.some(n=>n.tag==='button'&&['generate','useOriginalTask'].includes(n.attrs?.bindtap)),false);
+  assert.ok(nodes.some(n=>n.tag==='button'&&n.attrs?.bindtap==='retryDraft'));
+  h.wx.showActionSheet=options=>options.success({tapIndex:useLocal?0:1});
+  await h.page.retryDraft();
+  if(useLocal){assert.equal(h.page.__draft.conflicted(),true);await h.page.generate();assert.equal(h.submissions.length,0);await h.page.retryDraft();}
+  assert.equal(h.page.__draft.conflicted(),false);assert.equal(h.page.data.draftConflicted,false);
+  await h.page.generate();assert.equal(h.submissions.length,1);
+  assert.equal(h.submissions[0].description,useLocal?'本机修改稿':'云端修改稿');
+});
+
+test('generation waits for draft save so a newly reported revision conflict cannot submit a paid task',async()=>{
+  const saving=later(),h=harness({save:()=>saving.promise});await tick();
+  h.page.inputDescription({detail:{value:'尚未确认版本'}});
+  const attempt=h.page.generate();await tick();assert.equal(h.writes.length,1);
+  saving.reject({code:1114000011});await attempt;
+  assert.equal(h.submissions.length,0);assert.equal(h.page.data.draftConflicted,true);
+});
+
+test('repeated generate taps during draft save create only one paid task',async()=>{
+  const saving=later(),h=harness({save:()=>saving.promise});await tick();
+  h.page.inputDescription({detail:{value:'保存中连续点击'}});
+  const first=h.page.generate(),second=h.page.generate();await tick();
+  saving.resolve({revision:1});await Promise.all([first,second]);
+  assert.equal(h.submissions.length,1);
+});
+
+test('a draft conflict reported during material preparation blocks the final submission',async()=>{
+  const permission=later(),cloud=new Map(),h=harness({cloud,download:()=>permission.promise});await tick();
+  h.page.setData({description:'准备提交',firstFrameAssetId:'901'});
+  const attempt=h.page.generate();await tick();
+  cloud.set('new',{...taskInput('101','另一设备'),exists:true,revision:2});
+  h.page.inputDescription({detail:{value:'准备时又有修改'}});await h.page.saveDraft();
+  permission.resolve({downloadUrl:'https://signed.example/901'});await attempt;
+  assert.equal(h.page.__draft.conflicted(),true);assert.equal(h.submissions.length,0);assert.equal(h.page.__videoSubmission,undefined);
+});
+
 test('using the original task after a draft read failure requires confirmation and preserves the unread draft',async()=>{
   const cloud=new Map([['task:101',{...taskInput('101','最新云端修改稿'),exists:true,revision:7}]]);
   const h=harness({task:'101',cloud,read:async()=>{throw Error('timeout');}});await tick();
