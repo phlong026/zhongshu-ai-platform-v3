@@ -12,6 +12,74 @@ const flush = async () => { for (let i = 0; i < 20; i++) await new Promise(resol
 const file = path.resolve(__dirname, '../miniprogram/pages/admin/home/index.wxml');
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 
+function departmentFixture() {
+  const fs=require('node:fs'),vm=require('node:vm'),Home=require('../miniprogram/utils/home-metrics');
+  const state={session:1,post:{postId:'boss',orgId:'store',tenantId:'tenant',orgType:'store',roleCode:'boss'}},pending=[],navigation=[],app={globalData:{}};
+  let definition,barDefinition,page;
+  const request=(kind,area)=>new Promise((resolve,reject)=>pending.push({kind,area,resolve,reject,done:false}));
+  const http={token:()=>true,sessionGeneration:()=>state.session,currentUserId:()=>1,tenantId:()=>state.post.tenantId,sessionGuard(){const session=state.session;return()=>session===state.session;},get(url,params){return url.includes('profile')?Promise.resolve({nickname:'老板'}):request(url.includes('/focus')?'focus':/\/team\//.test(url)?'member':'members',params.area);}};
+  const tabs=()=>['home','business','engineering','profile'].map((name,i)=>({key:'owner-'+name,index:name==='profile'?4:10+i,url:name==='profile'?'/pages/profile/index':name==='home'?'/pages/admin/home/index':'/pages/admin/department/index?area='+name,native:name==='profile'}));
+  const wx={redirectTo:o=>navigation.push(o),switchTab:o=>navigation.push(o),navigateTo:o=>navigation.push(o),showToast(){}};
+  const dependencies=id=>{
+    if(id.endsWith('/http'))return http;
+    if(id.endsWith('/auth'))return {currentApiPost:()=>state.post};
+    if(id.endsWith('/home-metrics'))return {...Home,load:()=>request('home',page.data.area)};
+    if(id.endsWith('/page-navigation'))return {open:url=>navigation.push({url})};
+    if(id.endsWith('/workbench-nav'))return ()=>({tabs:tabs()});
+    if(id.endsWith('/workspace-navigation')){const module={exports:{}};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../miniprogram/utils/workspace-navigation.js'),'utf8'),{module,require:dependencies,wx,getApp:()=>app,getCurrentPages:()=>[page]});return module.exports;}
+    throw Error('Unexpected department dependency '+id);
+  };
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/admin/department/index.js'),'utf8'),{Page:value=>definition=value,require:dependencies,wx});
+  page={...definition,data:structuredClone(definition.data),route:'pages/admin/department/index',setData(patch){Object.assign(this.data,patch);}};
+  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/admin/owner-nav/index.js'),'utf8'),{Component:value=>barDefinition=value,require:dependencies,wx,getApp:()=>app,getCurrentPages:()=>[page]});
+  const bar={...barDefinition.methods,data:structuredClone(barDefinition.data),properties:{active:'business'},setData(patch){Object.assign(this.data,patch);}};
+  const tap=area=>{bar.properties.active=page.data.area;bar.go({currentTarget:{dataset:{page:area}}});};
+  const settle=async()=>{for(const item of pending.filter(x=>!x.done)){item.done=true;item.resolve(item.kind==='home'?{metrics:Object.fromEntries(Object.keys(Home.labels).map(key=>[key,{total:1,cents:123400}]))}:item.kind==='members'?[{id:'m1',name:item.area+'同事',assigned:1,pending:0}]:{rows:[{id:item.area+'-1',title:item.area+'记录'}],total:1,more:false});}await flush();};
+  page.onLoad({area:'business'});
+  return {page,bar,tap,state,pending,navigation,app,settle};
+}
+
+test('owner department return preserves visible content and shares an in-flight refresh',async()=>{
+  const h=departmentFixture();h.page.onShow();await h.settle();
+  const before=JSON.stringify([h.page.data.large,h.page.data.members,h.page.data.focus]),count=h.pending.length;
+  h.page.onShow();h.page.onShow();
+  assert.equal(JSON.stringify([h.page.data.large,h.page.data.members,h.page.data.focus]),before);
+  assert.equal(h.pending.length-count,3);
+  assert.equal(h.page.data.refreshing,true);
+  await h.settle();assert.equal(h.page.data.refreshing,false);
+});
+
+test('owner business and engineering tabs reuse one page and restore their own loaded view',async()=>{
+  const h=departmentFixture();h.page.onShow();await h.settle();
+  const before=JSON.stringify(h.page.data.members);
+  h.tap('engineering');assert.equal(h.page.data.area,'engineering');assert.equal(h.navigation.length,0);
+  await h.settle();assert.equal(h.page.data.members[0].name,'engineering同事');
+  h.tap('business');assert.equal(h.page.data.area,'business');assert.equal(h.navigation.length,0);
+  assert.equal(JSON.stringify(h.page.data.members),before);
+  await h.settle();
+});
+
+test('owner department network failure preserves its view but permission changes clear it',async()=>{
+  const h=departmentFixture();h.page.onShow();await h.settle();
+  h.page.onShow();const load=h.pending.find(x=>!x.done&&x.kind==='home');load.done=true;load.reject({code:500,message:'网络失败'});await flush();
+  assert.equal(h.page.data.members.length,1);assert.match(h.page.data.error,/网络失败/);
+  await h.settle();h.page.onShow();
+  h.state.post={...h.state.post,roleCode:'owner'};h.page.onShow();
+  assert.equal(h.page.data.members.length,0);
+  await h.settle();assert.equal(h.page.data.members.length,1);
+  h.page.onShow();const denied=h.pending.find(x=>!x.done&&x.kind==='home');denied.done=true;denied.reject({code:403,message:'没有权限'});await flush();
+  assert.equal(h.page.data.members.length,0);assert.equal(h.page.data.large.length,0);
+});
+
+test('owner navigation uses one transition and keeps only the last queued destination',()=>{
+  const h=departmentFixture();h.page.switchWorkspaceTab=()=>false;
+  h.tap('home');h.tap('engineering');h.tap('profile');
+  assert.equal(h.navigation.length,1);
+  h.navigation[0].complete();
+  assert.equal(h.navigation.length,2);assert.equal(h.navigation[1].url,'/pages/profile/index');
+  h.navigation[1].complete();assert.equal(h.app.globalData.workspaceNavigating,false);
+});
+
 async function setup() {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
@@ -153,4 +221,65 @@ test('换月只影响经营账本；换岗与迟到响应不会恢复旧模块�
   assert.ok(h.page.data.desk.home.business.metrics.every(row => Number(row.value) === 0));
   assert.ok(h.page.data.desk.home.engineering.metrics.every(row => row.value === 0));
   assert.equal(h.page.data.expandedBusiness,''); assert.equal(h.page.data.expandedEngineering,'');
+});
+
+// Append after the existing definitions in scripts/verify-boss-home.cjs.
+// Read-only review: these tests were executed via Module._compile without editing the worktree.
+test('warm network errors keep the actual team and focus nodes mounted',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();
+ const file=path.resolve(__dirname,'../miniprogram/pages/admin/department/index.wxml');
+ assert.ok(flatten(render(file,h.page.data)).some(n=>hasClass(n,'team')));
+ h.page.onShow();const failure=h.pending.find(x=>!x.done&&x.kind==='home');failure.done=true;failure.reject({code:500,message:'临时失败'});await flush();
+ assert.ok(flatten(render(file,h.page.data)).some(n=>hasClass(n,'team')),'loaded team nodes were removed after a background refresh error');
+});
+test('hide and return release stale focus pagination loading state',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.data.focusMore=true;h.page.showFocus();
+ const expansion=h.page.expandFocus();assert.equal(h.page.data.focusBusy,true);
+ h.page.onHide();h.page.onShow();await h.settle();await expansion;
+ assert.equal(h.page.data.focusBusy,false,'load-more remains disabled after the invalidated request returns');
+});
+test('hide and return recover a selected member request',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.showMember({currentTarget:{dataset:{id:'m1'}}});
+ assert.equal(h.page.data.memberBusy,true);h.page.onHide();h.page.onShow();await h.settle();await h.settle();
+ assert.equal(h.page.data.memberBusy,false,'the retained member sheet remains stuck loading');
+});
+test('repeated owner-home taps do not redirect to the just reached page again',()=>{
+ const h=departmentFixture();h.page.switchWorkspaceTab=()=>false;h.tap('home');h.tap('home');
+ assert.equal(h.navigation.length,1);h.page.route='pages/admin/home/index';h.navigation[0].complete();
+ assert.equal(h.navigation.length,1,'a queued tap to the current non-native owner page adds a second transition');
+});
+test('focus pagination rejects a same-session role change',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.data.focusMore=true;
+ const pending=h.page.expandFocus();h.state.post={...h.state.post,roleCode:'sales'};
+ const response=h.pending.find(x=>!x.done&&x.kind==='focus');response.done=true;response.resolve({rows:[{id:'restricted',title:'旧老板范围'}],total:2,more:false});await pending;
+ assert.equal(h.page.data.focus.some(row=>row.id==='restricted'),false,'the pagination response crossed a role boundary');
+});
+
+
+test('owner focus pagination waits for a full refresh instead of racing the first page',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.data.focusMore=true;
+ const refresh=h.page.reload(),before=h.pending.length;
+ await h.page.expandFocus();assert.equal(h.pending.length,before);
+ const nodes=flatten(render(path.resolve(__dirname,'../miniprogram/pages/admin/department/index.wxml'),{...h.page.data,focusOpen:true}));
+ assert.equal(nodes.find(n=>n.tag==='button'&&n.attrs.bindtap==='expandFocus').attrs.disabled,true);
+ await h.settle();await refresh;assert.equal(h.page.data.refreshing,false);
+});
+
+// Append after departmentFixture / flush in scripts/verify-boss-home.cjs.
+// Independently reproduced in memory without modifying the F08 worktree.
+test('loaded member sheet is refreshed after returning from a source record',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.showMember({currentTarget:{dataset:{id:'m1'}}});await h.settle();
+ assert.equal(h.page.data.records.length,1);const count=h.pending.filter(x=>x.kind==='member').length;
+ h.page.onHide();h.page.onShow();await h.settle();
+ assert.ok(h.pending.filter(x=>x.kind==='member').length>count,'retained selected member rows never revalidate on return');
+});
+test('interrupted member append retains all loaded pages after resuming',async()=>{
+ const h=departmentFixture();h.page.onShow();await h.settle();h.page.showMember({currentTarget:{dataset:{id:'m1'}}});
+ let item=h.pending.find(x=>!x.done&&x.kind==='member');item.done=true;item.resolve({rows:[{id:'page-1',title:'第一页'}],more:true});await flush();
+ const second=h.page.memberRows(true);item=h.pending.find(x=>!x.done&&x.kind==='member');item.done=true;item.resolve({rows:[{id:'page-2',title:'第二页'}],more:true});await second;
+ assert.equal(h.page.data.records.length,2);const third=h.page.memberRows(true);
+ h.page.onHide();h.page.onShow();await h.settle();await third;
+ item=h.pending.find(x=>!x.done&&x.kind==='member');assert.ok(item);item.done=true;item.resolve({rows:[{id:'page-1',title:'第一页刷新'}],more:true});await flush();
+ assert.equal(h.page.data.records.length,2,'resumed member reload shrinks the visible retained list to the first page');
+ item=h.pending.find(x=>!x.done&&x.kind==='member');assert.ok(item);item.done=true;item.resolve({rows:[{id:'page-2',title:'第二页刷新'}],more:false});await flush();assert.equal(h.page.data.records.length,2);assert.equal(h.page.data.records[1].title,'第二页刷新');
 });

@@ -3,6 +3,14 @@ const Result=require('../miniprogram/pages/studio/content-task-result');
 const Brief=require('../miniprogram/pages/workflow/commission/design-brief');
 const Commission=require('../miniprogram/pages/workflow/commission/presentation');
 
+function tabDefinition(tabs,globals){
+ let definition;const module={exports:{}};
+ vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/utils/workspace-navigation.js'),'utf8'),{...globals,module,require:id=>id.endsWith('/workbench-nav')?()=>({tabs}):id.endsWith('/auth')?{currentApiPost:()=>({postId:'fixture'})}:{sessionGeneration:()=>1}});
+ vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/custom-tab-bar/index.js'),'utf8'),{...globals,Component:d=>definition=d,require:id=>id.endsWith('/workspace-navigation')?module.exports:()=>({tabs})});
+ return definition;
+}
+
+
 test('real returned packet restores a usable date, return reason and frozen original files',()=>{
  const dto={commission:{id:'200',customerId:'100',submissionVersion:1,dispatchSeq:1},submissions:[{version:1}],progress:[{kind:'COMPLETE',createTime:1794844650153},{kind:'DISPATCH',createTime:1794844691686,note:'交付清单'}],dispatches:[{dispatchSeq:1,submissionVersion:1,drawingVersion:'QA-V1',resultAssetId:'301',drawingAssetId:'302',reviewAssetId:'303',createTime:1794844691686}],handovers:[{version:1,dispatchSeq:1,status:'RETURNED',decisionNote:'补充现场交通',confirmationDate:[2026,11,16],confirmationFile:'{"assetId":"304"}',managerUserId:158}]};
  const c=Commission.normalize(dto),f=Commission.formInit(c,'handover'),rows=Commission.rowsFor(c,Commission.stateOf(c));
@@ -12,7 +20,7 @@ test('real returned packet restores a usable date, return reason and frozen orig
 });
 test('rapid Tab taps retain the final destination while only one native switch is in flight',()=>{
  let definition;const app={globalData:{}},flights=[];const tabs=[1,2,3].map(index=>({index,native:true,url:'/tab/'+index}));
- vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/custom-tab-bar/index.js'),'utf8'),{Component:d=>definition=d,require:()=>()=>({tabs}),getApp:()=>app,getCurrentPages:()=>[{getTabBar:()=>bar}],wx:{switchTab:o=>flights.push(o),showToast(){}}});
+ definition=tabDefinition(tabs,{getApp:()=>app,getCurrentPages:()=>[{getTabBar:()=>bar}],wx:{switchTab:o=>flights.push(o),showToast(){}}});
  const bar={...definition.methods,data:{selected:1},properties:{},setData(p){Object.assign(this.data,p)}};
  const tap=index=>bar.switchTab({currentTarget:{dataset:{index}}});
  tap(2);tap(3);assert.equal(flights.length,1);bar.data.selected=2;flights[0].complete();assert.equal(flights[1].url,'/tab/3');bar.data.selected=3;flights[1].complete();assert.equal(app.globalData.workspaceNavigating,false);
@@ -21,7 +29,7 @@ test('rapid Tab taps retain the final destination while only one native switch i
 test('finance rapid taps retain a dedicated workbench target and drain from the live page',()=>{
  let definition,current;const app={globalData:{}},flights=[],local=[];
  const tabs=[{index:4,native:true,url:'/pages/profile/index'},{index:16,native:false,url:'/finance'},{index:17,native:false,url:'/finance?view=flows'}];
- vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/custom-tab-bar/index.js'),'utf8'),{Component:d=>definition=d,require:()=>()=>({tabs}),getApp:()=>app,getCurrentPages:()=>[current],wx:{switchTab:o=>flights.push(['native',o]),navigateTo:o=>flights.push(['push',o]),redirectTo:o=>flights.push(['replace',o]),showToast(){}}});
+ definition=tabDefinition(tabs,{getApp:()=>app,getCurrentPages:()=>[current],wx:{switchTab:o=>flights.push(['native',o]),navigateTo:o=>flights.push(['push',o]),redirectTo:o=>flights.push(['replace',o]),showToast(){}}});
  const bar=selected=>({...definition.methods,data:{selected},properties:{nested:true},setData(p){Object.assign(this.data,p)}}),finance=bar(16),profile=bar(4),tap=(b,index)=>b.switchTab({currentTarget:{dataset:{index}}});
  current={switchWorkspaceTab:t=>{local.push(t.index);return t.index!==4;}};tap(finance,4);tap(finance,17);assert.equal(app.globalData.workspacePending.index,17);
  current={getTabBar:()=>profile};flights[0][1].complete();assert.equal(flights[1][1].url,'/finance?view=flows');tap(profile,16);
