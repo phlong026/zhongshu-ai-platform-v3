@@ -135,7 +135,8 @@ public class RechargePaymentService {
             if (plans.isEmpty()) throw WalletException.planUnavailable();
             var plan = plans.get(0);
             String productId = (String) plan.get("wx_product_id");
-            if (productId == null || productId.isBlank()) throw WalletException.planUnavailable();
+            if (modeSnapshot.mode() == PaymentMode.REAL && (productId == null || productId.isBlank())) throw WalletException.planUnavailable();
+            if (productId == null || productId.isBlank()) productId = "MOCK-GOODS";
             long base = ((Number) plan.get("base_points")).longValue();
             long bonus = ((Number) plan.get("bonus_points")).longValue();
             Math.addExact(base, bonus);
@@ -144,7 +145,7 @@ public class RechargePaymentService {
                     INSERT INTO pf_recharge_order (id, tenant_id, wallet_id, org_id, actor_id, post_id, binding_id,
                         order_no, plan_id, plan_snapshot, price_fen, base_points, bonus_points,
                         payer_appid, payer_openid, channel, offer_id, environment, idempotency_key, request_hash,credit_target,payment_mode,payment_mode_version)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT DO NOTHING
                     """, id, wallet.tenantId(), wallet.id(), wallet.orgId(), wallet.actorId(), wallet.postId(), payer.bindingId(),
                     "PFW" + id, planId, JsonUtils.toJsonString(Map.of("name", plan.get("name"), "version", plan.get("version"),
@@ -336,7 +337,7 @@ public class RechargePaymentService {
     }
 
     boolean companyPaymentsEnabled() {
-        return recoveryEnabled && (paymentMode().mode() == PaymentMode.MOCK || channelEnabled());
+        return paymentMode().mode() == PaymentMode.MOCK || (recoveryEnabled && channelEnabled());
     }
 
     private PaymentModeService.Snapshot paymentMode() {
@@ -349,7 +350,8 @@ public class RechargePaymentService {
     }
 
     private void requireCompanyRecovery() {
-        if (!recoveryEnabled) throw new ServiceException(503, "公司积分支付暂未开放");
+        if (paymentMode().mode() == PaymentMode.REAL && !recoveryEnabled)
+            throw new ServiceException(503, "公司积分支付暂未开放");
     }
 
     private boolean channelEnabled() {
