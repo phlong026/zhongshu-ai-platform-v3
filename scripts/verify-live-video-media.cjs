@@ -364,30 +364,43 @@ test('images open immediately and library video opens inline using the normalize
   assert.equal(page.data.referenceVideoUrl, '');
 });
 
-test('audio can play and pause, then stops when the selected row is removed', async () => {
-  const controls = [], events = {};
-  const wx = {
-    createInnerAudioContext() {
-      return {
-        onCanplay: fn => events.canPlay = fn,
-        onPlay: fn => events.play = fn,
-        onPause: fn => events.pause = fn,
-        onEnded() {}, onTimeUpdate() {}, onError() {},
-        play() { controls.push(['play', this.src]); events.play(); },
-        pause() { controls.push(['pause']); events.pause(); },
-        destroy() { controls.push(['destroy']); }
-      };
-    }
-  };
-  const page = referencePreviewPage({}, wx);
-  page.addReferences([{ id: 'voice', type: 'audio', path: '/phone/narration.m4a' }]);
-  await page.previewReference(referenceEvent('voice'));
-  assert.equal(page.data.previewAudioPlaying, true);
-  await page.previewReference(referenceEvent('voice'));
-  assert.equal(page.data.previewAudioPlaying, false);
-  page.removeReference(referenceEvent('voice'));
-  assert.deepEqual(controls, [['play', '/phone/narration.m4a'], ['pause'], ['destroy']]);
-  assert.equal(page.data.previewAudioId, '');
+test('phone and library audio can play and pause, then stop when the selected row is removed', async () => {
+  for (const item of [
+    { id: 'voice', type: 'audio', path: '/phone/narration.m4a' },
+    { id: 'voice', type: 'audio', assetId: '903', path: '' }
+  ]) {
+    const controls = [], events = {}, tickets = [];
+    const wx = {
+      createInnerAudioContext() {
+        return {
+          onCanplay: fn => events.canPlay = fn,
+          onPlay: fn => events.play = fn,
+          onPause: fn => events.pause = fn,
+          onEnded() {}, onTimeUpdate() {}, onError() {},
+          play() { controls.push(['play', this.src]); events.play(); },
+          pause() { controls.push(['pause']); events.pause(); },
+          destroy() { controls.push(['destroy']); }
+        };
+      }
+    };
+    const normalized = '/normalized/narration.mp3';
+    const page = referencePreviewPage({
+      async source(id, alive, options) {
+        assert.ok(alive());
+        tickets.push([id, options.type, options.playback]);
+        return normalized;
+      }
+    }, wx);
+    page.addReferences([item]);
+    await page.previewReference(referenceEvent('voice'));
+    assert.equal(page.data.previewAudioPlaying, true);
+    await page.previewReference(referenceEvent('voice'));
+    assert.equal(page.data.previewAudioPlaying, false);
+    page.removeReference(referenceEvent('voice'));
+    assert.deepEqual(controls, [['play', item.path || normalized], ['pause'], ['destroy']]);
+    assert.deepEqual(tickets, item.assetId ? [['903', 'audio', true]] : []);
+    assert.equal(page.data.previewAudioId, '');
+  }
 });
 
 test('changing page while loading a preview does not open the player late', async () => {
