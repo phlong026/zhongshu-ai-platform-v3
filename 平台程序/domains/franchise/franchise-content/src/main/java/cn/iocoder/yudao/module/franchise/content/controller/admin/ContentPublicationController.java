@@ -85,6 +85,13 @@ public class ContentPublicationController {
         return success(view(publications.fail(post.orgId(), post.userId(), id, reason)));
     }
 
+    @GetMapping("/growth/customers/{customerId}/sources")
+    @Operation(summary = "客户关联的视频咨询来源（按客户可见范围和客资登记人范围过滤）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> customerContentSources(@PathVariable Long customerId) {
+        return success(growth.customerSources(post(), customerId));
+    }
+
     @GetMapping("/growth/summary")
     @Operation(summary = "获客聚合（来源×内容×转化；客资登记复用 /franchise/leads）")
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
