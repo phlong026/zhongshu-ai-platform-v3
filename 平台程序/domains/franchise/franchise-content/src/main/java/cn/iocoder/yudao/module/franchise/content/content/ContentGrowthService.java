@@ -40,35 +40,20 @@ public class ContentGrowthService {
         boolean boss = "boss".equals(post.roleCode()) || "owner".equals(post.roleCode());
         boolean lead = "sales-lead".equals(post.roleCode());
         boolean sales = "sales".equals(post.roleCode());
-        if (!boss && !(sales && ownerId == post.userId())
-                && !(lead && (ownerId == post.userId() || teamId != null && post.managedTeamIds().contains(teamId)))) {
-            return List.of();
-        }
-        String base = "SELECT p.id::text AS publicationId, p.work_id::text AS workId, p.title, "
+        boolean visible = boss || sales && ownerId == post.userId()
+                || lead && (ownerId == post.userId() || post.teamId() == null
+                    || teamId != null && post.managedTeamIds().contains(teamId));
+        if (!visible) return List.of();
+
+        // Once a user can read this customer, show the full set of its linked video consultations,
+        // including consultations registered by colleagues. Each consultation remains a separate lead.
+        String sql = "SELECT p.id::text AS publicationId, p.work_id::text AS workId, p.title, "
                 + "p.published_url AS publishedUrl, l.id::text AS leadId, l.need, l.status, "
                 + "l.create_time AS createTime FROM fr_lead l "
                 + "JOIN fr_content_publication p ON p.company_id = l.company_id "
                 + "AND l.source = ? || p.id AND p.status = 'published' "
-                + "WHERE l.company_id = ? AND l.customer_id = ? ";
-        if (boss) {
-            return jdbcTemplate.queryForList(base + "ORDER BY l.create_time DESC", SOURCE_PREFIX, post.orgId(), customerId);
-        }
-        if (sales) {
-            return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
-                    SOURCE_PREFIX, post.orgId(), customerId, post.userId());
-        }
-        Set<Long> teams = post.managedTeamIds();
-        if (teams == null || teams.isEmpty()) {
-            return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
-                    SOURCE_PREFIX, post.orgId(), customerId, post.userId());
-        }
-        String placeholders = String.join(",", java.util.Collections.nCopies(teams.size(), "?"));
-        Object[] args = new Object[3 + teams.size() + 1];
-        args[0] = SOURCE_PREFIX; args[1] = post.orgId(); args[2] = customerId;
-        args[3] = post.userId();
-        for (int i = 0; i < teams.size(); i++) args[4 + i] = teams.get(i);
-        return jdbcTemplate.queryForList(base + "AND (l.registrar_user_id = ? OR l.team_id IN (" + placeholders + ")) "
-                + "ORDER BY l.create_time DESC", args);
+                + "WHERE l.company_id = ? AND l.customer_id = ? ORDER BY l.create_time DESC";
+        return jdbcTemplate.queryForList(sql, SOURCE_PREFIX, post.orgId(), customerId);
     }
 
     public Map<String, Object> summary(long companyId) {
