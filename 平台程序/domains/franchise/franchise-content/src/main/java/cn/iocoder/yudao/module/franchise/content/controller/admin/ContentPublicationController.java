@@ -69,10 +69,16 @@ public class ContentPublicationController {
     public CommonResult<Map<String, Object>> playback(@PathVariable Long id) {
         PostSnapshot post = post();
         FrContentPublicationDO publication = publications.requirePublishedInCompany(post.orgId(), id);
+        if (publication.getWorkId() == null) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "该发布记录未关联原作品");
+        }
         FrContentDraftDO work = drafts.workOf(post.orgId(), publication.getWorkId());
-        if (work.getTaskId() == null) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "该发布记录未关联原视频任务");
+        if (!java.util.Objects.equals(work.getAuthorUserId(), publication.getAuthorUserId()) || work.getTaskId() == null) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "发布记录与原作品关联无效");
+        }
         FrContentTaskDO task = tasks.requireOwned(post.orgId(), work.getTaskId());
-        if (!"SUCCEEDED".equals(task.getStatus()) || task.getResultUrl() == null || task.getResultUrl().isBlank()) {
+        if (!java.util.Objects.equals(task.getAuthorUserId(), work.getAuthorUserId())
+                || !"SUCCEEDED".equals(task.getStatus()) || task.getResultUrl() == null || task.getResultUrl().isBlank()) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "原视频暂不可播放");
         }
         return success(Map.of("publicationId", String.valueOf(id), "workId", String.valueOf(work.getId()),
