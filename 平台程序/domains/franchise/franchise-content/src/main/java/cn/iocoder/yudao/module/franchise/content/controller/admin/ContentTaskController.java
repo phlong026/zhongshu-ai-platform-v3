@@ -20,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +46,8 @@ public class ContentTaskController {
     private FrContentTaskMapper taskMapper;
     @Resource
     private cn.iocoder.yudao.module.franchise.content.provider.VideoGenerationPort video;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     private PostSnapshot post() {
         return currentPost.require();
@@ -72,7 +75,25 @@ public class ContentTaskController {
                 .eq(status != null && !status.isBlank(), FrContentTaskDO::getStatus, status)
                 .orderByDesc(FrContentTaskDO::getCreateTime)
                 .last("LIMIT 100"));
+        List<Long> hidden = jdbcTemplate.queryForList(
+                "SELECT task_id FROM fr_content_task_hidden WHERE company_id = ? AND author_user_id = ?",
+                Long.class, post.orgId(), post.userId());
+        if (!hidden.isEmpty()) rows.removeIf(row -> hidden.contains(row.getId()));
         return success(rows.stream().map(ContentTaskController::viewOf).toList());
+    }
+
+    @PostMapping("{id}/dismiss")
+    @Operation(summary = "从本人任务中心移除任务（不删除任务、不影响生成与积分结算）")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Boolean> dismiss(@PathVariable("id") Long id) {
+        PostSnapshot post = post();
+        // Ownership is checked against the authoritative task row before recording the personal hide action.
+        tasks.requireOwned(post.orgId(), id);
+        jdbcTemplate.update(
+                "INSERT INTO fr_content_task_hidden (company_id, author_user_id, task_id, actor_post_id) "
+                        + "VALUES (?, ?, ?, ?) ON CONFLICT (company_id, author_user_id, task_id) DO NOTHING",
+                post.orgId(), post.userId(), id, post.postId());
+        return success(Boolean.TRUE);
     }
 
     @GetMapping("{id}")
