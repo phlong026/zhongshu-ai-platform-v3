@@ -25,3 +25,5 @@
 @import "../../../styles/role-home.wxss";
 
 .fin-home .fin-shortcut{background:transparent}
+
+.fin-refresh-status{height:32rpx;line-height:32rpx;font-size:24rpx;color:#92877a;overflow:hidden;white-space:nowrap}.fin-refresh-hint{flex-shrink:0;max-width:250rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

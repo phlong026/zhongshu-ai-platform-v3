@@ -20,7 +20,7 @@ function attach(page, api) {
   page.loadFinanceSourceRows = async function () {
     const tab = this.data.flowTab;
     if (!['payables', 'receivables'].includes(tab)) return;
-    const alive = http.requestGuard('finance-source-rows');
+    const alive = (this.financeReadGuard?this.financeReadGuard('finance-source-rows'):http.requestGuard('finance-source-rows'));
     this.setData({ platformNotice: '', error: '' });
     try {
       const [source, payments, refunds] = tab === 'payables'
@@ -35,7 +35,7 @@ function attach(page, api) {
         dateText: row.dueDate || row.businessDate || row.receivedDate || '日期待核', detail: tab === 'payables' ? '累计应付 ¥' + yuan(row.totalCents) + ' · 已付 ¥' + yuan(row.paidCents) : '待登记原单',
         canAdjust:!['design','reimbursement'].includes(row.sourceType),payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.canPay }));
       this.setData({ rows, ready: true });
-    } catch (e) { if (alive() && !this.__disposed) this.setData({ platformNotice: e.message || e.msg || '原单列表加载失败' }); }
+    } catch (e) { if (alive() && !this.__disposed){const patch={platformNotice:e.message||e.msg||'原单列表加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.paySourceRow = function (e) {
     const row = (this.data.rows || []).find(r => r.id === String(e.currentTarget.dataset.id));
@@ -57,7 +57,7 @@ function attach(page, api) {
   page.moreFinanceProjects = function () { if ((this.data.financeProjects || []).length < this.data.financeProjectTotal) this.loadFinanceProjects(true); };
   page.loadDesignFees = async function (append = false) {
     append = append === true;
-    const alive = http.requestGuard('design-fees');
+    const alive = (this.financeReadGuard?this.financeReadGuard('design-fees'):http.requestGuard('design-fees'));
     const pageNo = append ? (this.designFeePage || 1) + 1 : 1;
     this.setData({ designFeeStatus: 'loading', designFeeError: '' });
     try {
@@ -76,7 +76,7 @@ function attach(page, api) {
         canPay: row.allowedActions.includes('PAYMENT_REGISTER'),
         payments: row.payments.map(p => ({ ...p, receivableText: yuan(p.receivableCents), canReceive: row.allowedActions.includes('RECEIPT_REGISTER') && p.receivableCents > 0 })) }));
       this.setData({ designFeeStatus: 'ready', designFeeRows: append ? (this.data.designFeeRows || []).concat(rows) : rows, designFeeTotal: result.total });
-    } catch (e) { if (alive() && !this.__disposed) this.setData({ designFeeStatus: 'error', designFeeError: e.message || e.msg || '设计费用加载失败' }); }
+    } catch (e) { if (alive() && !this.__disposed){const patch={designFeeStatus:'error',designFeeError:e.message||e.msg||'设计费用加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.moreDesignFees = function () { if ((this.data.designFeeRows || []).length < this.data.designFeeTotal) this.loadDesignFees(true); };
   page.openDesignPayment = function (e) {
@@ -117,7 +117,7 @@ function attach(page, api) {
       if (!alive()) return;
       await api.registerReceipt(body, ctx.idem);
       if (!alive()) return;
-      this.cancelDesignReceipt(); this.loadPlatformFinance(); this.loadDesignFees();
+      this.cancelDesignReceipt(); this.loadPlatformFinance(true); this.loadDesignFees();
       wx.showToast({ title: '设计款已核收', icon: 'success' });
     } catch (e) { if (alive()) this.setData({ designReceiptBusy: false, designReceiptError: e.message || e.msg || '核收失败，请重试' }); }
   };

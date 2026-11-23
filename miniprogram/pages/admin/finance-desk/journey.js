@@ -41,7 +41,7 @@ module.exports=function(page,api){
   if(e.detail&&e.detail.item)e={currentTarget:{dataset:e.detail.item}};
   if(!this.data.journeyEnabled)return this.go(e);const target=this.financeTaskTarget(e.currentTarget.dataset.key||e.currentTarget.dataset.id);if(!target)return this.go(e);
   if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return;
-  if(target.kind==='payable'&&!target.row.canPay||target.kind==='employee'&&target.row.remaining===0){wx.showToast({title:target.row.holdReason||'该事项已办结',icon:'none'});this.loadWorkbench();this.loadPlatformFinance();return;}
+  if(target.kind==='payable'&&!target.row.canPay||target.kind==='employee'&&target.row.remaining===0){wx.showToast({title:target.row.holdReason||'该事项已办结',icon:'none'});this.loadWorkbench();this.loadPlatformFinance(true);return;}
   this.rememberEntryOrigin();if(this.data.view==='desk')this.setData({view:'flows',flowTab:target.kind==='declaration'?'receivables':'payables'});
   const event={currentTarget:{dataset:{id:target.row.id}}};
   if(target.kind==='employee')return target.row.remaining<0?this.recoverEmployee(event):this.reimburseEmployee(event);

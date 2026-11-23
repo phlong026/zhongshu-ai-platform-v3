@@ -48,6 +48,7 @@ function loadFinanceDesk({ profile = { nickname: '王财务' }, orgName = '武�
       if (request === '../../../api/auth') return { currentApiPost: () => ({ postId: '9', roleCode: 'finance', orgType: 'store', orgName }) };
       if (request === '../../../api/finance') return financeApi;
       if (request === '../../../api/http') return http;
+      if (request === '../../../utils/api-scope') return () => 'finance-test-scope';
       if (request === '../../../utils/platform-finance') return PF;
       if (request === '../../../utils/access') return { context: () => ({}) };
       if (request === '../../../utils/page-navigation') return {};

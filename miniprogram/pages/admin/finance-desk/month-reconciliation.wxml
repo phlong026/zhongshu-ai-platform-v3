@@ -1,11 +1,11 @@
 <view class="fin-card">
- <view class="fin-heading"><text class="fin-title">本月收支 · {{monthClosing.period}}</text><text class="fin-muted">最新流水</text></view>
- <text wx:if="{{monthClosing.status==='loading'}}" class="fin-muted">正在读取对账数据…</text>
- <block wx:elif="{{monthClosing.status==='ready'}}">
+ <view class="fin-heading"><text class="fin-title">本月收支 · {{monthClosing.period}}</text><text class="fin-muted fin-refresh-hint" bindtap="retryMonthClosing">{{monthClosing.status==='loading'?'更新中…':monthClosing.status==='degraded'?'更新失败，点此重试':'最新流水'}}</text></view>
+ <block wx:if="{{monthClosing.currentRows.length}}">
   <view wx:for="{{monthClosing.currentRows}}" wx:key="label" class="book-info-row"><text>{{item.label}}<text wx:if="{{item.count!==undefined}}"> · {{item.count}}笔</text></text><text>¥{{item.value}}</text></view>
   <text class="fin-note">员工垫付单列，实际报销计入公司实付。</text>
   <text wx:if="{{reconciliation.abnormalCount}}" class="journey-note">{{reconciliation.abnormalCount}}笔资金待关联，请核对原始记录。</text>
  </block>
+ <text wx:elif="{{monthClosing.status==='loading'}}" class="fin-muted">正在读取对账数据…</text>
  <view wx:else><text class="journey-error">{{monthClosing.message||'对账数据暂时无法加载'}}</text><button class="fin-text" bindtap="retryMonthClosing">重新读取</button></view>
 </view>
 <view wx:if="{{monthClosing.confirmed}}" class="fin-card">
