@@ -13,7 +13,9 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -52,11 +54,20 @@ public class LeadService {
     private final LeadMapper leadMapper;
     private final CustomerMapper customerMapper;
     private final FranchiseCommands commands;
+    private final JdbcTemplate jdbcTemplate;
 
-    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands) {
+    @Autowired
+    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands,
+                       JdbcTemplate jdbcTemplate) {
         this.leadMapper = leadMapper;
         this.customerMapper = customerMapper;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /** Compatibility constructor for focused domain tests that do not exercise publication attribution. */
+    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands) {
+        this(leadMapper, customerMapper, commands, null);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -65,6 +76,7 @@ public class LeadService {
             throw exception(STORE_SALES_POST_REQUIRED);
         }
         CaptureCommand input = normalize(command);
+        validatePublicationSource(post, input.source());
         var replay = commands.replayed(post, idempotencyKey, input);
         if (replay.isPresent()) {
             return resultOf(requireLead(replay.get().getAggregateId()));
@@ -157,6 +169,22 @@ public class LeadService {
         return leadMapper.selectById(leadId);
     }
 
+    /** A publication source is accepted only when it resolves to a real, published record in this organization. */
+    private void validatePublicationSource(PostSnapshot post, String source) {
+        final String prefix = "内容发布:";
+        if (source == null || !source.startsWith(prefix)) return;
+        String rawId = source.substring(prefix.length());
+        if (!rawId.matches("\\d{1,19}")) throw exception(LEAD_INPUT_INVALID);
+        final long publicationId;
+        try { publicationId = Long.parseLong(rawId); }
+        catch (NumberFormatException ex) { throw exception(LEAD_INPUT_INVALID); }
+        Boolean published = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM fr_content_publication "
+                        + "WHERE company_id = ? AND id = ? AND status = 'published')",
+                Boolean.class, post.orgId(), publicationId);
+        if (!Boolean.TRUE.equals(published)) throw exception(LEAD_INPUT_INVALID);
+    }
+
     private static CaptureCommand normalize(CaptureCommand c) {
         String name = StrUtil.trim(c.name());
         String phone = StrUtil.trim(c.phone());
@@ -221,6 +249,7 @@ public class LeadService {
             return new ImportNewCustomerResult(existing.getId(), existing.getCustomerId());
         }
         CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        validatePublicationSource(post, input.source());
         long leadId = IdWorker.getId();
         CustomerDO customer = new CustomerDO().setId(IdWorker.getId()).setCompanyId(orgId)
                 .setTeamId(post.teamId()).setOwnerUserId(post.userId()).setName(input.name())
@@ -256,6 +285,7 @@ public class LeadService {
             return new ImportLinkRequiredResult(replay.get().getAggregateId());
         }
         CaptureCommand input = normalize(new CaptureCommand(name, phone, need, source));
+        validatePublicationSource(post, input.source());
         LeadDO lead = new LeadDO().setId(IdWorker.getId()).setCompanyId(orgId).setTeamId(post.teamId())
                 .setName(input.name()).setPhone(input.phone()).setNeed(input.need()).setSource(input.source())
                 .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L)

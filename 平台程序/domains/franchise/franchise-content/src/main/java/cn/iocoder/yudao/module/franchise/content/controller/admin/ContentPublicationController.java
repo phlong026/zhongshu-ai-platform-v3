@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,10 @@ public class ContentPublicationController {
     private ContentPublicationService publications;
     @Resource
     private ContentGrowthService growth;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.content.content.ContentDraftService drafts;
+    @Resource
+    private cn.iocoder.yudao.module.franchise.content.content.ContentTaskService tasks;
 
     private PostSnapshot post() {
         return currentPost.require();
@@ -55,6 +61,28 @@ public class ContentPublicationController {
         PostSnapshot post = post();
         return success(publications.list(post.orgId(), null, status).stream()
                 .map(ContentPublicationController::view).toList());
+    }
+
+    @GetMapping("/publications/{id}/playback")
+    @Operation(summary = "读取已发布作品关联的原视频任务（同组织可见）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> playback(@PathVariable Long id) {
+        PostSnapshot post = post();
+        FrContentPublicationDO publication = publications.requirePublishedInCompany(post.orgId(), id);
+        if (publication.getWorkId() == null) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "该发布记录未关联原作品");
+        }
+        FrContentDraftDO work = drafts.workOf(post.orgId(), publication.getWorkId());
+        if (!java.util.Objects.equals(work.getAuthorUserId(), publication.getAuthorUserId()) || work.getTaskId() == null) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "发布记录与原作品关联无效");
+        }
+        FrContentTaskDO task = tasks.requireOwned(post.orgId(), work.getTaskId());
+        if (!java.util.Objects.equals(task.getAuthorUserId(), work.getAuthorUserId())
+                || !"SUCCEEDED".equals(task.getStatus()) || task.getResultUrl() == null || task.getResultUrl().isBlank()) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "原视频暂不可播放");
+        }
+        return success(Map.of("publicationId", String.valueOf(id), "workId", String.valueOf(work.getId()),
+                "taskId", String.valueOf(task.getId()), "resultUrl", task.getResultUrl()));
     }
 
     @PostMapping("/publications/{id}/verify")
@@ -83,6 +111,13 @@ public class ContentPublicationController {
         PostSnapshot post = post();
         String reason = body == null || body.get("reason") == null ? "发布失败" : String.valueOf(body.get("reason"));
         return success(view(publications.fail(post.orgId(), post.userId(), id, reason)));
+    }
+
+    @GetMapping("/growth/customers/{customerId}/sources")
+    @Operation(summary = "客户关联的视频咨询来源（按客户可见范围和客资登记人范围过滤）")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> customerContentSources(@PathVariable Long customerId) {
+        return success(growth.customerSources(post(), customerId));
     }
 
     @GetMapping("/growth/summary")

@@ -148,6 +148,15 @@ public class ContentPublicationService {
                 .orderByDesc(FrContentPublicationDO::getCreateTime));
     }
 
+    /** Published record playback is visible within the same organization, matching the publication list scope. */
+    public FrContentPublicationDO requirePublishedInCompany(long companyId, long publicationId) {
+        FrContentPublicationDO row = publications.selectById(publicationId);
+        if (row == null || row.getCompanyId() != companyId || !"published".equals(row.getStatus())) {
+            throw exception(WORK_INVALID);
+        }
+        return row;
+    }
+
     public FrContentPublicationDO requireOwned(long companyId, long userId, long publicationId) {
         FrContentPublicationDO row = publications.selectById(publicationId);
         if (row == null || row.getCompanyId() != companyId || row.getAuthorUserId() != userId) {
