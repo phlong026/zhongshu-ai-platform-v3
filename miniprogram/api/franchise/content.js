@@ -31,6 +31,8 @@ const tasks = {
     .then(task => task && ({ ...task, id: String(task.id || task.taskId || '') })),
   /** 任务列表（?status= 过滤七态） */
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
+  /** 从本人任务中心移除任务；后端仅记录个人隐藏，不删除云端任务或积分流水。 */
+  dismiss: id => http.post('/franchise/content/tasks/' + encodeURIComponent(id) + '/dismiss', {}),
   /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
   get: (id) => http.get('/franchise/content/tasks/' + id),
   /** 本人 AI 视频任务的可编辑输入副本；不含内部授权或供应商快照。 */
