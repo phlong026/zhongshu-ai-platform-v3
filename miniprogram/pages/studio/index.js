@@ -541,7 +541,8 @@ async dismissTask(id) {
  try {
   await contentApi.tasks.dismiss(id);
   if(!alive()||this.__closed||scope!==studio.scope())return;
-  this.setData({tasks:(this.data.tasks||[]).filter(row=>String(row.id)!==String(id)),taskCount:Math.max(0,this.data.taskCount-1)});
+  const remaining=(this.data.tasks||[]).filter(row=>String(row.id)!==String(id));
+  this.setData({tasks:remaining,taskCount:remaining.length});
   wx.showToast({title:'已从任务中心移除',icon:'success'});
  } catch(error) {
   if(alive()) {
