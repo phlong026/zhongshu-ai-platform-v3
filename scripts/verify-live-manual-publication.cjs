@@ -53,9 +53,11 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
     },
     '../../api/http': {
       token() { return 'fixture-token'; },
+      sessionGeneration() { return 1; }, tenantId() { return 1; },
       sessionGuard() { return alive; },
       requestGuard() { return alive; }
     },
+    '../../api/auth': { currentApiPost() { return { postId: scope(), orgId: '8', orgType: 'store', roleCode: 'sales' }; } },
     '../../utils/page-navigation': { open(url) { routes.push(url); } }
   };
   const context = {
@@ -73,6 +75,7 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   const instance = Object.assign({}, definition);
   instance.data = Object.assign({}, structuredClone(definition.data), pageData);
   instance.actorScope = scope();
+  instance.actorSessionGeneration = 1;
   instance.setData = function setData(patch) { Object.assign(this.data, patch); };
   return instance;
 }
@@ -352,12 +355,13 @@ test('verify status links directly, while publishing verify failure never links'
 test('receipt and works ignore responses after request or post scope becomes stale', async () => {
   let resolveRows;
   let resolveWorks;
+  let worksReads = 0;
   let currentScope = 'post-42';
   let requestAlive = true;
   const page = loadPage({
     create: async () => ({ id: 1 }),
     list: () => new Promise(resolve => { resolveRows = resolve; }),
-    works: () => new Promise(resolve => { resolveWorks = resolve; }),
+    works: () => ++worksReads === 1 ? Promise.resolve([{ id: 'kept-work', title: '已显示作品' }]) : new Promise(resolve => { resolveWorks = resolve; }),
     alive: () => requestAlive,
     scope: () => currentScope,
     pageData: { view: 'receipt', recordId: '91', detail: { id: 'kept', status: 'verify' }, works: [{ id: 'kept-work' }] }
@@ -376,11 +380,14 @@ test('receipt and works ignore responses after request or post scope becomes sta
   page.actorScope = currentScope;
   page.data.view = 'works';
   page.syncApiWorks();
+  await flush();
+  const worksSnapshot = JSON.parse(JSON.stringify(page.data.works));
+  page.syncApiWorks();
   requestAlive = false;
   currentScope = 'post-99';
   resolveWorks([{ id: 7, title: '旧岗位作品' }]);
   await flush();
-  assert.deepEqual(JSON.parse(JSON.stringify(page.data.works)), [{ id: 'kept-work' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(page.data.works)), worksSnapshot);
 });
 
 test('an unfinished manual publication can resume the receipt page without claiming external authorization', () => {
@@ -401,21 +408,25 @@ test('an unfinished manual publication can resume the receipt page without claim
 
 test('publication list keeps request and post-switch response guards', async () => {
   let resolveRows;
+  let reads = 0;
   let currentScope = 'post-42';
   let requestAlive = true;
   const page = loadPage({
     create: async () => ({ id: 1 }),
-    list: () => new Promise(resolve => { resolveRows = resolve; }),
+    list: () => ++reads === 1 ? Promise.resolve([{ id: 'kept', title: '已显示记录', status: 'published' }]) : new Promise(resolve => { resolveRows = resolve; }),
     alive: () => requestAlive,
     scope: () => currentScope,
     pageData: { view: 'records', records: [{ id: 'kept' }] }
   });
 
   page.syncApiRecords();
+  await flush();
+  const snapshot = JSON.parse(JSON.stringify(page.data.records));
+  page.syncApiRecords();
   requestAlive = false;
   currentScope = 'post-99';
   resolveRows([{ id: 91, title: '旧任职记录', status: 'publishing' }]);
   await flush();
 
-  assert.deepEqual(JSON.parse(JSON.stringify(page.data.records)), [{ id: 'kept' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(page.data.records)), snapshot);
 });
