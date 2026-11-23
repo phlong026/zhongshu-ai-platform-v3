@@ -106,7 +106,7 @@ test('自动PR和push仍冻结各自提交，不接受手动前端版本覆盖',
 
 test('配对入口继续复用固定后端工作流与只读仓库权限', () => {
   const source = pairedWorkflow();
-  assert.match(source, /uses: phlong026\/zhongshu-ai-platform-v3\/\.github\/workflows\/paired-release\.yml@15662356f3b1abdc40e57dadcf6d0f204ddc3024/);
+  assert.match(source, /uses: phlong026\/zhongshu-ai-platform-v3\/\.github\/workflows\/paired-release\.yml@474fba410bbca5c97e2e0c9d2bb732709c609e2a/);
   assert.match(source, /permissions:\n  contents: read/);
   assert.doesNotMatch(source, /^\s+run:/m, 'reference validation must stay in the pinned reusable workflow');
 });
