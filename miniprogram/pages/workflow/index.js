@@ -6,7 +6,7 @@ const V=require('./views');
 const DESIGN_ROLES=['sales','sales-lead','hq-design-admin'];
 Object.assign(V.titles,{'money-review':'老板金额审批','task-access':'任务动作授权'});
 Page({
- data:{view:'customers',title:'我的客户',customer:null,form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',requirementsStatus:'',requirementsError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约']},
+ data:{view:'customers',title:'我的客户',customer:null,contentSources:[],form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',requirementsStatus:'',requirementsError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约']},
  onLoad(options={}){this.initFormKeyboard();this.options=options;this.__post=null;this.__postKey='';this.__cmdKeys={};
   const post=(()=>{try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(PF.pageMode(http.token(),post)!=='api'){// 纯 API 态门禁：无平台会话不进本地演示，回登录页
@@ -81,6 +81,7 @@ Page({
     projectSummary:model.customer.summary||'',city:(model.customer.city||'').replace(/市$/,''),
     registered:model.customer.status==='已登记',hasDesign:false,simpleBusiness:false});// 成功不清 error：版本冲突等提示保留至用户下次操作
    if(view==='transfer')this.reconcileTransferOwner();
+   this.loadContentSources(this.id,gen,sessionGen,postKey);
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
