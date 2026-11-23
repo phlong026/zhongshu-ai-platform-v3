@@ -503,6 +503,51 @@ if (shown.status === 'failed') { wx.showModal({ title: '生成失败', content: 
 if (shown.status === 'uncertain') { wx.showModal({ title: '结果确认中', content: '任务提交结果暂不确定，请稍后在任务中心刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
 this.go('result', '&task=' + encodeURIComponent(id));
 },
+onTaskTouchStart(e) {
+const id=String(e.currentTarget.dataset.id||'');
+const point=e.touches&&e.touches[0];
+if(!id||!point)return;
+this.__taskTouch={id,x:point.clientX,y:point.clientY,dx:0,dy:0};
+},
+onTaskTouchMove(e) {
+const touch=this.__taskTouch,point=e.touches&&e.touches[0];
+if(!touch||!point)return;
+touch.dx=point.clientX-touch.x;touch.dy=point.clientY-touch.y;
+if(Math.abs(touch.dx)>12&&Math.abs(touch.dx)>Math.abs(touch.dy)) {
+ const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id&&touch.dx<-28}));
+ this.setData({tasks});
+}
+},
+onTaskTouchEnd() {
+const touch=this.__taskTouch;this.__taskTouch=null;
+if(!touch)return;
+const open=touch.dx<-48&&Math.abs(touch.dx)>Math.abs(touch.dy);
+const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id?open:false}));
+this.setData({tasks});
+},
+onTaskLongPress(e) {
+const id=String(e.currentTarget.dataset.id||'');
+if(!id)return;
+wx.showModal({title:'移除任务',content:'仅从你的任务中心移除，不会删除云端任务、已保存作品或客资记录。确定继续？',confirmText:'移除',confirmColor:'#a33b2b',success:res=>{if(res.confirm)this.dismissTask(id);}});
+},
+dismissTaskTap(e) { const id=String(e.currentTarget.dataset.id||'');if(id)this.dismissTask(id); },
+async dismissTask(id) {
+ if(this.__dismissingTask)return;
+ const shown=(this.data.tasks||[]).find(row=>String(row.id)===String(id));
+ if(!shown)return;
+ const alive=http.requestGuard('studio-task-dismiss'),scope=this.actorScope;
+ this.__dismissingTask=String(id);
+ this.setData({tasks:(this.data.tasks||[]).map(row=>({...row,dismissing:String(row.id)===String(id)}))});
+ try {
+  await contentApi.tasks.dismiss(id);
+  if(!alive()||this.__closed||scope!==studio.scope())return;
+  this.setData({tasks:(this.data.tasks||[]).filter(row=>String(row.id)!==String(id)),taskCount:Math.max(0,this.data.taskCount-1)});
+  wx.showToast({title:'已从任务中心移除',icon:'success'});
+ } catch(error) {
+  if(alive())wx.showToast({title:P.degradeMessage(error),icon:'none'});
+ } finally {this.__dismissingTask=null;}
+},
+
 async retryTaskSave(id) {
  if(this.__retryingSave)return;
  const alive=http.requestGuard('studio-retry-save'),scope=this.actorScope;
