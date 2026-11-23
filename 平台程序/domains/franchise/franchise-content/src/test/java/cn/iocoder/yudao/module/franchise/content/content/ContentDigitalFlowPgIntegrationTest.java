@@ -1,11 +1,13 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.module.franchise.api.*;
+import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.dal.*;
 import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import jakarta.annotation.Resource;
@@ -126,7 +128,9 @@ class ContentDigitalFlowPgIntegrationTest extends FranchisePgIntegrationTest {
             var transport=new ContentProviderTransport.Jdk();
             for(long id:new long[]{101,102})jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,33,?,22,11,?,?,?,100,?,'UPLOADED',now()+interval '1 hour')",id,person.getId(),id==101?"AVATAR":"VOICE","file-"+id,id==101?"video/mp4":"audio/mpeg","a".repeat(64));
             var uploads=new ContentCloneUploadService(jdbc,personas,config,transport,null);
-            var clones=new ContentCloneService(jdbc,personas,uploads,points,config,transport,null,transactionManager);
+            var directory = mock(SystemDirectory.class);
+            when(directory.roleHasPermission(post.roleCode(), ContentPermissions.PERSONA)).thenReturn(true);
+            var clones=new ContentCloneService(jdbc,personas,uploads,points,config,transport,null,transactionManager,directory);
             long avatar=Long.parseLong((String)clones.create(post,person.getId(),"AVATAR","张工分身",101,ContentCloneService.CONSENT_VERSION,"avatar-once",5).get("id"));
             assertThat(clones.refresh(post,avatar).get("ready")).isEqualTo(true);
             long voice=Long.parseLong((String)clones.create(post,person.getId(),"VOICE","张工声音",102,ContentCloneService.CONSENT_VERSION,"voice-once",5).get("id"));

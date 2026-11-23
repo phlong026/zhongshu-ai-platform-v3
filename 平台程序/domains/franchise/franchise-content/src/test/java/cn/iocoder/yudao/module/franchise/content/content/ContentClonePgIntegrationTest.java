@@ -1,10 +1,13 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.module.franchise.api.*;
-import cn.iocoder.yudao.module.franchise.content.dal.FrContentPersonaDO;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentPersonaMapper;
 import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,24 +20,31 @@ import static org.mockito.Mockito.*;
 
 class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource DataSource dataSource;
+    @Resource FrContentPersonaMapper personaMapper;
     @Resource PlatformTransactionManager transactionManager;
     JdbcTemplate jdbc;
     ContentPersonaService personas;
     OrgPointPort points;
+    SystemDirectory directory;
     ContentProviderProperties properties;
     final PostSnapshot post=new PostSnapshot(11L,22L,33L,"store","sales-lead",null,false,Set.of());
     @BeforeEach void setup() {
-        jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_clone_default,fr_content_digital_clone,fr_content_hifly_upload");
-        personas=mock(ContentPersonaService.class);points=mock(OrgPointPort.class);
-        when(personas.list(33)).thenReturn(List.of(new FrContentPersonaDO().setId(21L).setEnabled(true),new FrContentPersonaDO().setId(23L).setEnabled(false)));
-        when(personas.requireWritable(eq(post),eq(21L))).thenReturn(new FrContentPersonaDO().setId(21L).setEnabled(true));
-        when(personas.requireWritable(eq(post),eq(23L))).thenReturn(new FrContentPersonaDO().setId(23L).setEnabled(false));
+        jdbc=new JdbcTemplate(dataSource);jdbc.execute("TRUNCATE fr_content_clone_default,fr_content_digital_clone,fr_content_hifly_upload,fr_content_persona");
+        personas=new ContentPersonaService(personaMapper);
+        points=mock(OrgPointPort.class);
+        directory=mock(SystemDirectory.class);
+        when(directory.roleHasPermission("sales-lead", ContentPermissions.PERSONA)).thenReturn(true);
+        when(directory.roleHasPermission("sales", ContentPermissions.PERSONA_SELF)).thenReturn(true);
+        jdbc.update("""
+                INSERT INTO fr_content_persona(id,company_id,author_user_id,name,enabled)
+                VALUES(21,33,22,'本人形象',true),(22,33,78,'同事形象',true),(23,33,22,'停用形象',false)
+                """);
         when(points.reserveConfirmed(any(),eq(5L))).thenReturn(555L);
         properties=new ContentProviderProperties();properties.getHifly().setApiKey("test-key");
         for(long id:new long[]{101,102})jdbc.update("INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at) VALUES(?,33,21,22,11,?,?,?,100,?,'UPLOADED',now()+interval '1 hour')",id,id==101?"AVATAR":"VOICE","file-"+id,id==101?"video/mp4":"audio/mpeg","a".repeat(64));
     }
     ContentCloneService service(ContentProviderTransport transport) {
-        return new ContentCloneService(jdbc,personas,new ContentCloneUploadService(jdbc,personas,properties,transport,null),points,properties,transport,null,transactionManager);
+        return new ContentCloneService(jdbc,personas,new ContentCloneUploadService(jdbc,personas,properties,transport,null),points,properties,transport,null,transactionManager,directory);
     }
     Map<String,Object> create(ContentCloneService service,String kind,String key) {
         return service.create(post,21,kind,"顾问",kind.equals("AVATAR")?101:102,ContentCloneService.CONSENT_VERSION,key,5);
@@ -80,7 +90,6 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         verify(points,never()).reserveConfirmed(any(),anyLong());assertThat(transport.calls).isEmpty();
     }
     @Test void officialRootResponsesSettleBothResourcesAndRejectMixedPersonas() {
-        when(personas.list(33)).thenReturn(List.of(new FrContentPersonaDO().setId(21L).setEnabled(true),new FrContentPersonaDO().setId(22L).setEnabled(true)));
         var transport=new ContentProviderTransport.Scripted(
             ContentProviderTransport.json(200,"{\"code\":0,\"task_id\":\"official-avatar\"}",0),
             ContentProviderTransport.json(200,"{\"code\":0,\"status\":3,\"avatar\":\"avatar-resource\"}",0),
@@ -122,6 +131,130 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_content_digital_clone(id,company_id,persona_id,author_user_id,author_post_id,kind,title,source_asset_id,source_sha256,consent_version,idempotency_key,request_hash,status,provider_resource_id,operation_id,billing_state) VALUES(?,33,?,22,11,?,'同名资源',101,?,?,?,?,'READY',?,555,?)",
                 id,persona,kind,"a".repeat(64),ContentCloneService.CONSENT_VERSION,"seed-"+id,"hash-"+id,"provider-"+id,billing);
     }
+    @Test void personalSalesCanSetEachOwnResourceAsDefault() {
+        var sales = new PostSnapshot(13L, 22L, 33L, "store", "sales", null, false, Set.of());
+        readyClone(201, 21, "AVATAR", "SETTLED");
+        readyClone(301, 21, "VOICE", "SETTLED");
+        var transport = new ContentProviderTransport.Scripted();
+        var service = service(transport);
+        assertThat(service.setDefault(sales, 201)).containsEntry("isDefault", true).containsEntry("canSetDefault", false);
+        assertThat(service.setDefault(sales, 301)).containsEntry("isDefault", true);
+        verifyNoInteractions(points);
+        assertThat(transport.calls).isEmpty();
+    }
+
+    @Test void writeActionsAndFlagsRespectBothOwnersAndTheManagersActualPermission() {
+        readyClone(201, 21, "AVATAR", "SETTLED");
+        readyClone(202, 21, "VOICE", "SETTLED");
+        readyClone(203, 22, "AVATAR", "SETTLED");
+        readyClone(204, 23, "VOICE", "SETTLED");
+        jdbc.update("UPDATE fr_content_digital_clone SET author_user_id=78 WHERE id=202");
+        var sales = new PostSnapshot(13L, 22L, 33L, "store", "sales", null, false, Set.of());
+        var engineer = new PostSnapshot(14L, 22L, 33L, "store", "engineer", null, false, Set.of());
+        when(directory.roleHasPermission("engineer", ContentPermissions.PERSONA_SELF)).thenReturn(true);
+        var transport = new ContentProviderTransport.Scripted();
+        var service = service(transport);
+        var owned = service.list(sales, 21).stream().filter(row -> row.get("id").equals("201")).findFirst().orElseThrow();
+        assertThat(owned).containsEntry("canRename", true).containsEntry("canDelete", true).containsEntry("canSetDefault", true);
+        assertThat(service.rename(sales, 201, "  主讲分身  ")).containsEntry("title", "主讲分身");
+        assertThatThrownBy(() -> service.rename(sales, 201, "🏠".repeat(11))).hasMessageContaining("20字");
+        assertThatThrownBy(() -> service.rename(sales, 201, " ")).hasMessageContaining("名称");
+        assertThat(service.list(sales, 23).get(0)).containsEntry("canSetDefault", false).containsEntry("canDelete", true);
+        assertThat(service.list(sales, 22).get(0)).containsEntry("canRename", false);
+        assertThatThrownBy(() -> service.rename(sales, 203, "跨作者人物")).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.delete(sales, 202)).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.setDefault(sales, 202)).isInstanceOf(ServiceException.class);
+        assertThat(service.list(engineer, 21)).allSatisfy(row -> assertThat(row).containsEntry("canRename", false));
+        assertThatThrownBy(() -> service.rename(engineer, 201, "异常岗位")).isInstanceOf(ServiceException.class);
+        var foreign = new PostSnapshot(15L, 22L, 34L, "store", "sales-lead", null, false, Set.of());
+        assertThatThrownBy(() -> service.delete(foreign, 201)).hasMessageContaining("无权使用");
+        assertThat(service.rename(post, 202, "负责人维护同公司资源")).containsEntry("canDelete", true);
+        when(directory.roleHasPermission("sales-lead", ContentPermissions.PERSONA)).thenReturn(false);
+        when(directory.roleHasPermission("sales-lead", ContentPermissions.PERSONA_SELF)).thenReturn(true);
+        assertThat(service.list(post, 21).stream().filter(row -> row.get("id").equals("202")).findFirst().orElseThrow())
+                .containsEntry("canRename", false).containsEntry("canDelete", false).containsEntry("canSetDefault", false);
+        assertThatThrownBy(() -> service.rename(post, 202, "不能跨作者")).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.create(post, 22, "AVATAR", "不能跨人物", 101,
+                ContentCloneService.CONSENT_VERSION, "self-only-manager", 5)).isInstanceOf(ServiceException.class);
+        verifyNoInteractions(points);
+        assertThat(transport.calls).isEmpty();
+    }
+
+    @Test void archivedCloneLeavesListsAndSelectionButOriginalCreationRemainsIdempotent() {
+        var transport = new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200, "{\"code\":0,\"task_id\":\"archived-avatar\"}", 0),
+                ContentProviderTransport.json(200, "{\"code\":0,\"status\":3,\"avatar\":\"history-avatar\"}", 0));
+        var service = service(transport);
+        long id = Long.parseLong((String) create(service, "AVATAR", "archive-once").get("id"));
+        readyClone(301, 21, "VOICE", "SETTLED");
+        assertThat(service.refresh(post, id)).containsEntry("canDelete", true).containsEntry("ready", true);
+        service.setDefault(post, id);
+        service.rename(post, id, "新展示名");
+        service.delete(post, id);
+        service.delete(post, id);
+        assertThat(service.list(post, 21).stream().map(row -> row.get("id"))).containsExactly("301");
+        assertThatThrownBy(() -> service.refresh(post, id)).hasMessageContaining("已删除");
+        assertThatThrownBy(() -> service.select(post, id, 301)).hasMessageContaining("已删除");
+        assertThatThrownBy(() -> service.setDefault(post, id)).hasMessageContaining("已删除");
+        assertThatThrownBy(() -> service.rename(post, id, "不再修改")).hasMessageContaining("已删除");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_default WHERE clone_id=?", Long.class, id)).isZero();
+        assertThat(jdbc.queryForMap("SELECT provider_resource_id,billing_state,archived_at FROM fr_content_digital_clone WHERE id=?", id))
+                .containsEntry("provider_resource_id", "history-avatar").containsEntry("billing_state", "SETTLED").hasEntrySatisfying("archived_at", value -> assertThat(value).isNotNull());
+        var replay = create(service, "AVATAR", "archive-once");
+        assertThat(replay).containsEntry("id", String.valueOf(id)).containsEntry("title", "新展示名")
+                .containsEntry("status", "READY").containsEntry("archived", true).containsEntry("ready", false)
+                .containsEntry("demoUrl", "").containsEntry("canRename", false).containsEntry("canDelete", false).containsEntry("canSetDefault", false);
+        assertThat(service.replayLegacy(post, 21, "AVATAR", "顾问", 101, ContentCloneService.CONSENT_VERSION, "archive-once", 5))
+                .isEqualTo(replay);
+        assertThat(transport.calls).hasSize(2);
+        verify(points, times(1)).reserveConfirmed(any(), eq(5L));
+        verify(points, times(1)).settle(555L, 1);
+    }
+
+    @Test void onlyTerminalAndReconciledResourcesCanBeDeleted() {
+        readyClone(201, 21, "AVATAR", "PENDING");
+        readyClone(202, 21, "AVATAR", "PENDING");
+        readyClone(203, 21, "VOICE", "RELEASED");
+        readyClone(204, 21, "VOICE", "PENDING");
+        jdbc.update("UPDATE fr_content_digital_clone SET status='RUNNING' WHERE id=202");
+        jdbc.update("UPDATE fr_content_digital_clone SET status='FAILED' WHERE id IN (203,204)");
+        var transport = new ContentProviderTransport.Scripted();
+        var service = service(transport);
+        for (long id : new long[]{201L, 202L, 204L}) {
+            assertThatThrownBy(() -> service.delete(post, id)).hasMessageContaining("积分已结清");
+        }
+        service.delete(post, 203);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_digital_clone WHERE archived_at IS NOT NULL", Long.class)).isEqualTo(1L);
+        verifyNoInteractions(points);
+        assertThat(transport.calls).isEmpty();
+    }
+
+    @Test void concurrentDeleteAndDefaultNeverLeaveAnArchivedDefault() throws Exception {
+        readyClone(201, 21, "AVATAR", "SETTLED");
+        var service = service(new ContentProviderTransport.Scripted());
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var setting = executor.submit(() -> {
+                start.await();
+                try {
+                    assertThat(service.setDefault(post, 201)).containsEntry("isDefault", true);
+                } catch (ServiceException error) {
+                    assertThat(error.getMessage()).contains("已删除");
+                }
+                return null;
+            });
+            var deleting = executor.submit(() -> { start.await(); service.delete(post, 201); return null; });
+            start.countDown();
+            setting.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            deleting.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+        assertThat(service.list(post, 21)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_default", Long.class)).isZero();
+    }
+
     @Test void multipleResourcesCanCoexistAndEachKindHasOneReplaceableDefaultWithoutCharge() {
         readyClone(201,21,"AVATAR","SETTLED");readyClone(202,21,"AVATAR","SETTLED");readyClone(301,21,"VOICE","SETTLED");
         var transport=new ContentProviderTransport.Scripted();var service=service(transport);
@@ -151,7 +284,7 @@ class ContentClonePgIntegrationTest extends FranchisePgIntegrationTest {
         var foreign=new PostSnapshot(12L,22L,34L,"store","sales-lead",null,false,Set.of());
         assertThatThrownBy(()->service.setDefault(foreign,201)).hasMessageContaining("无权使用");
         var sales=new PostSnapshot(13L,22L,33L,"store","sales",null,false,Set.of());
-        assertThatThrownBy(()->service.setDefault(sales,201)).hasMessageContaining("不能设置");
+        assertThatThrownBy(()->service.setDefault(sales,201)).hasMessageContaining("结算");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_clone_default",Long.class)).isZero();
     }
     @Test void concurrentDefaultChangesKeepExactlyOneDefaultForThePersonaAndKind() throws Exception {

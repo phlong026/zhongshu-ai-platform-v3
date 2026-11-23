@@ -168,12 +168,16 @@ public class ContentPersonaService {
         personas.deleteById(row.getId());
     }
 
-    private FrContentPersonaDO require(long companyId, long personaId) {
-        FrContentPersonaDO row = personas.selectOne(new LambdaQueryWrapper<FrContentPersonaDO>()
+    FrContentPersonaDO findInCompany(long companyId, long personaId) {
+        return personas.selectOne(new LambdaQueryWrapper<FrContentPersonaDO>()
                 .eq(FrContentPersonaDO::getCompanyId, companyId)
                 .eq(FrContentPersonaDO::getId, personaId)
                 .eq(FrContentPersonaDO::getDeleted, false)
                 .last("LIMIT 1"));
+    }
+
+    private FrContentPersonaDO require(long companyId, long personaId) {
+        FrContentPersonaDO row = findInCompany(companyId, personaId);
         if (row == null) {
             throw exception(INPUT_INVALID);
         }
