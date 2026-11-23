@@ -654,15 +654,14 @@ this.setData({detail:null,receiptLoading:false,invalidMessage:P.degradeMessage(e
 },
 openRecord(e) { this.go('detail', '&record=' + e.currentTarget.dataset.id); },
 async openPublicationVideo(e) {
- const id=String(e.currentTarget.dataset.id||this.data.recordId||'');
- const record=(this.data.records||[]).find(row=>String(row.id)===id)||this.data.detail;
- if(!record||!record.workId)return wx.showToast({title:'这条发布记录没有关联到平台作品',icon:'none'});
+ const id=String(e.currentTarget.dataset.id||this.data.recordId||this.data.detail&&this.data.detail.id||'');
+ if(!/^\\d+$/.test(id))return wx.showToast({title:'发布记录编号无效',icon:'none'});
  try {
-  const works=P.rowsOf(await contentApi.drafts.works());
-  const work=works.find(row=>String(row.id)===String(record.workId));
-  const taskId=work&&String(work.taskId||'');
-  if(!taskId)return wx.showToast({title:'原片任务暂不可用，请从我的作品查看',icon:'none'});
-  wx.navigateTo({url:'/pages/studio/index?view=result&task='+encodeURIComponent(taskId)});
+  const result=await contentApi.publications.playback(id);
+  const url=String(result&&result.resultUrl||'');
+  if(!url)return wx.showToast({title:'原视频暂不可播放',icon:'none'});
+  if(wx.previewMedia)wx.previewMedia({sources:[{url,type:'video'}]});
+  else wx.showToast({title:'当前微信版本暂不支持视频预览',icon:'none'});
  } catch(error) { wx.showToast({title:P.degradeMessage(error),icon:'none'}); }
 },
 refreshRecords() { this.refreshData(); wx.showToast({ title: '状态已刷新', icon: 'none' }); },
