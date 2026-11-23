@@ -754,7 +754,8 @@ test('Web 保留角色保护不限制独立撤员工兼岗或作为接收人，�
   const state = loadOrgStaffView({ api: { revokePost: async (id) => calls.push(id) } })
   state.staff.value = [boss, employee]
   state.handoverForm.fromUserId = '2'
-  assert.equal(state.receivers.value.length, 1)
+  assert.equal(state.receiversFor('franchise-crm').length, 1)
+  assert.equal(state.receiversFor('franchise-engineering').length, 0)
   await state.revoke(employee)
   assert.deepEqual(calls, ['12'])
 
@@ -853,7 +854,7 @@ test('Web 换来源或关闭弹窗后不接收迟到的交接预览', async () =
 test('Web 可分页选择没有待分配记录的历史员工，接收人仍来自当前有效任职', async () => {
   const calls = []
   const transfers = []
-  const receiver = { postId: '11', userId: '1', name: '老板', roleCode: 'boss', active: true }
+  const receiver = { postId: '11', userId: '1', name: '销售负责人', roleCode: 'sales-lead', active: true }
   const state = loadOrgStaffView({ api: {
     getHandoverSources: async (orgId, keyword, pageNo) => {
       calls.push([orgId, keyword, pageNo])
@@ -874,7 +875,7 @@ test('Web 可分页选择没有待分配记录的历史员工，接收人仍来�
 
   await state.openHistoricalHandover(state.historyRows.value[0])
   assert.equal(state.handoverForm.fromUserId, '2')
-  assert.equal(state.receivers.value[0].userId, '1')
+  assert.equal(state.receiversFor('franchise-crm')[0].userId, '1')
   state.handoverForm.receivers['franchise-crm'] = '1'
   await state.saveHandover()
   assert.equal(transfers[0].orgId, '1001')
