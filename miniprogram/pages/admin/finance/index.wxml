@@ -1,4 +1,4 @@
-<view class="owner-page"><owner-header title="经营"/><view class="owner-content"><text wx:if="{{error}}" class="owner-error">{{error}}</text><block wx:if="{{ready}}">
+<view class="owner-page"><owner-header title="经营"/><view class="owner-content"><view class="owner-refresh-status" bindtap="retryHome">{{homeAccessError||(homeRefreshError?'更新失败，点此重试':homeRefreshing?'更新中…':'')}}</view><block wx:if="{{ready}}">
 <view class="owner-period"><text class="owner-muted">{{desk.company}}</text><picker mode="date" fields="month" value="{{desk.period}}" bindchange="month"><view>{{desk.periodLabel}}<image class="owner-arrow owner-select-icon" src="/assets/creation-chevron.png"/></view></picker></view>
 <view wx:if="{{!desk.business.available}}" class="owner-card"><view class="owner-heading"><text>经营数据</text></view><text class="owner-muted">{{desk.business.message}}</text></view>
 <block wx:else>
