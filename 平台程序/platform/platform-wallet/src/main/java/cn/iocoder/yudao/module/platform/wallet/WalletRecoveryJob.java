@@ -89,7 +89,7 @@ public class WalletRecoveryJob {
                     var order = transaction("paymentSnapshot", () -> payment.order(task.tenant(), task.wallet(), task.order()));
                     if ("SUCCEEDED".equals(order.paymentState()) || "BLOCKED".equals(order.creditState())) done = true;
                     else {
-                        var fact = channel().queryOrder(order.identity());
+                        var fact = payment.requireChannel(order.channel()).queryOrder(order.identity());
                         if (fact != null && "SUCCEEDED".equals(fact.state())) {
                             payment.processPaymentFact(task.tenant(), task.wallet(), task.order(), fact);
                             done = true;
@@ -167,7 +167,7 @@ public class WalletRecoveryJob {
                     var order = transaction("refundSnapshot", () -> payment.order(tenant, wallet, orderId));
                     var request = new PaymentPort.RefundRequest(order.identity(), (String) row.get("refund_no"), number(row, "amount_fen"),
                             ((Number) row.get("reason")).intValue(), (String) row.get("channel_refund_id"));
-                    var fact = channel().queryRefund(request);
+                    var fact = payment.requireChannel(order.channel()).queryRefund(request);
                     if (fact != null && fact.amountCents() != null) refunds.apply(tenant, wallet, orderId, fact, token);
                 }
             } catch (RuntimeException failure) {

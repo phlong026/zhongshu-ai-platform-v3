@@ -47,8 +47,6 @@ public class RefundPaymentService {
         requireNoTransaction();
         PointAccountService.requireText(key, 128);
         if (reason < 0 || reason > 5) throw WalletException.invalidRequest();
-        var channel = payment.requireChannel();
-        if (channel instanceof VirtualPaymentAdapter adapter) throw adapter.refundSubmissionUnavailable();
         Claim claim = transaction("claimRefund", () -> {
             var wallet = scope.require();
             payment.requirePermission(wallet, "platform:wallet:refund");
@@ -82,6 +80,8 @@ public class RefundPaymentService {
             return new Claim(order, id, no, token, reason, null);
         });
         if (claim.replay() != null) return claim.replay();
+        PaymentPort channel = payment.requireChannel(claim.order().channel());
+        if (channel instanceof VirtualPaymentAdapter adapter) throw adapter.refundSubmissionUnavailable();
         PaymentPort.ChannelRefundResult result;
         try {
             result = channel.requestRefund(new PaymentPort.RefundRequest(claim.order().identity(), claim.refundNo(),
