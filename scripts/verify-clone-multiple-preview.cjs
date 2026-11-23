@@ -42,7 +42,7 @@ function clonePage(){
  });
  const page={...definition,__scope:1,__generation:1,data:structuredClone(definition.data),setData:p=>Object.assign(page.data,p)};
  Object.assign(page.data,{rows:[person],digitalPeople:[person],digitalPersona:person,canManage:true});
- return {page,rows,requests,rejectNext:()=>reject=true};
+ return {page,rows,requests,api,rejectNext:()=>reject=true};
 }
 const event=kind=>({currentTarget:{dataset:{kind}}}),flush=()=>new Promise(r=>setImmediate(r));
 test('one persona can create two avatars and two voices without overwriting or reusing submissions',async()=>{
@@ -50,12 +50,31 @@ test('one persona can create two avatars and two voices without overwriting or r
  for(const kind of ['AVATAR','AVATAR','VOICE','VOICE']){
   h.page.openDigital(event(kind));await flush();
   Object.assign(h.page.data,{cloneUploadId:'upload-'+h.rows.length,cloneConsented:true});
-  await h.page.createClone();await flush();assert.equal(h.page.data.view,'resources');
+  await h.page.createClone();await flush();assert.equal(h.page.data.view,kind==='AVATAR'?'avatar':'resources');
  }
  assert.equal(h.rows.length,4);assert.equal(new Set(h.requests.map(r=>r.key)).size,4);
  assert.equal(new Set(h.rows.map(r=>r.title)).size,4);assert.equal(h.page.data.avatarCount,2);assert.equal(h.page.data.voiceCount,2);
  h.page.changeResourceFilter(event('AVATAR'));assert.equal(h.page.data.visibleCloneRows.length,2);
  h.page.changeResourceFilter(event('ALL'));assert.equal(h.page.data.visibleCloneRows.length,4);
+});
+test('portrait avatar page only shows the active person video clones and ignores late responses',async()=>{
+ const h=clonePage();const second={id:'43',name:'张工',enabled:true,canManage:false};
+ h.page.data.rows.push(second);h.page.data.digitalPeople=[...h.page.data.rows];
+ let finishFirst;const reads=[];
+ h.api.clones.list=async id=>{
+  reads.push(id);
+  if(id==='42')return new Promise(resolve=>{finishFirst=resolve;});
+  return [{id:'a2',kind:'AVATAR',title:'张工分身',ready:true},{id:'v2',kind:'VOICE',title:'张工声音',ready:true}];
+ };
+ h.page.openDigital(event('AVATAR'));
+ h.page.chooseDigitalPerson({detail:{value:'1'}});await flush();
+ assert.equal(h.page.data.view,'avatar');assert.equal(h.page.data.canManage,false);assert.equal(h.page.data.digitalPersona.id,'43');
+ assert.deepEqual(Array.from(h.page.data.avatarCloneRows,r=>r.id),['a2']);
+ finishFirst([{id:'old',kind:'AVATAR',title:'别人的分身',ready:true}]);await flush();
+ assert.deepEqual(Array.from(h.page.data.avatarCloneRows,r=>r.id),['a2']);assert.deepEqual(reads,['42','43']);
+ const wxml=fs.readFileSync(require.resolve('../miniprogram/pages/studio/characters/index.wxml'),'utf8');
+ assert.match(wxml,/inline-avatar-list[\s\S]*?wx:for="{{avatarCloneRows}}"/);
+ assert.match(wxml,/<button wx:else class="resource-link"/);
 });
 test('uncertain clone retries preserve the exact request and do not become an accidental second resource',async()=>{
  const h=clonePage();h.page.openDigital(event('VOICE'));await flush();

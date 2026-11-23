@@ -21,7 +21,7 @@ const watchdog=setTimeout(()=>{console.error('Native automation timed out');proc
   assert.equal((await data()).view,'detail');
   await call('openDigital',event({kind:'AVATAR'}));await until(async()=>!!(await data()).cloneQuote,'avatar quote');await shot('native-05-口播分身');
   await mp.evaluate(()=>{getCurrentPages().slice(-1)[0].setData({cloneUploadId:'101',cloneConsented:true});return true;});await call('createClone');
-  await until(async()=> (await data()).cloneRows.length===1,'avatar receipt');await call('refreshAll');
+  await until(async()=> (await data()).avatarCloneRows.length===1,'avatar receipt');assert.equal((await data()).view,'avatar');await call('refreshAll');
   await call('openDigital',event({kind:'VOICE'}));await until(async()=>!!(await data()).cloneQuote,'voice quote');await shot('native-06-语音克隆');
   await mp.evaluate(()=>{getCurrentPages().slice(-1)[0].setData({cloneUploadId:'102',cloneConsented:true});return true;});await call('createClone');
   await until(async()=> (await data()).cloneRows.length===2,'voice receipt');await call('refreshAll');
