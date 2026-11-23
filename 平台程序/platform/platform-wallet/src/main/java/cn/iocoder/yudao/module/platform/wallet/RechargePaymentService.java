@@ -283,10 +283,11 @@ public class RechargePaymentService {
                 validator.validate(order.identity(), fact);
                 jdbc.update("""
                         INSERT INTO pf_payment_transaction (id, tenant_id, wallet_id, order_id, channel, appid,
-                            offer_id, environment, transaction_id, order_type, amount_fen, paid_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING
+                            offer_id, environment, transaction_id, order_type, amount_fen, paid_at, payment_mode)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING
                         """, IdWorker.getId(), tenantId, walletId, orderId, fact.channel(), fact.appid(), fact.offerId(),
-                        fact.environment(), fact.channelTransactionId(), fact.orderType(), fact.amountCents(), Timestamp.from(fact.paidAt()));
+                        fact.environment(), fact.channelTransactionId(), fact.orderType(), fact.amountCents(),
+                        Timestamp.from(fact.paidAt()), order.paymentMode().name());
                 var recorded = jdbc.queryForList("""
                         SELECT transaction_id FROM pf_payment_transaction WHERE tenant_id = ? AND wallet_id = ? AND order_id = ?
                         AND channel = ? AND appid = ? AND offer_id = ? AND environment = ? AND amount_fen = ? AND order_type = ?
