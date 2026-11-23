@@ -27,7 +27,7 @@ Page({
 ...textResize.handlers,
   data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',cloneUploadStatus:'',draftStatus:'',draftConfirming:false,
     digitalPersona: null, digitalPeople: [], digitalPersonIndex: 0, cloneEntryKind: '', cloneRows: [], cloneLoading: false, cloneBusy: false, cloneError: '', cloneKind: 'AVATAR', cloneTitle: '', cloneUploadId: '', cloneConsented: false, cloneQuote: null, cloneRetry: false,expressionTags:[],profileExpanded:false,
-    cloneUploading:false,cloneReceiptPending:false,cloneUploadElapsed:0,cloneUploadPhase:0,cloneVideoPath:'',cloneVideoPoster:'',cloneAudioPath:'',cloneFileMeta:'',clonePreviewError:'',clonePreviewOpen:false,clonePreviewTop:24,cloneUploadSteps:['选择格式','申请凭证','网页直传','确认回执'],
+    cloneSelecting:false,cloneUploading:false,cloneReceiptPending:false,cloneUploadElapsed:0,cloneUploadPhase:0,cloneVideoPath:'',cloneVideoPoster:'',cloneAudioPath:'',cloneFileMeta:'',clonePreviewError:'',clonePreviewOpen:false,clonePreviewTop:24,cloneUploadSteps:['读取素材','上传素材','格式处理','确认上传'],
     previewAudioId:'',previewAudioPlaying:false,previewAudioLoading:false,previewAudioProgress:0,previewAudioPosition:'00:00',previewAudioDuration:'00:00',previewAudioError:'',resourceFilter:'ALL',visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneCreatedNotice:'',
     cloneStatus: { SUBMITTING:'提交确认中', RUNNING:'制作中', READY:'已就绪', FAILED:'制作失败', UNKNOWN:'结果待核实' } },
   onLoad() { if (!studio.guard()) return; this.__closed=false;this.__scope = studio.scope();this.__generation=http.sessionGeneration();this.__draftNetwork=e=>{if(e.isConnected&&this.__draft&&this.alive())this.__draft.flush().catch(()=>{});};if(wx.onNetworkStatusChange)wx.onNetworkStatusChange(this.__draftNetwork); },
@@ -35,7 +35,7 @@ Page({
     if (!studio.guard()) return;
     const post = auth.currentApiPost();
     this.__hidden=false;
-    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.stopRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
+    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.stopRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
     this.__scope = studio.scope();
     this.__generation=http.sessionGeneration();
     if (this.__uploadTick) this.__uploadTick();
@@ -177,7 +177,7 @@ Page({
     const row=this.data.rows.find(r=>r.id===String(id));if(!row)return;
     const kind=['AVATAR','VOICE'].includes(e.currentTarget.dataset.kind)?e.currentTarget.dataset.kind:'AVATAR';
     this.__clonePreview=null;this.resetAudioPreview();this.__cloneTitleAuto=true;
-    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
+    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCount:0,voiceCount:0,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
     const receipt = this.pendingReceipt(this.receiptKey(row.id,kind));
     if (receipt) this.setData({cloneReceiptPending:true,cloneFileName:receipt.name,cloneError:'文件已传完，可重试确认。'});
     const attempt=wx.getStorageSync(studio.scopedKey('zs-clone-attempt:'+row.id));
@@ -238,9 +238,10 @@ Page({
   },
   forgetReceipt(key,source) {
     if (!source) return;
-    if (this.__pendingReceipt?.source.uploadId === source.uploadId) this.__pendingReceipt = null;
+    const same = other => other && (source.assetId ? other.assetId === source.assetId : other.uploadId === source.uploadId);
+    if (this.__pendingReceipt?.key === key && same(this.__pendingReceipt.source)) this.__pendingReceipt = null;
     if (key) {
-      try { if (wx.getStorageSync(key)?.uploadId === source.uploadId) wx.removeStorageSync(key); } catch {}
+      try { if (same(wx.getStorageSync(key))) wx.removeStorageSync(key); } catch {}
     }
   },
   replaceCloneFile() { return this.uploadClone(true); },
@@ -263,19 +264,29 @@ Page({
       if (!alive()) return;
       if (!this.data.cloneQuote?.available) return this.setData({cloneError:this.data.cloneQuote?.message||'暂时无法获取制作价格，请重试'});
     }
+    const previous = Object.fromEntries(['cloneUploadId','canReplayUpload','cloneConsented','cloneFileName','cloneFileMeta',
+      'cloneVideoPath','cloneAudioPath','cloneVideoPoster','cloneUploadStatus','cloneReceiptPending','clonePreviewError']
+      .map(field => [field,this.data[field]]));
+    const previousPreview = this.__clonePreview;
     this.resetAudioPreview();
     this.__clonePreview = null;
-    this.setData({cloneBusy:true,cloneUploading:true,cloneError:'',cloneUploadId:'',canReplayUpload:false,cloneConsented:false,
+    this.setData({cloneBusy:true,cloneSelecting:!pending,cloneUploading:false,cloneError:'',cloneUploadId:'',canReplayUpload:false,cloneConsented:false,
       cloneFileName:'',cloneFileMeta:'',cloneVideoPath:'',cloneAudioPath:'',cloneVideoPoster:'',
-      cloneReceiptPending:!!pending,cloneUploadElapsed:0,cloneUploadPhase:pending?3:0,cloneUploadStatus:pending?'正在确认上传回执…':'请选择素材格式'});
-    const tick = this.startUploadClock(alive);
-    const progress = (phase, status) => {
+      cloneReceiptPending:!!pending,cloneUploadElapsed:0,cloneUploadPhase:pending?3:0,cloneUploadStatus:''});
+    let tick;
+    const progress = (phase, status, state = {}) => {
       if (!alive()) return;
-      tick();
+      // Native uploads signal selection explicitly; legacy web-view receipts arrive
+      // after transfer. Preparing a picker or grant must never look like an upload.
+      if (state.selected || phase >= 3) {
+        if (!tick) tick = this.startUploadClock(alive);
+        tick();
+        this.setData({cloneSelecting:false,cloneUploading:true});
+      }
       this.setData({cloneUploadPhase:phase,cloneUploadStatus:status});
     };
     try {
-      const upload = require('./hifly-upload');
+      const upload = require('./clone-upload');
       const uploaded = pending ? await upload.confirmReceipt(pending,alive,progress) :
         await upload(kind,person,alive,progress,source => {
           if (alive()) { pending = source; this.rememberReceipt(key,source); }
@@ -284,27 +295,42 @@ Page({
         this.forgetReceipt(key,pending);
         this.__clonePreview = uploaded.preview;
         this.setData({cloneReceiptPending:false,cloneUploadId:uploaded.id,cloneFileName:uploaded.name,canReplayUpload:!!uploaded.preview,
-          cloneFileMeta:(uploaded.size/1024/1024).toFixed(1)+' MiB',cloneUploadStatus:'客户端已上传'});
+          cloneFileMeta:(uploaded.size/1024/1024).toFixed(1)+' MiB',cloneUploadStatus:'素材已上传'});
         if (!this.data.cloneQuote?.available) this.loadQuote();
       }
     } catch (error) {
       if(alive()) {
         const code = Number(error.code);
-        const transient = code === -1 || code === 408 || code === 429 || (code >= 500 && code < 600);
+        const transient = code === -1 || code === 408 || code === 429 || code === 1114000012 || (code >= 500 && code < 600);
         if (pending && code > 0 && !transient) { this.forgetReceipt(key,pending); pending = null; }
         const reason = error.cancelled ? '' : P.degradeMessage(error);
         const message = pending && code === -1 ? '文件已传完，网络恢复后可重试确认。' : reason;
-        this.setData({cloneReceiptPending:!!pending,cloneFileName:pending?.name||'',cloneError:message,cloneUploadStatus:''});
+        if (error.cancelled && !pending) {
+          this.__clonePreview = previousPreview;
+          this.setData({...previous,cloneError:''});
+        } else this.setData({cloneReceiptPending:!!pending,cloneFileName:pending?.name||'',cloneError:message,cloneUploadStatus:''});
       }
     } finally {
-      if (this.__uploadTick === tick) this.stopUploadClock();
-      if(alive()) this.setData({cloneBusy:false,cloneUploading:false});
+      if (tick && this.__uploadTick === tick) this.stopUploadClock();
+      if(alive()) this.setData({cloneBusy:false,cloneSelecting:false,cloneUploading:false});
     }
   },
-  replayUpload() {
+  async replayUpload() {
     const source = this.__clonePreview;
-    if (!source || !this.alive() || this.data.cloneBusy || source.uploadId !== this.data.cloneUploadId) return;
+    if (!source || !this.alive() || this.data.cloneBusy || this.__clonePreviewLoading || source.uploadId !== this.data.cloneUploadId) return;
     const session = http.sessionGuard();
+    if (source.assetId) {
+      const valid = () => session() && this.alive() && this.__clonePreview === source && source.uploadId === this.data.cloneUploadId;
+      this.__clonePreviewLoading = true;
+      try {
+        const path = await require('./clone-upload').previewSource(source,valid);
+        if (!valid()) return;
+        if (source.kind === 'AVATAR') { this.setData({cloneVideoPath:path,clonePreviewError:''});this.previewCloneVideo(); }
+        else { this.setData({cloneAudioPath:path});this.playAudioPreview('upload',path); }
+      } catch (error) { if (valid()) this.setData({cloneError:P.degradeMessage(error)}); }
+      finally { this.__clonePreviewLoading = false; }
+      return;
+    }
     wx.navigateTo({url:'/pages/studio/characters/transfer?mode=replay',
       success:r => { if (session() && this.__clonePreview === source) r.eventChannel.emit('preview',source); },
       fail:() => { if (session()) this.setData({cloneError:'回放页未能打开，请重试'}); }});
@@ -339,7 +365,7 @@ Page({
     this.setData({clonePreviewOpen:false});
   },
   preventPreviewScroll() {},
-  cloneVideoError() {if(this.alive())this.setData({clonePreviewError:'当前素材暂不能播放，请重新选择MP4/H.264视频'});},
+  cloneVideoError() {if(this.alive())this.setData({clonePreviewError:'素材暂时无法播放，请重新打开预览'});},
   async createClone() {
     if(!this.data.canManage||!this.alive()||this.data.cloneBusy||!this.data.digitalPersona)return;
     const person=this.data.digitalPersona.id,quote=this.data.cloneQuote;
