@@ -14,6 +14,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -52,11 +53,14 @@ public class LeadService {
     private final LeadMapper leadMapper;
     private final CustomerMapper customerMapper;
     private final FranchiseCommands commands;
+    private final JdbcTemplate jdbcTemplate;
 
-    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands) {
+    public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands,
+                       JdbcTemplate jdbcTemplate) {
         this.leadMapper = leadMapper;
         this.customerMapper = customerMapper;
         this.commands = commands;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -65,6 +69,7 @@ public class LeadService {
             throw exception(STORE_SALES_POST_REQUIRED);
         }
         CaptureCommand input = normalize(command);
+        validatePublicationSource(post, input.source());
         var replay = commands.replayed(post, idempotencyKey, input);
         if (replay.isPresent()) {
             return resultOf(requireLead(replay.get().getAggregateId()));
@@ -155,6 +160,22 @@ public class LeadService {
                 .set(LeadDO::getNote, reason)));
         commands.record(post, AGGREGATE, leadId, revision + 1, "lead-invalid", reason, idempotencyKey);
         return leadMapper.selectById(leadId);
+    }
+
+    /** A publication source is accepted only when it resolves to a real, published record in this organization. */
+    private void validatePublicationSource(PostSnapshot post, String source) {
+        final String prefix = "内容发布:";
+        if (source == null || !source.startsWith(prefix)) return;
+        String rawId = source.substring(prefix.length());
+        if (!rawId.matches("\\d{1,19}")) throw exception(LEAD_INPUT_INVALID);
+        final long publicationId;
+        try { publicationId = Long.parseLong(rawId); }
+        catch (NumberFormatException ex) { throw exception(LEAD_INPUT_INVALID); }
+        Boolean published = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM fr_content_publication "
+                        + "WHERE company_id = ? AND id = ? AND status = 'published')",
+                Boolean.class, post.orgId(), publicationId);
+        if (!Boolean.TRUE.equals(published)) throw exception(LEAD_INPUT_INVALID);
     }
 
     private static CaptureCommand normalize(CaptureCommand c) {
