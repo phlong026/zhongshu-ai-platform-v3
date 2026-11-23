@@ -95,6 +95,8 @@ const publications = {
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
   /** 发布列表（?status= publishing|published|verify|failed|scheduled） */
   page: (status) => http.get('/franchise/content/publications', status ? { status } : undefined),
+  /** Resolve a published record to its original saved video; backend checks organization and published status. */
+  playback: id => http.get('/franchise/content/publications/' + encodeURIComponent(id) + '/playback'),
   /** 演示已发布 → 待回执核验；幂等键由调用方生成存 this（重试复用） */
   verify: (id, key) => http.post('/franchise/content/publications/' + id + '/verify', {}, idem(key, 'pub-verify')),
   /** 回执发布链接（全局唯一，重复登记 1_114_000_003）；幂等键由调用方生成存 this（重试复用） */
@@ -105,7 +107,9 @@ const publications = {
 
 const growth = {
   /** 获客聚合 {publications,leads,converted,perPublication}；客资登记复用 api/franchise/crm.js capture（source=内容发布:{publicationId}） */
-  summary: () => http.get('/franchise/content/growth/summary')
+  summary: () => http.get('/franchise/content/growth/summary'),
+  /** 当前客户可见的视频咨询来源；后端按客户负责人/团队权限过滤。 */
+  customerSources: customerId => http.get('/franchise/content/growth/customers/' + encodeURIComponent(customerId) + '/sources')
 };
 
 const clones = {
