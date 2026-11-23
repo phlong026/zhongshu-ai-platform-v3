@@ -87,8 +87,11 @@ public class ContentTaskController {
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Boolean> dismiss(@PathVariable("id") Long id) {
         PostSnapshot post = post();
-        // Ownership is checked against the authoritative task row before recording the personal hide action.
-        tasks.requireOwned(post.orgId(), id);
+        // Company existence is not enough: the task center is personal, so verify the task author too.
+        FrContentTaskDO task = tasks.requireOwned(post.orgId(), id);
+        if (!java.util.Objects.equals(task.getAuthorUserId(), post.userId())) {
+            throw exception(INPUT_INVALID); // same generic response; do not reveal another user's task
+        }
         jdbcTemplate.update(
                 "INSERT INTO fr_content_task_hidden (company_id, author_user_id, task_id, actor_post_id) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (company_id, author_user_id, task_id) DO NOTHING",
