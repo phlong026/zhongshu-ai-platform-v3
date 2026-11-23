@@ -268,13 +268,18 @@ wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none'
 async generateOnline(originalForm) {
 const useOriginal=!!originalForm&&originalForm===this.__originalTaskForm;
 if(!this.videoAlive()||this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal||this.__draft?.conflicted())return;
-const retrying=!!this.__videoSubmission;
+const submission=this.__videoSubmission,retrying=!!submission;
 if(!retrying&&!useOriginal&&(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15)){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
 let submitted=false;
 try {
+if(retrying){
+  const description=String(submission.payload.description||''),preview=description.slice(0,120)+(description.length>120?'…':'');
+  const result=await new Promise(resolve=>wx.showModal({title:'按原内容重试',content:'如果原任务已创建，本次只恢复原任务；如果上次未提交成功，本次会按原内容创建任务并按当前规则计费。当前修改不参与本次重试。\n\n原文案：'+preview,confirmText:'确认重试',success:resolve,fail:()=>resolve({confirm:false})}));
+  if(!result.confirm||!alive()||this.__videoSubmission!==submission||this.__draft?.conflicted())return;
+}
 // A replay resolves the frozen request before any new-form or material checks.
 // The server returns an existing task first, and authorizes assets if it must create one.
 if(!retrying){
