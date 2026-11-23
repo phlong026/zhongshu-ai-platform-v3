@@ -27,7 +27,7 @@ const checks = [
   {
     file: 'miniprogram/pages/admin/home/index.wxml',
     forbidden: ['付款已自动核对：不超约定额、流水无重复、凭证齐全，付后自动入账'],
-    required: ['待我决策', '重点项目']
+    required: ['今日待办', '重点项目']
   },
   {
     file: 'miniprogram/pages/admin/finance-desk/journey-forms.wxml',

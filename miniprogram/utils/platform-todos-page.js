@@ -13,7 +13,7 @@ function init(page) {
 }
 
 /** onShow 或手动重载入口；manual=true 强制新请求（绕过自动合并） */
-function refresh(page, manual) {
+function refresh(page, manual, list = todos.list) {
   const auth = require('../api/auth'); // 惰性引用，避免打包循环
   const post = http.token() ? auth.currentApiPost() : null;
   const state = page.data.platformTodos || PT.initialState();
@@ -30,7 +30,7 @@ function refresh(page, manual) {
   if (decision.action === 'skip') return;
   const ctx = { loadGen: decision.loadGen, sessionGen: decision.sessionGen, postKey: decision.postKey };
   page.setData({ platformTodos: PT.loadingState(state, ctx) });
-  todos.list().then(res => {
+  return list(post).then(res => {
     const r = PT.applyResponse(page.data.platformTodos, res, ctx, current(page));
     if (r.changed) page.setData({ platformTodos: r.state });
   }).catch(err => {

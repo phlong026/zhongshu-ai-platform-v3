@@ -21,10 +21,13 @@ module.exports = function(kind) {
       if(!link){ wx.showToast({title:FrLink.NOT_CONFIGURED,icon:'none'}); return; }
       wx.setClipboardData({data:link,success:()=>wx.showToast({title:'链接已复制，请在 PC 浏览器登录后打开',icon:'none'})});
     },
-    retryPlatformTodos(){ require('../../utils/platform-todos-page').retry(this); },
+    retryPlatformTodos(){ require('../../utils/platform-todos-page').refresh(this, true, require('../../utils/owner-todo-view').load); },
     retryHome(){ this.ownerAccessError = ''; this.refresh(true); this.loadOwnerProfile(true); },
     openHomeProjects(e){ if (this.ownerProjectsError) return this.retryHome(); return this.go(e); },
     openPlatformTodo(e){ require('../../utils/platform-todos-page').open(this, e); },
+    openOwnerTodoList(e) {
+      wx.navigateTo({ url:'/pages/admin/todos/index'+(e.detail?.decisions ? '?decisions=1' : '') });
+    },
     switchHomeFinanceTab(e) {
       const tab = e.currentTarget.dataset.tab;
       if (['operating', 'ledger'].includes(tab)) this.setData({ homeFinanceTab: tab });
@@ -262,7 +265,7 @@ module.exports = function(kind) {
       if (!PP.online()) { this.syncOwnerScope(); this.setData({ready:false,desk:null,rows:[],error:'请先登录后端账号'}); return; }
       this.syncOwnerScope();
       if (this.kind === 'home') {
-        require('../../utils/platform-todos-page').refresh(this, false);
+        require('../../utils/platform-todos-page').refresh(this, false, require('../../utils/owner-todo-view').load);
         this.refreshHomeModules(force);
       }
       this.refreshPlatView();

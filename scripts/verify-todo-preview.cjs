@@ -4,11 +4,11 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
-function component(rows,scope='engineer',appearance=''){
+function component(rows,scope='engineer',appearance='',ownerMode=false){
  let definition;
- vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/components/todo-preview/index.js'),'utf8'),{Component:v=>definition=v});
+ vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/components/todo-preview/index.js'),'utf8'),{Component:v=>definition=v,require:require('node:module').createRequire(path.join(root,'miniprogram/components/todo-preview/index.js'))});
  const events=[];
- const c={data:{...definition.data,rows,scope,appearance},setData(v){Object.assign(this.data,v);},triggerEvent(name,detail){events.push({name,detail});},...definition.methods};
+ const c={data:{...definition.data,rows,scope,appearance,ownerMode},setData(v){Object.assign(this.data,v);},triggerEvent(name,detail){events.push({name,detail});},...definition.methods};
  c.update=(items,identity=c.data.scope)=>{Object.assign(c.data,{rows:items,scope:identity});definition.observers['rows, scope'].call(c,items,identity);};
  c.update(rows);return {c,events};
 }
@@ -199,4 +199,77 @@ test('全部真实工作台模板保留刷新中的 todo-preview，并提供局�
   const retry=file.includes('finance-desk')?'refreshFinanceTasks':'retryPlatformTodos';
   if(state.refreshError)assert.ok(nodes.some(n=>n.attrs?.bindtap===retry),file+' has local retry');
  }
+});
+
+test('老板今日待办仅预览三条，全部角标表示未完成总数，两个入口独立',()=>{
+ const {render}=require('./role-page-runtime.cjs'),file=path.join(root,'miniprogram/components/todo-preview/index.wxml');
+ const assignee=(key,title,typeLabel='待办理')=>({key,title,typeLabel,clickable:true,path:'/pages/workflow/index'});
+ const decision=assignee('franchise:fee-approve:11','费用待处理','委托费用待审批');
+ const list=[assignee('fr-sale:contract-sign:2','签施工合同'),assignee('fr-eng:delay:3','节点延期'),
+  decision,assignee('fr-fin:bank-confirm:4','到账核实'),decision,
+  assignee('fr-sale:stage-pending:2','常规应收'),{...assignee('franchise:fee-approve:non','等待他人'),clickable:false}];
+ const {c,events}=component(list,'owner','home',true);c.data.title='今日待办';
+ const flatten=ns=>ns.flatMap(n=>[n,...flatten(n.children)]),text=n=>n.text||n.children.map(text).join('');
+ const nodes=flatten(render(file,c.data));
+ const actions=nodes.filter(n=>n.attrs?.bindtap==='openOwnerList');
+ assert.equal(c.data.total,4);assert.equal(c.data.decisionTotal,1);
+ assert.equal(c.data.visibleRows.length,3);assert.equal(c.data.visibleRows[0].key,decision.key);
+ assert.ok(c.data.visibleRows.every(r=>r.action==='去处理'));
+ assert.equal(text(nodes.find(n=>n.attrs?.class==='home-todo-badge')),'4');
+ assert.equal(actions.length,2);assert.ok(text(actions[0]).includes('待决策 1'));
+ assert.equal(nodes.some(n=>n.attrs?.bindtap==='toggle'),false);
+ c.activate({currentTarget:{dataset:{index:0}}});assert.equal(events[0].detail.item.key,decision.key);
+ c.openOwnerList({currentTarget:{dataset:{mode:'decisions'}}});assert.equal(events[1].detail.decisions,true);
+ c.update(list.filter(x=>x.key!==decision.key));assert.equal(c.data.total,3);assert.equal(c.data.decisionTotal,0);
+});
+
+test('老板待办完整页组合来源与待决策过滤，切换身份后旧单不打开',async()=>{
+ const helper=require('../miniprogram/utils/owner-todo-view');
+ const contract={key:'fr-sale:contract-sign:2',title:'合同面签',path:'/pages/workflow/index',clickable:true};
+ const fee={...contract,key:'franchise:fee-approve:11',title:'委托费用待审批'};
+ const eng={...contract,key:'fr-eng:delay:3',title:'节点延期'};
+ const cash={...contract,key:'fr-fin:bank-confirm:4',title:'到账核实'};
+ const engineeringMoney={...contract,key:'eng-collect:15:BASE_DONE',amount:'¥10.00'};
+ const raw=[contract,eng,fee,cash,engineeringMoney];
+ assert.deepEqual(helper.filter(helper.board(raw).rows,'engineering',false).map(x=>x.key),[eng.key,engineeringMoney.key]);
+ assert.deepEqual(helper.filter(helper.board(raw).rows,'engineering',true),[]);
+ let definition;const opens=[];let session=1;
+ let post={orgType:'store',roleCode:'owner',orgId:'1',postId:'A'};
+ const core=require('../miniprogram/utils/platform-todos');
+ const pageHelper={
+  init(p){p.__ptLoadGen=0;p.setData({platformTodos:core.initialState()})},
+  refresh(p){return Promise.resolve().then(()=>p.setData({platformTodos:{rows:raw,postKey:core.postKeyOf(post),sessionGen:session,status:'ready'}}))},
+  open(p,e){opens.push(e.detail.item.key)}
+ };
+ vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/pages/admin/todos/index.js'),'utf8'),{
+  Page:v=>definition=v,require(n){if(n.endsWith('/platform-todos-page'))return pageHelper;if(n.endsWith('/owner-todo-view'))return helper;
+   if(n.endsWith('/api/auth'))return {currentApiPost:()=>post};if(n.endsWith('/api/http'))return {token:()=>true,sessionGeneration:()=>session};return core}
+ });
+ const p={...definition,data:{...definition.data},setData(v){Object.assign(this.data,v)}};
+ p.onLoad({decisions:'1'});await p.refresh();assert.deepEqual(p.data.rows.map(x=>x.key),[fee.key]);
+ p.selectSource({currentTarget:{dataset:{source:'engineering'}}});assert.equal(p.data.rows.length,0);
+ p.toggleDecisions({detail:{value:false}});assert.equal(p.data.rows.length,2);
+ const tap={currentTarget:{dataset:{key:eng.key}}};p.open(tap);assert.deepEqual(opens,[eng.key]);
+ session++;p.open(tap);assert.deepEqual(opens,[eng.key]);
+ post={...post,roleCode:'finance'};await p.refresh();assert.equal(p.data.rows.length,0);
+});
+
+test('真实提成核对阶段可直达原单，关闭或等待补款时不伪造待决策',()=>{
+ const H=require('../miniprogram/utils/owner-todo-view'),P=require('../miniprogram/utils/platform-performance');
+ const projectId='9007199254740999';
+ const raw={projectId,stages:[
+  {stage:'SIGN_AFTER',reviewDue:true,eligible:true,paidCents:0},
+  {stage:'BASE_DONE',reviewDue:true,eligible:false,paidCents:0},
+  {stage:'CAP_DONE',reviewDue:false,eligible:true,paidCents:1}
+ ]};
+ const initial={items:[],actionableCount:0,failedDomains:[]};
+ const reviewRows=[P.commissionRowView(raw,'boss','测试项目')];
+ const result=H.mergeReviews(initial,reviewRows.concat(reviewRows));
+ assert.equal(result.actionableCount,1);
+ const item=require('../miniprogram/utils/platform-todos').rowOf(result.items[0]);
+ const board=H.board([item]);
+ assert.equal(board.decisionTotal,1);assert.equal(board.rows[0].source,'finance');
+ assert.equal(item.path,'/pages/admin/commission/index?id='+projectId+'&reviewStage=SIGN_AFTER');
+ assert.equal(H.mergeReviews(initial,[P.commissionRowView(raw,'owner')]).items.length,0);
+ assert.deepEqual(H.mergeReviews(initial,null,true).failedDomains,['提成复核']);
 });

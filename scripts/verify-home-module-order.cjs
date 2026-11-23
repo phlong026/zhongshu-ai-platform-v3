@@ -33,6 +33,7 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
     if (url === '/platform/profile/mine') data = { nickname };
     else if (url === '/platform/todos') data = { items: [], failedDomains: [], actionableCount: 0 };
     else if (url === '/franchise/commissions' || url === '/franchise/crm/customers' || url.includes('design-fees')) data = { list: [], total: 0 };
+    else if (url === '/franchise/performance/commission/rows') data = []; // Separate commission read returns a list.
     else if (url.includes('performance')) data = { departments: {}, totals: {}, trend: [], company: {}, members: [], departmentsGoals: {} };
     else if (url.includes('growth')) data = {};
     setImmediate(() => options.success({ statusCode: 200, data: { code: 0, data } }));
@@ -53,6 +54,10 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
     const overview=nodes.find(n=>n.tag==='home-overview');
     const todo=nodes.find(n=>n.tag==='todo-preview' || (hasClass(n,todoClass) && /今日待办|待办事项|待办加载中/.test(text(n))));
     assert.ok(todo,nickname+' todo module');
+    if (roleCode==='boss' || roleCode==='owner') {
+      assert.equal(todo.attrs.title,'今日待办');
+      assert.equal(todo.attrs['owner-mode'],true);
+    }
     let first,last;
     if ((orgType==='headquarters' && roleCode.startsWith('finance')) || roleCode==='hq-design-admin') {
       const cards=nodes.filter(n=>hasClass(n,metricClass));assert.equal(cards.length,4,nickname+' headquarters cards');

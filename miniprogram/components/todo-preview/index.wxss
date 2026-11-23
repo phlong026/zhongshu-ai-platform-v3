@@ -22,3 +22,13 @@
 .home-todo-heading>button{width:auto;flex-shrink:0}.home-todo-heading>view{flex-shrink:0;white-space:nowrap}
 
 .home-todo-heading>view{font-size:38rpx;font-weight:700}
+
+.owner-today-todos.home-todos{background:#fff;border-radius:24rpx;margin:0;padding:20rpx 24rpx;box-sizing:border-box}
+.owner-today-todos .owner-todo-heading{display:flex;align-items:center;justify-content:space-between;gap:8rpx;min-height:48rpx;font-size:34rpx;font-weight:700;color:#111}
+.owner-today-todos .owner-todo-heading>text{white-space:nowrap}
+.owner-today-todos .owner-todo-links{display:flex;align-items:center;justify-content:flex-end;gap:20rpx}
+.owner-today-todos .owner-todo-links button{width:auto;display:flex;align-items:center;gap:6rpx;white-space:nowrap;padding:0;font-size:24rpx;line-height:60rpx;color:#8b522b}
+.owner-today-todos .home-todo-badge{min-width:34rpx;height:34rpx;font-size:23rpx}
+.owner-today-todos .todo-rows{padding:0}
+.owner-today-todos .todo-preview-row{border-bottom:0}
+.owner-today-todos .todo-action{color:#8b522b;background:none;border:1rpx solid #8b522b;border-radius:40rpx;padding:8rpx 18rpx;white-space:nowrap}
