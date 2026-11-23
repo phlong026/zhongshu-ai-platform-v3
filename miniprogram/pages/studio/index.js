@@ -211,6 +211,14 @@ openCharacters() { wx.navigateTo({url:'/pages/studio/characters/index'}); },
 inputRequirement(e) { this.setData({ requirement: e.detail.value, operationError: '' }); },
 inputOriginal(e) { const state=studio.read();state.original=String(e.detail.value||'');state.script='';state.rewriteHistory=[];delete state.extraction;studio.write(state);this.setData({original:state.original,script:'',scriptShort:'',scriptLength:0,estimatedSeconds:0,rewriteVersion:0,operationError:'',extraction:null}); },
 inputCustomIp(e) { this.setData({ customIp: e.detail.value }); },
+inputRewrittenScript(e) {
+if(this.__closed||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration())return;
+const text=String(e.detail.value||''),state=studio.read();
+state.script=text;state.scriptEdited=true;delete state.editorBuffer;studio.write(state);
+const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
+if(draft&&draft.text===state.original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
+this.setData({script:text,scriptShort:text.split('\n').slice(0,2).join('\n'),scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),operationError:''});
+},
 editScript() { const buffer = studio.read().editorBuffer; this.setData({ sheet: 'editor', sheetTitle: '编辑口播文案', editingText: buffer && buffer.source === this.data.original ? buffer.text : this.data.script });keyboard.open(this); },
 editorKeyboardChange(e) { keyboard.update(this,e); },
 inputEdit(e) { this.setData({ editingText: e.detail.value }); const state = studio.read(); state.editorBuffer = { source: this.data.original, text: e.detail.value }; studio.write(state); },
@@ -235,6 +243,7 @@ regenerateOnline(original) {
 const persona=this.data.rewriteMode===1?String(this.data.customIp||'').trim():String(this.data.ipOptions[this.data.ipIndex]||'');
 const requirement=String(this.data.requirement||'').trim();
 const scope=this.actorScope;
+const revision=studio.read().copyRevision;
 const guard=http.requestGuard('remix-generate');
 const alive=()=>!this.__closed&&guard()&&this.actorScope===scope&&scope===studio.scope();
 const finish=()=>{if(alive()){this.setData({rewriting:false});this.scrollToCopy();}};
@@ -242,17 +251,18 @@ const apply=text=>{
 if(!alive())return;
 const state=studio.read();
 const version=((state.rewriteHistory[state.rewriteHistory.length-1]||{}).version||0)+1;
-state.original=original;state.script=text;
-state.rewriteHistory=state.rewriteHistory.concat({version,online:true,mode:'api-optimize',persona,requirement,original,script:text,at:Date.now()});
-state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,selectedPersonaId:this.data.selectedPersonaId||'',requirement};
+const applied=state.copyRevision===revision&&this.data.original.trim()===original&&this.data.sheet!=='editor';
+if(applied){state.original=original;state.script=text;delete state.editorBuffer;
+state.rewriteSettings={rewriteMode:this.data.rewriteMode,customIp:this.data.customIp||'',ipIndex:this.data.ipIndex,selectedPersonaId:this.data.selectedPersonaId||'',requirement};}
+state.rewriteHistory=state.rewriteHistory.concat({version,online:true,mode:'api-optimize',persona,requirement,original,script:text,applied,at:Date.now()});
 studio.write(state);
 const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
-if(draft&&draft.text===original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
-this.setData({script:text,scriptShort:text.split('\n').slice(0,2).join('\n'),scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),rewriteVersion:version});
-wx.showToast({title:'二创已生成',icon:'none'});
+if(applied&&draft&&draft.text===original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
+if(applied)this.setData({script:text,scriptShort:text.split('\n').slice(0,2).join('\n'),scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),rewriteVersion:version});
+wx.showToast({title:applied?'二创已生成':'稿件已修改，生成结果已保留，可到任务中心查看',icon:'none'});
 finish();
 };
-this.fetchPersonaId(persona).then(personaId=>{
+return this.fetchPersonaId(persona).then(personaId=>{
 if(!alive())throw {cancelled:true};
 const payload={sourceText:original};
 const custom=this.data.rewriteMode===1?persona:'';

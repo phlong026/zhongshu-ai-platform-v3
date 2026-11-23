@@ -13,7 +13,7 @@ return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId
 Page({
 ...textResize.handlers,
 data: {
-mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameSource:{},lastFrameSource:{},firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameSource:{},lastFrameSource:{},firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,draftConflicted:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -72,7 +72,7 @@ this.__draft=require('./video-draft').create({key,storage:wx,storageKey,initialD
   valid:()=>this.__draftSession()&&scope===studio.scope(),
   getForm:()=>this.videoForm(),
   applyForm:draft=>{if(this.videoAlive())this.applyVideoForm(draft);},
-  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>{if(this.videoAlive())this.setData({draftStatus});}});
+  api:{read:key=>contentApi.drafts.videoDraft(key),save:(key,draft)=>this.saveVideoDraftSnapshot(key,draft)},onStatus:draftStatus=>{if(this.videoAlive())this.setData({draftStatus,draftConflicted:!!this.__draft?.conflicted()});}});
 }
 const draft=this.__draft;
 return draft.start().then(ready=>{
@@ -167,7 +167,7 @@ await Promise.all(jobs.map(async job=>{
 if(alive())this.setData({mediaLoading:false,mediaError:errors.filter(error=>error.current()).map(error=>error.message).join('；')});
 },
 retryDraft(){
-  if(!this.__draft||!this.videoAlive())return;
+  if(!this.__draft||!this.videoAlive()||this.data.generating)return;
   if(this.__draft.conflicted())return wx.showActionSheet({itemList:['保留当前填写','使用云端草稿'],success:result=>this.__draft.resolve(result.tapIndex===0)
     .then(()=>{if(this.videoAlive())this.setData({taskDraftBlocked:false});})
     .catch(e=>{if(this.videoAlive())this.setData({draftStatus:e.message});})});
@@ -175,7 +175,7 @@ retryDraft(){
 },
 async useOriginalTask(){
   const original=this.__originalTaskForm,id=this.data.editingTaskId;
-  if(!original||!this.data.taskDraftBlocked||this.data.taskLoading||this.data.generating||!this.videoAlive())return;
+  if(!original||!this.data.taskDraftBlocked||this.data.taskLoading||this.data.generating||!this.videoAlive()||this.__draft?.conflicted())return;
   if(this.__videoSubmission)return this.generateOnline(original);
   const result=await new Promise(resolve=>wx.showModal({title:'用原任务另建',content:'将使用原任务的文案和素材创建新任务，按当前规则计费。尚未读取的修改稿会保留。',confirmText:'用原任务',success:resolve,fail:()=>resolve({confirm:false})}));
   if(!result.confirm||!this.videoAlive()||id!==this.data.editingTaskId||original!==this.__originalTaskForm||!this.data.taskDraftBlocked)return;
@@ -265,26 +265,31 @@ if (!http.token()) return wx.showToast({ title: '请先登录后再优化提示�
 // 提示词优化暂无在线通道：不再回落本地演示改写，如实提示
 wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面描述', icon: 'none' });
 },
-generate() {
-if (this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked) return;
+async generate() {
+if (this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked||this.__draft?.conflicted()) return;
 if(this.__videoSubmission)return this.generateOnline();
 if(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (this.data.mode === 'reference' && !this.data.references.length) { wx.showToast({ title: '请先添加参考素材', icon: 'none' }); return; }
-this.saveDraft();
+await this.saveDraft();
 if (http.token()) return this.generateOnline(); // 在线：直连后端创建 ai_video 任务
 wx.showToast({ title: '请先登录后端账号后再生成视频', icon: 'none' });
 },
 async generateOnline(originalForm) {
 const useOriginal=!!originalForm&&originalForm===this.__originalTaskForm;
-if(!this.videoAlive()||this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal)return;
-const retrying=!!this.__videoSubmission;
+if(!this.videoAlive()||this.data.generating||this.data.invalidMessage||this.data.taskLoading||this.data.taskDraftBlocked&&!useOriginal||this.__draft?.conflicted())return;
+const submission=this.__videoSubmission,retrying=!!submission;
 if(!retrying&&!useOriginal&&(!/^\d+$/.test(this.data.durationInput)||Number(this.data.durationInput)<4||Number(this.data.durationInput)>15)){this.setData({durationError:'请输入 4–15 的整数秒'});return;}
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&scope===studio.scope();
 this.setData({generating:true});
 let submitted=false;
 try {
+if(retrying){
+  const description=String(submission.payload.description||''),preview=description.slice(0,120)+(description.length>120?'…':'');
+  const result=await new Promise(resolve=>wx.showModal({title:'按原内容重试',content:'如果原任务已创建，本次只恢复原任务；如果上次未提交成功，本次会按原内容创建任务并按当前规则计费。当前修改不参与本次重试。\n\n原文案：'+preview,confirmText:'确认重试',success:resolve,fail:()=>resolve({confirm:false})}));
+  if(!result.confirm||!alive()||this.__videoSubmission!==submission||this.__draft?.conflicted())return;
+}
 // A replay resolves the frozen request before any new-form or material checks.
 // The server returns an existing task first, and authorizes assets if it must create one.
 if(!retrying){
@@ -313,6 +318,7 @@ for(const input of inputs){
     references.push(Object.assign({role:input.role,assetId:String(input.assetId)},input.name?{name:input.name}:{}));
   }
   if(references.length)payload.references=references;
+  if(this.__draft?.conflicted())throw Error('请先选择要使用的草稿版本');
   this.__videoSubmission={payload,key:'video-'+Date.now()+'-'+Math.floor(Math.random()*1e8)};
 }
 if(!alive())return;

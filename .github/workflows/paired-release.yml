@@ -24,7 +24,7 @@ permissions:
 jobs:
   verify-pair:
     # Update this pinned workflow only after the corresponding backend workflow is merged.
-    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@15662356f3b1abdc40e57dadcf6d0f204ddc3024
+    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@474fba410bbca5c97e2e0c9d2bb732709c609e2a
     with:
       frontend_sha: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_sha || github.event.pull_request.head.sha || github.sha }}
       backend_sha: ${{ inputs.backend_sha || 'backend-main' }}
