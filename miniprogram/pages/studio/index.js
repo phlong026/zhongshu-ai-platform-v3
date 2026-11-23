@@ -39,6 +39,7 @@ ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}]
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 taskCount:0,tasks: [], records: [], works: [],  publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
+digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', workId: '', saved: false,
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -76,11 +77,12 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard()){this.resetLists();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+(this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):'' )});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
+onShow() {if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+(this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):'' )});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
   },
 onHide() {
 // A return may follow an edit on another page. Keep the snapshot, but never reuse its pre-hide read.
 if(this.__listFlights){this.__listFlights={};this.setData({tasksLoading:false,worksLoading:false,recordsLoading:false});}
+if(this.data.view==='digital')this.cancelDigitalResources();
 this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
 onUnload() { this.stopOptimization();if (this.__digitalPoll && this.__digitalPoll.cancel) this.__digitalPoll.cancel(); if(this.data.view==='library')this.materialUnload(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.destroy();if(this.data.digitalSubmitting)wx.hideLoading(); this.__closed=true; this.persistEditor(); }, // 终止任务轮询（防 UI 长时间占锁）
 persistEditor() {
@@ -426,42 +428,89 @@ if(!this.__digitalAttempt)this.setData({digitalRetry:false});
 if(this.__digitalAttempt){const {payload,personaId}=attempt,state=studio.read();state.script=payload.text;state.title=payload.title;studio.write(state);this.setData({digitalRetry:true,digitalPersonaId:personaId||'',script:payload.text,title:payload.title,scriptLength:payload.text.length});}
 },
 inputDigitalScript(e) {if(this.data.digitalSubmitting||this.data.digitalRetry)return;const text=e.detail.value,state=studio.read();state.script=text;state.scriptEdited=true;studio.write(state);this.setData({script:text,scriptLength:text.length,estimatedSeconds:Math.ceil(text.replace(/\s/g,'').length/4),operationError:''});},
-async loadDigitalProfiles(preferred) {
-const guard=http.requestGuard('digital-personas'),scope=this.actorScope;
-this.setData({digitalLoading:true,operationError:'',digitalPersonas:[],digitalPersonaId:'',actor:'',voice:'',avatarCloneId:'',voiceCloneId:'',avatarOptions:[],voiceOptions:[]});
-try{
+cancelDigitalResources(){this.__digitalProfilesFlight=null;this.__digitalClonesFlight=null;if(this.data.digitalLoading)this.setData({digitalLoading:false});},
+clearDigitalClones(patch={}){
+this.__digitalClonesFlight=null;this.__digitalClonePersona='';
+this.setData({avatarOptions:[],voiceOptions:[],avatarCloneId:'',voiceCloneId:'',actor:'',voice:'',actorIsDefault:false,voiceIsDefault:false,...patch});
+},
+resetDigitalResources(){
+this.__digitalProfilesFlight=null;this.__digitalScope='';
+if(this.__voiceAudio)this.__voiceAudio.stop();
+this.clearDigitalClones({digitalPersonas:[],digitalPersonaId:'',digitalPersonaIndex:0,digitalLoading:false,digitalResourceError:'',...(['actor','voice'].includes(this.data.sheet)?{sheet:''}:{})});
+},
+prepareDigitalResources(){
+if(this.__closed)return '';
+if(!http.token()||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){this.resetDigitalResources();return '';}
+const scope=listIdentity();if(this.__digitalScope!==scope){this.resetDigitalResources();this.__digitalScope=scope;}return scope;
+},
+digitalResourceCurrent(flight){
+if(this.__closed||this[flight.owner]!==flight||this.data.view!==flight.view)return false;
+if(!http.token()||flight.scope!==listIdentity()||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){
+this.resetDigitalResources();this.setData({digitalResourceError:'工作身份已变化，请重新加载资源'});return false;
+}
+return flight.guard()&&(!flight.personaId||this.data.digitalPersonaId===flight.personaId);
+},
+digitalResourceFailure(flight,error){
+if(this.__closed||this[flight.owner]!==flight||this.data.view!==flight.view)return;
+const denied=error&&(error.postInvalid||[401,403,1103000002].includes(Number(error.code)));
+if(denied)this.resetDigitalResources();else if(!this.digitalResourceCurrent(flight))return;
+this.setData({digitalResourceError:P.degradeMessage(error)});
+},
+finishDigitalResource(flight){if(this[flight.owner]===flight){this[flight.owner]=null;this.setData({digitalLoading:!!(this.__digitalProfilesFlight||this.__digitalClonesFlight)});}},
+digitalSelectionCurrent(){
+if(this.__closed)return false;
+if(http.token()&&this.actorScope===studio.scope()&&this.actorSessionGeneration===http.sessionGeneration()&&this.__digitalScope===listIdentity())return true;
+this.resetDigitalResources();this.setData({digitalResourceError:'工作身份已变化，请重新加载资源'});return false;
+},
+loadDigitalProfiles(preferred) {
+const scope=this.prepareDigitalResources();if(!scope)return;
+if(this.__digitalProfilesFlight&&this.digitalResourceCurrent(this.__digitalProfilesFlight))return this.__digitalProfilesFlight.promise;
+const flight={scope,view:this.data.view,owner:'__digitalProfilesFlight',guard:http.requestGuard('digital-personas')};this.__digitalProfilesFlight=flight;
+this.setData({digitalLoading:true,digitalResourceError:''});
+flight.promise=(async()=>{try{
 const rows=P.rowsOf(await contentApi.personas.page()).filter(r=>r&&r.enabled!==false&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({id:String(r.id),name:String(r.name||'未命名人物')}));
-if(this.__closed||!guard()||scope!==studio.scope())return;
-const attempt=this.__digitalAttempt;
-const saved=attempt?{personaId:attempt.personaId,avatarId:attempt.payload.avatarCloneId,voiceId:attempt.payload.voiceCloneId}:studio.read().digitalSelection||{};
-const id=String(saved.personaId&&attempt?saved.personaId:preferred||saved.personaId||''),index=Math.max(0,rows.findIndex(r=>r.id===id));
-this.setData({digitalPersonas:rows,digitalPersonaIndex:index,digitalPersonaId:rows[index]?rows[index].id:'',digitalLoading:false});
-if(rows[index])return this.loadDigitalClones(rows[index].id,saved);
-this.setData({operationError:'人物库暂无可选人物，请先由管理员新增人物并制作分身和声音'});
-}catch(e){if(!this.__closed&&guard()&&scope===studio.scope())this.setData({digitalLoading:false,operationError:P.degradeMessage(e)});}
+if(!this.digitalResourceCurrent(flight))return;
+const attempt=this.__digitalAttempt,saved=attempt?{personaId:attempt.personaId,avatarId:attempt.payload.avatarCloneId,voiceId:attempt.payload.voiceCloneId}:studio.read().digitalSelection||{};
+const id=String(attempt?saved.personaId||'':this.data.digitalPersonaId||preferred||saved.personaId||'');
+let index=rows.findIndex(r=>r.id===id);if(index<0&&!attempt)index=rows.length?0:-1;
+const person=rows[index],patch={digitalPersonas:rows,digitalPersonaIndex:Math.max(0,index),digitalPersonaId:person?person.id:''};
+if(!person||person.id!==this.data.digitalPersonaId)this.clearDigitalClones(patch);else this.setData(patch);
+if(person)await this.loadDigitalClones(person.id,saved.personaId===person.id?saved:{});
+else this.setData({digitalResourceError:attempt?'原提交人物已停用或不存在，可到任务中心确认原提交结果':'人物库暂无可选人物，请先由管理员新增人物并制作分身和声音'});
+}catch(e){this.digitalResourceFailure(flight,e);}finally{this.finishDigitalResource(flight);}})();
+return flight.promise;
 },
-changeDigitalPersona(e) {if(this.__generating||this.data.digitalRetry)return;const index=Number(e.detail.value),person=this.data.digitalPersonas[index];if(person){this.setData({digitalPersonaIndex:index,digitalPersonaId:person.id});this.loadDigitalClones(person.id,{});}},
-async loadDigitalClones(personaId,saved={}) {
-const guard=http.requestGuard('digital-clones'),scope=this.actorScope;
-this.setData({digitalLoading:true,operationError:'',avatarOptions:[],voiceOptions:[],avatarCloneId:'',voiceCloneId:'',actor:'',voice:''});
-try{
+refreshDigitalResources(){return this.loadDigitalProfiles(this.data.digitalPersonaId);},
+changeDigitalPersona(e) {if(this.__generating||this.data.digitalRetry||!this.digitalSelectionCurrent())return;const index=Number(e.detail.value),person=this.data.digitalPersonas[index];if(person&&person.id!==this.data.digitalPersonaId){this.__digitalProfilesFlight=null;this.clearDigitalClones({digitalPersonaIndex:index,digitalPersonaId:person.id});return this.loadDigitalClones(person.id,{});}},
+loadDigitalClones(personaId,saved={}) {
+personaId=String(personaId||'');const scope=this.prepareDigitalResources();if(!scope||!personaId)return;
+if(this.data.digitalPersonaId&&this.data.digitalPersonaId!==personaId)return;
+if(!this.data.digitalPersonaId)this.setData({digitalPersonaId:personaId});
+if(this.__digitalClonesFlight&&this.digitalResourceCurrent(this.__digitalClonesFlight))return this.__digitalClonesFlight.promise;
+const retained=this.__digitalClonePersona===personaId;
+if(!retained)this.clearDigitalClones();this.__digitalClonePersona=personaId;
+const flight={scope,view:this.data.view,personaId,owner:'__digitalClonesFlight',guard:http.requestGuard('digital-clones')};this.__digitalClonesFlight=flight;
+this.setData({digitalLoading:true,digitalResourceError:''});
+flight.promise=(async()=>{try{
 const rows=P.rowsOf(await contentApi.clones.list(personaId)).filter(r=>r&&r.ready&&r.id!=null&&r.mock!==true&&r.demo!==true);
-if(this.__closed||!guard()||scope!==studio.scope()||this.data.digitalPersonaId!==personaId)return;
-const avatars=rows.filter(r=>r.kind==='AVATAR'),voices=rows.filter(r=>r.kind==='VOICE');
-// Pending paid submissions keep their exact snapshot; fresh generation prefers server defaults.
-const choose=(options,id)=>this.__digitalAttempt?options.find(r=>String(r.id)===String(id)):
-  options.find(r=>r.isDefault===true)||options.find(r=>String(r.id)===String(id))||options[0];
-const a=choose(avatars,saved.avatarId),v=choose(voices,saved.voiceId);
-this.setData({digitalLoading:false,avatarOptions:avatars,voiceOptions:voices,avatarCloneId:a?String(a.id):'',voiceCloneId:v?String(v.id):'',actor:a?a.title:'',voice:v?v.title:'',actorIsDefault:!!(a&&a.isDefault),voiceIsDefault:!!(v&&v.isDefault),operationError:''});
+if(!this.digitalResourceCurrent(flight))return;
+const avatars=rows.filter(r=>r.kind==='AVATAR'),voices=rows.filter(r=>r.kind==='VOICE'),attempt=this.__digitalAttempt;
+// A fresh creation uses server defaults. Refresh keeps live choices, and paid retries keep their exact IDs.
+const choose=(options,id,current)=>attempt?options.find(r=>String(r.id)===String(id)):
+  (retained&&options.find(r=>String(r.id)===String(current)))||options.find(r=>r.isDefault===true)||options.find(r=>String(r.id)===String(id))||options[0];
+const a=choose(avatars,attempt?attempt.payload.avatarCloneId:saved.avatarId,this.data.avatarCloneId),v=choose(voices,attempt?attempt.payload.voiceCloneId:saved.voiceId,this.data.voiceCloneId);
+this.setData({avatarOptions:avatars,voiceOptions:voices,avatarCloneId:a?String(a.id):'',voiceCloneId:v?String(v.id):'',actor:a?a.title:'',voice:v?v.title:'',actorIsDefault:!!(a&&a.isDefault),voiceIsDefault:!!(v&&v.isDefault),digitalResourceError:!a||!v?'当前人物缺少可用的'+(!a?'分身':'')+(!a&&!v?'和':'')+(!v?'声音':'')+'，请在人物资源中查看状态':''});
 this.persistDigitalSelection();
-}catch(e){if(!this.__closed&&guard()&&scope===studio.scope())this.setData({digitalLoading:false,operationError:P.degradeMessage(e)});}
+}catch(e){this.digitalResourceFailure(flight,e);}finally{this.finishDigitalResource(flight);}})();
+return flight.promise;
 },
-persistDigitalSelection(){if(this.actorScope!==studio.scope())return;const state=studio.read();state.digitalSelection={personaId:this.data.digitalPersonaId,avatarId:this.data.avatarCloneId,voiceId:this.data.voiceCloneId};studio.write(state);},
-changeActor() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'actor', sheetTitle: '选择数字分身' }); },
-selectActor(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.avatarOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({actor:item.title,avatarCloneId:String(item.id),actorIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
-changeVoice() {if(this.__generating||this.data.digitalRetry)return; this.setData({ sheet: 'voice', sheetTitle: '选择克隆声音' }); },
-selectVoice(e) {if(this.__generating||this.data.digitalRetry)return; const item=this.data.voiceOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({voice:item.title,voiceCloneId:String(item.id),voiceIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
+persistDigitalSelection(){if(!this.digitalSelectionCurrent())return;const state=studio.read();state.digitalSelection={personaId:this.data.digitalPersonaId,avatarId:this.data.avatarCloneId,voiceId:this.data.voiceCloneId};studio.write(state);},
+changeActor() {if(this.__generating||this.data.digitalRetry||!this.digitalSelectionCurrent())return; this.setData({ sheet: 'actor', sheetTitle: '选择数字分身' }); },
+selectActor(e) {if(this.__generating||this.data.digitalRetry||!this.digitalSelectionCurrent())return; const item=this.data.avatarOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({actor:item.title,avatarCloneId:String(item.id),actorIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
+changeVoice() {if(this.__generating||this.data.digitalRetry||!this.digitalSelectionCurrent())return; this.setData({ sheet: 'voice', sheetTitle: '选择克隆声音' }); },
+selectVoice(e) {if(this.__generating||this.data.digitalRetry||!this.digitalSelectionCurrent())return; const item=this.data.voiceOptions.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(item){this.setData({voice:item.title,voiceCloneId:String(item.id),voiceIsDefault:!!item.isDefault,sheet:''});this.persistDigitalSelection();} },
 audition() {
+if(!this.digitalSelectionCurrent())return;
 const selected=this.data.voiceOptions.find(r=>String(r.id)===String(this.data.voiceCloneId));
 if(!selected||!selected.demoUrl)return wx.showToast({title:'暂无可用试听音频，请在人物库刷新状态',icon:'none'});
 if(this.__voiceAudio)this.__voiceAudio.destroy();this.__voiceAudio=wx.createInnerAudioContext();this.__voiceAudio.src=selected.demoUrl;
@@ -476,6 +525,7 @@ return this.generateDigitalOnline(); // 在线：直连后端创建 digital 任�
  * showLoading 只覆盖提交阶段；轮询进度经任务中心列表回填展示，onUnload 终止。 */
 generateDigitalOnline() {
 if(this.__generating)return; // 提交防重（loading 只护提交阶段）
+if(!this.__digitalAttempt&&!this.digitalSelectionCurrent())return; // 新提交核对资源身份；待确认请求仍使用冻结参数与幂等键
 if(!this.__digitalAttempt&&(this.data.digitalLoading||!this.data.avatarCloneId||!this.data.voiceCloneId))return wx.showToast({title:'请先选择已就绪的数字分身和克隆声音',icon:'none'});
 const text=this.data.script.trim();
 const title=String(this.data.title||'').trim()||text.split('\n')[0].slice(0,28);
