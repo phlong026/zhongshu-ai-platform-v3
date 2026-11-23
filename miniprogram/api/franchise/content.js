@@ -103,7 +103,9 @@ const publications = {
 
 const growth = {
   /** 获客聚合 {publications,leads,converted,perPublication}；客资登记复用 api/franchise/crm.js capture（source=内容发布:{publicationId}） */
-  summary: () => http.get('/franchise/content/growth/summary')
+  summary: () => http.get('/franchise/content/growth/summary'),
+  /** 当前客户可见的视频咨询来源；后端按客户负责人/团队权限过滤。 */
+  customerSources: customerId => http.get('/franchise/content/growth/customers/' + encodeURIComponent(customerId) + '/sources')
 };
 
 const clones = {
