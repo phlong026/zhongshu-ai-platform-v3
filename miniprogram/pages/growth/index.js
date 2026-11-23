@@ -40,7 +40,7 @@ if(!current())return;
 if(!summary||!Array.isArray(summary.perPublication))throw Error('发布作品读取失败');
 const rows=summary.perPublication.filter(row=>row&&/^\d+$/.test(String(row.publicationId??row.id))).map(row=>{
   const publicationId=String(row.publicationId??row.id);
-  return {id:publicationId,publicationId,title:String(row.title||row.workTitle||('发布作品 '+publicationId)),
+  return {id:publicationId,publicationId,workId:String(row.workId||''),publishedUrl:String(row.publishedUrl||''),title:String(row.title||row.workTitle||('发布作品 '+publicationId)),
     leads:totalOf(row.leads),converted:totalOf(row.converted)};
 });
 const selected=this.data.form.contentId;
