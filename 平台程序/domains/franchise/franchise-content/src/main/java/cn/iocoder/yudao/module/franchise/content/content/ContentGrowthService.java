@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 
 /**
@@ -56,7 +57,7 @@ public class ContentGrowthService {
             return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
                     SOURCE_PREFIX, post.orgId(), customerId, post.userId());
         }
-        List<Long> teams = post.managedTeamIds();
+        Set<Long> teams = post.managedTeamIds();
         if (teams == null || teams.isEmpty()) {
             return jdbcTemplate.queryForList(base + "AND l.registrar_user_id = ? ORDER BY l.create_time DESC",
                     SOURCE_PREFIX, post.orgId(), customerId, post.userId());
