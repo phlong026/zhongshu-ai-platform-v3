@@ -75,7 +75,7 @@ public class CommissionSimulatedPayments {
             c.getId(),c.getSubmissionVersion(),c.getCompanyId(),c.getDesignOrgId(),"SIM-"+c.getId()+"-V"+c.getSubmissionVersion(),total);
     }
     public void pay(CommissionDO c,String channel,PostSnapshot actor){
-        if(!Set.of("WECHAT","ALIPAY").contains(Objects.toString(channel,"")))throw exception(SUBMISSION_INPUT_INVALID);
+        if(!"MOCK".equals(Objects.toString(channel,"")))throw exception(SUBMISSION_INPUT_INVALID);
         jdbc.queryForObject("SELECT 1 FROM fr_commission_simulated_order WHERE commission_id=? AND submission_version=? FOR UPDATE",Integer.class,c.getId(),c.getSubmissionVersion());
         Order order=read(c);
         if(order==null||order.paid())throw exception(COMMISSION_STATE_INVALID);

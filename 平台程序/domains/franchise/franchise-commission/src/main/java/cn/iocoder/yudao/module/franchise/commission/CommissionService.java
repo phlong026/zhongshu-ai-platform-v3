@@ -210,10 +210,10 @@ public class CommissionService implements DesignFeeProgressApi {
         if (!simulationAllowed(c)) throw exception(SIMULATION_FORBIDDEN);
         key=commandLock(post,key);
         if(replayed(post,key,input,commissionId,"commission-simulate-pay"))return get(post,commissionId);
-        if(input==null||!input.confirmed())throw exception(SUBMISSION_INPUT_INVALID);
+        if(input==null||!input.confirmed()||!"MOCK".equals(input.channel()))throw exception(SUBMISSION_INPUT_INVALID);
         requireState(c,CommissionDO.STATUS_DESIGNING);
         if(simulatedPayments.read(c)==null)throw exception(COMMISSION_STATE_INVALID);
-        simulatedPayments.pay(c,input.channel(),post);
+        simulatedPayments.pay(c,"MOCK",post);
         Revisions.requireUpdated(commissionMapper.updateByRevision(commissionId,c.getRevision(),u->u.set(CommissionDO::getStatus,c.getStatus())));
         commands.record(post,AGGREGATE,commissionId,c.getRevision()+1,"commission-simulate-pay",input,key);
         return get(post,commissionId);
