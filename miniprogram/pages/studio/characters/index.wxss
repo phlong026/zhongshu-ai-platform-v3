@@ -16,3 +16,6 @@ page{background:#faf8f4;color:#272321;font-size:30rpx}.characters-page{min-heigh
 
 .inline-avatar-list{margin-top:32rpx}
 .inline-avatar-list .resource-section-heading>text{min-width:0;word-break:break-all}
+.resource-management { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; margin-top: 16rpx; }
+.resource-management .small-button { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+.resource-management .resource-delete { color: var(--zs-danger); background: var(--zs-danger-bg); }
