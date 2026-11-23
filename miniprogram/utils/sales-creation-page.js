@@ -24,8 +24,9 @@ if(!studio.guard())return;this.__closed=false;this.actorScope=studio.scope();thi
 this.setData({ link:linkDraft.read(this.actorScope,this.actorSessionGeneration),draft: wx.getStorageSync(studio.scopedKey(require('./storage-keys').creationDraft)) || null });
 if (options.section === 'works') wx.redirectTo({ url: '/pages/studio/index?view=works' });
 if (options.section === 'digital') wx.redirectTo({ url: '/pages/studio/index?view=digital' });
-if (options.editor === '1') this.openEditor();
+this.applyEntryIntent(options);
 },
+applyEntryIntent(options={}) { if (options.editor === '1') this.openEditor(); },
 onShow() {if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){if(this.__parsePoll&&this.__parsePoll.cancel)this.__parsePoll.cancel();this.__extractAttempt=null;this.actorScope=studio.scope();this.actorSessionGeneration=http.sessionGeneration();this.setData({link:linkDraft.read(this.actorScope,this.actorSessionGeneration),sheet:"",editorText:"",extracting:false,extractError:''});}
 const draft = wx.getStorageSync(studio.scopedKey(require('./storage-keys').creationDraft)) || null;
 const recent = studio.recentItems(studio.read()).slice(0, 2).map(item=>({...item,updatedText:item.updatedAt?studio.formatTime(item.updatedAt):''}));

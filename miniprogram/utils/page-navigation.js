@@ -2,9 +2,43 @@
 const copy=require('./clone');
 const current=()=>getCurrentPages().slice(-1)[0];
 const tabs=['home','business','engineering','management','profile'].map(v=>'/pages/'+v+'/index');
+const salesTabs={creation:'/pages/home/index',design:'/pages/engineering/index',customers:'/pages/management/index'};
+let pendingTabEntry=null;
 const stateKeys=["form","keyword","filter","versionFilter","flowTab","statusFilter","sort","due","nodeFilter","materialFilter","nodeId","mode","destination","category","tab","orderTab","messageTab","financeTab","dataTab","activeCustomerTab","caseTab","floor","selectedPlan","searchWidth","searchDepth","pickingRef","caseItem","filteredCases","taskFilter","recordFilter","editingText","optimizeRequirement","expanded","courseTab"];
 function apiSession(){try{const auth=require('../api/auth'),http=require('../api/http');const token=http.token();const post=token?auth.currentApiPost():null;return post?{post,gen:http.sessionGeneration()}:null;}catch(e){return null;}}
-function scope(){const api=apiSession();if(api){const p=api.post;return ['api',p.tenantId||'',p.orgId||'',p.postId||'',api.gen].join(':');}const a=require('./access').context();return [a.companyId,a.staffId,a.role,a.active].join(':');}
+function scope(){const api=apiSession();if(api){const p=api.post;return ['api',p.tenantId||'',p.orgId||'',p.postId||'',p.orgType||'',p.roleCode||'',api.gen].join(':');}const a=require('./access').context();return [a.companyId,a.staffId,a.role,a.active].join(':');}
+// Resolve old sales entry paths before opening a page. Native switchTab cannot
+// carry query parameters; the destination consumes this scoped intent once.
+function salesDestination(destination){
+ const [path,query='']=destination.split('?'),kind=Object.keys(salesTabs).find(key=>path==='/pages/'+key+'/index');
+ if(!kind)return null;
+ const api=apiSession();if(!api||!['sales','sales-lead'].includes(api.post.roleCode))return null;
+ const options={};
+ for(const pair of query.split('&')){
+  const split=pair.indexOf('='),key=split<0?pair:pair.slice(0,split);
+  if(!['focus','intent','editor','section'].includes(key))continue;
+  try{options[key]=decodeURIComponent(split<0?'':pair.slice(split+1));}catch(_){/* Ignore malformed legacy options. */}
+ }
+ if(kind==='creation'&&['works','digital'].includes(options.section))return {url:'/pages/studio/index?view='+options.section};
+ return {route:salesTabs[kind],options};
+}
+function takeTabEntry(route){
+ const entry=pendingTabEntry;
+ if(!entry)return null;
+ if(entry.scope!==scope()){pendingTabEntry=null;return null;}
+ if(entry.route!==route)return null;
+ pendingTabEntry=null;return entry.options;
+}
+function clearTabEntry(route,entryScope,page){if(pendingTabEntry?.route===route&&pendingTabEntry.scope===entryScope&&pendingTabEntry.replacingPage!==page)pendingTabEntry=null;}
+function openSalesTab(target){
+ const entry=pendingTabEntry={...target,scope:scope()},page=current();
+ const samePage=page&&'/'+page.route===target.route;
+ if(samePage&&page.acceptNavigationEntry?.())return;
+ if(samePage)entry.replacingPage=page; // Its unload must not erase the replacement's intent.
+ const options={url:target.route,fail(){if(pendingTabEntry===entry)pendingTabEntry=null;wx.showToast({title:'页面打开失败，请重试',icon:'none'});}};
+ // A changed actor or failed authorization must initialize a fresh page.
+ return samePage?wx.reLaunch(options):wx.switchTab(options);
+}
 function url(page){const opts={...(page.options||{})};if(page.data?.view)opts.view=page.data.view;if(page.id)opts.id=page.id;return '/'+page.route+Object.keys(opts).filter(k=>opts[k]!==undefined&&opts[k]!=='').map((k,i)=>(i?'&':'?')+encodeURIComponent(k)+'='+encodeURIComponent(opts[k])).join('');}
 function homeUrl(){return '/pages/'+(require('./access').home()||'home')+'/index';}
 function home(){current()?.persistEditor?.();const api=apiSession();if(api){const O=require('./organization');const dest=O.navigation(O.apiContext(api.post)).tabs[0];const options={url:dest.url,fail:()=>wx.showToast({title:'工作台打开失败，请重试',icon:'none'})};// 专属工作台一次换根直达，避免 switchTab 落在中转 tab 等 onShow 二次导航互相等待（与登录/切岗 openApiHome 同型，2026-11-10）。
@@ -42,6 +76,10 @@ function restore(page,entry){
  if(entry.scrollTop)wx.pageScrollTo({scrollTop:entry.scrollTop,duration:0});
 }
 function open(destination,{replace=false}={}){
+ const sales=salesDestination(destination);
+ if(sales?.route)return openSalesTab(sales);
+ pendingTabEntry=null;
+ if(sales)destination=sales.url;
  const pages=getCurrentPages(),p=current();if(!p)return wx.redirectTo({url:destination});
  const existing=pages.findIndex(other=>url(other)===destination);
  if(existing>=0&&existing<pages.length-1&&wx.navigateBack)return wx.navigateBack({delta:pages.length-1-existing});
@@ -65,4 +103,4 @@ function back({fallback,skipLocal=false}={}){
  if(getCurrentPages().length>1&&wx.navigateBack)return wx.navigateBack({delta:1,fail:()=>open(fallback||parent(p),{replace:true})});
  const dest=fallback||parent(p);return dest===url(p)?home():open(dest,{replace:true});
 }
-module.exports={back,home,open,parent,url,homeUrl,scope};
+module.exports={back,home,open,parent,url,homeUrl,scope,salesTabs,takeTabEntry,clearTabEntry};

@@ -784,7 +784,7 @@ returnToList() { this.go(this.data.view === 'detail' ? 'records' : this.data.vie
 openRecent(e) {
 const item = this.data.recent.find(row => row.id === e.currentTarget.dataset.id);
 if (!item) return;
-if (item.id === 'draft') { if (studio.restoreManualDraft()) this.go('remix'); else wx.navigateTo({ url: '/pages/creation/index?editor=1' }); }
+if (item.id === 'draft') { if (studio.restoreManualDraft()) this.go('remix'); else require('../../utils/page-navigation').open('/pages/creation/index?editor=1'); }
 else if (item.id === 'video-draft') wx.navigateTo({ url: '/pages/ai-video/index' });
 else if (item.editTask) wx.navigateTo({ url: '/pages/ai-video/index?task=' + encodeURIComponent(item.editTask) });
 else this.go('result', '&task=' + encodeURIComponent(item.taskId));

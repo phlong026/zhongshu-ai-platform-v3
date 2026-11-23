@@ -136,7 +136,7 @@ module.exports = function (tabIndex) {
         target = ACTIONS[action] ? ACTIONS[action](eng, d.id || (action === 'course' ? this.data.courseId : ''), this.data.ownerProfile) : d.view ? account(d.view, d.id ? '&id=' + encodeURIComponent(d.id) : '') : '';
         if (!this.data.loggedIn && (['learning','resources','course'].includes(action)||LOGIN_ONLY.includes(action) || (d.view && ['profile', 'messages', 'orders', 'personal-performance'].includes(d.view)))) target = account('login', '&return=' + encodeURIComponent(target));
       }
-      if (target) wx.navigateTo({ url: target });
+      if (target) require('../../utils/page-navigation').open(target);
     }
   };
 };

@@ -16,7 +16,7 @@ global.getCurrentPages = () => pages;
 function navigate(kind, options) {
   navigation.push({ kind, url: options.url });
   if (failNavigation) return options.fail?.({ errMsg: 'fixture: navigation failed' });
-  transitions.push(options.url);
+  transitions.push({ kind, url: options.url, options });
 }
 global.wx = {
   getStorageSync: key => storage.get(key),
@@ -35,7 +35,8 @@ const http = require('../miniprogram/api/http');
 const auth = require('../miniprogram/api/auth');
 const account = require('../miniprogram/utils/account');
 const storeProfileRoute = '/pages/account/store-profile/index';
-for (const route of ['/pages/profile/index', '/pages/admin/profile/index', '/pages/account/sales/index', storeProfileRoute]) {
+const nativeRoutes = ['/pages/home/index', '/pages/business/index', '/pages/engineering/index', '/pages/management/index', '/pages/profile/index'];
+for (const route of [...nativeRoutes, '/pages/creation/index', '/pages/design/index', '/pages/customers/index', '/pages/admin/profile/index', '/pages/account/sales/index', storeProfileRoute]) {
   require(path.join(__dirname, '../miniprogram', route + '.js'));
   definitions.set(route, registeredPage);
 }
@@ -65,28 +66,41 @@ function reset(role) {
 }
 
 function show(route) {
+  const parsed = new URL(route, 'https://fixture.invalid');
+  route = parsed.pathname;
+  const options = Object.fromEntries(parsed.searchParams);
   const definition = definitions.get(route);
   assert.ok(definition, 'unexpected destination: ' + route);
   let page = nativePages.get(route);
   const firstLoad = !page;
   if (!page) {
-    page = { ...definition, route: route.slice(1), options: {},
+    page = { ...definition, route: route.slice(1), options,
       data: structuredClone(definition.data || {}), setData };
-    if (route === '/pages/profile/index') {
+    if (nativeRoutes.includes(route)) {
       nativePages.set(route, page);
       page.bar = { ...registeredBar.methods, data: structuredClone(registeredBar.data),
         properties: { activeIndex: -1, nested: false }, setData };
     }
     page.getTabBar = () => page.bar || null;
   }
+  if (pages.at(-1) !== page) pages.at(-1)?.onHide?.();
   pages = [page];
-  if (firstLoad) page.onLoad?.({});
+  if (firstLoad) page.onLoad?.(options);
   page.onShow?.();
   return page;
 }
 
 function settleNavigation() {
-  for (let step = 0; transitions.length && step < 12; step++) show(transitions.shift());
+  for (let step = 0; transitions.length && step < 12; step++) {
+    const next = transitions.shift();
+    if (next.kind === 'reLaunch') {
+      pages.at(-1)?.onUnload?.();
+      nativePages.clear();
+    }
+    show(next.url);
+    next.options.success?.();
+    next.options.complete?.();
+  }
   assert.equal(transitions.length, 0, 'profile navigation did not settle within 12 transitions');
   return pages.at(-1);
 }
@@ -332,4 +346,238 @@ test('未知岗位 roleCode：workbench-nav 回退本地导航并告警一次', 
     console.warn = originalWarn;
   }
   assert.equal(warnings.filter(w => w.includes('brand-new-role')).length, 1, '同岗位只告警一次');
+});
+
+// F01: exercise actual route callers, native wrappers and customer requests together.
+const nav = require('../miniprogram/utils/page-navigation');
+const tap = dataset => ({ currentTarget: { dataset } });
+const customerRequests = () => requests.filter(request => request.url.endsWith('/franchise/customers'));
+async function finishCreationAuthorization() {
+  for (const request of requests.filter(request => request.url.endsWith('/platform/posts/mine'))) {
+    reply(request, auth.apiPosts());
+  }
+  await new Promise(resolve => setImmediate(resolve));
+}
+
+for (const role of ['sales', 'sales-lead']) {
+  test(role + ': 首页内容创作快捷入口一次切到原生 Tab，无兼容中转页', async () => {
+    reset(role);
+    const business = show('/pages/business/index');
+    requests = [];
+    business.openSalesShortcut(tap({ action: 'remix' }));
+    const creation = settleNavigation();
+    await finishCreationAuthorization();
+    assert.equal(creation.route, 'pages/home/index');
+    assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/home/index' }]);
+  });
+}
+
+test('客户统计入口在首次请求前应用筛选，只导航一次、只加载一次', () => {
+  reset('sales');
+  const business = show('/pages/business/index');
+  requests = [];
+  business.openSalesMetric(tap({ focus: 'due' }));
+  const customers = settleNavigation();
+  assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/management/index' }]);
+  assert.equal(customers.data.tab, 'due');
+  assert.equal(customerRequests().length, 1);
+  assert.equal(customerRequests()[0].data.followFilter, 'DUE');
+});
+
+test('旧客户外部直链仍可兼容：参数在正常 onShow 前生效且不手动重复生命周期', () => {
+  reset('sales');
+  show('/pages/customers/index?focus=appointments&intent=commission');
+  const customers = settleNavigation();
+  assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/management/index' }]);
+  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customers.data.tab, 'appointments');
+  assert.equal(customerRequests().length, 1);
+  assert.equal(customerRequests()[0].data.followFilter, 'APPOINTMENTS');
+});
+
+test('已激活客户 Tab 仍能消费一次新入口参数，无重新导航且不丢委托意图', () => {
+  reset('sales');
+  const customers = show('/pages/management/index');
+  requests = [];
+  nav.open('/pages/customers/index?focus=due&intent=commission');
+  settleNavigation();
+  assert.deepEqual(navigation, []);
+  assert.equal(customers.data.tab, 'due');
+  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customerRequests().length, 1);
+  requests = [];
+  nav.open('/pages/customers/index?focus=all');
+  assert.equal(customers.data.tab, 'all');
+  assert.equal(customers.data.intent, '');
+  assert.equal(customerRequests().length, 1);
+  assert.equal(customerRequests()[0].data.followFilter, undefined);
+});
+
+test('首页全部客户入口重访已有 Tab 会取消旧筛选', () => {
+  reset('sales');
+  const customers = show('/pages/management/index');
+  customers.setData({ tab: 'due' });
+  const business = show('/pages/business/index');
+  requests = [];
+  business.openSalesMetric(tap({ focus: 'all' }));
+  assert.equal(settleNavigation(), customers);
+  assert.equal(customers.data.tab, 'all');
+  assert.equal(customerRequests().length, 1);
+  assert.equal(customerRequests()[0].data.followFilter, undefined);
+});
+
+test('创作 editor 意图只消费一次，保留当前会话草稿且不通过 switchTab query 传参', async () => {
+  reset('sales');
+  const studio = require('../miniprogram/utils/studio');
+  const draftKey = studio.scopedKey(require('../miniprogram/utils/storage-keys').creationDraft);
+  wx.setStorageSync(draftKey, { text: '当前岗位的文案草稿' });
+  show('/pages/business/index');
+  requests = [];
+  nav.open('/pages/creation/index?editor=1');
+  const creation = settleNavigation();
+  await finishCreationAuthorization();
+  assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/home/index' }]);
+  assert.equal(creation.data.sheet, 'editor');
+  assert.equal(creation.data.editorText, '当前岗位的文案草稿');
+  creation.setData({ sheet: '' });
+  show('/pages/profile/index');
+  show('/pages/home/index');
+  await finishCreationAuthorization();
+  assert.equal(creation.data.sheet, '', '返回页面不能再次打开已消费的编辑器');
+  navigation = [];
+  nav.open('/pages/creation/index?editor=1');
+  assert.deepEqual(navigation, []);
+  assert.equal(creation.data.sheet, 'editor', '当前 Tab 也可直接打开编辑器');
+});
+
+test('待处理入口不能跨会话、跨岗位或失败导航泄漏', () => {
+  reset('sales');
+  pages = [{ route: 'pages/business/index', options: {}, data: {} }];
+  nav.open('/pages/customers/index?focus=due&intent=commission');
+  auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ token: 'new-session', userId: 702, postId: '43' });
+  const customers = settleNavigation();
+  assert.equal(customers.data.tab, 'all');
+  assert.equal(customers.data.intent, '');
+  assert.equal(customerRequests().length, 1);
+  reset('sales');
+  pages = [{ route: 'pages/business/index', options: {}, data: {} }];
+  failNavigation = true;
+  nav.open('/pages/customers/index?focus=due&intent=commission');
+  failNavigation = false;
+  const retry = show('/pages/management/index');
+  assert.equal(retry.data.tab, 'all');
+  assert.equal(retry.data.intent, '');
+});
+
+test('已激活 Tab 换会话后重新初始化，再应用新会话意图', () => {
+  reset('sales');
+  const old = show('/pages/management/index');
+  old.setData({ keyword: '旧账号搜索词' });
+  auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ token: 'replacement-session', userId: 702, postId: '43' });
+  requests = [];
+  nav.open('/pages/customers/index?focus=due&intent=commission');
+  const current = settleNavigation();
+  assert.notEqual(current, old);
+  assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/management/index' }]);
+  assert.equal(current.data.keyword, '');
+  assert.equal(current.data.tab, 'due');
+  assert.equal(current.data.intent, 'commission');
+  assert.equal(customerRequests().length, 1);
+  assert.equal(customerRequests()[0].header['X-Post-Id'], '43');
+});
+
+test('创作授权等待中离开页面会取消入口意图，之后返回不重放编辑器', async () => {
+  reset('sales');
+  show('/pages/business/index');
+  requests = [];
+  nav.open('/pages/creation/index?editor=1');
+  const creation = settleNavigation();
+  assert.notEqual(creation.data.sheet, 'editor', '授权完成前不应用编辑器意图');
+  show('/pages/profile/index');
+  await finishCreationAuthorization();
+  show('/pages/home/index');
+  await finishCreationAuthorization();
+  assert.notEqual(creation.data.sheet, 'editor');
+});
+
+test('已有创作 Tab 换岗位后入口编辑器只读取新岗位草稿', async () => {
+  reset('sales');
+  const studio = require('../miniprogram/utils/studio');
+  wx.setStorageSync(studio.scopedKey(require('../miniprogram/utils/storage-keys').creationDraft), { text: '旧岗位草稿' });
+  const creation = show('/pages/home/index');
+  await finishCreationAuthorization();
+  show('/pages/business/index');
+  auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ token: 'another-actor', userId: 702, postId: '43' });
+  requests = [];
+  nav.open('/pages/creation/index?editor=1');
+  assert.equal(settleNavigation(), creation);
+  await finishCreationAuthorization();
+  assert.equal(creation.data.sheet, 'editor');
+  assert.equal(creation.data.editorText, '');
+  assert.equal(creation.data.draft, null);
+});
+
+test('创作授权挂起时换会话，新入口重新授权且旧请求不能阻断新编辑器', async () => {
+  reset('sales');
+  const oldPosts = auth.apiPosts();
+  const oldPage = show('/pages/home/index');
+  const oldRequest = requests.find(request => request.url.endsWith('/platform/posts/mine'));
+  auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
+  http.saveSession({ token: 'pending-replacement', userId: 702, postId: '43' });
+  requests = [];
+  nav.open('/pages/creation/index?editor=1');
+  const current = settleNavigation();
+  assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/home/index' }]);
+  assert.notEqual(current, oldPage);
+  assert.equal(requests.filter(request => request.url.endsWith('/platform/posts/mine')).length, 1);
+  reply(oldRequest, oldPosts);
+  await new Promise(resolve => setImmediate(resolve));
+  await finishCreationAuthorization();
+  assert.equal(current.data.sheet, 'editor');
+  assert.equal(auth.currentApiPost().postId, 43);
+});
+
+test('创作首次授权503后，再次打开同Tab入口会重试并应用新意图', async () => {
+  reset('sales');
+  const oldPage = show('/pages/home/index');
+  const failed = requests.find(request => request.url.endsWith('/platform/posts/mine'));
+  reply(failed, null, 503, '网络暂不可用');
+  await new Promise(resolve => setImmediate(resolve));
+  requests = [];
+  nav.open('/pages/creation/index?editor=1');
+  const current = settleNavigation();
+  assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/home/index' }]);
+  assert.notEqual(current, oldPage);
+  assert.equal(requests.filter(request => request.url.endsWith('/platform/posts/mine')).length, 1);
+  await finishCreationAuthorization();
+  assert.equal(current.data.sheet, 'editor');
+});
+
+test('同岗位编号更新角色而会话代次未变时，不重放旧角色入口', () => {
+  reset('sales');
+  pages = [{ route: 'pages/business/index', options: {}, data: {} }];
+  nav.open('/pages/customers/index?focus=due&intent=commission');
+  const generation = http.sessionGeneration();
+  auth.savePosts(auth.apiPosts().map(post => ({ ...post, roleCode: 'sales-lead' })));
+  assert.equal(http.sessionGeneration(), generation);
+  const customers = settleNavigation();
+  assert.equal(customers.data.isLead, true);
+  assert.equal(customers.data.tab, 'all');
+  assert.equal(customers.data.intent, '');
+});
+
+test('老板客户与创作独立页保持原路由，不错误映射成业务岗 Tab', () => {
+  reset('boss');
+  pages = [{ route: 'pages/profile/index', options: {}, data: {} }];
+  nav.open('/pages/customers/index?focus=due');
+  assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/pages/customers/index?focus=due' }]);
+  const customers = settleNavigation();
+  assert.equal(customers.route, 'pages/customers/index');
+  assert.equal(customers.data.tab, 'due');
+  navigation = [];
+  nav.open('/pages/creation/index?editor=1');
+  assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/pages/creation/index?editor=1' }]);
 });
