@@ -107,6 +107,8 @@ const growth = {
 };
 
 const clones = {
+  /** 已处理素材转入数字人服务；同一素材重试返回原上传记录。 */
+  assetUpload: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-asset-uploads', data, undefined, { timeout:120000 }),
   fileTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-file-tickets', data),
   fileReceipt: (id, data) => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/file-receipt', data),
   uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
