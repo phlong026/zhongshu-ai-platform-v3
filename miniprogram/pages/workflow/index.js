@@ -88,6 +88,19 @@ Page({
    this.setData({platformStatus:'degraded',error:PFc.errorMessage(err)});
   });
  },
+ loadContentSources(customerId,gen,sessionGen,postKey){
+  if(!customerId)return;
+  const api=require('../../api/franchise/content');
+  api.growth.customerSources(customerId).then(rows=>{
+   if(this.stale(gen,sessionGen,postKey))return;
+   this.setData({contentSources:Array.isArray(rows)?rows:[]});
+  }).catch(()=>{if(!this.stale(gen,sessionGen,postKey))this.setData({contentSources:[]});});
+ },
+ openContentSource(e){
+  const id=String(e.currentTarget.dataset.publicationId||'');
+  if(!/^\d+$/.test(id))return wx.showToast({title:'发布来源编号无效',icon:'none'});
+  wx.navigateTo({url:'/pages/studio/index?view=detail&record='+encodeURIComponent(id)});
+ },
  loadTransferTargets(sessionGenAtRequest){
   const PFc=this.__pf,post=this.__post;
   const gen=this.__candGen=(this.__candGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
