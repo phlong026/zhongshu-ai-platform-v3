@@ -135,7 +135,7 @@ async function uploadVoucher(filePath, fileName) {
   const stat = wx.getFileSystemManager().statSync(filePath);
   const sizeBytes = stat.size || bytes.byteLength;
   const sha = sha256Hex(bytes);
-  const mimeType = guessMime(fileName || filePath);
+  const mimeType = voucherMime(fileName || filePath, bytes);
   const ticket = await http.post('/franchise/assets/upload-tickets',
     { assetType: 'FIN_VOUCHER', mimeType, sizeBytes, sha256: sha });
   requireAlive();
@@ -146,7 +146,7 @@ async function uploadVoucher(filePath, fileName) {
   const completed = await http.post('/franchise/assets/' + assetId + '/complete');
   requireAlive();
   if (!completed || completed.uploadStatus !== 'ACCEPTED') {
-    throw new Error('凭证未通过校验：' + ((completed && completed.rejectedReason) || '请更换文件'));
+    throw new Error('凭证未通过校验：' + voucherRejectText(completed && completed.rejectedReason));
   }
   return assetId;
 }
@@ -233,11 +233,83 @@ function sha256Hex(ascii) {
   return out;
 }
 
-function guessMime(filePath) {
-  const lower = String(filePath).toLowerCase();
+/**
+ * 凭据 MIME 嗅探：以字节魔数为准（2026-11-24 现场验收修复）。
+ *
+ * 微信 saveFile / 相册导出可能把图片重编码为 JPEG，却把临时路径后缀留成 .png；
+ * 只按后缀猜 MIME 会让票据声明 png、实际字节 jpeg，complete 阶段被后端
+ * AssetContentScanner 以 MAGIC_NUMBER 拒收（声明与实际不一致）。
+ * 接受二进制字符串（base64ToBinary 的产物）或 ArrayBuffer / 字节视图。
+ */
+function sniffMime(bytes) {
+  if (bytes == null) return '';
+  // 统一成可按索引取字节的视图：二进制字符串直接取 charCode，
+  // DataView 等非 Uint8Array 视图按 byteOffset/byteLength 重新包一层（DataView 不支持下标访问）。
+  const view = typeof bytes === 'string' ? null
+    : bytes instanceof Uint8Array ? bytes
+    : ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    : new Uint8Array(bytes);
+  const at = view ? i => view[i] : i => bytes.charCodeAt(i);
+  const text = (start, length) => {
+    let out = '';
+    for (let i = 0; i < length; i++) out += String.fromCharCode(at(start + i));
+    return out;
+  };
+  if (at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff) return 'image/jpeg';
+  if (at(0) === 0x89 && text(1, 3) === 'PNG') return 'image/png';
+  if (text(0, 5) === '%PDF-') return 'application/pdf';
+  return '';
+}
+
+/** 凭据链路只接收 JPEG / PNG / PDF：字节可识别时字节优先，读不到字节才回落后缀。 */
+function guessMime(filePath, bytes) {
+  const actual = sniffMime(bytes);
+  if (actual) return actual;
+  const lower = String(filePath || '').toLowerCase();
   if (lower.endsWith('.pdf')) return 'application/pdf';
   if (lower.endsWith('.png')) return 'image/png';
   return 'image/jpeg';
+}
+
+const REJECT_FORMAT_LABELS = {
+  'image/jpeg': 'JPG 图片', 'image/png': 'PNG 图片', 'application/pdf': 'PDF 文件',
+  'image/gif': 'GIF 图片', 'image/bmp': 'BMP 图片', 'image/tiff': 'TIFF 图片'
+};
+
+const VOUCHER_FORMAT_HINT = '请上传 JPG、PNG 图片或 PDF 文件（HEIC、WebP、GIF 请先另存为 JPG）';
+const VOUCHER_IMAGE_HINT = '请上传 JPG 或 PNG 图片（HEIC、WebP、GIF 请先另存为 JPG）';
+
+/**
+ * 凭据 MIME 定稿 + 前置拒绝（2026-11-24 加固）：字节可识别即采用；识别不出时只有
+ * PDF 后缀（allowPdf 时）继续走票据，其余格式（HEIC/WebP/GIF/BMP…）在本地直接拒绝。
+ * 这样不再"传上去才被后端 MAGIC_NUMBER 拒"，也不会把"实际 null"这种模糊结论给到一线。
+ */
+function voucherMime(filePath, bytes, options) {
+  const allowPdf = !(options && options.allowPdf === false);
+  const actual = sniffMime(bytes);
+  if (actual) return actual;
+  if (allowPdf && /\.pdf$/i.test(String(filePath || ''))) return 'application/pdf';
+  const text = allowPdf ? VOUCHER_FORMAT_HINT : VOUCHER_IMAGE_HINT;
+  const error = new Error(text);
+  error.code = 0;
+  error.msg = text;
+  throw error;
+}
+
+/** 后端扫描器给的是 "MAGIC_NUMBER: 声明 image/png 实际 image/jpeg" 这类机器码，转成一线能看懂的话。 */
+function voucherRejectText(reason) {
+  const text = String(reason == null ? '' : reason).trim();
+  if (!text) return '文件未通过校验，请更换后重试';
+  const magic = text.match(/MAGIC_NUMBER:\s*声明\s*([\w/+.-]+)\s*实际\s*([\w/+.-]+)/);
+  if (magic) {
+    const actual = REJECT_FORMAT_LABELS[magic[2]];
+    if (actual) return '这个文件实际是 ' + actual + '，和文件名后缀不是同一种格式。请直接用手机相机重拍，或把图片另存为标准 JPG 后再选择';
+    return '这个文件的实际格式无法识别（可能已损坏或被改过名），请更换文件后重试';
+  }
+  if (text.indexOf('PIXEL_GUARD') >= 0) return '图片尺寸超出上限，请压缩后再选择';
+  if (text.indexOf('DECODE') >= 0) return '文件已损坏或无法解析，请重新选择';
+  if (text.indexOf('MALWARE') >= 0) return '文件未通过安全检测，请更换文件';
+  return text;
 }
 
 /** 收款修订（财务直接改+全留痕；baseRevisionVersion 乐观锁；business 来源/低于退款下限后端拒绝） */
@@ -257,5 +329,5 @@ module.exports = {
   voidRefund, reconciliation,
   voidPayment,
   confirmBank, bankFlows, projectAccount, designFees, projectLedger, projects,
-  uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime
+  uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime, sniffMime, voucherMime, voucherRejectText
 };

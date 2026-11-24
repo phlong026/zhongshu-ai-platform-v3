@@ -1,6 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+// 2026-11-24：凭据 MIME 改为字节魔数判定，夹具必须是能被识别的 JPEG 头部，
+// 否则会在本地前置拒绝（本用例只验证缓存键分量，不验证格式）。
+const JPEG_A = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
+const JPEG_B = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x02]).toString('base64');
+
 const storage = Object.create(null);
 const files = Object.create(null);
 let nextAssetId = 7000;
@@ -48,7 +53,7 @@ function login(post, token) {
 test('engineering voucher cache is scoped to the exact authenticated post and session', async () => {
   const engineer = { postId: 'post-engineer', userId: 'user-9', orgId: 'org-1', roleCode: 'engineer' };
   const finance = { postId: 'post-finance', userId: 'user-9', orgId: 'org-1', roleCode: 'finance' };
-  files['/tmp/same.jpg'] = 'YWJj';
+  files['/tmp/same.jpg'] = JPEG_A;
   login(engineer, 'token-a');
 
   const first = await engineering.uploadVoucher('/tmp/same.jpg', 'ENG_DRAWING');
@@ -77,12 +82,12 @@ test('engineering voucher cache is scoped to the exact authenticated post and se
 test('engineering voucher cache key includes tenant, user, org, type, path and sha', async () => {
   const base = { postId: 'post-components', userId: 'user-a', orgId: 'org-a', roleCode: 'engineer' };
   const before = ticketCalls;
-  files['/tmp/components.jpg'] = 'YWJj';
-  files['/tmp/components-copy.jpg'] = 'Yg==';
+  files['/tmp/components.jpg'] = JPEG_A;
+  files['/tmp/components-copy.jpg'] = JPEG_B;
   login(base, 'token-components');
 
   const original = await engineering.uploadVoucher('/tmp/components.jpg', 'ENG_DRAWING');
-  files['/tmp/components.jpg'] = 'Yg==';
+  files['/tmp/components.jpg'] = JPEG_B;
   const changedSha = await engineering.uploadVoucher('/tmp/components.jpg', 'ENG_DRAWING');
   assert.notEqual(changedSha, original);
 

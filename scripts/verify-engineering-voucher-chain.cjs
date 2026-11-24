@@ -2,7 +2,7 @@
 /**
  * 批次#36 · M07-T04 工程凭据上传链规则（COS 前）R2 版。
  * A 段（真实现）：uploadVoucher 真函数 + 仅 mock 文件系统(wx)/http 传输边界——
- *   SHA 对原始字节（NIST 'abc' 向量经真实现全链比对）、complete REJECTED 拒绝、
+ *   SHA 对原始字节（真实 JPEG 头部字节经真实现全链比对，且不等于 base64 文本摘要）、complete REJECTED 拒绝、
  *   ACCEPTED 返回、响应丢失重试复用缓存资产（不再签票）、无文件拒绝。
  * B 段（perform 编排）：mock api.uploadVoucher 驱动 perform——十动作凭据接线、
  *   deliver 单次上传双引用、Σ 先于上传、拦截摘除。
@@ -12,6 +12,7 @@
  * 用法：node scripts/verify-engineering-voucher-chain.cjs
  */
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -21,8 +22,14 @@ const P = require('../miniprogram/utils/platform-engineering');
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 // ===== wx / http 边界桩（仅 mock 传输，不 mock 业务实现） =====
-const FILES = { '/tmp/v.jpg': 'YWJj' }; // 'abc' 的 base64——NIST 向量
-const ABC_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
+// 2026-11-24：凭据 MIME 改为字节魔数判定（voucherMime），夹具必须带可识别的图片头，
+// 否则会在本地前置拒绝。这里保留 "原始字节 vs base64 文本" 的 SHA 语义断言。
+const V1_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x61, 0x62, 0x63]);
+const V2_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe2, 0x00, 0x04, 0x62]);
+const V3_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x06, 0x63]);
+const FILES = { '/tmp/v.jpg': V1_BYTES.toString('base64') };
+const V1_SHA = crypto.createHash('sha256').update(V1_BYTES).digest('hex');
+const V1_TEXT_SHA = crypto.createHash('sha256').update(V1_BYTES.toString('base64')).digest('hex');
 const httpLog = { posts: [], puts: [] };
 let completeStatus = 'ACCEPTED';
 const storage = {
@@ -61,14 +68,16 @@ async function main() {
   const got = await engApi.uploadVoucher('/tmp/v.jpg', 'ENG_DRAWING');
   assert.equal(got, 88001, 'A1 ACCEPTED 返回 assetId');
   const ticketReq = httpLog.posts.find(p2 => p2.path.indexOf('/upload-tickets') >= 0);
-  assert.equal(ticketReq.data.sha256, ABC_SHA, 'A1 票据 SHA=原始字节摘要（NIST abc 向量）');
+  assert.equal(ticketReq.data.sha256, V1_SHA, 'A1 票据 SHA=原始字节摘要');
+  assert.notEqual(ticketReq.data.sha256, V1_TEXT_SHA, 'A1 摘要不得是 base64 文本摘要');
   assert.equal(ticketReq.data.assetType, 'ENG_DRAWING', 'A1 动作类型透传');
   assert.equal(httpLog.puts.length, 1, 'A1 HTTPS COS 原始字节 PUT');
-  assert.deepEqual([...new Uint8Array(httpLog.puts[0].data)], [97, 98, 99], 'A1 PUT 字节为原始 abc');
+  assert.deepEqual([...new Uint8Array(httpLog.puts[0].data)], [...V1_BYTES], 'A1 PUT 字节为原始文件字节');
   assert.equal(httpLog.puts[0].header.Authorization, undefined, 'A1 COS 不携平台凭据');
   assert.ok(httpLog.posts.some(p2 => p2.path.indexOf('/88001/complete') >= 0), 'A1 complete 调用');
 
   // A2：complete REJECTED——不返回 assetId、报拒绝原因
+  FILES['/tmp/v2.jpg'] = V2_BYTES.toString('base64');
   completeStatus = 'REJECTED';
   await assert.rejects(engApi.uploadVoucher('/tmp/v2.jpg', 'ENG_SITE_PHOTO'),
     e => /SHA_MISMATCH/.test(e.msg) && /校验未通过/.test(e.msg), 'A2 REJECTED 报拒绝原因');
@@ -85,13 +94,13 @@ async function main() {
   await assert.rejects(engApi.uploadVoucher('', 'ENG_DRAWING'), e => /请选择凭据文件/.test(e.msg), 'A4 无文件拒绝');
 
   // A5（R2 P2-9）：REJECTED 后同路径重传——不缓存语义验证（同路径新内容可重新签票且成功）
-  FILES['/tmp/v2.jpg'] = 'Yg=='; // 'b'（1 字节——尾余位解码路径）
+  FILES['/tmp/v2.jpg'] = V3_BYTES.toString('base64'); // 另一份 JPEG 头部字节（同路径新内容）
   completeStatus = 'ACCEPTED';
   const ticketsBefore5 = httpLog.posts.filter(p2 => p2.path.indexOf('/upload-tickets') >= 0).length;
   const got5 = await engApi.uploadVoucher('/tmp/v2.jpg', 'ENG_SITE_PHOTO');
   assert.equal(got5, 88001, 'A5 REJECTED 同路径新内容重传成功');
   const ticket5 = httpLog.posts.filter(p2 => p2.path.indexOf('/upload-tickets') >= 0).slice(-1)[0];
-  assert.equal(ticket5.data.sha256, '3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d', 'A5 单字节原始字节 SHA（b）');
+  assert.equal(ticket5.data.sha256, crypto.createHash('sha256').update(V3_BYTES).digest('hex'), 'A5 新内容原始字节 SHA');
   assert.ok(ticket5.data.assetType === 'ENG_SITE_PHOTO', 'A5 类型透传');
   const ticketsAfter5 = httpLog.posts.filter(p2 => p2.path.indexOf('/upload-tickets') >= 0).length;
   assert.equal(ticketsAfter5, ticketsBefore5 + 1, 'A5 REJECTED 后重传新签票');

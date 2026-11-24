@@ -214,7 +214,9 @@ async function uploadVoucher(filePath, assetType) {
   }
   const stat = wx.getFileSystemManager().statSync(filePath);
   const sizeBytes = stat.size || binary.length;
-  const mimeType = financeApi.guessMime(filePath);
+  // MIME 以字节魔数为准；识别不出的格式（HEIC/WebP/GIF…）在本地直接拒绝，不浪费一次票据上传。
+  // 现场照片只收 JPG/PNG，图纸/合同/财务凭据额外允许 PDF。
+  const mimeType = financeApi.voucherMime(filePath, binary, { allowPdf: assetType !== 'ENG_SITE_PHOTO' });
   const ticket = await assets.uploadTicket(assetType, mimeType, sizeBytes, sha);
   requireAlive();
   const assetId = ticket.assetId;
@@ -224,8 +226,8 @@ async function uploadVoucher(filePath, assetType) {
   const completed = await assets.complete(assetId);
   requireAlive();
   if (!completed || completed.uploadStatus !== 'ACCEPTED') {
-    const reason = (completed && completed.rejectedReason) || '校验未通过';
-    throw { code: 0, msg: '凭据校验未通过：' + reason + '，请更换文件后重试' };
+    const reason = (completed && completed.rejectedReason) || '';
+    throw { code: 0, msg: '凭据校验未通过：' + financeApi.voucherRejectText(reason) };
   }
   if (cacheKey && voucherIdentity() === identity) voucherCache.set(cacheKey, assetId);
   return assetId;

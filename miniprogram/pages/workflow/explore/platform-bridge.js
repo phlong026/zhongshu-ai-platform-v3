@@ -544,7 +544,14 @@ module.exports = function attach(page, deps) {
           const bytes = rd.data;
           // sha256：走 finance.js 的工具（与工程凭据链同一实现）
           const finance = require('../../../api/finance');
-          const mimeType = finance.guessMime(f.tempFilePath);
+          let mimeType;
+          try {
+            // 立面参考图只收 JPG/PNG；识别不出的格式（HEIC/WebP/GIF…）本地直接拒绝，不浪费一次票据与上传
+            mimeType = finance.voucherMime(f.tempFilePath, bytes, { allowPdf: false });
+          } catch (err) {
+            reject({ message: (err && (err.msg || err.message)) || '请选择 JPG 或 PNG 图片' });
+            return;
+          }
           const sha = finance.sha256Hex(bytes);
           api.assets.uploadTicket({ assetType: 'DESIGN_REFERENCE', mimeType, sizeBytes: bytes.byteLength || bytes.length, sha256: sha })
             .then(ticket => {
