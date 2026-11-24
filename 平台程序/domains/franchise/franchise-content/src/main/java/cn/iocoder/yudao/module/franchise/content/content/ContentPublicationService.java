@@ -29,14 +29,17 @@ public class ContentPublicationService {
     private final ContentDraftService drafts;
     private final cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final ContentPublisherAccountService publisherAccounts;
 
     public ContentPublicationService(FrContentPublicationMapper publications, ContentDraftService drafts,
                                      cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands,
-                                     org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+                                     org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                     ContentPublisherAccountService publisherAccounts) {
         this.publications = publications;
         this.drafts = drafts;
         this.commands = commands;
         this.jdbcTemplate = jdbcTemplate;
+        this.publisherAccounts = publisherAccounts;
     }
 
     /** 幂等入口：duplicate 重放返回既有（POST /content/publications）。 */
@@ -57,8 +60,11 @@ public class ContentPublicationService {
     public FrContentPublicationDO create(long companyId, long userId, Map<String, Object> body) {
         requireManualPublication(body);
         long workId = requiredLong(body.get("workId"), "workId");
-        String accountId = requiredAccountId(body.get("accountId"));
         String platform = requiredPlatform(body.get("platform"));
+        Long publisherAccountId = body.containsKey("publisherAccountId") ? publisherAccountId(body.get("publisherAccountId")) : null;
+        // Legacy clients keep their explicitly manual identity; new clients use the authorized stable directory ID.
+        String accountId = publisherAccountId == null ? requiredAccountId(body.get("accountId"))
+                : publisherAccounts.requireUsable(companyId, userId, publisherAccountId, platform).displayName();
         var work = drafts.workOf(companyId, workId);
         if (!Objects.equals(work.getAuthorUserId(), userId)) {
             throw exception(WORK_INVALID);
@@ -76,6 +82,7 @@ public class ContentPublicationService {
                 .setCoverAssetId(body.get("coverAssetId") == null ? null
                         : Long.parseLong(String.valueOf(body.get("coverAssetId"))))
                 .setAccountId(accountId)
+                .setPublisherAccountId(publisherAccountId)
                 .setPlatform(platform)
                 .setScheduledAt(null)
                 .setStatus(status)
@@ -86,22 +93,27 @@ public class ContentPublicationService {
         // JSONB 列（versions）经 JdbcTemplate CAST 写入（MyBatis String 直写 jsonb 会 42804）
         int inserted = jdbcTemplate.update(
                     "INSERT INTO fr_content_publication (id, company_id, author_user_id, work_id, title, "
-                            + "publish_text, tags, cover_asset_id, account_id, platform, scheduled_at, status, "
+                            + "publish_text, tags, cover_asset_id, account_id, publisher_account_id, platform, scheduled_at, status, "
                             + "versions, signature, create_time, update_time) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?) "
-                            + "ON CONFLICT (work_id, platform, account_id) WHERE status <> 'failed' DO NOTHING",
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?) "
+                            + (publisherAccountId == null
+                                ? "ON CONFLICT (work_id, platform, account_id) WHERE status <> 'failed' AND publisher_account_id IS NULL DO NOTHING"
+                                : "ON CONFLICT (work_id, publisher_account_id) WHERE status <> 'failed' AND publisher_account_id IS NOT NULL DO NOTHING"),
                     row.getId(), companyId, userId, workId, row.getTitle(), row.getPublishText(), row.getTags(),
-                    row.getCoverAssetId(), accountId, platform, null, status,
+                    row.getCoverAssetId(), accountId, publisherAccountId, platform, null, status,
                     row.getVersions(), row.getSignature(), now, now);
         if (inserted == 0) {
             // DO NOTHING keeps PostgreSQL's transaction usable for this authorized recovery lookup.
-            FrContentPublicationDO existing = publications.selectOne(new LambdaQueryWrapper<FrContentPublicationDO>()
+            LambdaQueryWrapper<FrContentPublicationDO> existingQuery = new LambdaQueryWrapper<FrContentPublicationDO>()
                     .eq(FrContentPublicationDO::getCompanyId, companyId)
                     .eq(FrContentPublicationDO::getAuthorUserId, userId)
                     .eq(FrContentPublicationDO::getWorkId, workId)
                     .eq(FrContentPublicationDO::getPlatform, platform)
-                    .eq(FrContentPublicationDO::getAccountId, accountId)
-                    .ne(FrContentPublicationDO::getStatus, "failed"));
+                    .ne(FrContentPublicationDO::getStatus, "failed");
+            if (publisherAccountId == null) existingQuery.isNull(FrContentPublicationDO::getPublisherAccountId)
+                    .eq(FrContentPublicationDO::getAccountId, accountId);
+            else existingQuery.eq(FrContentPublicationDO::getPublisherAccountId, publisherAccountId);
+            FrContentPublicationDO existing = publications.selectOne(existingQuery);
             if (existing == null) {
                 throw invalid("发布记录状态已变化，请刷新发布记录后重试");
             }
@@ -188,7 +200,8 @@ public class ContentPublicationService {
     /** 签名防篡改（direct-v1）：内容指纹冻结于创建时（work/account/title/text/platform/scheduledAt）。 */
     static String signatureOf(FrContentPublicationDO row) {
         String canonical = String.join("|",
-                String.valueOf(row.getWorkId()), row.getAccountId(), row.getTitle(),
+                String.valueOf(row.getWorkId()), row.getPublisherAccountId() == null ? row.getAccountId()
+                        : "registered:" + row.getPublisherAccountId(), row.getTitle(),
                 row.getPublishText() == null ? "" : row.getPublishText(), row.getPlatform(),
                 row.getScheduledAt() == null ? "" : row.getScheduledAt().toString());
         return cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical);
@@ -229,6 +242,14 @@ public class ContentPublicationService {
             throw invalid("发布账号名称须为 1–64 个字符");
         }
         return accountId;
+    }
+
+    private static long publisherAccountId(Object value) {
+        String text = value == null ? "" : value.toString();
+        try {
+            if (!text.matches("[1-9][0-9]{0,18}")) throw invalid("请选择关联的发布账号");
+            return Long.parseLong(text);
+        } catch (NumberFormatException error) { throw invalid("发布账号编号无效，请刷新账号列表"); }
     }
 
     private static String requiredPlatform(Object value) {

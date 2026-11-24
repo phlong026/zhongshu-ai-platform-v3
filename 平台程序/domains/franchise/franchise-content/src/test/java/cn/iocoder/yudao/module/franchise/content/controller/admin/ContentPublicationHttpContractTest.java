@@ -69,9 +69,9 @@ class ContentPublicationHttpContractTest {
         when(commands.replayed(org.mockito.ArgumentMatchers.eq(post), anyString(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
         ContentPublicationService service = new ContentPublicationService(mock(FrContentPublicationMapper.class),
-                drafts, commands, jdbc);
+                drafts, commands, jdbc, mock(cn.iocoder.yudao.module.franchise.content.content.ContentPublisherAccountService.class));
         ContentPublicationController controller = new ContentPublicationController();
         ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         ReflectionTestUtils.setField(controller, "publications", service);
@@ -103,6 +103,8 @@ class ContentPublicationHttpContractTest {
 
         assertThat(view).containsEntry("publishText", "已人工发布的文案")
                 .containsEntry("tags", "乡墅,案例")
+                .containsEntry("accountSource", "MANUAL_LEGACY")
+                .containsEntry("publisherAccountId", null)
                 .containsEntry("authorUserId", 9007199254740993L)
                 .containsEntry("createTime", createdAt.toString());
     }
@@ -118,9 +120,9 @@ class ContentPublicationHttpContractTest {
         when(commands.replayed(org.mockito.ArgumentMatchers.eq(post), anyString(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
         ContentPublicationService service = new ContentPublicationService(mock(FrContentPublicationMapper.class),
-                drafts, commands, jdbc);
+                drafts, commands, jdbc, mock(cn.iocoder.yudao.module.franchise.content.content.ContentPublisherAccountService.class));
         ContentPublicationController controller = new ContentPublicationController();
         ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         ReflectionTestUtils.setField(controller, "publications", service);

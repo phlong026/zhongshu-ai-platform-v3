@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES;
 
-@Import({ContentPublicationService.class, ContentDraftService.class, FranchiseCommands.class, CommandLogImpl.class,
+@Import({ContentPublicationService.class, ContentPublisherAccountService.class, ContentDraftService.class, FranchiseCommands.class, CommandLogImpl.class,
         ContentPublicationPgIntegrationTest.Config.class})
 class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
 
@@ -39,6 +39,8 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @Resource
     private ContentPublicationService service;
+    @Resource
+    private ContentPublisherAccountService publisherAccounts;
     @Resource
     private JdbcTemplate jdbc;
 
@@ -108,6 +110,37 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
                 .isInstanceOf(ServiceException.class);
         assertThat(publicationCount()).isEqualTo(before);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pf_command_event", Long.class)).isEqualTo(commandsBefore);
+    }
+
+    @Test
+    void registeredIdentityValidatesScopePlatformAndStatusAndKeepsHistoricalNames() {
+        var account = publisherAccounts.create(owner, Map.of("platform", "channels", "displayName", "原视频号名称",
+                "identifier", "store-channel"));
+        Map<String, Object> body = manualBody("客户端不可信名称");
+        body.put("publisherAccountId", Long.toString(account.id()));
+        var publication = service.createFromPost(owner, body, "registered-first-" + workId);
+        assertThat(publication.getPublisherAccountId()).isEqualTo(account.id());
+        assertThat(publication.getAccountId()).isEqualTo("原视频号名称");
+        publisherAccounts.update(owner, account.id(), Map.of("displayName", "改名后"));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "renamed-repeat-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("existingPublicationId", publication.getId().toString())
+                                .containsEntry("sameInput", true));
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), publication.getId()).getAccountId())
+                .isEqualTo("原视频号名称");
+
+        Map<String, Object> mismatch = new LinkedHashMap<>(body);
+        mismatch.put("platform", "douyin");
+        assertThatThrownBy(() -> service.createFromPost(owner, mismatch, "platform-mismatch-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        assertThatThrownBy(() -> service.createFromPost(colleague, body, "colleague-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        assertThatThrownBy(() -> service.createFromPost(outsider, body, "outside-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        publisherAccounts.update(owner, account.id(), Map.of("enabled", false));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "disabled-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("已停用");
+        assertThat(publicationCount()).isEqualTo(1);
     }
 
     @Test

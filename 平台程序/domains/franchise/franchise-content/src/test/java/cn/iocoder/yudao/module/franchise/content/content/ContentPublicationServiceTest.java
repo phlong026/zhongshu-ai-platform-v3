@@ -31,7 +31,8 @@ class ContentPublicationServiceTest {
     private final ContentDraftService drafts = mock(ContentDraftService.class);
     private final FranchiseCommands commands = mock(FranchiseCommands.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final ContentPublicationService service = new ContentPublicationService(publications, drafts, commands, jdbc);
+    private final ContentPublisherAccountService publisherAccounts = mock(ContentPublisherAccountService.class);
+    private final ContentPublicationService service = new ContentPublicationService(publications, drafts, commands, jdbc, publisherAccounts);
 
     @Test
     void createFromPostRejectsScheduleBeforeIdempotencyLookup() {
@@ -58,7 +59,7 @@ class ContentPublicationServiceTest {
     void accountNameIsTrimmedButNeverSilentlyTruncated() {
         when(drafts.workOf(100L, 88L)).thenReturn(new FrContentDraftDO().setId(88L).setCompanyId(100L)
                 .setAuthorUserId(7L));
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
 
         var created = service.create(100L, 7L, manualBody("  门店视频号  "));
 
@@ -87,7 +88,7 @@ class ContentPublicationServiceTest {
         when(commands.replayed(POST, "publication-2", manualBody("门店视频号"))).thenReturn(Optional.empty());
         when(drafts.workOf(100L, 88L)).thenReturn(new FrContentDraftDO().setId(88L).setCompanyId(100L)
                 .setAuthorUserId(7L));
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
         Map<String, Object> body = manualBody("门店视频号");
         body.put("scheduledAt", "  ");
 
@@ -106,6 +107,22 @@ class ContentPublicationServiceTest {
         body.put("platform", "channels");
         body.put("title", "手动发布登记");
         return body;
+    }
+
+    @Test
+    void registeredAccountUsesAuthorizedStableIdentityAndIgnoresSubmittedName() {
+        when(drafts.workOf(100L, 88L)).thenReturn(new FrContentDraftDO().setId(88L).setCompanyId(100L)
+                .setAuthorUserId(7L));
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
+        when(publisherAccounts.requireUsable(100L, 7L, 99L, "channels"))
+                .thenReturn(new ContentPublisherAccountService.Account(99L, 100L, 7L, "channels",
+                        "真实登记名称", "actual-id", true, null, null));
+        Map<String, Object> body = manualBody("伪造的他人名称");
+        body.put("publisherAccountId", "99");
+        var created = service.create(100L, 7L, body);
+        assertThat(created.getPublisherAccountId()).isEqualTo(99L);
+        assertThat(created.getAccountId()).isEqualTo("真实登记名称");
+        verify(publisherAccounts).requireUsable(100L, 7L, 99L, "channels");
     }
 
     @Test

@@ -26,6 +26,7 @@ public class FrContentPublicationDO {
     private String tags;
     private Long coverAssetId;
     private String accountId;
+    private Long publisherAccountId;
     private String platform;
     private OffsetDateTime scheduledAt;
     private String status;
