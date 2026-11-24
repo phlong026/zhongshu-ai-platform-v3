@@ -8,14 +8,36 @@
 
     <div
       class="zs-table-card onboard-card"
-      :class="{ 'onboard-card--directory': mode === 'directory' }"
+      :class="{ 'onboard-card--directory': mode === 'directory' || mode === 'franchise-directory' }"
     >
       <el-tabs v-model="mode" @tab-change="changeMode">
         <el-tab-pane label="已开通组织" name="directory" :disabled="submitting">
           <OrgDirectory v-if="mode === 'directory'" @create="mode = 'franchise'" />
         </el-tab-pane>
+        <el-tab-pane label="加盟商名录" name="franchise-directory" :disabled="submitting">
+          <FranchiseDirectoryPanel
+            v-if="mode === 'franchise-directory'"
+            @open-account="openDirectoryAccount"
+            @busy="submitting = $event"
+          />
+        </el-tab-pane>
         <el-tab-pane label="加盟门店开通" name="franchise" :disabled="submitting">
+          <el-radio-group
+            v-model="onboardSource"
+            :disabled="submitting"
+            class="onboard-source"
+            @change="clearCredentialResult"
+          >
+            <el-radio-button value="directory">从名录选择</el-radio-button>
+            <el-radio-button value="manual">管理员手动填写</el-radio-button>
+          </el-radio-group>
+          <DirectoryAccountForm
+            v-if="mode === 'franchise' && onboardSource === 'directory'"
+            :initial-record="initialDirectoryRecord"
+            @busy="submitting = $event"
+          />
           <el-form
+            v-if="onboardSource === 'manual'"
             ref="franchiseFormRef"
             :model="franchiseForm"
             :rules="franchiseRules"
@@ -23,7 +45,12 @@
             class="onboard-form"
           >
             <el-form-item label="所属品牌" prop="brand">
-              <el-input v-model.trim="franchiseForm.brand" maxlength="40" :disabled="submitting" placeholder="请输入加盟品牌全称" />
+              <el-input
+                v-model.trim="franchiseForm.brand"
+                maxlength="40"
+                :disabled="submitting"
+                placeholder="请输入加盟品牌全称"
+              />
             </el-form-item>
             <el-form-item label="省市" prop="areaPath">
               <el-cascader
@@ -40,11 +67,29 @@
               <div v-if="areaError" class="field-error">地区加载失败，请刷新页面重试</div>
             </el-form-item>
             <el-form-item label="地图区县" prop="districtCode">
-              <el-select v-model="franchiseForm.districtCode" filterable :disabled="submitting || !districts.length" placeholder="先选省市，再选地图区县" @change="selectDistrict">
-                <el-option v-for="item in districts" :key="item.code" :label="item.name" :value="item.code" />
+              <el-select
+                v-model="franchiseForm.districtCode"
+                filterable
+                :disabled="submitting || !districts.length"
+                placeholder="先选省市，再选地图区县"
+                @change="selectDistrict"
+              >
+                <el-option
+                  v-for="item in districts"
+                  :key="item.code"
+                  :label="item.name"
+                  :value="item.code"
+                />
               </el-select>
-              <button v-if="districtError" type="button" @click="loadDistricts">区县加载失败，重新加载</button>
-              <span v-else-if="franchiseForm.areaPath?.length === 2 && !districtLoading && !districts.length">暂无区县坐标，开通后门店会显示在列表中</span>
+              <button v-if="districtError" type="button" @click="loadDistricts"
+                >区县加载失败，重新加载</button
+              >
+              <span
+                v-else-if="
+                  franchiseForm.areaPath?.length === 2 && !districtLoading && !districts.length
+                "
+                >暂无区县坐标，开通后门店会显示在列表中</span
+              >
             </el-form-item>
             <el-form-item label="门店片区" prop="area">
               <el-input
@@ -134,7 +179,7 @@
             </el-form-item>
           </el-form>
 
-          <div v-if="franchiseResult" class="credential-card">
+          <div v-if="onboardSource === 'manual' && franchiseResult" class="credential-card">
             <div class="credential-heading">
               <div>
                 <h2>开通完成</h2>
@@ -237,6 +282,9 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getAreaTree } from '@/api/system/area'
 import OrgDirectory from './OrgDirectory.vue'
+import FranchiseDirectoryPanel from './FranchiseDirectoryPanel.vue'
+import DirectoryAccountForm from './DirectoryAccountForm.vue'
+import type { DirectoryItem } from '@/api/zs/franchise-directory'
 import {
   onboardFranchise,
   getFranchiseDistricts,
@@ -260,6 +308,8 @@ import {
 defineOptions({ name: 'PlatformOrgOnboard' })
 
 const mode = ref('directory')
+const onboardSource = ref('manual')
+const initialDirectoryRecord = ref<DirectoryItem | null>(null)
 const submitting = ref(false)
 const franchiseFormRef = ref<FormInstance>()
 const legacyFormRef = ref<FormInstance>()
@@ -309,14 +359,16 @@ const franchiseRules: FormRules = {
       trigger: 'change'
     }
   ],
-  districtCode: [{
-    validator: (_rule, value, done) => {
-      if (districtError.value || districtLoading.value) done(new Error('请等待地图区县加载完成'))
-      else if (districts.value.length && !value) done(new Error('请选择地图区县'))
-      else done()
-    },
-    trigger: 'change'
-  }],
+  districtCode: [
+    {
+      validator: (_rule, value, done) => {
+        if (districtError.value || districtLoading.value) done(new Error('请等待地图区县加载完成'))
+        else if (districts.value.length && !value) done(new Error('请选择地图区县'))
+        else done()
+      },
+      trigger: 'change'
+    }
+  ],
   area: [{ required: true, message: '请填写区县或门店片区', trigger: 'blur' }],
   adminName: [{ required: true, message: '请填写老板姓名', trigger: 'blur' }],
   adminMobile: [
@@ -343,6 +395,7 @@ function clearCredentialResult() {
 }
 
 function clearSensitiveState() {
+  initialDirectoryRecord.value = null
   if (previewTimer) clearTimeout(previewTimer)
   previewTimer = undefined
   previewGuard.invalidate()
@@ -473,6 +526,14 @@ function changeMode() {
   submitGuard.invalidate()
 }
 
+function openDirectoryAccount(record: DirectoryItem) {
+  if (submitting.value) return
+  clearCredentialResult()
+  initialDirectoryRecord.value = record
+  onboardSource.value = 'directory'
+  mode.value = 'franchise'
+}
+
 async function loadAreas() {
   areaLoading.value = true
   areaError.value = false
@@ -487,7 +548,7 @@ async function loadAreas() {
   }
 }
 
-const districts = ref<{code: string; name: string}[]>([])
+const districts = ref<{ code: string; name: string }[]>([])
 const districtError = ref(false)
 const districtLoading = ref(false)
 let districtGeneration = 0
@@ -503,7 +564,7 @@ async function loadDistricts() {
   districtLoading.value = !!names.city
   if (!names.city) return
   try {
-    const rows = await getFranchiseDistricts(names.province,names.city)
+    const rows = await getFranchiseDistricts(names.province, names.city)
     if (generation === districtGeneration) districts.value = rows
   } catch {
     if (generation === districtGeneration) districtError.value = true
@@ -512,9 +573,10 @@ async function loadDistricts() {
   }
 }
 function selectDistrict(code: string) {
-  const district = districts.value.find(item => item.code === code)
+  const district = districts.value.find((item) => item.code === code)
   if (!district) return
-  if (!franchiseForm.area.trim() || franchiseForm.area === previousDistrictName) franchiseForm.area = district.name
+  if (!franchiseForm.area.trim() || franchiseForm.area === previousDistrictName)
+    franchiseForm.area = district.name
   previousDistrictName = district.name
 }
 watch(() => franchiseForm.areaPath?.join(','), loadDistricts)
@@ -568,6 +630,10 @@ onBeforeUnmount(handleDeactivated)
 
 .onboard-card--directory {
   max-width: none;
+}
+
+.onboard-source {
+  margin-top: 18px;
 }
 
 .onboard-form {
