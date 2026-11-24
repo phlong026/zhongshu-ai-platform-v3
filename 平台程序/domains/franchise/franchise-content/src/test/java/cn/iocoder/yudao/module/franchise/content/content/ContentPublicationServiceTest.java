@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
@@ -32,7 +33,14 @@ class ContentPublicationServiceTest {
     private final FranchiseCommands commands = mock(FranchiseCommands.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final ContentPublisherAccountService publisherAccounts = mock(ContentPublisherAccountService.class);
-    private final ContentPublicationService service = new ContentPublicationService(publications, drafts, commands, jdbc, publisherAccounts);
+    private final ContentPublicationCoverService covers = mock(ContentPublicationCoverService.class);
+    private final ContentPublicationService service = new ContentPublicationService(publications, drafts, commands, jdbc, publisherAccounts, covers);
+
+    @BeforeEach
+    void absentCoverRetainsTheValidationServicesNullContract() {
+        when(covers.validate(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(null);
+    }
 
     @Test
     void createFromPostRejectsScheduleBeforeIdempotencyLookup() {
@@ -144,5 +152,16 @@ class ContentPublicationServiceTest {
                         assertThat(error.details()).containsEntry("sameInput", false));
         verify(publications, org.mockito.Mockito.never()).updateById(
                 org.mockito.ArgumentMatchers.<FrContentPublicationDO>any());
+    }
+
+    @Test
+    void rejectedCoverDoesNotInsertPublicationOrRecordCommand() {
+        when(drafts.workOf(100L, 88L)).thenReturn(new FrContentDraftDO().setId(88L).setCompanyId(100L)
+                .setAuthorUserId(7L));
+        Map<String, Object> body = manualBody("门店视频号");
+        body.put("coverAssetId", "99");
+        when(covers.validate(100L, 7L, "99")).thenThrow(new ServiceException(1114000015, "封面不可用"));
+        assertThatThrownBy(() -> service.create(100L, 7L, body)).hasMessage("封面不可用");
+        verifyNoInteractions(jdbc, publications, commands);
     }
 }

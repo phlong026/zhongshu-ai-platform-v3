@@ -144,6 +144,7 @@ public class ContentPublicationController {
         view.put("title", row.getTitle());
         view.put("publishText", row.getPublishText() == null ? "" : row.getPublishText());
         view.put("tags", row.getTags() == null ? "" : row.getTags());
+        view.put("coverAssetId", row.getCoverAssetId() == null ? null : row.getCoverAssetId().toString());
         view.put("accountId", row.getAccountId());
         view.put("accountName", row.getAccountId());
         view.put("publisherAccountId", row.getPublisherAccountId() == null ? null : row.getPublisherAccountId().toString());

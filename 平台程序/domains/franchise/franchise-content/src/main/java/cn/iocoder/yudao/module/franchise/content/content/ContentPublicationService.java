@@ -30,16 +30,19 @@ public class ContentPublicationService {
     private final cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final ContentPublisherAccountService publisherAccounts;
+    private final ContentPublicationCoverService covers;
 
     public ContentPublicationService(FrContentPublicationMapper publications, ContentDraftService drafts,
                                      cn.iocoder.yudao.module.franchise.org.FranchiseCommands commands,
                                      org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
-                                     ContentPublisherAccountService publisherAccounts) {
+                                     ContentPublisherAccountService publisherAccounts,
+                                     ContentPublicationCoverService covers) {
         this.publications = publications;
         this.drafts = drafts;
         this.commands = commands;
         this.jdbcTemplate = jdbcTemplate;
         this.publisherAccounts = publisherAccounts;
+        this.covers = covers;
     }
 
     /** 幂等入口：duplicate 重放返回既有（POST /content/publications）。 */
@@ -69,6 +72,7 @@ public class ContentPublicationService {
         if (!Objects.equals(work.getAuthorUserId(), userId)) {
             throw exception(WORK_INVALID);
         }
+        Long coverAssetId = covers.validate(companyId, userId, body.get("coverAssetId"));
         String status = "publishing";
         OffsetDateTime now = OffsetDateTime.now();
         FrContentPublicationDO row = new FrContentPublicationDO()
@@ -79,8 +83,7 @@ public class ContentPublicationService {
                 .setTitle(clip(body.get("title") == null ? "发布" : String.valueOf(body.get("title")), 200))
                 .setPublishText(body.get("publishText") == null ? null : String.valueOf(body.get("publishText")))
                 .setTags(body.get("tags") == null ? null : clip(String.valueOf(body.get("tags")), 500))
-                .setCoverAssetId(body.get("coverAssetId") == null ? null
-                        : Long.parseLong(String.valueOf(body.get("coverAssetId"))))
+                .setCoverAssetId(coverAssetId)
                 .setAccountId(accountId)
                 .setPublisherAccountId(publisherAccountId)
                 .setPlatform(platform)
