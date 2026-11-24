@@ -1,3 +1,4 @@
+@import './publication.wxss';
 @import './material-library.wxss';
 @import '../../styles/creation.wxss';
 .studio-card { padding: var(--zs-space-card); margin-bottom: var(--zs-space-section); }

@@ -110,11 +110,13 @@ function payload(page, env) {
   if (invalid) throw Error(invalid);
   const platform = (env.studio.publicationPlatforms || [])[data.selectedAccount];
   if (!platform) throw Error('请选择发布平台');
-  const accountId = id(data.publicationAccount).trim();
-  if (!accountId) throw Error('请填写实际发布账号名称');
-  if (accountId.length > 64) throw Error('发布账号名称不能超过64个字符');
+  if (data.publisherAccountsLoading) throw Error('发布账号加载中，请稍候');
+  if (!data.publisherAccountsLoaded || data.publisherAccountsError) throw Error('请先重新加载发布账号');
+  const account = (data.publisherAccounts || []).find(row => id(row.id) === id(data.publisherAccountId)
+    && row.enabled === true && row.platform === platform.platform);
+  if (!account) throw Error('请选择发布账号');
   return { workId: id(data.workId), title: data.title.trim(), publishText: data.publishText.trim(),
-    tags: id(data.tags).trim(), accountId, platform: platform.platform };
+    tags: id(data.tags).trim(), publisherAccountId: id(account.id), platform: platform.platform };
 }
 
 async function submit(page, env) {

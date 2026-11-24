@@ -90,6 +90,12 @@ const personas = {
   remove: (id) => http.del('/franchise/content/personas/' + id)
 };
 
+const publisherAccounts = {
+  list: platform => http.get('/franchise/content/publisher-accounts', platform ? { platform } : undefined),
+  create: body => http.post('/franchise/content/publisher-accounts', body),
+  update: (id, body) => http.put('/franchise/content/publisher-accounts/' + encodeURIComponent(id), body)
+};
+
 const publications = {
   /** 创建发布记录（direct-v1 五态；幂等 duplicate 返回既有） */
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
@@ -125,4 +131,4 @@ const clones = {
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
   setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
 };
-module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publications, growth };
+module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publisherAccounts, publications, growth };

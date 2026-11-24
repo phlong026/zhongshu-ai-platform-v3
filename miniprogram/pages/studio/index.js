@@ -42,6 +42,7 @@ tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
 digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', workId: '', saved: false,
+publisherAccounts:[],publisherAccountsAll:[],publisherAccountsLoaded:false,publisherAccountsLoading:false,publisherAccountsError:'',publisherAccountId:'',publisherAccountBusy:false,publisherAccountEditingId:'',publisherAccountNameInput:'',publisherAccountIdentifierInput:'',publisherAccountEditError:'',
 publicationPending:false,publicationPendingTitle:'',publicationPendingPlatform:'',publicationExistingId:'',publicationExistingStatus:'',
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
@@ -72,6 +73,7 @@ if(options.persona)this.setData({selectedPersonaId:String(options.persona),rewri
 this.loadPersonas();
 }
 const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,selectedAccount:Math.max(0,(studio.publicationPlatforms||[]).findIndex(a=>a.platform===c.pack.platform))});}
+if(view==='publish')this.loadPublisherAccounts();
 this.refreshData();
 if(view==='receipt'){
 this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
@@ -79,7 +81,7 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+(this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):'' )});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);
+onShow() {if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+(this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):'' )});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);if(this.data.view==='publish'&&!initial)this.loadPublisherAccounts();
   },
 onHide() {
 // A return may follow an edit on another page. Keep the snapshot, but never reuse its pre-hide read.
@@ -97,8 +99,8 @@ state.rewriteSettings = { rewriteMode, ipIndex, selectedPersonaId, customIp: cus
 }
 if (this.data.view === 'publish' && !this.data.invalidMessage && this.data.workId) {
 const state = studio.read();
-const { title, publishText, tags, selectedAccount, publicationAccount, cover, workId } = this.data;
-state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, publicationAccount, cover, workId }; studio.write(state);
+const { title, publishText, tags, selectedAccount, publicationAccount, publisherAccountId, cover, workId } = this.data;
+state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, publicationAccount, publisherAccountId, cover, workId }; studio.write(state);
 }
 },
 refreshData() {
@@ -724,7 +726,7 @@ if (!task) { this.refreshData(); return; }
 if (task.kind === 'ai') wx.navigateTo({ url: '/pages/ai-video/index?task=' + encodeURIComponent(task.id) });
 else { state.script = task.script || ''; state.scriptEdited=true; state.title = task.title; delete state.editorBuffer; studio.write(state); this.go('digital'); }
 },
-selectAccount(e) { this.setData({ selectedAccount: Number(e.currentTarget.dataset.index), sheet: '' }); },
+selectAccount(e) { return require('./publication-accounts').selectPlatform(this,this.publicationEnvironment(),e.currentTarget.dataset.index); },
 switchAccount() { this.setData({ sheet: 'accounts', sheetTitle: '更换账号' }); },
 changeCover() { this.setData({ sheet: 'cover', sheetTitle: '更换封面' }); },
 selectCover(e) { this.setData({ cover: e.currentTarget.dataset.path, sheet: '' }); },
@@ -732,7 +734,14 @@ inputTitle(e) { this.setData({ title: e.detail.value }); },
 clearTitle() { this.setData({ title: '' }); },
 inputPublishText(e) { this.setData({ publishText: e.detail.value }); },
 inputTags(e) { this.setData({ tags: e.detail.value }); },
-inputPublicationAccount(e) { this.setData({ publicationAccount: e.detail.value }); },
+loadPublisherAccounts(){return require('./publication-accounts').load(this,this.publicationEnvironment());},
+selectPublisherAccount(e){return require('./publication-accounts').select(this,e.currentTarget.dataset.id);},
+managePublisherAccounts(){return require('./publication-accounts').manage(this,this.publicationEnvironment());},
+editPublisherAccount(e){return require('./publication-accounts').edit(this,e.currentTarget.dataset.id);},
+inputPublisherAccountName(e){this.setData({publisherAccountNameInput:e.detail.value});},
+inputPublisherAccountIdentifier(e){this.setData({publisherAccountIdentifierInput:e.detail.value});},
+savePublisherAccount(){return require('./publication-accounts').save(this,this.publicationEnvironment());},
+togglePublisherAccount(e){return require('./publication-accounts').toggle(this,this.publicationEnvironment(),e.currentTarget.dataset.id);},
 moreSettings() { this.setData({ sheet: 'settings', sheetTitle: '更多设置' }); },
 submitPublish() {
 if (!http.token()) return wx.showToast({ title: '请先登录后再发布', icon: 'none' }); // 无 token：提示登录，不落本地发布记录

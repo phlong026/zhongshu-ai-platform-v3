@@ -24,6 +24,7 @@ const API_FACE = {
   materials: ['page', 'upload', 'complete', 'download', 'update', 'remove'],
   personas: ['page', 'create', 'update', 'remove'],
   clones: ['quote', 'list', 'create', 'refresh', 'setDefault'],
+  publisherAccounts: ['list', 'create', 'update'],
   publications: ['create', 'page', 'verify', 'link', 'fail'],
   growth: ['summary']
 };

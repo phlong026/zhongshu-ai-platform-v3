@@ -8,7 +8,7 @@ function fixture(options = {}) {
   const page = () => ({
     actorScope: 'post-30', __closed: false,
     data: { view: 'publish', workId: '80', title: '原标题', publishText: '原文案', tags: '',
-      publicationAccount: '门店账号', selectedAccount: 0, publishSubmitting: false },
+      publicationAccount: '门店账号', publisherAccountId:'200', publisherAccountsLoaded:true, publisherAccounts:[{id:'200',platform:'douyin',enabled:true}], selectedAccount: 0, publishSubmitting: false },
     setData(patch) { Object.assign(this.data, patch); },
     persistEditor() { drafts.push(structuredClone(this.data)); },
     go(view, suffix) { routes.push([view, suffix]); }
