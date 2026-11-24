@@ -128,7 +128,7 @@ this.__dismissingTask=null;this.__retryingSave=null;
 this.setData({tasks:[],taskCount:0,works:[],records:[],detail:null,timeline:[],tasksLoaded:false,worksLoaded:false,recordsLoaded:false,tasksLoading:false,worksLoading:false,recordsLoading:false,tasksError:'',worksError:'',recordsError:''});
 },
 /** Reuse only a matching in-flight read; a successful snapshot stays mounted during refresh. */
-loadList(kind,request,render) {
+loadList(kind,request,render,afterRender) {
 if(this.__closed)return;
 if(!http.token()||this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()){this.resetLists();return;}
 const identity=listIdentity(),view=this.data.view,query=listQuery(this.data,kind);
@@ -144,6 +144,7 @@ flight.promise=request().then(rows=>{
 if(!current())return;
 const patch=render(rows);this.__listSnapshots[kind]=key;
 this.setData(Object.assign({},patch,{[kind+'Loaded']:true,[kind+'Loading']:false,[kind+'Error']:''}));
+if(afterRender)afterRender();
 }).catch(error=>{
 const denied=error&&(error.postInvalid||[401,403,1103000002].includes(Number(error.code)));
 // HTTP may expire the session before delivering 401. Only this still-owned request may clear its old frame.
@@ -180,7 +181,7 @@ return {works};
 /** 发布记录列表与详情共用 publications.page；状态筛选在页面端完成。 */
 syncApiRecords(recordId) {
 const filter=this.data.recordFilter;
-return Promise.resolve(this.loadList('records',()=>contentApi.publications.page(),rows=>{
+return this.loadList('records',()=>contentApi.publications.page(),rows=>{
 const mapped=P.rowsOf(rows).map(row=>this.mapApiPublication(row)).filter(Boolean);
 if(recordId!=null&&recordId!==''){
 const detail=mapped.find(item=>item.id===String(recordId));
@@ -189,7 +190,7 @@ return {detail,timeline:this.publicationTimeline(detail),invalidMessage:''};
 }
 const records=mapped.filter(item=>filter===0||(filter===1&&['publishing','verify','scheduled'].includes(item.status))||(filter===2&&item.status==='published')||(filter===3&&item.status==='failed'));
 return {records};
-})).then(()=>this.hydratePublicationCovers());
+},()=>this.hydratePublicationCovers());
 },
 mapApiPublication(row) {
 if(!row||row.id==null||row.id==='')return null;
