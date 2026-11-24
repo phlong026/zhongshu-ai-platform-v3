@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -105,5 +106,26 @@ class ContentPublicationServiceTest {
         body.put("platform", "channels");
         body.put("title", "手动发布登记");
         return body;
+    }
+
+    @Test
+    void duplicateReturnsRecoverableRecordAndComparesContentWithoutOverwriting() {
+        when(drafts.workOf(100L, 88L)).thenReturn(new FrContentDraftDO().setId(88L).setCompanyId(100L)
+                .setAuthorUserId(7L));
+        FrContentPublicationDO existing = new FrContentPublicationDO().setId(91L).setCompanyId(100L)
+                .setAuthorUserId(7L).setWorkId(88L).setPlatform("channels").setAccountId("门店视频号")
+                .setTitle("手动发布登记").setStatus("published");
+        when(publications.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(existing);
+        assertThatThrownBy(() -> service.create(100L, 7L, manualBody("门店视频号")))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("existingPublicationId", "91")
+                                .containsEntry("status", "published").containsEntry("sameInput", true));
+        Map<String, Object> changed = manualBody("门店视频号");
+        changed.put("tags", "修改的话题");
+        assertThatThrownBy(() -> service.create(100L, 7L, changed))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("sameInput", false));
+        verify(publications, org.mockito.Mockito.never()).updateById(
+                org.mockito.ArgumentMatchers.<FrContentPublicationDO>any());
     }
 }

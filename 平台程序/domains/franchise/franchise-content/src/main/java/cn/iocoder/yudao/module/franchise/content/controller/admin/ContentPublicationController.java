@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationConflict;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
@@ -51,7 +52,14 @@ public class ContentPublicationController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         PostSnapshot post = post();
         String key = ContentScriptController.requireIdem(idem);
-        return success(view(publications.createFromPost(post, body, key)));
+        try {
+            return success(view(publications.createFromPost(post, body, key)));
+        } catch (ContentPublicationConflict conflict) {
+            CommonResult<Map<String, Object>> result = CommonResult.error(
+                    cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.PUBLICATION_EXISTS);
+            result.setData(conflict.details());
+            return result;
+        }
     }
 
     @GetMapping("/publications")

@@ -84,17 +84,28 @@ public class ContentPublicationService {
                 .setUpdateTime(now);
         row.setSignature(signatureOf(row));
         // JSONB 列（versions）经 JdbcTemplate CAST 写入（MyBatis String 直写 jsonb 会 42804）
-        try {
-            jdbcTemplate.update(
+        int inserted = jdbcTemplate.update(
                     "INSERT INTO fr_content_publication (id, company_id, author_user_id, work_id, title, "
                             + "publish_text, tags, cover_asset_id, account_id, platform, scheduled_at, status, "
                             + "versions, signature, create_time, update_time) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?)",
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?) "
+                            + "ON CONFLICT (work_id, platform, account_id) WHERE status <> 'failed' DO NOTHING",
                     row.getId(), companyId, userId, workId, row.getTitle(), row.getPublishText(), row.getTags(),
                     row.getCoverAssetId(), accountId, platform, null, status,
                     row.getVersions(), row.getSignature(), now, now);
-        } catch (DuplicateKeyException e) {
-            throw exception(INPUT_INVALID, "该作品在此账号已有进行中的发布记录");
+        if (inserted == 0) {
+            // DO NOTHING keeps PostgreSQL's transaction usable for this authorized recovery lookup.
+            FrContentPublicationDO existing = publications.selectOne(new LambdaQueryWrapper<FrContentPublicationDO>()
+                    .eq(FrContentPublicationDO::getCompanyId, companyId)
+                    .eq(FrContentPublicationDO::getAuthorUserId, userId)
+                    .eq(FrContentPublicationDO::getWorkId, workId)
+                    .eq(FrContentPublicationDO::getPlatform, platform)
+                    .eq(FrContentPublicationDO::getAccountId, accountId)
+                    .ne(FrContentPublicationDO::getStatus, "failed"));
+            if (existing == null) {
+                throw invalid("发布记录状态已变化，请刷新发布记录后重试");
+            }
+            throw new ContentPublicationConflict(existing, sameInput(existing, row));
         }
         return row;
     }
@@ -211,11 +222,11 @@ public class ContentPublicationService {
 
     private static String requiredAccountId(Object value) {
         if (value == null) {
-            throw exception(INPUT_INVALID);
+            throw invalid("请填写实际发布账号名称");
         }
         String accountId = String.valueOf(value).trim();
         if (accountId.isEmpty() || accountId.length() > 64) {
-            throw exception(INPUT_INVALID);
+            throw invalid("发布账号名称须为 1–64 个字符");
         }
         return accountId;
     }
@@ -223,7 +234,7 @@ public class ContentPublicationService {
     private static String requiredPlatform(Object value) {
         String platform = value == null ? "" : String.valueOf(value).trim();
         if (!"douyin".equals(platform) && !"channels".equals(platform)) {
-            throw exception(INPUT_INVALID);
+            throw invalid("请选择有效的发布平台（抖音或视频号）");
         }
         return platform;
     }
@@ -231,19 +242,39 @@ public class ContentPublicationService {
     /** 上线策略只允许人工登记；必须在任何查询、幂等读取或写入之前执行。 */
     private static void requireManualPublication(Map<String, Object> body) {
         if (body == null) {
-            throw exception(INPUT_INVALID);
+            throw invalid("发布登记内容不能为空");
         }
         Object scheduledAt = body.get("scheduledAt");
         if (scheduledAt != null && !String.valueOf(scheduledAt).isBlank()) {
-            throw exception(INPUT_INVALID);
+            throw invalid("当前仅支持手动发布登记，请取消定时发布设置");
         }
     }
 
     private static long requiredLong(Object value, String field) {
         if (value == null || String.valueOf(value).isBlank()) {
-            throw exception(INPUT_INVALID);
+            throw invalid("请先选择已保存的作品");
         }
-        return Long.parseLong(String.valueOf(value));
+        try {
+            long id = Long.parseLong(String.valueOf(value));
+            if (id <= 0) throw invalid("作品编号无效，请重新选择作品");
+            return id;
+        } catch (NumberFormatException e) {
+            throw invalid("作品编号无效，请重新选择作品");
+        }
+    }
+
+    private static boolean sameInput(FrContentPublicationDO existing, FrContentPublicationDO requested) {
+        return Objects.equals(existing.getTitle(), requested.getTitle())
+                && Objects.equals(empty(existing.getPublishText()), empty(requested.getPublishText()))
+                && Objects.equals(empty(existing.getTags()), empty(requested.getTags()))
+                && Objects.equals(existing.getCoverAssetId(), requested.getCoverAssetId())
+                && existing.getScheduledAt() == null;
+    }
+
+    private static String empty(String value) { return value == null ? "" : value; }
+
+    private static cn.iocoder.yudao.framework.common.exception.ServiceException invalid(String message) {
+        return new cn.iocoder.yudao.framework.common.exception.ServiceException(INPUT_INVALID.getCode(), message);
     }
 
     private static String clip(String value, int max) {

@@ -111,6 +111,71 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void undoRefusesIncompatibleRowsAtomicallyAndSupportsCompatibleRows() throws Exception {
+        String schema = "publication_undo_" + workId;
+        String undo;
+        try (var input = new org.springframework.core.io.ClassPathResource(
+                "db/migration-undo/franchise/V20261124.1022__undo_publication_platform_identity.sql").getInputStream()) {
+            undo = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        try (var connection = jdbc.getDataSource().getConnection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + schema);
+            try {
+                statement.execute("SET search_path TO " + schema);
+                statement.execute("CREATE TABLE fr_content_publication (work_id BIGINT, platform TEXT, account_id TEXT, status TEXT)");
+                statement.execute("CREATE UNIQUE INDEX uk_fr_content_publication_active ON fr_content_publication "
+                        + "(work_id, platform, account_id) WHERE status <> 'failed'");
+                statement.execute("INSERT INTO fr_content_publication VALUES (1,'douyin','same','publishing'),(1,'channels','same','published')");
+                assertThatThrownBy(() -> statement.execute(undo)).isInstanceOf(java.sql.SQLException.class)
+                        .hasMessageContaining("cross-platform records exist");
+                try (var indexes = statement.executeQuery("SELECT indexdef FROM pg_indexes WHERE schemaname='" + schema + "'")) {
+                    assertThat(indexes.next()).isTrue();
+                    assertThat(indexes.getString(1)).contains("work_id, platform, account_id");
+                }
+                statement.execute("DELETE FROM fr_content_publication WHERE platform='channels'");
+                statement.execute(undo);
+                try (var indexes = statement.executeQuery("SELECT indexdef FROM pg_indexes WHERE schemaname='" + schema + "'")) {
+                    assertThat(indexes.next()).isTrue();
+                    assertThat(indexes.getString(1)).contains("work_id, account_id").doesNotContain("platform");
+                }
+            } finally {
+                statement.execute("SET search_path TO public");
+                statement.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
+    void sameNameOnDifferentPlatformsCanPublishAndDuplicateRecordIsRecoverable() {
+        Map<String, Object> channels = manualBody("同名账号");
+        var first = service.createFromPost(owner, channels, "channels-first-" + workId);
+        Map<String, Object> douyin = new LinkedHashMap<>(channels);
+        douyin.put("platform", "douyin");
+        var second = service.createFromPost(owner, douyin, "douyin-first-" + workId);
+        assertThat(second.getId()).isNotEqualTo(first.getId());
+        assertThat(publicationCount()).isEqualTo(2);
+
+        assertThatThrownBy(() -> service.createFromPost(owner, channels, "reopened-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("existingPublicationId", first.getId().toString())
+                                .containsEntry("sameInput", true).containsEntry("status", "publishing"));
+        Map<String, Object> changed = new LinkedHashMap<>(channels);
+        changed.put("publishText", "重新编辑的文案");
+        assertThatThrownBy(() -> service.createFromPost(owner, changed, "changed-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("sameInput", false));
+        assertThat(publicationCount()).isEqualTo(2);
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), first.getId()).getPublishText())
+                .isEqualTo("人工发布文案");
+
+        service.verify(store.orgId(), owner.userId(), first.getId());
+        service.link(store.orgId(), owner.userId(), first.getId(), "https://channels.example/post/" + first.getId());
+        assertThatThrownBy(() -> service.createFromPost(owner, channels, "published-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("status", "published"));
+    }
+
+    @Test
     void cannotRegisterColleagueOrOtherOrganizationsWork() {
         long colleagueWork = IdWorker.getId();
         insertWork(colleagueWork, store.orgId(), colleague.userId(), "同组织同事作品");
