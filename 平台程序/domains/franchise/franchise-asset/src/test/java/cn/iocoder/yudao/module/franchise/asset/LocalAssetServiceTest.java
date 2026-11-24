@@ -42,6 +42,22 @@ class LocalAssetServiceTest {
     private boolean ownerMappingActive;
 
     @Test
+    void generatedCoverUsesOrdinaryImageValidationAndCurrentActorOwnership() throws Exception {
+        current = new PostSnapshot(11, 22, 33, "store", "sales", null, false, Set.of());
+        long id = service.importContentImage(ACTOR, png(), "image/png");
+        assertThat(service.contentMetadata(ACTOR, id).mimeType()).isEqualTo("image/png");
+        assertThat(jdbc.queryForMap("SELECT asset_type,creator_user_id,creator_post_id,upload_status FROM fr_asset WHERE id=?", id))
+                .containsEntry("ASSET_TYPE", "CONTENT_ASSET").containsEntry("CREATOR_USER_ID", 22L)
+                .containsEntry("CREATOR_POST_ID", 11L).containsEntry("UPLOAD_STATUS", "ACCEPTED");
+        assertThatThrownBy(() -> service.importContentImage(new Actor(34,777,22,11),png(),"image/png"))
+                .isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> service.importContentImage(ACTOR, "not-an-image".getBytes(StandardCharsets.UTF_8), "image/png"))
+                .hasMessageContaining("未通过图片校验");
+        assertThatThrownBy(() -> service.importContentImage(ACTOR, png(), "video/mp4"))
+                .hasMessageContaining("格式或大小无效");
+    }
+
+    @Test
     void contentVisibilityPolicyIsEnforcedByEveryPublicAssetRead() throws Exception {
         current = new PostSnapshot(11, 22, 33, "store", "sales", null, false, Set.of());
         byte[] png = png();

@@ -14,6 +14,16 @@ public interface AssetAccessPort {
     record ReferenceContent(byte[] bytes, String mimeType, String sha256) { }
     record ContentMedia(byte[] bytes, String mimeType, String sha256, double durationSeconds, int width, int height) { }
 
+    /** Definitive scanner rejection, distinct from a temporary upload or storage failure. */
+    class ContentRejectedException extends RuntimeException {
+        public ContentRejectedException(String message) { super(message); }
+    }
+
+    /** Internal generated image import. Implementations must apply the ordinary content scanner and ownership checks. */
+    default long importContentImage(Actor actor, byte[] bytes, String mimeType) {
+        throw new IllegalArgumentException("生成封面保存通道尚未配置");
+    }
+
     /** Clone input: only the caller's accepted CONTENT_ASSET bytes; recheck ownership and accepted digest. */
     default ContentMedia readContentMedia(Actor actor, long assetId) {
         throw new IllegalArgumentException("内容素材读取未配置");
