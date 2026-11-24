@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.content.content;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
+import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.test.FranchiseFixture;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
@@ -15,6 +17,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -23,9 +26,15 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES;
 
-@Import({ContentPublicationService.class, ContentDraftService.class, FranchiseCommands.class, CommandLogImpl.class,
+@Import({ContentPublicationService.class, ContentPublisherAccountService.class, ContentPublicationCoverService.class,
+        ContentDraftService.class, FranchiseCommands.class, CommandLogImpl.class,
         ContentPublicationPgIntegrationTest.Config.class})
 class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
 
@@ -40,7 +49,13 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource
     private ContentPublicationService service;
     @Resource
+    private ContentPublisherAccountService publisherAccounts;
+    @Resource
     private JdbcTemplate jdbc;
+    @MockitoBean
+    private AssetAccessPort assets;
+    @MockitoBean
+    private StoreServiceAccountPort serviceAccounts;
 
     private FranchiseFixture.Store store;
     private PostSnapshot owner;
@@ -58,6 +73,7 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         workId = IdWorker.getId();
         insertWork(workId, store.orgId(), owner.userId(), "本人作品");
         currentPost.use(owner);
+        when(serviceAccounts.requireServiceAccount(anyLong())).thenReturn(50L);
     }
 
     @Test
@@ -108,6 +124,148 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
                 .isInstanceOf(ServiceException.class);
         assertThat(publicationCount()).isEqualTo(before);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pf_command_event", Long.class)).isEqualTo(commandsBefore);
+    }
+
+    @Test
+    void registeredIdentityValidatesScopePlatformAndStatusAndKeepsHistoricalNames() {
+        var account = publisherAccounts.create(owner, Map.of("platform", "channels", "displayName", "原视频号名称",
+                "identifier", "store-channel"));
+        Map<String, Object> body = manualBody("客户端不可信名称");
+        body.put("publisherAccountId", Long.toString(account.id()));
+        var publication = service.createFromPost(owner, body, "registered-first-" + workId);
+        assertThat(publication.getPublisherAccountId()).isEqualTo(account.id());
+        assertThat(publication.getAccountId()).isEqualTo("原视频号名称");
+        publisherAccounts.update(owner, account.id(), Map.of("displayName", "改名后"));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "renamed-repeat-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("existingPublicationId", publication.getId().toString())
+                                .containsEntry("sameInput", true));
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), publication.getId()).getAccountId())
+                .isEqualTo("原视频号名称");
+
+        Map<String, Object> mismatch = new LinkedHashMap<>(body);
+        mismatch.put("platform", "douyin");
+        assertThatThrownBy(() -> service.createFromPost(owner, mismatch, "platform-mismatch-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        assertThatThrownBy(() -> service.createFromPost(colleague, body, "colleague-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        assertThatThrownBy(() -> service.createFromPost(outsider, body, "outside-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("发布账号");
+        publisherAccounts.update(owner, account.id(), Map.of("enabled", false));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "disabled-account-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("已停用");
+        assertThat(publicationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void verifiedCoverIsPersistedReadBackAndIncludedInDuplicateComparison() {
+        long firstCover = IdWorker.getId();
+        long changedCover = IdWorker.getId();
+        var actor = new AssetAccessPort.Actor(store.orgId(), 50L, owner.userId(), owner.postId());
+        var image = new AssetAccessPort.ContentMedia(new byte[]{1}, "image/png", "verified-digest", 0, 100, 100);
+        when(assets.readContentMedia(actor, firstCover)).thenReturn(image);
+        when(assets.readContentMedia(actor, changedCover)).thenReturn(image);
+        Map<String, Object> body = manualBody("封面视频号");
+        body.put("coverAssetId", Long.toString(firstCover));
+        var created = service.createFromPost(owner, body, "cover-first-" + workId);
+        assertThat(jdbc.queryForObject("SELECT cover_asset_id FROM fr_content_publication WHERE id=?",
+                Long.class, created.getId())).isEqualTo(firstCover);
+        assertThat(service.list(store.orgId(), owner.userId(), null)).anySatisfy(row ->
+                assertThat(row.getCoverAssetId()).isEqualTo(firstCover));
+        assertThat(service.createFromPost(owner, body, "cover-first-" + workId).getCoverAssetId()).isEqualTo(firstCover);
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "cover-repeat-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("sameInput", true));
+        Map<String, Object> changed = new LinkedHashMap<>(body);
+        changed.put("coverAssetId", Long.toString(changedCover));
+        assertThatThrownBy(() -> service.createFromPost(owner, changed, "cover-changed-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("sameInput", false));
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), created.getId()).getCoverAssetId())
+                .isEqualTo(firstCover);
+        assertThat(publicationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void unavailableOrNonImageCoverCannotCreatePublicationOrCommand() {
+        long coverId = IdWorker.getId();
+        Map<String, Object> body = manualBody("不可用封面账号");
+        body.put("coverAssetId", Long.toString(coverId));
+        long commandsBefore = jdbc.queryForObject("SELECT COUNT(*) FROM pf_command_event", Long.class);
+        when(assets.readContentMedia(any(), eq(coverId))).thenThrow(new ServiceException(403, "素材未完成或无权访问"));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "cover-forbidden-" + workId))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("无权访问");
+        doReturn(new AssetAccessPort.ContentMedia(new byte[]{1}, "video/mp4", "hash", 1, 100, 100))
+                .when(assets).readContentMedia(any(), eq(coverId));
+        assertThatThrownBy(() -> service.createFromPost(owner, body, "cover-video-" + workId))
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(1114000015));
+        assertThat(publicationCount()).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pf_command_event", Long.class)).isEqualTo(commandsBefore);
+    }
+
+    @Test
+    void undoRefusesIncompatibleRowsAtomicallyAndSupportsCompatibleRows() throws Exception {
+        String schema = "publication_undo_" + workId;
+        String undo;
+        try (var input = new org.springframework.core.io.ClassPathResource(
+                "db/migration-undo/franchise/V20261124.1022__undo_publication_platform_identity.sql").getInputStream()) {
+            undo = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        try (var connection = jdbc.getDataSource().getConnection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA " + schema);
+            try {
+                statement.execute("SET search_path TO " + schema);
+                statement.execute("CREATE TABLE fr_content_publication (work_id BIGINT, platform TEXT, account_id TEXT, status TEXT)");
+                statement.execute("CREATE UNIQUE INDEX uk_fr_content_publication_active ON fr_content_publication "
+                        + "(work_id, platform, account_id) WHERE status <> 'failed'");
+                statement.execute("INSERT INTO fr_content_publication VALUES (1,'douyin','same','publishing'),(1,'channels','same','published')");
+                assertThatThrownBy(() -> statement.execute(undo)).isInstanceOf(java.sql.SQLException.class)
+                        .hasMessageContaining("cross-platform records exist");
+                try (var indexes = statement.executeQuery("SELECT indexdef FROM pg_indexes WHERE schemaname='" + schema + "'")) {
+                    assertThat(indexes.next()).isTrue();
+                    assertThat(indexes.getString(1)).contains("work_id, platform, account_id");
+                }
+                statement.execute("DELETE FROM fr_content_publication WHERE platform='channels'");
+                statement.execute(undo);
+                try (var indexes = statement.executeQuery("SELECT indexdef FROM pg_indexes WHERE schemaname='" + schema + "'")) {
+                    assertThat(indexes.next()).isTrue();
+                    assertThat(indexes.getString(1)).contains("work_id, account_id").doesNotContain("platform");
+                }
+            } finally {
+                statement.execute("SET search_path TO public");
+                statement.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
+    void sameNameOnDifferentPlatformsCanPublishAndDuplicateRecordIsRecoverable() {
+        Map<String, Object> channels = manualBody("同名账号");
+        var first = service.createFromPost(owner, channels, "channels-first-" + workId);
+        Map<String, Object> douyin = new LinkedHashMap<>(channels);
+        douyin.put("platform", "douyin");
+        var second = service.createFromPost(owner, douyin, "douyin-first-" + workId);
+        assertThat(second.getId()).isNotEqualTo(first.getId());
+        assertThat(publicationCount()).isEqualTo(2);
+
+        assertThatThrownBy(() -> service.createFromPost(owner, channels, "reopened-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("existingPublicationId", first.getId().toString())
+                                .containsEntry("sameInput", true).containsEntry("status", "publishing"));
+        Map<String, Object> changed = new LinkedHashMap<>(channels);
+        changed.put("publishText", "重新编辑的文案");
+        assertThatThrownBy(() -> service.createFromPost(owner, changed, "changed-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("sameInput", false));
+        assertThat(publicationCount()).isEqualTo(2);
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), first.getId()).getPublishText())
+                .isEqualTo("人工发布文案");
+
+        service.verify(store.orgId(), owner.userId(), first.getId());
+        service.link(store.orgId(), owner.userId(), first.getId(), "https://channels.example/post/" + first.getId());
+        assertThatThrownBy(() -> service.createFromPost(owner, channels, "published-page-" + workId))
+                .isInstanceOfSatisfying(ContentPublicationConflict.class, error ->
+                        assertThat(error.details()).containsEntry("status", "published"));
     }
 
     @Test

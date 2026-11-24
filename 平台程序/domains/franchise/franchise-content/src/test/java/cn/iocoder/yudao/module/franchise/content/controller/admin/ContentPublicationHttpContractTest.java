@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationConflict;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationCoverService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationMapper;
@@ -34,6 +36,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ContentPublicationHttpContractTest {
 
     @Test
+    void duplicateResponseKeepsSafeRecoveryDetailsAndSpecificMessage() throws Exception {
+        PostSnapshot post = new PostSnapshot(9L, 7L, 100L, "store", "content", null, false, Set.of());
+        CurrentPost currentPost = mock(CurrentPost.class);
+        when(currentPost.require()).thenReturn(post);
+        ContentPublicationService service = mock(ContentPublicationService.class);
+        when(service.createFromPost(org.mockito.ArgumentMatchers.eq(post), org.mockito.ArgumentMatchers.any(), anyString()))
+                .thenThrow(new ContentPublicationConflict(new FrContentPublicationDO().setId(91L)
+                        .setStatus("published"), false));
+        ContentPublicationController controller = new ContentPublicationController();
+        ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        ReflectionTestUtils.setField(controller, "publications", service);
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(post("/franchise/content/publications").header("Idempotency-Key", "duplicate-http")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"workId\":88}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1114000013))
+                .andExpect(jsonPath("$.data.existingPublicationId").value("91"))
+                .andExpect(jsonPath("$.data.status").value("published"))
+                .andExpect(jsonPath("$.data.sameInput").value(false))
+                .andExpect(jsonPath("$.msg").value("该作品在此平台账号已有发布记录，请继续原记录或查看发布结果"));
+    }
+
+    @Test
     void manualCreateResponseContainsStoredReceiptMetadata() throws Exception {
         PostSnapshot post = new PostSnapshot(9L, 7L, 100L, "store", "content", null, false, Set.of());
         CurrentPost currentPost = mock(CurrentPost.class);
@@ -45,9 +70,10 @@ class ContentPublicationHttpContractTest {
         when(commands.replayed(org.mockito.ArgumentMatchers.eq(post), anyString(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
         ContentPublicationService service = new ContentPublicationService(mock(FrContentPublicationMapper.class),
-                drafts, commands, jdbc);
+                drafts, commands, jdbc, mock(cn.iocoder.yudao.module.franchise.content.content.ContentPublisherAccountService.class),
+                coverValidation());
         ContentPublicationController controller = new ContentPublicationController();
         ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         ReflectionTestUtils.setField(controller, "publications", service);
@@ -79,8 +105,18 @@ class ContentPublicationHttpContractTest {
 
         assertThat(view).containsEntry("publishText", "已人工发布的文案")
                 .containsEntry("tags", "乡墅,案例")
+                .containsEntry("accountSource", "MANUAL_LEGACY")
+                .containsEntry("publisherAccountId", null)
+                .containsEntry("coverAssetId", null)
                 .containsEntry("authorUserId", 9007199254740993L)
                 .containsEntry("createTime", createdAt.toString());
+    }
+
+    @Test
+    void coverIsReturnedAsAnExactStableAssetReference() {
+        var view = ContentPublicationController.view(new FrContentPublicationDO()
+                .setId(1L).setCoverAssetId(9007199254740993L));
+        assertThat(view).containsEntry("coverAssetId", "9007199254740993");
     }
 
     @Test
@@ -94,9 +130,10 @@ class ContentPublicationHttpContractTest {
         when(commands.replayed(org.mockito.ArgumentMatchers.eq(post), anyString(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any())).thenReturn(1);
+        when(jdbc.update(anyString(), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(1);
         ContentPublicationService service = new ContentPublicationService(mock(FrContentPublicationMapper.class),
-                drafts, commands, jdbc);
+                drafts, commands, jdbc, mock(cn.iocoder.yudao.module.franchise.content.content.ContentPublisherAccountService.class),
+                coverValidation());
         ContentPublicationController controller = new ContentPublicationController();
         ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         ReflectionTestUtils.setField(controller, "publications", service);
@@ -112,5 +149,12 @@ class ContentPublicationHttpContractTest {
                                 + "\"scheduledAt\":\"2026-12-01T10:00:00+08:00\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(INPUT_INVALID.getCode()));
+    }
+
+    private static ContentPublicationCoverService coverValidation() {
+        ContentPublicationCoverService covers = mock(ContentPublicationCoverService.class);
+        when(covers.validate(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(null);
+        return covers;
     }
 }

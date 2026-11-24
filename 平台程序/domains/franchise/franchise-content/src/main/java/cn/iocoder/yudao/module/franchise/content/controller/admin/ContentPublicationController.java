@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationConflict;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
@@ -51,7 +52,14 @@ public class ContentPublicationController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         PostSnapshot post = post();
         String key = ContentScriptController.requireIdem(idem);
-        return success(view(publications.createFromPost(post, body, key)));
+        try {
+            return success(view(publications.createFromPost(post, body, key)));
+        } catch (ContentPublicationConflict conflict) {
+            CommonResult<Map<String, Object>> result = CommonResult.error(
+                    cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.PUBLICATION_EXISTS);
+            result.setData(conflict.details());
+            return result;
+        }
     }
 
     @GetMapping("/publications")
@@ -136,7 +144,11 @@ public class ContentPublicationController {
         view.put("title", row.getTitle());
         view.put("publishText", row.getPublishText() == null ? "" : row.getPublishText());
         view.put("tags", row.getTags() == null ? "" : row.getTags());
+        view.put("coverAssetId", row.getCoverAssetId() == null ? null : row.getCoverAssetId().toString());
         view.put("accountId", row.getAccountId());
+        view.put("accountName", row.getAccountId());
+        view.put("publisherAccountId", row.getPublisherAccountId() == null ? null : row.getPublisherAccountId().toString());
+        view.put("accountSource", row.getPublisherAccountId() == null ? "MANUAL_LEGACY" : "REGISTERED");
         view.put("platform", row.getPlatform());
         view.put("status", row.getStatus());
         view.put("scheduledAt", row.getScheduledAt() == null ? "" : row.getScheduledAt().toString());
