@@ -25,6 +25,7 @@ const API_FACE = {
   personas: ['page', 'create', 'update', 'remove'],
   clones: ['quote', 'list', 'create', 'refresh', 'setDefault'],
   publisherAccounts: ['list', 'create', 'update'],
+  covers: ['list', 'generate'],
   publications: ['create', 'page', 'verify', 'link', 'fail'],
   growth: ['summary']
 };

@@ -42,6 +42,7 @@ tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
 digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', coverAssetId:'',coverReady:false,coverUploading:false,coverLoading:false,coverError:'', workId: '', saved: false,
+coverTemplates:[],coverTemplatesLoaded:false,coverTemplatesLoading:false,coverTemplatesError:'',coverTemplatesPage:0,coverTemplatesHasMore:false,coverTemplateId:'',coverGenerationTitle:'',coverCanvasPreset:'9:16',coverGenerating:false,coverUsing:false,coverGenerationPending:false,coverGenerationTerminal:false,coverGenerationLocked:false,coverGenerationStatus:'',coverGenerationMessage:'',coverGenerationRequestTitle:'',coverGenerationError:'',coverGeneratedAssetId:'',coverGeneratedPreview:'',coverGeneratedPreviewLoading:false,coverGeneratedPreviewError:'',
 publisherAccounts:[],publisherAccountsAll:[],publisherAccountsLoaded:false,publisherAccountsLoading:false,publisherAccountsError:'',publisherAccountId:'',publisherAccountBusy:false,publisherAccountEditingId:'',publisherAccountNameInput:'',publisherAccountIdentifierInput:'',publisherAccountEditError:'',
 publicationPending:false,publicationPendingTitle:'',publicationPendingPlatform:'',publicationExistingId:'',publicationExistingStatus:'',
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -73,7 +74,7 @@ if(options.persona)this.setData({selectedPersonaId:String(options.persona),rewri
 this.loadPersonas();
 }
 const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,selectedAccount:Math.max(0,(studio.publicationPlatforms||[]).findIndex(a=>a.platform===c.pack.platform))});}
-if(view==='publish'){this.loadPublisherAccounts();this.restorePublicationCover();}
+if(view==='publish'){this.loadPublisherAccounts();this.restorePublicationCover();this.restoreCoverGeneration();}
 this.refreshData();
 if(view==='receipt'){
 this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
@@ -729,6 +730,19 @@ else { state.script = task.script || ''; state.scriptEdited=true; state.title = 
 selectAccount(e) { return require('./publication-accounts').selectPlatform(this,this.publicationEnvironment(),e.currentTarget.dataset.index); },
 switchAccount() { this.setData({ sheet: 'accounts', sheetTitle: '更换账号' }); },
 changeCover() { if(!this.data.coverUploading)this.setData({ sheet: 'cover', sheetTitle: '更换封面' }); },
+restoreCoverGeneration(){return require('./publication-cover-templates').restore(this,this.publicationEnvironment());},
+openCoverTemplates(){return require('./publication-cover-templates').open(this,this.publicationEnvironment());},
+loadCoverTemplates(){return require('./publication-cover-templates').load(this,this.publicationEnvironment());},
+moreCoverTemplates(){return require('./publication-cover-templates').load(this,this.publicationEnvironment(),true);},
+selectCoverTemplate(e){return require('./publication-cover-templates').edit(this,'coverTemplateId',e.currentTarget.dataset.id);},
+inputCoverGenerationTitle(e){return require('./publication-cover-templates').edit(this,'coverGenerationTitle',e.detail.value);},
+selectCoverCanvas(e){return require('./publication-cover-templates').edit(this,'coverCanvasPreset',e.currentTarget.dataset.value);},
+generatePublicationCover(){return require('./publication-cover-templates').generate(this,this.publicationEnvironment());},
+resumeCoverGeneration(){return require('./publication-cover-templates').resume(this,this.publicationEnvironment());},
+useGeneratedCover(){return require('./publication-cover-templates').use(this,this.publicationEnvironment());},
+resetCoverGeneration(){return require('./publication-cover-templates').reset(this,this.publicationEnvironment());},
+reloadGeneratedCover(){return require('./publication-cover-templates').previewCandidate(this,this.publicationEnvironment());},
+generatedCoverPreviewError(){this.setData({coverGeneratedPreview:'',coverGeneratedPreviewError:'封面预览读取失败，请重试'});},
 uploadPublicationCover(){return require('./publication-cover').upload(this,this.publicationEnvironment());},
 restorePublicationCover(){return require('./publication-cover').restore(this,this.publicationEnvironment());},
 removePublicationCover(){return require('./publication-cover').clear(this);},

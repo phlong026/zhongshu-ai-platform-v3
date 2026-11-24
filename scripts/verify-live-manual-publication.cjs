@@ -70,6 +70,7 @@ function loadPage({ create, list, verify, link, works = async () => [], accounts
       if(id==='./publication-pending')return require('../miniprogram/pages/studio/publication-pending');
       if(id==='./publication-accounts')return require('../miniprogram/pages/studio/publication-accounts');
       if(id==='./publication-cover')return require('../miniprogram/pages/studio/publication-cover');
+      if(id==='./publication-cover-templates')return require('../miniprogram/pages/studio/publication-cover-templates');
       if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
       if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
