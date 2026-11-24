@@ -102,6 +102,17 @@ class MyPostControllerTest {
     }
 
     @Test
+    void ordinaryHeadquartersPostReceivesMapReadCapabilityWithoutDirectoryWritePermission() throws Exception {
+        PostSnapshot headquarters = new PostSnapshot(51L, 7L, 200L, "headquarters", "sales", null, false, Set.of());
+        when(currentPost.require()).thenReturn(headquarters);
+        lenient().when(systemDirectory.deptName(200L)).thenReturn("测试平台");
+        mvc.perform(get("/platform/posts/current-context").header("X-Post-Id", "51"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.post.permissions", containsInAnyOrder("franchise:store-map:read-all")))
+                .andExpect(jsonPath("$.data.permissions", not(hasItem("platform:org:onboard"))));
+    }
+
+    @Test
     void financeContextExposesFinancialAndAnalyticsCapabilities() throws Exception {
         PostSnapshot finance = new PostSnapshot(21L, 7L, 100L, "store", "finance", 5L, true, Set.of(5L, 6L));
         lenient().when(currentPost.require()).thenReturn(finance);
