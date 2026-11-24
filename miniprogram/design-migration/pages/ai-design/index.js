@@ -65,7 +65,16 @@ const ELEV_ACCENTS = [
 // 上传大小上限按资产类型，与后端 AssetTypePolicy 一致（草图 10MB，立面参考图 20MB）
 const UPLOAD_MAX_BYTES = { USER_SKETCH: 10 * 1024 * 1024, DESIGN_REFERENCE: 20 * 1024 * 1024 };
 
-function mimeFromPath(path) {
+function mimeFromPath(path, bytes) {
+  // 有字节时以魔数为准：微信保存的临时路径后缀可能与真实内容不一致（.png 里睡 JPEG），
+  // 声明错了会在 complete 阶段被后端魔数校验拒收（2026-11-24 开工准备同类事故）。
+  if (bytes) {
+    const head = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
+    if (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) return 'image/png';
+    // 有字节但不是 JPG/PNG（HEIC/WebP/GIF/改名文件…）：本地直接拒绝，别等后端魔数校验
+    return '';
+  }
   const lower = (path || '').toLowerCase();
   if (lower.endsWith('.png')) return 'image/png';
   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
@@ -560,14 +569,21 @@ protectedPage({
   },
   uploadImage(assetType, file, apply) {
     const self = this;
-    const mime = mimeFromPath(file.tempFilePath);
-    if (!mime) { wx.showToast({ title: '仅支持 JPG/PNG 图片', icon: 'none' }); return; }
+    const declaredMime = mimeFromPath(file.tempFilePath);
+    if (!declaredMime) { wx.showToast({ title: '仅支持 JPG/PNG 图片', icon: 'none' }); return; }
     const maxBytes = UPLOAD_MAX_BYTES[assetType];
     if (file.size > maxBytes) { wx.showToast({ title: '图片不能超过' + maxBytes / 1024 / 1024 + 'MB', icon: 'none' }); return; }
     wx.showLoading({ title: '上传中', mask: true });
     wx.getFileSystemManager().readFile({
       filePath: file.tempFilePath,
       success: function (res) {
+        // 读到字节后按魔数定稿声明值；识别不出（HEIC/WebP/GIF…）本地直接拒绝
+        const mime = mimeFromPath(file.tempFilePath, res.data);
+        if (!mime) {
+          wx.hideLoading();
+          wx.showToast({ title: '仅支持 JPG/PNG 图片，HEIC/WebP 请先另存为 JPG', icon: 'none' });
+          return;
+        }
         api.getUploadTicket(assetType, mime, file.size, sha256.sha256Hex(res.data))
           .then(function (ticket) {
             return self.putObject(ticket, file.tempFilePath, res.data, mime).then(function () {
