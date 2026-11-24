@@ -9,9 +9,44 @@
         <text class="frame-footer creation-muted">从手机或素材库添加</text>
       </block>
       <block wx:else>
-        <button class="reference-upload" bindtap="uploadReferences" hover-class="pressed"><image src="/assets/creation-plus.png" class="upload-plus" /><text class="frame-title">上传图片、视频或音频</text></button>
-        <view wx:if="{{references.length}}" class="reference-items"><view wx:for="{{references}}" wx:key="id" class="reference-item"><image wx:if="{{item.type === 'image' && item.path}}" src="{{item.path}}" mode="aspectFill" /><text wx:else>{{item.name || item.type}}</text><button data-id="{{item.id}}" bindtap="removeReference">移除</button></view></view>
-        <button class="library-button creation-brown" bindtap="openLibraryButton" hover-class="pressed"><image src="/assets/creation-upload.png" /><text>从素材库选择</text></button>
+        <view class="reference-actions">
+          <button class="reference-upload" bindtap="uploadReferences" hover-class="pressed"><image src="/assets/creation-plus.png" /><text>上传图片、视频或音频</text></button>
+          <button class="library-button creation-brown" bindtap="openLibraryButton" hover-class="pressed"><image src="/assets/creation-upload.png" /><text>从素材库选择</text></button>
+        </view>
+        <view wx:if="{{references.length}}" class="reference-items">
+          <view wx:for="{{references}}" wx:key="id" class="reference-item">
+            <view class="reference-row">
+              <button class="reference-open" data-id="{{item.id}}" bindtap="previewReference" hover-class="pressed" aria-label="{{(referenceVideoId === item.id && referenceVideoUrl ? '收起' : previewAudioId === item.id && previewAudioPlaying ? '暂停' : item.type === 'image' ? '打开' : '播放') + item.referenceLabel}}" disabled="{{referencePreviewLoadingId === item.id || (previewAudioId === item.id && previewAudioLoading)}}">
+                <view class="reference-thumb" aria-hidden="true">
+                  <text wx:if="{{referencePreviewLoadingId === item.id || (previewAudioId === item.id && previewAudioLoading)}}">…</text>
+                  <block wx:elif="{{item.type === 'image'}}">
+                    <text>图</text>
+                    <image wx:if="{{item.path}}" src="{{item.path}}" mode="aspectFill" />
+                  </block>
+                  <view wx:elif="{{previewAudioId === item.id && previewAudioPlaying}}" class="reference-pause-icon"></view>
+                  <view wx:elif="{{referenceVideoId === item.id && referenceVideoUrl}}" class="reference-collapse-icon"></view>
+                  <view wx:else class="reference-play-icon"></view>
+                </view>
+                <view class="reference-info">
+                  <text class="reference-label">{{item.referenceLabel}}</text>
+                  <text wx:if="{{item.name}}" class="reference-name creation-muted">{{item.name}}</text>
+                </view>
+              </button>
+              <button class="reference-remove" data-id="{{item.id}}" bindtap="removeReference" aria-label="{{'移除' + item.referenceLabel}}">移除</button>
+            </view>
+            <block wx:if="{{referenceVideoId === item.id}}">
+              <video wx:if="{{referenceVideoUrl}}" id="reference-video" class="reference-video" data-id="{{item.id}}" src="{{referenceVideoUrl}}" autoplay controls object-fit="contain" show-fullscreen-btn="{{false}}" binderror="referenceVideoFailed" />
+              <text wx:elif="{{referenceVideoError}}" class="reference-play-error" role="alert">{{referenceVideoError}}</text>
+            </block>
+            <block wx:if="{{previewAudioId === item.id}}">
+              <text wx:if="{{previewAudioError}}" class="reference-play-error" role="alert">{{previewAudioError}}</text>
+              <view wx:elif="{{!previewAudioLoading}}" class="reference-audio-progress">
+                <view class="reference-audio-track"><view style="width:{{previewAudioProgress}}%"></view></view>
+                <text>{{previewAudioPosition}} / {{previewAudioDuration}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
         <view class="reference-limits creation-muted"><text>图片≤8 · 视频≤3 · 音频≤3 · 合计≤12</text><button bindtap="help" aria-label="素材数量说明"><image src="/assets/creation-help.png" /></button></view>
       </block>
     </view>

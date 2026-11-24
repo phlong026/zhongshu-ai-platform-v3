@@ -167,7 +167,10 @@ return this.loadList('works',()=>contentApi.drafts.works(),rows=>{
 const works=P.rowsOf(rows).map(row=>{
 if(!row||row.id==null||row.id==='')return null;
 const kind=row.kind==='ai_video'?'ai':(row.kind==='digital'?'digital':'remix');
-return{id:String(row.id),taskId:row.taskId==null?'':String(row.taskId),title:String(row.title||'未命名作品'),kind,status:String(row.status||'draft'),image:studio.imageFor({kind})};
+const title = TaskResult.displayTitle(row, row.script);
+return { id: String(row.id), taskId: row.taskId == null ? '' : String(row.taskId),
+  title, kind, kindCaption: TaskResult.kindCaption(row.kind, title),
+  status: String(row.status || 'draft'), image: TaskDisplay.icon(row.kind) };
 }).filter(Boolean);
 return {works};
 });
@@ -207,13 +210,12 @@ if (!task || task.id == null || task.id === '' || TaskDisplay.isDemo(task)) retu
 const result=TaskResult.describe(task);if(!result)return null;
 const kind=task.kind==='ai_video'?'ai':task.kind==='digital'?'digital':'remix';
 const view = P.taskView(task.status);
-const text = String((task.result && (task.result.text || task.result.script)) || '').trim();
+const text = result.resultText.trim();
 return {
 id: String(task.id), apiTask: true, kind, ...result,
-title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
 status: view, saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
-configuration: {}, image: TaskDisplay.icon(task.kind), kindLabel: result.kindLabel
+configuration: {}, image: TaskDisplay.icon(task.kind), kindCaption: TaskResult.kindCaption(task.kind, result.title)
 };
 },
 go(view, query) {
@@ -551,7 +553,7 @@ return poll.then(task=>{
 if(!alive()||this.__digitalPoll!==poll)return null; // 已取消/新一轮提交
 this.__digitalPoll=null;this.__generating=false;
 const view=P.taskView(task.status);
-if(view==='completed')return contentApi.tasks.saveWork(taskId,attempt.payload.title,this.contentKey('save-work:'+taskId)).then(()=>{
+if(view==='completed')return contentApi.tasks.saveWork(taskId,TaskResult.serverTitle(task)||TaskResult.serverTitle(res),this.contentKey('save-work:'+taskId)).then(()=>{
 if(!alive())return;
 this.contentDropKey('save-work:'+taskId);
 wx.showToast({title:'已生成并保存到我的作品'});
@@ -661,7 +663,9 @@ const task=this.data.activeTask;
 if(task&&task.apiTask&&task.resultUrl){if(this.data.view==='result')wx.createVideoContext('digital-result',this).play();else if(wx.previewMedia)wx.previewMedia({sources:[{url:task.resultUrl,type:'video'}]});return;}
 wx.showToast({title:'暂无可播放视频',icon:'none'});
 },
-videoError(){this.setData({'activeTask.videoReady':false,resultError:'视频暂不可播放，请重试读取成果'});},
+videoError(){
+ if(this.data.activeTask?.videoReady)this.setData({'activeTask.videoReady':false});
+},
 attempt(action) { try { this.setData({operationError:''});return action(); } catch (error) { const message=error.message||'操作未完成，请重试';this.setData({operationError:message});wx.showToast({ title: message, icon: 'none' }); return null; } },
 saveResult() { return this.saveApiResult(false); }, // 任务全部在线：保存走 save-work 幂等通道
 publishResult() { return this.saveApiResult(true); },
@@ -669,11 +673,11 @@ publishResult() { return this.saveApiResult(true); },
 async saveApiResult(publish) {
 const task=this.data.activeTask;
 if(this.data.resultSaving)return;
-if(!task||task.outputType!=='video'||!task.videoReady){this.setData({resultError:'请先读取可用的视频成果'});return;}
+if(!task||task.outputType!=='video'||!task.videoReady)return;
 const alive=http.requestGuard('studio-save-result'),scope=this.actorScope;
 this.setData({resultSaving:true,resultError:''});
 try{
- const res=await contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:'+this.data.taskId));
+ const res=await contentApi.tasks.saveWork(this.data.taskId, task.serverTitle || '', this.contentKey('save-work:'+this.data.taskId));
  if(!alive()||this.__closed||scope!==studio.scope())return;
  if(!res||!res.workId)throw Error('作品保存结果缺少编号，请重试');
  this.contentDropKey('save-work:'+this.data.taskId);
@@ -698,12 +702,16 @@ async loadApiResult(taskId) {
   if(P.taskView(task&&task.status)!=='completed')throw Error('任务尚未成功完成，请在任务中心查看状态');
   const mapped=this.mapApiTask(task);if(!mapped)throw Error('暂不支持此任务类型');
   this.setData({activeTask:mapped,saved:false,invalidMessage:'',pageTitle:mapped.kindLabel+'结果'});
-  if(mapped.outputType==='video'){
-   if(!mapped.videoReady)throw Error('任务已完成，但视频成果尚不可读取，请重试或联系管理员');
+  if(mapped.videoReady){
    const state=await contentApi.tasks.resultUrlStatus(taskId);if(!current())return;
-   if(state&&state.expired)this.setData({'activeTask.videoReady':false,'activeTask.resultUrl':'',resultError:state.message||'视频链接已过期，请联系管理员恢复成果'});
+   if(state&&state.expired)this.setData({'activeTask.videoReady':false,'activeTask.resultUrl':'',resultUrlNote:'视频链接已失效'});
   }
- }catch(e){if(current()&&!e.silent)this.setData({resultError:P.degradeMessage(e)});}
+ }catch(e){
+  if(!current()||e.silent)return;
+  if(this.data.activeTask?.outputType==='video'){
+   this.setData({'activeTask.videoReady':false,resultUrlNote:'暂时无法读取视频'});
+  }else this.setData({resultError:P.degradeMessage(e)});
+ }
  finally{if(current())this.setData({resultLoading:false});}
 },
 /** 在线作品回读：drafts.works 找标题/文案（best-effort，失败沿用当前表单值） */

@@ -65,13 +65,13 @@ async function complete(assetId, alive) {
   throw Error('素材仍在处理中，请稍后重试');
 }
 
-async function source(assetId, alive, {type='image'}={}) {
+async function source(assetId, alive, {type='image',playback=false}={}) {
   if(!alive())throw Error('工作身份已变化，请重新打开页面');
   const ticket=await api.assets.downloadUrl(String(assetId));
   if(!alive())throw Error('工作身份已变化，请重新打开页面');
   if(!ticket?.downloadUrl)throw Error('素材不可用，请重新选择');
   // Audio/video references need authorization, not another local copy just to show their names.
-  if(type!=='image')return '';
+  if(type!=='image'&&!playback)return '';
   // The local selection can be HEIC or another source format; preview the accepted rendition.
   if(/^https:\/\//i.test(ticket.downloadUrl)&&!String(ticket.downloadUrl).startsWith(String(http.base()).replace(/\/admin-api\/?$/,'')+'/'))return ticket.downloadUrl;
   return (await require('./b-asset-download').downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive,label:'素材'})).tempFilePath;

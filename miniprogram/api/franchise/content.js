@@ -26,14 +26,14 @@ const scripts = {
 };
 
 const tasks = {
-  /** 创建生成任务返回统一任务 DTO {id,kind,status,...}；兼容旧 taskId 回包，Long ID 保持字符串。 */
+  /** 创建生成任务返回统一任务 DTO {id,kind,title,status,...}；兼容旧 taskId 回包，Long ID 保持字符串。 */
   create: (data, key) => http.post('/franchise/content/tasks', data, idem(key, 'task'))
     .then(task => task && ({ ...task, id: String(task.id || task.taskId || '') })),
   /** 任务列表（?status= 过滤七态） */
   page: (status) => http.get('/franchise/content/tasks', status ? { status } : undefined),
   /** 从本人任务中心移除任务；后端仅记录个人隐藏，不删除云端任务或积分流水。 */
   dismiss: id => http.post('/franchise/content/tasks/' + encodeURIComponent(id) + '/dismiss', {}),
-  /** 任务详情（轮询）：{id,kind,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
+  /** 任务详情（轮询）：{id,kind,title,status,provider,providerTaskId,engine,model,resultUrl,failedReason,result} */
   get: (id) => http.get('/franchise/content/tasks/' + id),
   /** 本人 AI 视频任务的可编辑输入副本；不含内部授权或供应商快照。 */
   editableInput: id => http.get('/franchise/content/tasks/' + encodeURIComponent(id) + '/editable-input'),
@@ -120,9 +120,12 @@ const clones = {
   uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
   completeUpload: id => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/complete', {}),
   quote: kind => http.get('/franchise/content/clones/quote', { kind }),
+  /** Each clone reports canRename, canDelete and canSetDefault for the active post. */
   list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),
   create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
-  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
+  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {}),
+  rename: (id, title) => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/title', { title }),
+  remove: id => http.del('/franchise/content/clones/' + encodeURIComponent(id))
 };
 module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publications, growth };

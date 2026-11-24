@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const Audio=require('../miniprogram/pages/studio/characters/audio-preview');
+const Audio=require('../miniprogram/utils/audio-preview');
 const flush=()=>new Promise(r=>setImmediate(r));
 const event=id=>({currentTarget:{dataset:{id}}});
 function harness({get=async()=>({items:[],total:0}),post=async()=>({}),store=new Map()}={}) {

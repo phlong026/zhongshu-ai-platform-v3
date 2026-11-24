@@ -23,6 +23,8 @@
 
 创作工具人物库沿用公司 `personas` 档案，新增 `/personas/{id}/clones`、`/clones/quote`、`/clones/{id}/refresh`。上传视频制作数字分身、上传MP3克隆声音；不生成五视图。制作使用独立的公司积分科目 `avatar_clone`、`voice_clone`，须先发布有效价格。口播创建传 `avatarCloneId` 和 `voiceCloneId`，后端校验公司、人物、就绪和结算状态后解析实际资源标识，不能传人物显示名称冒充资源ID。
 
+人物资源列表逐条返回 `canRename`、`canDelete`、`canSetDefault`，小程序按当前岗位权限展示对应操作。`PUT /franchise/content/clones/{id}/title` 接收 `{title}` 并返回更新的资源，名称去掉首尾空白后为 1–20 个 UTF-16 码元。`DELETE /franchise/content/clones/{id}` 移除资源并返回 `true`，已生成作品和历史任务保留。`PUT /franchise/content/clones/{id}/default` 按视频分身和克隆声音分别设默认。资源 ID 保留字符串。
+
 需求、设计源项目差异和启用条件见 [业务模块迁移需求与差异验收](../../docs/业务模块迁移需求与差异验收_20261115.md)。目前快速预算等功能尚未达到与原设计小程序完全一致的验收要求。
 
 隔离联调构建使用 `https://platform.zszhj.com/admin-api`，保持微信合法域名校验。测试边界与实测结果见 [本轮联调证据](../../docs/full-business-audit-20261114/runs/AUDIT-20261114-R02/development-upload-20261115.md)；下文接入顺序保留 M2.7 历史背景，当前实现以源码为准。

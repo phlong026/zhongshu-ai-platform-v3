@@ -23,9 +23,9 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   let linkDraft;
   let page, scope = 'post-1', generation = 1;
   let token = 'token', orgType = 'store';
-  const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
+  const seq = persistence.requestSequences || {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
-  const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
+  const studio = { title: '', imageFor: () => '/assets/creation-house.jpg', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => token, sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
   const utility = { ...P, api, pollTask: async id => {
     calls.push(['poll', id]); return api.poll ? api.poll(id) : { id, status: 'SUCCEEDED', result: { text: '原视频完整文案' } };
@@ -359,12 +359,12 @@ test('digital submission accepts the real task DTO id and saves the same complet
   const h=await readyDigital({tasks:taskApi(async(url,body,headers)=>{
     if(url==='/franchise/content/tasks'){
       requests.push([plain(body),headers['Idempotency-Key']]);
-      return {id,kind:'digital',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
+      return {id,kind:'digital',title:'数字人口播｜张工',status:'QUEUED',generationStatus:'QUEUED',resultState:'PENDING',result:{}};
     }
     assert.equal(url,'/franchise/content/tasks/'+id+'/save-work');saves.push([id,body.title]);return {workId:'90071992547409932'};
   })});
   Object.assign(h.page.data,{script:'同一人物口播',title:'张工',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
-  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.deepEqual(saves,[['90071992547409931','张工']]);
+  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.equal(requests[0][0].title,'张工');assert.deepEqual(saves,[['90071992547409931','数字人口播｜张工']]);
   assert.deepEqual(h.calls,[['poll',id]]);
   assert.equal(h.page.data.digitalRetry,false);assert.equal(h.storage.size,0);assert.match(h.navigations[0],/view=tasks/);
 });
@@ -386,7 +386,7 @@ test('digital retry after a lost response replays the frozen request and resumes
   const retry=harness('studio/index.js',{tasks},'sales-lead',{storage:first.storage});
   retry.page.restoreDigitalAttempt();retry.page.data.script='重试不应替换原稿';await retry.page.generateDigitalOnline();
   assert.deepEqual(requests[0],requests[1]);assert.equal(accepted.size,1);
-  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.deepEqual(saves,[{title:'原标题'}]);
+  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.equal(requests[0][0].title,'原标题');assert.deepEqual(saves,[{}]);
   assert.equal(retry.page.data.digitalRetry,false);assert.equal(retry.storage.size,0);assert.match(retry.navigations[0],/view=tasks/);
 });
 
@@ -485,13 +485,220 @@ test('changing defaults cannot replace resources frozen by a pending digital sub
 test('setting a default reloads authoritative rows and preserves the other resource kind',async()=>{
   const rows=[{id:'31',kind:'AVATAR',ready:true,isDefault:true},{id:'33',kind:'AVATAR',ready:true,isDefault:false},{id:'32',kind:'VOICE',ready:true,isDefault:true}],requests=[];
   const h=harness('studio/characters/index.js',{clones:{setDefault:async id=>{requests.push(id);rows.filter(r=>r.kind==='AVATAR').forEach(r=>{r.isDefault=r.id===id;});},list:async()=>rows}});
-  h.page.onLoad();Object.assign(h.page.data,{canManage:true,digitalPersona:{id:'21',enabled:true},cloneRows:plain(rows)});
+  openTestResources(h, plain(rows), true);
   await h.page.setDefaultClone(event({id:'33'}));
   assert.deepEqual(requests,['33']);assert.equal(h.page.data.cloneRows.find(r=>r.id==='33').isDefault,true);
   assert.equal(h.page.data.cloneRows.find(r=>r.id==='31').isDefault,false);assert.equal(h.page.data.cloneRows.find(r=>r.id==='32').isDefault,true);
   h.page.data.canManage=false;await h.page.setDefaultClone(event({id:'31'}));assert.equal(requests.length,1);
 });
 
+
+function openTestResources(h, rows, canManage = false) {
+  h.page.onLoad();
+  Object.assign(h.page.data, { view: 'resources', digitalPersona: { id: '21', enabled: true }, cloneRows: rows, canManage });
+  h.page.filterClones();
+}
+
+test('person detail opens the selected resource list without reusing another form or filter', async () => {
+  const history = [{ id: '29', name: '前一人物', enabled: true }, { id: '21', name: '当前人物', enabled: true }];
+  const gate = deferred(), calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: id => { calls.push(id); return gate.promise; },
+    quote: async () => ({ available: true })
+  } });
+  h.page.onLoad();
+  const originalAttempt = { key: 'other-person-request', body: { kind: 'AVATAR', title: '前一人物分身' } };
+  const samePersonAttempt = { key: 'this-person-request', body: { kind: 'VOICE', title: '当前人物声音' } };
+  h.page.__cloneAttempt = originalAttempt;
+  h.storage.set('zs-clone-attempt:29:post-1', originalAttempt);
+  h.storage.set('zs-clone-attempt:21:post-1', samePersonAttempt);
+  Object.assign(h.page.data, { rows: history, digitalPeople: history, cloneRetry: true, resourceFilter: 'VOICE',
+    cloneRows: [{ id: '999', kind: 'VOICE' }], visibleCloneRows: [{ id: '999', kind: 'VOICE' }], canUseDigital: true });
+  h.page.detail(event({ id: '21' }));
+  const source = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/characters/index.wxml'), 'utf8');
+  const detail = source.split("view==='detail'&&digitalPersona")[1].split("view==='avatar'")[0];
+  assert.match(detail, /bindtap="resources"[^>]*>查看人物资源/);
+  const pending = h.page.resources();
+  assert.equal(h.page.data.view, 'resources');
+  assert.equal(h.page.data.resourceFilter, 'ALL');
+  assert.equal(h.page.data.cloneRows.length, 0);
+  assert.equal(h.page.data.visibleCloneRows.length, 0);
+  assert.equal(h.page.data.canUseDigital, false);
+  assert.equal(h.page.__cloneAttempt, null);
+  assert.equal(h.page.data.cloneRetry, false);
+  assert.deepEqual(calls, ['21']);
+  gate.resolve([{ id: '31', kind: 'VOICE' }]);
+  await pending;
+  assert.equal(h.page.data.visibleCloneRows[0].id, '31');
+  assert.equal(h.storage.get('zs-clone-attempt:29:post-1'), originalAttempt);
+  h.page.addClone(event({ kind: 'AVATAR' }));
+  assert.equal(h.page.__cloneAttempt.key, samePersonAttempt.key);
+  assert.equal(h.page.data.view, 'voice');
+  assert.equal(h.page.data.cloneRetry, true);
+});
+
+test('clone resource controls use explicit row capabilities and preserve the long ID in API routes', async () => {
+  const longId = '90071992547409931';
+  const rows = [
+    { id: longId, kind: 'AVATAR', ready: true, canRename: true, canDelete: true, canSetDefault: true },
+    { id: '22', kind: 'VOICE', ready: true },
+    { id: '23', kind: 'VOICE', ready: true, canRename: false, canDelete: false, canSetDefault: false }
+  ];
+  const h = harness('studio/characters/index.js', {}, 'sales');
+  openTestResources(h, rows, true);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.map(row => row.canSetDefault)), [true, false, false]);
+  const template = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/characters/index.wxml'), 'utf8');
+  assert.match(template, /wx:if="{{item.canRename}}"[^>]*bindtap="renameClone"/);
+  assert.match(template, /wx:if="{{item.canDelete}}"[^>]*bindtap="deleteClone"/);
+  assert.match(template, /wx:if="{{item.canSetDefault}}"[^>]*bindtap="setDefaultClone"/);
+  const manage = harness('studio/characters/index.js');
+  openTestResources(manage, rows, true);
+  assert.deepEqual(plain(manage.page.data.visibleCloneRows.map(row => row.canSetDefault)), [true, true, false]);
+  const apiPath = require.resolve('../miniprogram/api/franchise/content');
+  const calls = [], module = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(apiPath, 'utf8'), { module, encodeURIComponent, require() { return {
+    put: (url, body) => calls.push(['PUT', url, plain(body)]), del: url => calls.push(['DELETE', url])
+  }; } });
+  module.exports.clones.rename(longId, '新名称');
+  module.exports.clones.remove(longId);
+  assert.deepEqual(calls, [['PUT', '/franchise/content/clones/' + longId + '/title', { title: '新名称' }],
+    ['DELETE', '/franchise/content/clones/' + longId]]);
+});
+
+test('rename validates the trimmed UTF-16 length and works for both clone kinds', async () => {
+  const rows = [
+    { id: '90071992547409931', kind: 'AVATAR', title: '视频甲', ready: true, canRename: true },
+    { id: '90071992547409932', kind: 'VOICE', title: '声音甲', ready: true, canRename: true }
+  ];
+  const calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: async () => rows,
+    rename: async (id, title) => { calls.push([id, title]); const row = rows.find(item => item.id === id); row.title = title; return row; }
+  } }, 'sales');
+  openTestResources(h, rows);
+  let content = '   ';
+  h.wx.showModal = options => { assert.equal(options.editable, true); options.success({ confirm: true, content }); };
+  await h.page.renameClone(event({ id: rows[0].id }));
+  content = '😀'.repeat(11);
+  await h.page.renameClone(event({ id: rows[0].id }));
+  assert.equal(calls.length, 0);
+  assert.match(h.page.data.cloneError, /1–20/);
+  content = '   主讲形象  ';
+  await h.page.renameClone(event({ id: rows[0].id }));
+  content = '   讲解原声  ';
+  await h.page.renameClone(event({ id: rows[1].id }));
+  assert.deepEqual(calls, [[rows[0].id, '主讲形象'], [rows[1].id, '讲解原声']]);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.map(row => row.title)), ['主讲形象', '讲解原声']);
+});
+
+test('canceled, hidden and old-session clone dialogs cannot send a mutation', async () => {
+  const row = { id: '31', kind: 'VOICE', title: '旧名称', ready: true, canRename: true, canDelete: true };
+  const calls = [];
+  const h = harness('studio/characters/index.js', { clones: { rename: (...args) => calls.push(args), remove: id => calls.push(id) } }, 'sales');
+  openTestResources(h, [row]);
+  let modal;
+  h.wx.showModal = options => { modal = options; };
+  const canceled = h.page.renameClone(event({ id: row.id }));
+  modal.success({ confirm: false, content: '改名' });
+  await canceled;
+  assert.equal(h.page.data.cloneBusy, false);
+  const hidden = h.page.deleteClone(event({ id: row.id }));
+  h.page.onHide();
+  h.page.__hidden = false;
+  modal.success({ confirm: true });
+  await hidden;
+  assert.equal(h.page.data.cloneBusy, false);
+  const stale = h.page.renameClone(event({ id: row.id }));
+  h.changeScope();
+  modal.success({ confirm: true, content: '改名' });
+  await stale;
+  assert.deepEqual(calls, []);
+  assert.equal(h.page.data.cloneRows[0].title, '旧名称');
+});
+
+test('confirmed deletion tolerates a failed request and clears the deleted voice preview on retry', async () => {
+  const voice = { id: '90071992547409938', kind: 'VOICE', title: '待删除的声音', ready: true, canDelete: true };
+  const avatar = { id: '32', kind: 'AVATAR', title: '形象', ready: true };
+  let removed = false, attempts = 0, destroyed = 0;
+  const h = harness('studio/characters/index.js', { clones: {
+    list: async () => removed ? [avatar] : [voice, avatar],
+    remove: async id => { assert.equal(id, voice.id); if (++attempts === 1) throw Error('网络暂不可用'); removed = true; return true; }
+  } }, 'sales');
+  openTestResources(h, [voice, avatar]);
+  h.page.__previewAudio = { destroy() { destroyed++; } };
+  h.page.data.previewAudioId = 'clone-' + voice.id;
+  h.page.data.previewAudioPlaying = true;
+  h.wx.showModal = options => {
+    assert.match(options.content, /新任务/);
+    assert.match(options.content, /历史/);
+    options.success({ confirm: true });
+  };
+  await h.page.deleteClone(event({ id: voice.id }));
+  assert.equal(h.page.data.cloneBusy, false);
+  assert.match(h.page.data.cloneError, /网络暂不可用/);
+  assert.equal(h.page.data.voiceCount, 1);
+  assert.equal(destroyed, 0);
+  await h.page.deleteClone(event({ id: voice.id }));
+  assert.equal(destroyed, 1);
+  assert.equal(h.page.data.previewAudioId, '');
+  assert.equal(h.page.data.voiceCount, 0);
+  assert.equal(h.page.data.canUseDigital, false);
+});
+
+test('row-approved default takes effect before refreshing and leaves the other kind unchanged', async () => {
+  const rows = [
+    { id: '31', kind: 'AVATAR', isDefault: true, ready: true },
+    { id: '33', kind: 'AVATAR', isDefault: false, ready: true, canSetDefault: true },
+    { id: '32', kind: 'VOICE', isDefault: true, ready: true }
+  ];
+  const response = deferred(), calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: () => response.promise,
+    setDefault: async id => { calls.push(id); }
+  } }, 'sales');
+  openTestResources(h, rows);
+  const pending = h.page.setDefaultClone(event({ id: '33' }));
+  await flush();
+  assert.deepEqual(calls, ['33']);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.filter(row => row.isDefault).map(row => row.id)), ['33', '32']);
+  response.resolve(rows.map(row => ({ ...row, isDefault: row.id === '33' || row.id === '32' })));
+  await pending;
+  assert.equal(h.page.data.cloneBusy, false);
+});
+
+test('one resource page cannot strand another page in a busy state', async () => {
+  const row = { id: '31', kind: 'VOICE', title: '声音', ready: true, canSetDefault: true };
+  const firstWrite = deferred(), requestSequences = {}, read = [];
+  const first = harness('studio/characters/index.js', { clones: {
+    setDefault: () => firstWrite.promise,
+    list: async () => { read.push('first'); return [{ ...row, isDefault: true }]; }
+  } }, 'sales', { requestSequences });
+  const second = harness('studio/characters/index.js', { clones: {
+    setDefault: async () => {}, list: async () => { read.push('second'); return [{ ...row, isDefault: true }]; }
+  } }, 'sales', { requestSequences });
+  openTestResources(first, [row]);
+  openTestResources(second, [row]);
+  const pending = first.page.setDefaultClone(event({ id: row.id }));
+  first.page.onHide();
+  await second.page.setDefaultClone(event({ id: row.id }));
+  firstWrite.resolve();
+  await pending;
+  assert.equal(first.page.data.cloneBusy, false);
+  assert.equal(second.page.data.cloneBusy, false);
+  assert.deepEqual(read, ['second']);
+});
+
+test('clone creation shares the rename limit and validates before attempting a paid request', async () => {
+  let calls = 0;
+  const h = harness('studio/characters/index.js', { clones: { create: async () => { calls++; } } });
+  openTestResources(h, [], true);
+  Object.assign(h.page.data, { view: 'avatar', cloneTitle: '😀'.repeat(11), cloneUploadId: '101', cloneConsented: true,
+    cloneQuote: { available: true, credits: 5, consentVersion: 'digital-clone-v1' } });
+  await h.page.createClone();
+  assert.equal(calls, 0);
+  assert.match(h.page.data.cloneError, /1–20/);
+  assert.equal(h.storage.size, 0);
+});
 
 test('task center hides explicit test records but retains real text and video tasks without fake progress',async()=>{
  const rows=[{id:'1',kind:'digital',status:'SUCCEEDED',provider:'fake'},{id:'2',kind:'digital',status:'RUNNING',mock:true},{id:'task-complete',kind:'digital',status:'SUCCEEDED'},{id:'3',kind:'asr',status:'SUCCEEDED',provider:'dashscope',result:{text:'真实转写 mock 示例'}},{id:'4',kind:'ai_video',status:'RUNNING',provider:'metaso'}];
@@ -500,6 +707,126 @@ test('task center hides explicit test records but retains real text and video ta
  assert.equal(h.page.data.tasks[0].outputType,'text');assert.equal(h.page.data.tasks[1].stageLabel,'正在处理');
  assert.equal(h.page.data.tasks[1].progress,undefined);assert.match(h.page.data.tasks[1].image,/video-filled/);
 });
+test('task center and result detail preserve the input title across generation states', async () => {
+  const inputTitle = '文案二创｜乡墅采光';
+  const task = { id: '91', kind: 'copy', status: 'RUNNING', title: inputTitle };
+  const h = harness('studio/index.js', { tasks: { page: async () => [task], get: async () => task } });
+  h.page.data.view = 'tasks';
+  await h.page.syncApiTasks();
+  assert.equal(h.page.data.tasks[0].title, inputTitle);
+  Object.assign(task, { status: 'SUCCEEDED', result: { text: '另一段生成后的开场白' } });
+  await h.page.syncApiTasks();
+  assert.equal(h.page.data.tasks[0].title, inputTitle);
+  h.page.data.view = 'result';
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, inputTitle);
+  assert.equal(h.page.data.activeTask.resultText, '另一段生成后的开场白');
+});
+
+test('legacy task lists show a short available topic or a type-specific missing-title label', () => {
+  const h = harness('studio/index.js');
+  const initial = { id: '91', status: 'SUCCEEDED' };
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'copy', result: { text: '旧主题\n第二行' } }).title, '文案改写｜旧主题');
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'link_parse', result: { title: '参考片段', text: '解析结果' } }).title, '链接解析｜参考片段');
+  assert.equal(h.page.mapApiTask({ ...initial, kind: 'ai_video' }).title, 'AI视频｜未命名创作');
+});
+
+test('saving a video uses the authoritative title without persisting a legacy display placeholder', async () => {
+  const saves = [];
+  const task = { id: '91', kind: 'ai_video', status: 'SUCCEEDED', resultUrl: 'https://video.example/work.mp4' };
+  const h = harness('studio/index.js', { tasks: {
+    get: async () => task,
+    resultUrlStatus: async () => ({ expired: false }),
+    saveWork: async (id, title) => { saves.push([id, title]); return { workId: '92' }; }
+  } });
+  Object.assign(h.page.data, { view: 'result', taskId: task.id });
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, 'AI视频｜未命名创作');
+  await h.page.saveResult();
+  task.title = 'AI视频｜雨天的庭院';
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  await h.page.saveResult();
+  assert.deepEqual(saves, [[task.id, ''], [task.id, task.title]]);
+  h.page.videoError();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultError, '');
+  await h.page.saveResult();
+  assert.equal(saves.length, 2);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  assert.match(h.page.data.activeTask.image, /video-filled/);
+});
+
+test('saved work cards preserve a named work and identify missing covers by task type', async () => {
+  const h = harness('studio/index.js', { drafts: { works: async () => [
+    { id: '19', taskId: '91', kind: 'ai_video', title: '我的自定义作品名' },
+    { id: '20', taskId: '92', kind: 'digital', title: '数字人口播｜如何选址' }
+  ] } });
+  h.page.data.view = 'works';
+  await h.page.syncApiWorks();
+  assert.deepEqual(plain(h.page.data.works.map(work => [work.title, work.image, work.kindCaption])), [
+    ['我的自定义作品名', '/assets/video-filled.png', 'AI视频'],
+    ['数字人口播｜如何选址', '/assets/person-filled.png', '']
+  ]);
+});
+
+test('a completed video with missing media keeps its result context and can be reread', async () => {
+  const task = { id: '91', kind: 'digital', status: 'SUCCEEDED', title: '数字人口播｜雨天的庭院' };
+  let expire = false, statusFailed = false, statusChecks = 0;
+  const h = harness('studio/index.js', { tasks: {
+    get: async () => task,
+    resultUrlStatus: async () => {
+      statusChecks++;
+      if (statusFailed) throw Error('视频状态读取失败');
+      return { expired: expire };
+    }
+  } });
+  Object.assign(h.page.data, { view: 'result', taskId: task.id });
+  await h.page.loadApiResult(task.id);
+  assert.equal(h.page.data.activeTask.title, task.title);
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultError, '');
+  assert.equal(statusChecks, 0);
+  task.resultUrl = 'https://video.example/work.mp4';
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, true);
+  statusFailed = true;
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultUrlNote, '暂时无法读取视频');
+  assert.equal(h.page.data.resultError, '');
+  statusFailed = false;
+  expire = true;
+  await h.page.retryResult();
+  assert.equal(h.page.data.activeTask.videoReady, false);
+  assert.equal(h.page.data.resultUrlNote, '视频链接已失效');
+  assert.equal(h.page.data.resultError, '');
+});
+
+test('a failed task read keeps its own error and retry available', async () => {
+  const h = harness('studio/index.js', { tasks: { get: async () => { throw Error('读取任务失败'); } } });
+  Object.assign(h.page.data, { view: 'result', taskId: '91' });
+  await h.page.loadApiResult('91');
+  assert.equal(h.page.data.activeTask, null);
+  assert.equal(h.page.data.resultError, '读取任务失败');
+  assert.equal(h.page.data.resultLoading, false);
+});
+
+test('result and works templates separate the empty state, inline retry and available video actions', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/index.wxml'), 'utf8');
+  const result = source.split("view === 'result'")[1].split("view === 'publish'")[0];
+  assert.match(result, /resultError && !activeTask/);
+  const placeholder = result.match(/<view wx:else class="[^"]*result-media-placeholder[^"]*">([\s\S]*?)<\/view>/)?.[1];
+  assert.match(placeholder || '', /bindtap="retryResult"/);
+  assert.doesNotMatch(placeholder, /kindLabel|成果待读取/);
+  assert.match(result, /wx:if="{{activeTask.outputType==='video' && activeTask.videoReady}}"[^>]*result-actions/);
+  const works = source.split("view === 'works'")[1].split("view === 'recent'")[0];
+  const workCard = works.match(/<button wx:for="{{works}}"[^>]*>[\s\S]*?<\/button>/)?.[0] || '';
+  assert.match(workCard, /class="task-type-icon"/);
+  assert.match(workCard, /wx:if="{{item.kindCaption}}"[^>]*>{{item.kindCaption}}<\/text>/);
+  assert.match(works, /wx:if="{{worksLoaded\s*&&\s*!works\.length}}" class="empty">暂无已保存作品/);
+});
+
 test('task filter switches and account changes reject late task list responses',async()=>{
  const first=deferred(),second=deferred();let n=0;const h=harness('studio/index.js',{tasks:{page:()=>++n===1?first.promise:second.promise}});h.page.data.view='tasks';
  const a=h.page.syncApiTasks();h.page.data.taskFilter=2;const b=h.page.syncApiTasks();

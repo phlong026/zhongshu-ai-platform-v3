@@ -6,14 +6,24 @@ const http=require('../../api/http');
 const media=require('../../utils/content-media');
 const textResize = require('../../utils/creation-text-resize');
 const assetId=value=>value==null||String(value)==='0'?'':String(value);
-const restoreReferences=values=>Array.isArray(values)?values.map((value,index)=>{
+const referenceNames = { image: '图', video: '视频', audio: '音频' };
+function numberReferences(items) {
+  const counts = { image: 0, video: 0, audio: 0 };
+  return items.map(item => ({
+    ...item,
+    referenceLabel: typeof counts[item.type] === 'number' ? referenceNames[item.type] + ++counts[item.type] : '素材'
+  }));
+}
+const restoreReferences=values=>Array.isArray(values)?numberReferences(values.map((value,index)=>{
 const item=value&&typeof value==='object'?value:{};
 return {...item,id:item.id||'reference-'+index+'-'+assetId(item.assetId),assetId:assetId(item.assetId),type:item.type||{reference_image:'image',reference_video:'video',reference_audio:'audio'}[item.role]||'',name:item.name||'参考素材'+(index+1),path:item.path||''};
-}):[];
+})):[];
 Page({
 ...textResize.handlers,
 data: {
 mode: 'frames', description: '', firstFrame: '', lastFrame: '', firstFrameSource:{},lastFrameSource:{},firstFrameAssetId:'', lastFrameAssetId:'', references: [], editingTaskId: '', taskLoading:false,taskDraftBlocked:false,draftConflicted:false,submissionPending:false,invalidMessage: '', draftStatus:'',mediaLoading:false,mediaError:'',durationInput:'8',durationError:'',
+referencePreviewLoadingId:'',referenceVideoId:'',referenceVideoUrl:'',referenceVideoError:'',
+previewAudioId:'',previewAudioPlaying:false,previewAudioLoading:false,previewAudioError:'',
 parameters: [
 { key: 'resolution', label: '分辨率', options: ['768P', '2K'], value: 0 },
 { key: 'duration', label: '时长', value: '8 秒' },
@@ -60,6 +70,7 @@ finally{if(this.videoAlive())this.setData({taskLoading:false});}
 },
 applyVideoForm(draft){
 const parameters=P.restoreVideoParameters(draft.parameters,this.data.parameters);
+this.closeReferencePreview();
 this.setData({mode:draft.mode==='reference'?'reference':'frames',description:String(draft.description||''),
   firstFrame:draft.firstFrame||'',lastFrame:draft.lastFrame||'',firstFrameSource:draft.firstFrameSource||{},lastFrameSource:draft.lastFrameSource||{},firstFrameAssetId:assetId(draft.firstFrameAssetId),lastFrameAssetId:assetId(draft.lastFrameAssetId),references:restoreReferences(draft.references),parameters,durationInput:String(P.mapDuration(parameters.find(p=>p.key==='duration').value))});
 this.syncRatio();this.restoreMediaPreviews();
@@ -82,8 +93,8 @@ return draft.start().then(ready=>{
 }).catch(()=>false);
 },
 onShow(){if(!studio.guard())return;if(this.actorScope!==studio.scope()||this.__draftSession&&!this.__draftSession())wx.redirectTo({url:'/pages/ai-video/index'+(this.data.editingTaskId?'?task='+encodeURIComponent(this.data.editingTaskId):'')});},
-onHide() { this.cancelDraftSave();return this.saveDraft(); },
-onUnload() { this.__closed=true;this.cancelDraftSave();return this.saveDraft(true); },
+onHide() { this.closeReferencePreview();this.cancelDraftSave();return this.saveDraft(); },
+onUnload() { this.closeReferencePreview();this.__closed=true;this.cancelDraftSave();return this.saveDraft(true); },
 cancelDraftSave(){if(this.__draftTimer!=null){clearTimeout(this.__draftTimer);this.__draftTimer=null;}},
 queueDraftSave(){
   if(!this.videoAlive()||!this.__draft)return;
@@ -98,7 +109,7 @@ videoSessionValid(){return !!http.token()&&this.actorScope===studio.scope()&&(!t
 videoAlive(){return !this.__closed&&this.videoSessionValid();},
 videoForm(){
 const {mode,description,firstFrame,lastFrame,firstFrameSource,lastFrameSource,firstFrameAssetId,lastFrameAssetId,references,parameters}=this.data;
-return {mode,description,firstFrame,lastFrame,firstFrameSource,lastFrameSource,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(item=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
+return {mode,description,firstFrame,lastFrame,firstFrameSource,lastFrameSource,firstFrameAssetId:assetId(firstFrameAssetId),lastFrameAssetId:assetId(lastFrameAssetId),references:references.map(({referenceLabel,...item})=>({...item,assetId:assetId(item.assetId)})),parameters:P.mapVideoParameters(parameters)};
 },
 saveVideoDraftSnapshot(key,draft){
 const {revision,...form}=draft;
@@ -182,7 +193,7 @@ async useOriginalTask(){
   return this.generateOnline(original);
 },
 syncRatio() { this.setData({ratioAutomatic:this.data.mode==='frames'?!!(this.data.firstFrame||this.data.lastFrame||this.data.firstFrameAssetId||this.data.lastFrameAssetId):this.data.references.some(r=>r.type==='image'||r.type==='video')}); },
-switchMode(e) { this.setData({ mode: e.currentTarget.dataset.mode });this.syncRatio();this.queueDraftSave(); },
+switchMode(e) { const mode=e.currentTarget.dataset.mode;if(mode!=='reference')this.closeReferencePreview();this.setData({mode});this.syncRatio();this.queueDraftSave(); },
 inputDescription(e) { this.setData({ description: e.detail.value });this.queueDraftSave(); },
 inputDuration(e) {
 const value=String(e.detail.value||''),valid=/^\d+$/.test(value)&&Number(value)>=4&&Number(value)<=15;
@@ -236,9 +247,63 @@ for (const item of items) {
 if (next.length >= 12 || next.filter(ref => ref.type === item.type).length >= (item.type === 'image' ? 8 : 3)) continue;
 if (!next.some(ref => item.assetId?String(ref.assetId)===String(item.assetId):!!item.path&&ref.path===item.path)) next.push(item);
 }
-this.setData({ references: next });this.syncRatio();
+this.setData({ references: numberReferences(next) });this.syncRatio();
 },
-removeReference(e) { this.setData({ references: this.data.references.filter(item => item.id !== e.currentTarget.dataset.id) });this.syncRatio();this.saveDraft();this.restoreMediaPreviews(); },
+removeReference(e) {
+  const id = e.currentTarget.dataset.id;
+  if (this.__referencePreview?.id === id) this.closeReferencePreview();
+  this.setData({ references: numberReferences(this.data.references.filter(item => item.id !== id)) });
+  this.syncRatio();this.saveDraft();this.restoreMediaPreviews();
+},
+closeReferencePreview() {
+  const preview = this.__referencePreview;
+  if (!preview) return;
+  this.__referencePreview = null;
+  if (preview.audio) preview.audio.destroy();
+  if (this.data.referenceVideoUrl && wx.createVideoContext) wx.createVideoContext('reference-video', this).stop();
+  this.setData({
+    referencePreviewLoadingId: '', referenceVideoId: '', referenceVideoUrl: '', referenceVideoError: '',
+    previewAudioId: '', previewAudioPlaying: false, previewAudioLoading: false, previewAudioError: ''
+  });
+},
+referenceVideoFailed(e) {
+  if (this.data.referenceVideoId !== e.currentTarget.dataset.id) return;
+  this.setData({ referenceVideoUrl: '', referenceVideoError: '视频暂时无法播放，点击素材重试' });
+},
+async previewReference(e) {
+  const item = this.data.references.find(row => row.id === e.currentTarget.dataset.id);
+  if (!item || !['image', 'video', 'audio'].includes(item.type) || !this.videoAlive() || this.data.mode !== 'reference') return;
+  const current = this.__referencePreview;
+  if (current?.id === item.id && current.audio && !this.data.previewAudioError) {
+    if (!this.data.previewAudioLoading) current.audio.toggle(item.id, current.path);
+    return;
+  }
+  if (this.data.referenceVideoId === item.id && this.data.referenceVideoUrl) return this.closeReferencePreview();
+  if (this.data.referencePreviewLoadingId === item.id) return;
+  this.closeReferencePreview();
+  const preview = this.__referencePreview = { id: item.id };
+  const active = () => this.videoAlive() && this.__referencePreview === preview;
+  const showError = message => { if (active()) wx.showToast({ title: message, icon: 'none' }); };
+  this.setData({ referencePreviewLoadingId: item.id });
+  try {
+    // Saved references need a fresh ticket and the server's playable rendition.
+    const path = item.assetId ? await media.source(item.assetId, active, { type: item.type, playback: true }) : item.path;
+    if (!active()) return;
+    if (!path) throw Error('素材暂时无法打开，请重新选择');
+    const fail = () => showError('图片暂时无法打开，请重试');
+    if (item.type === 'image') return wx.previewImage({ current: path, urls: [path], fail });
+    if (item.type === 'video') return this.setData({ referenceVideoId: item.id, referenceVideoUrl: path });
+    preview.path = path;
+    preview.audio = require('../../utils/audio-preview').create({
+      createAudio: () => wx.createInnerAudioContext(), valid: active, onChange: patch => this.setData(patch)
+    });
+    preview.audio.toggle(item.id, path);
+  } catch (error) {
+    showError(P.degradeMessage(error));
+  } finally {
+    if (active()) this.setData({ referencePreviewLoadingId: '' });
+  }
+},
 openLibraryButton() { this.openLibrary('references'); },
 openLibrary(target) {
 if(this.data.generating||!['firstFrame','lastFrame','references'].includes(target))return;
