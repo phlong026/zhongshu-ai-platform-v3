@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.platform.authz.service.FranchiseMapService;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
+import java.util.List;
+import cn.iocoder.yudao.module.platform.authz.service.FranchiseRegionCatalog;
 
 @RestController
 public class FranchiseMapController {
@@ -15,5 +17,11 @@ public class FranchiseMapController {
     public CommonResult<Map<String,Object>> map(HttpServletResponse response) {
         response.setHeader("Cache-Control","private, no-store");
         return CommonResult.success(maps.snapshot());
+    }
+
+    @GetMapping("/franchise/store-map/regions")
+    public CommonResult<List<FranchiseRegionCatalog.Region>> regions(@RequestParam(required=false) String parentCode,HttpServletResponse response) {
+        response.setHeader("Cache-Control","private, no-store");
+        return CommonResult.success(maps.regions(parentCode));
     }
 }

@@ -6,6 +6,9 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator;
 import cn.iocoder.yudao.module.platform.authz.controller.admin.FranchiseMapController;
 import cn.iocoder.yudao.module.platform.authz.service.FranchiseMapService;
+import cn.iocoder.yudao.module.platform.authz.service.FranchiseDirectoryService;
+import cn.iocoder.yudao.module.platform.authz.service.FranchiseOnboardService;
+import cn.iocoder.yudao.module.platform.authz.service.FranchiseRegionCatalog;
 import cn.iocoder.yudao.module.platform.org.*;
 import cn.iocoder.yudao.module.platform.wallet.admin.*;
 import cn.iocoder.yudao.module.platform.wallet.controller.admin.CompanyRechargeController;
@@ -61,7 +64,9 @@ final class CompanyServicesHttpFixture {
         var catalog=new CompanyRechargeCatalog(jdbc,scope,permissions,payment) {
             @Override public Catalog read() { return tx.execute(s->super.read()); }
         };
-        var maps=new FranchiseMapService(()->Optional.ofNullable(current.get()),directory,jdbc);
+        var regions=new FranchiseRegionCatalog(jdbc);
+        var franchiseDirectory=new FranchiseDirectoryService(jdbc,regions,mock(FranchiseOnboardService.class),manager);
+        var maps=new FranchiseMapService(()->Optional.ofNullable(current.get()),jdbc,franchiseDirectory,regions);
         var audit=new OperationsAuditService(jdbc.getDataSource());
         var admin=new WalletConfigurationController(new RechargePlanAdminService(jdbc.getDataSource(),manager,audit),audit);
         mvc=MockMvcBuilders.standaloneSetup(new CompanyRechargeController(catalog,payment),new FranchiseMapController(maps),admin).build();

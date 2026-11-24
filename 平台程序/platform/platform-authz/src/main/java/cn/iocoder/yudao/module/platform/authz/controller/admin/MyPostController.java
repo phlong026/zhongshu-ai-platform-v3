@@ -93,7 +93,7 @@ public class MyPostController {
     }
     private List<String> mapPermissions(PostSnapshot post) {
         String permission=cn.iocoder.yudao.module.platform.authz.service.FranchiseMapService.READ_ALL;
-        return "headquarters".equals(post.orgType()) && systemDirectory.roleHasPermission(post.roleCode(),permission)
+        return "headquarters".equals(post.orgType())
                 ? List.of(permission) : List.of();
     }
 }
