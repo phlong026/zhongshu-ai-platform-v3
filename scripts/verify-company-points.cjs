@@ -242,9 +242,94 @@ test('current point permission failures discard cached balances while late logou
  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.session.token='';h.session.generation++;h.respond(2,'999');await tick();
  assert.equal(h.card.data.visible,false);assert.equal(h.card.data.balanceText,'--');
 });
-test('a current permission failure from the later package check also clears private balances',async()=>{
- for(const error of [{code:401},{code:403},{postInvalid:true}]){
+test('a salesperson without simulated recharge permission keeps the readable company balances',async()=>{
+ let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});
+ assert.equal(h.session.post.roleCode,'sales');assert(!h.session.post.permissions.includes('platform:wallet:recharge'));
+ h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
+ reject({code:403});await tick();
+ assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'3');
+ assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');assert.equal(h.card.data.purchaseAvailable,false);
+});
+test('a later package authentication or revoked-post failure still clears private balances',async()=>{
+ for(const error of [{code:401},{postInvalid:true}]){
   let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
   reject(error);await tick();assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+ }
+});
+test('balance and personal usage render independently and a first-load failure affects only its metric',async()=>{
+ for(const failed of ['balance','usage']){
+  const h=pointCard();h.card.refresh();
+  const summary=h.requests[0],usage=h.requests[1],success=failed==='balance'?usage:summary,failure=failed==='balance'?summary:usage;
+  success.resolve(failed==='balance'?{used:'7'}:{balance:'90',status:'ACTIVE'});await tick();
+  assert.equal(h.card.data[failed==='balance'?'usedText':'balanceText'],failed==='balance'?'7':'90');
+  assert.equal(h.card.data[failed==='balance'?'balanceText':'usedText'],'--');assert.equal(h.card.data.refreshing,true);
+  failure.reject({code:500,message:'database detail'});await tick();
+  assert.equal(h.card.data[failed==='balance'?'usedText':'balanceText'],failed==='balance'?'7':'90');
+  assert.equal(h.card.data[failed+'Error'],true);assert.equal(h.card.data[failed==='balance'?'usageError':'balanceError'],false);
+  assert.equal(h.card.data.refreshing,false);assert(!h.card.data.errorMessage.includes('database'));
+  const nodes=render(path.resolve(__dirname,'../miniprogram/components/point-asset-card/index.wxml'),h.card.data);
+  const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children)).join('');
+  assert(text(nodes).includes('更新失败'));assert(text(nodes).includes(failed==='balance'?'7':'90'));
+  h.card.retry();h.respond(2,'85','12');await tick();
+  assert.equal(h.card.data.balanceText,'85');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.errorMessage,'');
+ }
+});
+test('a failed metric keeps its prior value while the other metric updates in the same identity',async()=>{
+ const h=pointCard();h.card.refresh();h.respond();await tick();
+ h.card.refresh();h.requests[2].reject({code:500});h.requests[3].resolve({used:'9'});await tick();
+ assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'9');assert.equal(h.card.data.balanceError,true);
+ h.card.refresh();h.requests[4].resolve({balance:'60',status:'ACTIVE'});h.requests[5].reject({code:500});await tick();
+ assert.equal(h.card.data.balanceText,'60');assert.equal(h.card.data.usedText,'9');assert.equal(h.card.data.balanceError,false);assert.equal(h.card.data.usageError,true);
+});
+test('a core permission failure cannot be undone by a later successful companion read',async()=>{
+ for(const error of [{code:401},{code:403},{postInvalid:true}]){
+  for(const failed of [0,1]){
+   const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();
+   h.requests[2+failed].reject(error);await tick();
+   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');
+   h.requests[2+(1-failed)].resolve(failed===0?{used:'99'}:{balance:'999',status:'ACTIVE'});await tick();
+   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+  }
+ }
+});
+test('a package authentication failure blocks an outstanding personal usage response',async()=>{
+ for(const error of [{code:401},{postInvalid:true}]){
+  let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});h.card.refresh();
+  h.requests[0].resolve({balance:'80',status:'ACTIVE'});await tick();
+  reject(error);await tick();h.requests[1].resolve({used:'99'});await tick();
+  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+ }
+});
+test('a late optional package denial from the previous organization cannot replace the current result',async()=>{
+ const packages=[];const h=pointCard({packages:()=>new Promise((resolve,reject)=>packages.push({resolve,reject}))});
+ h.card.refresh();h.respond();await tick();h.session.post.orgId='org-2';h.card.refresh();h.respond(2,'70','13');await tick();
+ packages[1].resolve([{id:'new-plan'}]);await tick();assert.equal(h.card.data.purchaseAvailable,true);
+ packages[0].reject({code:403});await tick();
+ assert.equal(h.card.data.purchaseAvailable,true);assert.equal(h.card.data.balanceText,'70');assert.equal(h.card.data.usedText,'13');assert.equal(h.card.data.errorMessage,'');
+});
+test('switching from a rechargeable identity to salesperson and back keeps only the current identity balances',async()=>{
+ for(const anotherCompany of [false,true]){
+  const packages=[];const h=pointCard({packages:()=>new Promise((resolve,reject)=>packages.push({resolve,reject}))});
+  const switchIdentity=role=>{
+   h.session.postId='post-'+role;h.session.post.postId=h.session.postId;h.session.post.roleCode=role;
+   h.session.post.orgId=role==='sales'&&anotherCompany?'org-2':'org-1';
+   h.session.post.permissions=role==='owner'?['platform:wallet:recharge']:['points:read'];
+  };
+  switchIdentity('owner');h.card.refresh();h.respond(0,'1000','10');await tick();packages[0].resolve([{id:'owner-plan'}]);await tick();
+  assert.equal(h.card.data.balanceText,'1,000');assert.equal(h.card.data.usedText,'10');assert.equal(h.card.data.purchaseAvailable,true);
+  h.card.refresh(); // Leave an old identity's core reads pending while the user switches.
+  switchIdentity('sales');h.card.refresh();
+  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+  h.respond(4,'950','12');await tick();packages[1].reject({code:403});await tick();
+  assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
+  h.requests[2].reject({code:403});h.requests[3].resolve({used:'999'});await tick();
+  assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.errorMessage,'');
+  h.card.refresh();h.respond(6,'930','15');await tick(); // Leave salesperson's optional package read pending.
+  switchIdentity('owner');h.card.refresh();
+  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+  h.respond(8,'920','17');await tick();packages[3].resolve([{id:'owner-plan'}]);await tick();
+  packages[2].reject({code:403});await tick();
+  assert.equal(h.card.data.balanceText,'920');assert.equal(h.card.data.usedText,'17');assert.equal(h.card.data.purchaseAvailable,true);
+  assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
  }
 });

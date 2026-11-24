@@ -4,11 +4,13 @@
     <view class="asset-metric">
       <text class="asset-num">{{balanceText}}</text>
       <text class="asset-unit">{{balanceLabel}}</text>
+      <text wx:if="{{balanceError}}" class="asset-unit" bindtap="retry">更新失败，重试</text>
     </view>
     <view class="asset-divider"/>
     <view class="asset-metric">
       <text class="asset-num">{{usedText}}</text>
       <text class="asset-unit">本人本月使用</text>
+      <text wx:if="{{usageError}}" class="asset-unit" bindtap="retry">更新失败，重试</text>
     </view>
   </view>
   <button wx:if="{{state==='ready' && purchaseAvailable}}" class="asset-retry" bindtap="openPackages">模拟积分套餐</button>
