@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +37,7 @@ class ContentCoverPgIntegrationTest extends FranchisePgIntegrationTest {
         properties = new ContentProviderProperties(); properties.setProvider(ContentProviderProperties.ProviderMode.REAL);
         properties.getHifly().setApiKey("fixture-only");
     }
+    @AfterEach void cleanupCovers() { TenantContextHolder.clear(); }
     private ContentCoverService service(ContentProviderTransport transport) {
         return new ContentCoverService(jdbc,assets,accounts,properties,transport,null,images);
     }
