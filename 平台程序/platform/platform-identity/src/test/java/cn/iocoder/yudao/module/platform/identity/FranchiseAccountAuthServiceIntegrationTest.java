@@ -1051,6 +1051,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     private Flyway passwordUpgrade(String schema) {
         return Flyway.configure().dataSource(jdbc.getDataSource()).schemas(schema).defaultSchema(schema)
                 .baselineOnMigrate(true).baselineVersion("20261122.988").outOfOrder(true)
+                .target("20261122.990") // This fixture verifies the historical password repair, not later migrations.
                 .locations("classpath:db/migration/pf").load();
     }
 
