@@ -41,7 +41,7 @@ module.exports = async function verifyNative(origin, update) {
       const page = await app.reLaunch('/pages/account/store-map/index');
       const state = await waitFor(page, s => !s.loading && s.rows?.length===count);
       const header = await (await page.$('.scope')).text();
-      assert.equal(header, id==='hq'?'各品牌门店':state.brandName);
+      assert.equal(header, id==='hq'?'总部端 · 全部品牌视图':'加盟商端 · 本品牌'+(state.brandName?'（'+state.brandName+'）':''));
       await shot(file);
     }
     await login('alpha','store');

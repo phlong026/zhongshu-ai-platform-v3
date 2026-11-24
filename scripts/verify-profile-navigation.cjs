@@ -211,7 +211,7 @@ for (const [role, label] of roles) {
     assert.equal(account.load().profile.apiUserId, '701', '缓存归属来自当前登录用户');
     assert.equal(page.data.name, '缓存姓名');
     assert.equal(page.data.loggedIn, true);
-    assert.equal(page.data.showStoreServices, role !== 'hq-design-admin');
+    assert.equal(page.data.showStoreServices, true);
     assert.equal(page.bar.data.selected, 4);
     assert.ok(requests.some(request => request.url.endsWith('/platform/profile/mine')));
   });
@@ -271,6 +271,21 @@ test('门店登录后加盟商服务的两个入口仍直达对应展示页', ()
     { kind: 'navigateTo', url: '/pages/account/index?view=selection' }
   ]);
 });
+
+for (const role of ['hq-design-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
+  test('总部 '+role+'：加盟商服务、众墅甄选和全品牌地图均展示，查看入口不依赖编辑权限', () => {
+    reset('hq-design-admin');
+    auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:role,permissions:[]}]);
+    auth.switchPost(42);
+    const page=show('/pages/profile/index');
+    assert.equal(page.data.showStoreServices,true);assert.equal(page.data.showAdminMap,true);
+    navigation=[];
+    for(const action of ['services','selection','storeMap'])page.open({currentTarget:{dataset:{action}}});
+    assert.deepEqual(navigation.map(row=>row.url),[
+      '/pages/account/index?view=services','/pages/account/index?view=selection','/pages/account/store-map/index'
+    ]);
+  });
+}
 
 for (const route of ['/pages/admin/profile/index', '/pages/account/sales/index']) {
   test(route + ': 兼容入口跳转失败时提示重试并记录错误', () => {

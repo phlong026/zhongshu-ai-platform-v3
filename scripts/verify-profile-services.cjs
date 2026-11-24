@@ -13,7 +13,7 @@ const page = () => ({ ...definition, data: structuredClone(definition.data), act
   setData(patch) { Object.assign(this.data, patch); } });
 const store = { id: 's1', name: '测试店', brandId: 'b1', brandName: '甲', brandColor: '#995511',
   provinceCode: '33', cityCode: '3301', districtCode: '330110', provinceName: '浙江省', cityName: '杭州市',
-  districtName: '余杭区', latitude: 30.3, longitude: 120.0 };
+  districtName: '余杭区', latitude: 30.3, longitude: 120.0, locationPrecision: 'district' };
 const catalog = plan => ({ enabled: true, companyName: '测试公司', plans: plan ? [plan] : [] });
 const offer = { id: 'p1', name: '门店套餐', amountCents: 1200, version: 1, credits: '120' };
 
@@ -23,7 +23,8 @@ test('同品牌跨店可见，混入其他品牌或错误的全品牌响应时�
   assert.equal(readSnapshot(response, post).stores.length, 2);
   assert.throws(() => readSnapshot({ ...response, stores: [{ ...store, brandId: 'b2' }] }, post));
   assert.throws(() => readSnapshot({ ...response, scope: 'all' }, post));
-  assert.throws(() => readSnapshot({ ...response, scope: 'all' }, { orgType: 'headquarters' }));
+  assert.throws(() => readSnapshot({ ...response, scope: 'all' }, { orgType: 'external' }));
+  assert.equal(readSnapshot({ ...response, scope: 'all' }, { orgType: 'headquarters', roleCode: 'finance' }).admin, true);
 });
 
 test('管理员同址落点合并，品牌和三级区划共同决定标记和清单', () => {
