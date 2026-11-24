@@ -249,7 +249,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   const studioSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   assert.match(studioSource, /payload:\{kind:'digital'/, 'studio 页 digital 生成缺少数字人口播参数');
   assert.match(studioSource, /tasks\.create\(attempt\.payload,attempt\.key\)/, 'studio 页 digital 生成未接 tasks.create');
-  assert.match(studioSource, /publications\.create\(/, 'studio 页发布创建未接 publications.create');
+  assert.match(fs.readFileSync(path.join(root, 'miniprogram/pages/studio/publication-pending.js'), 'utf8'), /publications\.create\(/, 'studio 页发布创建未接 publications.create');
   assert.match(studioSource, /publications\.link\(/, 'studio 页发布链接未接 publications.link');
   assert.match(studioSource, /1_114_000_003/, '重复链接错误码未处理');
   assert.match(studioSource, /tasks\.page\(\)/, '任务中心未接 tasks.page');

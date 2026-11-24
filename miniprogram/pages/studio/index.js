@@ -42,6 +42,7 @@ tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
 digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', workId: '', saved: false,
+publicationPending:false,publicationPendingTitle:'',publicationPendingPlatform:'',publicationExistingId:'',publicationExistingStatus:'',
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
 },
 onLoad(options) {
@@ -61,7 +62,8 @@ return;
 }
 if (view === 'publish') {
 const draft = options.work && state.publishDrafts ? state.publishDrafts[options.work] : null; // 发布表单草稿（本地暂存，非演示集合）
-if (draft) this.setData(draft);
+if (draft) { this.setData(draft); this.__publicationDraftRestored=true; }
+this.restorePublicationPending();
 if (options.work && http.token()) this.loadApiWork(options.work); // 在线作品：接口回读，缺失不拦截
 }
 if (view === 'remix' && state.rewriteSettings) this.setData(Object.assign({},state.rewriteSettings,{rewriteMode:0,customIp:''}));
@@ -709,9 +711,11 @@ async loadApiResult(taskId) {
 /** 在线作品回读：drafts.works 找标题/文案（best-effort，失败沿用当前表单值） */
 loadApiWork(workId) {
 this.setData({ workId, publishOnline: true });
+const alive=http.requestGuard('publication-work'),scope=this.actorScope,initialTitle=this.data.title,initialText=this.data.publishText;
 contentApi.drafts.works().then(rows => {
+if(!alive()||this.__closed||scope!==studio.scope()||this.data.view!=='publish'||String(this.data.workId)!==String(workId)||this.__publicationDraftRestored)return;
 const work=P.rowsOf(rows).find(item=>item&&String(item.workId!=null?item.workId:item.id)===String(workId));
-if(work&&this.data.view==='publish')this.setData({title:String(work.title||this.data.title),publishText:String(work.script||work.text||this.data.publishText)});
+if(work){const patch={};if(this.data.title===initialTitle)patch.title=String(work.title||this.data.title);if(this.data.publishText===initialText)patch.publishText=String(work.script||work.text||this.data.publishText);this.setData(patch);}
 }).catch(() => {});
 },
 editResult() {
@@ -734,45 +738,17 @@ submitPublish() {
 if (!http.token()) return wx.showToast({ title: '请先登录后再发布', icon: 'none' }); // 无 token：提示登录，不落本地发布记录
 return this.submitPublishOnline(); // 发布链走后端
 },
-/** 在线手动发布登记：提交快照与幂等键保留到成功或明确业务失败；网络响应丢失按原请求重试。 */
-async submitPublishOnline() {
-if(this.data.publishSubmitting)return;
-const sessionAlive=http.sessionGuard(),scope=this.actorScope;
-const alive=()=>sessionAlive()&&this.actorScope===scope&&scope===studio.scope()&&this.data.view==='publish';
-if(!this.__publicationSubmission){
-if(this.data.invalidMessage||!String(this.data.workId||'').trim())return wx.showToast({title:'请先选择已保存的作品',icon:'none'});
-const error=P.validatePublicationForm({title:this.data.title,publishText:this.data.publishText},Date.now());
-if(error)return wx.showToast({title:error,icon:'none'});
-const platform=(studio.publicationPlatforms||[])[this.data.selectedAccount];
-if(!platform)return wx.showToast({title:'请选择发布平台',icon:'none'});
-const accountId=String(this.data.publicationAccount||'').trim();
-if(!accountId)return wx.showToast({title:'请填写实际发布账号名称',icon:'none'});
-if(accountId.length>64)return wx.showToast({title:'发布账号名称不能超过64个字符',icon:'none'});
-const payload={workId:String(this.data.workId),title:this.data.title.trim(),publishText:this.data.publishText.trim(),tags:String(this.data.tags||'').trim(),accountId,platform:platform.platform};
-const action='publication:'+payload.workId;
-this.__publicationSubmission={payload,key:this.contentKey(action),action};
-}
-const submission=this.__publicationSubmission;
-this.setData({publishSubmitting:true,operationError:''});
-try{
-const res=await contentApi.publications.create(submission.payload,submission.key);
-if(!alive())return;
-const id=res&&(res.id||res.publicationId)?String(res.id||res.publicationId):'';
-if(!id)throw Error('发布记录创建失败，请稍后重试');
-this.contentDropKey(submission.action);this.__publicationSubmission=null;
+/** The pending request survives page exit and is replayed only through an explicit recovery action. */
+publicationEnvironment() {
+return {wx,http,studio,api:contentApi,post:require('../../api/auth').currentApiPost(),message:P.degradeMessage,validate:P.validatePublicationForm};
+},
+restorePublicationPending(){return require('./publication-pending').restore(this,this.publicationEnvironment());},
+submitPublishOnline(){return require('./publication-pending').submit(this,this.publicationEnvironment());},
+resumePublication(){return require('./publication-pending').resume(this,this.publicationEnvironment());},
+openExistingPublication(){
+if(!this.data.publicationExistingId)return;
 this.persistEditor();
-this.go('receipt','&record='+encodeURIComponent(id));
-}catch(error){
-if(!alive())return;
-const code=Number(error&&error.code);
-const uncertain=!Number.isFinite(code)||code===-1||code===0||(code>=500&&code<600);
-if(!uncertain){
-this.contentDropKey(submission.action);this.__publicationSubmission=null;
-}
-const message=uncertain?'登记结果待确认，请重试核对本次提交':P.degradeMessage(error);
-this.setData({operationError:message});
-wx.showToast({title:message,icon:'none'});
-}finally{if(alive())this.setData({publishSubmitting:false});}
+this.go(this.data.publicationExistingStatus==='published'?'detail':'receipt','&record='+encodeURIComponent(this.data.publicationExistingId));
 },
 /** 在线回执页：列表回读真实状态；迟到响应不得跨会话、岗位或记录写回。 */
 loadApiReceipt(recordId) {
