@@ -12,3 +12,7 @@
 .publication-account-actions button { flex:1; min-width:0; min-height:80rpx; font-size:var(--zs-font-body); border:1rpx solid var(--creation-border); border-radius:12rpx; }
 .publication-account-form { display:flex; flex-direction:column; gap:16rpx; }
 .publication-account-form input { box-sizing:border-box; width:100%; min-height:88rpx; padding:16rpx; border:1rpx solid var(--creation-border); border-radius:12rpx; }
+
+.publication-cover-empty { display:flex; align-items:center; justify-content:center; background:var(--creation-soft); color:var(--creation-muted); font-size:var(--zs-font-meta); text-align:center; }
+.publication-cover-feedback { display:flex; flex-direction:column; gap:12rpx; margin-bottom:24rpx; }
+.publication-detail-cover { width:120rpx; height:120rpx; border-radius:12rpx; flex-shrink:0; }

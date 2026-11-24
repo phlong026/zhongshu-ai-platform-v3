@@ -115,8 +115,11 @@ function payload(page, env) {
   const account = (data.publisherAccounts || []).find(row => id(row.id) === id(data.publisherAccountId)
     && row.enabled === true && row.platform === platform.platform);
   if (!account) throw Error('请选择发布账号');
+  if (data.coverUploading || data.coverLoading) throw Error('封面正在保存或读取，请稍候');
+  if (data.coverAssetId && (!data.coverReady || !/^[1-9]\d{0,18}$/.test(id(data.coverAssetId)))) throw Error('请先重新读取或更换封面');
   return { workId: id(data.workId), title: data.title.trim(), publishText: data.publishText.trim(),
-    tags: id(data.tags).trim(), publisherAccountId: id(account.id), platform: platform.platform };
+    tags: id(data.tags).trim(), publisherAccountId: id(account.id), platform: platform.platform,
+    ...(data.coverAssetId ? { coverAssetId: id(data.coverAssetId) } : {}) };
 }
 
 async function submit(page, env) {
