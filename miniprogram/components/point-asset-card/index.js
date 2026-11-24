@@ -2,8 +2,11 @@
 const http = require('../../api/http');
 const points = require('../../api/company-points');
 const denied = err => err && (err.postInvalid || [401,403].includes(Number(err.code)));
+const sessionInvalid = err => err && (err.postInvalid || Number(err.code) === 401);
+const loadError = '积分信息加载失败，请稍后重试';
 const initial = () => ({ state: 'loading', balanceText: '--', usedText: '--', balanceLabel: '可用余额',
-  emptyMessage: '公司积分池暂未开通', errorMessage: '', purchaseAvailable: false, refreshing: false });
+  emptyMessage: '公司积分池暂未开通', errorMessage: '', balanceError: false, usageError: false,
+  purchaseAvailable: false, refreshing: false });
 
 Component({
   data: { visible: true, ...initial() },
@@ -30,37 +33,67 @@ Component({
         return;
       }
       this.setData({ ...(sameScope ? {} : initial()), visible: true, hasPost: true, refreshing: true, errorMessage: '' });
+      let blocked = false;
       const alive = () => {
-        if (this.__hidden || loadId !== this.__loadId) return false;
+        if (blocked || this.__hidden || loadId !== this.__loadId) return false;
         if (key !== points.fingerprint()) { this.__reading = null; this.refresh(); return false; }
         return true;
       };
+      const update = patch => {
+        const next = { ...this.data, ...patch };
+        this.setData({ ...patch, errorMessage: next.balanceError || next.usageError ? loadError : '' });
+      };
+      const invalidate = () => {
+        // A revoked session must also block the other metric's still-pending response.
+        blocked = true;
+        this.__reading = null;
+        this.setData({ ...initial(), state: 'error', errorMessage: loadError });
+      };
+      const failRead = (metric, err) => {
+        if (!alive() || points.isStale(err)) return;
+        if (denied(err)) { invalidate(); return; }
+        const invalidValue = ['UNKNOWN_COMPANY_POINT_STATUS','INVALID_CREDIT_VALUE'].includes(err && err.code);
+        const patch = { [metric + 'Error']: true };
+        if (metric === 'balance') {
+          patch.state = !invalidValue && ['ready','suspended'].includes(this.data.state) ? this.data.state : 'error';
+          patch.purchaseAvailable = false;
+          if (invalidValue) patch.balanceText = '--';
+        } else if (invalidValue) patch.usedText = '--';
+        update(patch);
+      };
       // A return from another page must not join a read started before its operation.
-      return this.__reading = Promise.all([points.summary({ fresh: true }), points.myUsage({ page: 1, size: 1, fresh: true })]).then(([summary, usage]) => {
+      const balanceRead = points.summary({ fresh: true }).then(summary => {
         if (!alive()) return;
-        if (!summary || summary.balance === undefined || !usage || usage.used === undefined) {
-          this.setData({ ...initial(), state: 'empty' });
+        if (summary === null) {
+          update({ state: 'empty', balanceText: '--', balanceError: false, purchaseAvailable: false });
           return;
         }
-        const values = { balanceText: points.formatCredits(summary.balance), usedText: points.formatCredits(usage.used), errorMessage: '' };
+        if (!summary || summary.balance === undefined) throw { code: 'INVALID_CREDIT_VALUE' };
+        const balanceText = points.formatCredits(summary.balance);
         if (summary.status === 'ACTIVE') {
-          this.setData({ ...values, state: 'ready', balanceLabel: '可用余额' });
+          update({ balanceText, balanceError: false, state: 'ready', balanceLabel: '可用余额' });
           if (points.packages) points.packages().then(plans => {
             if (alive()) this.setData({ purchaseAvailable: !!plans.length });
-          }).catch(err => { if (alive() && denied(err)) this.setData({ ...initial(), state: 'error', errorMessage: '积分信息加载失败，请稍后重试' }); });
+          }).catch(err => {
+            if (!alive() || points.isStale(err)) return;
+            // Missing recharge permission says nothing about the successful read permissions.
+            if (sessionInvalid(err)) invalidate();
+            else this.setData({ purchaseAvailable: false });
+          });
           return;
         }
         if (summary.status === 'SUSPENDED') {
-          this.setData({ ...values, state: 'suspended', balanceLabel: '账户余额', purchaseAvailable: false });
+          update({ balanceText, balanceError: false, state: 'suspended', balanceLabel: '账户余额', purchaseAvailable: false });
           return;
         }
         throw { code: 'UNKNOWN_COMPANY_POINT_STATUS' };
-      }).catch(err => {
-        if (!alive() || points.isStale(err)) return;
-        const retain = ['ready','suspended'].includes(this.data.state) && !denied(err) &&
-          !['UNKNOWN_COMPANY_POINT_STATUS','INVALID_CREDIT_VALUE'].includes(err && err.code);
-        this.setData({ ...(retain ? {} : { ...initial(), state: 'error' }), errorMessage: '积分信息加载失败，请稍后重试' });
-      }).finally(() => {
+      }).catch(err => failRead('balance', err));
+      const usageRead = points.myUsage({ page: 1, size: 1, fresh: true }).then(usage => {
+        if (!alive()) return;
+        if (!usage || usage.used === undefined) throw { code: 'INVALID_CREDIT_VALUE' };
+        update({ usedText: points.formatCredits(usage.used), usageError: false });
+      }).catch(err => failRead('usage', err));
+      return this.__reading = Promise.all([balanceRead, usageRead]).finally(() => {
         if (loadId === this.__loadId) { this.__reading = null; this.setData({ refreshing: false }); }
       });
     },

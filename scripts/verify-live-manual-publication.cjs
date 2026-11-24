@@ -10,8 +10,9 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
-function loadPage({ create, list, verify, link, works = async () => [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
+function loadPage({ create, list, verify, link, works = async () => [], accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
   let definition;
+  const storage=new Map();
   const studio = {
     title: '',
     publicationPlatforms: [
@@ -35,10 +36,12 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
     './task-display':require('../miniprogram/pages/studio/task-display'),
     './content-task-result':require('../miniprogram/pages/studio/content-task-result'),
     '../../utils/studio': studio,
+    '../../utils/growth': {load:()=>({contents:growthContents})},
     '../../utils/creation': { unavailable() {}, assets: [] },
     '../../utils/platform-content': {
       api: {
         publications: { create, page: list, verify, link },
+        publisherAccounts: { list: accounts },
         drafts: { works },
         tasks: { page: async () => [] }
       },
@@ -52,7 +55,7 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
       degradeMessage(error) { return error.message || '请求失败'; }
     },
     '../../api/http': {
-      token() { return 'fixture-token'; },
+      token() { return 'fixture-token'; }, currentUserId() { return '42'; },
       sessionGeneration() { return 1; }, tenantId() { return 1; },
       sessionGuard() { return alive; },
       requestGuard() { return alive; }
@@ -62,8 +65,12 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   };
   const context = {
     Page(value) { definition = value; },
-    wx: { showToast(options) { toasts.push(options.title); }, redirectTo() {}, reLaunch() {} },
+    wx: { getStorageSync:key=>storage.get(key), setStorageSync:(key,value)=>storage.set(key,structuredClone(value)), removeStorageSync:key=>storage.delete(key), showToast(options) { toasts.push(options.title); }, redirectTo() {}, reLaunch() {} },
     require(id) {
+      if(id==='./publication-pending')return require('../miniprogram/pages/studio/publication-pending');
+      if(id==='./publication-accounts')return require('../miniprogram/pages/studio/publication-accounts');
+      if(id==='./publication-cover')return require('../miniprogram/pages/studio/publication-cover');
+      if(id==='./publication-cover-templates')return require('../miniprogram/pages/studio/publication-cover-templates');
       if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
       if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
@@ -73,14 +80,17 @@ function loadPage({ create, list, verify, link, works = async () => [], pageData
   };
   vm.runInNewContext(source, context, { filename: 'miniprogram/pages/studio/index.js' });
   const instance = Object.assign({}, definition);
-  instance.data = Object.assign({}, structuredClone(definition.data), pageData);
+  instance.data = Object.assign({}, structuredClone(definition.data), {
+    publisherAccountsLoaded:true, publisherAccountId:pageData&&pageData.selectedAccount===1?'201':'200',
+    publisherAccounts:[{id:'200',platform:'douyin',displayName:'门店抖音',enabled:true},{id:'201',platform:'channels',displayName:'门店视频号',enabled:true}]
+  }, pageData);
   instance.actorScope = scope();
   instance.actorSessionGeneration = 1;
   instance.setData = function setData(patch) { Object.assign(this.data, patch); };
   return instance;
 }
 
-test('manual publication uses operator-entered account and never sends demo ids or scheduling', async () => {
+test('manual publication uses a registered account ID and never sends editable names as identity', async () => {
   let sent;
   const page = loadPage({
     create: async payload => { sent = payload; return { id: 91 }; },
@@ -96,28 +106,28 @@ test('manual publication uses operator-entered account and never sends demo ids 
 
   assert.deepEqual(JSON.parse(JSON.stringify(sent)), {
     workId: '8', title: '院落漫游', publishText: '手动发布文案', tags: '#乡墅',
-    accountId: '泉州门店视频号', platform: 'channels'
+    publisherAccountId: '201', platform: 'channels'
   });
-  assert.notEqual(sent.accountId, 'douyin-adviser');
-  assert.notEqual(sent.accountId, 'channels-design');
+  assert.equal(Object.hasOwn(sent, 'accountId'), false);
+  assert.equal(Object.hasOwn(sent, 'accountName'), false);
   assert.equal(Object.hasOwn(sent, 'scheduledAt'), false);
 });
 
-test('manual publication requires the actual account name before creating a record', async () => {
+test('manual publication requires an available registered account before creating a record', async () => {
   let calls = 0;
   const toasts = [];
   const page = loadPage({
     create: async () => { calls += 1; return { id: 91 }; },
     list: async () => [],
     toasts,
-    pageData: { view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', publicationAccount: '   ' }
+    pageData: { view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', publisherAccountId: '' }
   });
 
   page.submitPublishOnline();
   await flush();
 
   assert.equal(calls, 0);
-  assert.deepEqual(toasts, ['请填写实际发布账号名称']);
+  assert.deepEqual(toasts, ['请选择发布账号']);
 });
 
 test('manual publication requires a selected saved work and refuses an invalid page state', async () => {
@@ -198,7 +208,7 @@ test('network retry reuses the exact publication payload and idempotency key', a
   page.data.title = '';
   page.data.publishText = '';
   page.data.invalidMessage = '后来加载作品失败';
-  await page.submitPublishOnline();
+  await page.resumePublication();
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1], calls[0]);
@@ -221,11 +231,11 @@ test('server 500 keeps the original publication snapshot for an idempotent retry
   await page.submitPublishOnline();
   page.data.title = '服务器异常后的编辑值';
   page.data.publishText = '不得以同一幂等键发送';
-  await page.submitPublishOnline();
+  await page.resumePublication();
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1], calls[0]);
-  assert.equal(toasts[0], '登记结果待确认，请重试核对本次提交');
+  assert.equal(toasts[0], '登记结果待确认，请核对上次登记；本页修改会保留');
 });
 
 test('an explicit business failure releases the publication snapshot for corrected input', async () => {
@@ -251,10 +261,12 @@ test('an explicit business failure releases the publication snapshot for correct
   assert.equal(calls[1].payload.publishText, '更正后的文案');
 });
 
-test('manual publication template exposes platform and account input but no scheduling controls', () => {
+test('manual publication template selects registered accounts and offers management', () => {
   const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.wxml'), 'utf8');
   assert.match(wxml, /发布平台/);
-  assert.match(wxml, /publicationAccount/);
+  assert.match(wxml, /publisherAccounts/);
+  assert.match(wxml, /managePublisherAccounts/);
+  assert.doesNotMatch(wxml, /bindinput="inputPublicationAccount"/);
   assert.match(wxml, /手动发布后登记链接|请先在所选平台发布内容，再登记链接/);
   assert.doesNotMatch(wxml, /chooseSchedule|sheet === 'schedule'|确认定时|定时需至少/);
 
@@ -429,4 +441,18 @@ test('publication list keeps request and post-switch response guards', async () 
   await flush();
 
   assert.deepEqual(JSON.parse(JSON.stringify(page.data.records)), snapshot);
+});
+
+
+test('a restored growth platform is applied before the first account request', async () => {
+  const requests=[];
+  const page=loadPage({create:async()=>({id:1}),list:async()=>[],
+    accounts:async platform=>{requests.push(platform);return [{id:'202',platform:'channels',displayName:'门店视频号',identifier:'shop01',enabled:true}];},
+    growthContents:[{id:'content-1',workId:'8',pack:{title:'来源标题',publishText:'来源文案',tags:'',cover:'',platform:'channels'}}]
+  });
+  page.onLoad({view:'publish',work:'8',content:'content-1'});
+  await flush();
+  assert.deepEqual(requests,['channels']);
+  assert.equal(page.data.publisherAccountsLoading,false);
+  assert.equal(page.data.publisherAccountId,'202');
 });

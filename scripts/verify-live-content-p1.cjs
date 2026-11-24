@@ -388,6 +388,34 @@ test('F05 returning after a permission change clears the prior frame before redi
   assert.deepEqual(routes, ['/pages/studio/index?view=works']);
 });
 
+for (const view of ['records', 'detail']) {
+  test('F05 ' + view + ': hydrate covers once after a successful paint and retain previews on refresh failure', async () => {
+    const fixture = studioFixture({ view, recordId: '11' }), page = fixture.page;
+    let previewReads = 0;
+    page.hydratePublicationCovers = () => {
+      previewReads++;
+      const row = view === 'detail' ? page.data.detail : page.data.records[0];
+      assert.equal(row.id, '11', 'cover hydration runs after the matching list frame is painted');
+      assert.equal(row.coverAssetId, '301');
+      // A redundant read on refresh failure would lose the already displayed preview.
+      row.cover = previewReads === 1 ? 'https://cdn.example.com/cover-301.jpg' : '';
+    };
+    const initial = deferred(); fixture.setRecords(initial.promise);
+    const first = page.refreshData(), second = page.refreshData();
+    assert.equal(first, second, 'cover hydration retains the original shared list promise');
+    initial.resolve([{ id:'11', status:'published', title:'已有封面', coverAssetId:'301' }]);
+    await first;
+    assert.equal(previewReads, 1, 'coalesced callers do not duplicate preview reads');
+    const frame = plain(view === 'detail' ? page.data.detail : page.data.records);
+    fixture.setRecords(() => Promise.reject(new Error('刷新超时')));
+    await page.refreshData();
+    assert.equal(previewReads, 1, 'a failed list refresh never re-reads or clears a valid cover');
+    assert.deepEqual(plain(view === 'detail' ? page.data.detail : page.data.records), frame);
+    assert.equal(page.data.recordsLoaded, true);assert.equal(page.data.recordsLoading, false);
+    assert.equal(page.data.recordsError, '刷新超时');
+  });
+}
+
 test('F05 a session-expiring 401 clears the visible snapshot even after the HTTP guard expires', async () => {
   const fixture = studioFixture();
   fixture.setWorks(Promise.resolve([lists.works.row('11')])); fixture.page.refreshData(); await flush();

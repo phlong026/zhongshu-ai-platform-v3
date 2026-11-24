@@ -299,7 +299,8 @@ function request(method, path, data, extraHeader, opts) {
         }
         reject({
           code: body && body.code !== undefined ? body.code : res.statusCode,
-          message: (body && body.msg) || ('请求失败（HTTP ' + res.statusCode + '）')
+          message: (body && body.msg) || ('请求失败（HTTP ' + res.statusCode + '）'),
+          data: body && body.data
         });
       },
       fail(err) {
