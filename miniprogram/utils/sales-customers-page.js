@@ -1,5 +1,6 @@
 const Job=require('./organization');
 const PF=require('./platform-crm'),http=require('../api/http');
+const SERVER_PAGE_SIZE=50,MAX_WINDOW_PAGES=4;
 const TABS=[['due','今日待跟进'],['appointments','预约回访'],['all','全部'],['visited','已到店']];
 const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约回访的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
 const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
@@ -54,22 +55,26 @@ module.exports=()=>({
   const query=JSON.stringify([sessionGen,post.tenantId,post.orgId,postKey,post.roleCode,post.orgType,keyword,tab]);
   const retry=this.__listRetry?.query===query?this.__listRetry:null;
   if(append&&retry)append=false;
-  const firstPage=append?(this.__pageNo||0)+1:1;
   if(this.__listFlight&&this.__listFlight.query===query&&this.__listFlight.append===append&&this.__listFlight.gen===this.__loadGen)return this.__listFlight.promise;
   const gen=this.__loadGen=(this.__loadGen||0)+1,retain=this.__loadedQuery===query;
-  const lastPage=append?firstPage:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
+  const lastPage=append?(this.__pageNo||0)+1:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
   const displaySize=append?this.data.pageSize+10:retry?.displaySize??this.data.pageSize;
+  // Existing server limit is 200. Fetch the visible prefix in one ordered read
+  // within that bound, including appends, so equal-total swaps cannot mix two versions.
+  const windowed=lastPage<=MAX_WINDOW_PAGES,mergeAppend=append&&!windowed;
+  const firstPage=mergeAppend?lastPage:1;
   const flight={query,gen,append,promise:null};this.__listFlight=flight;
   if(!append&&!retain)this.__loadedQuery='';
-  if(!append)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
+  if(!append||windowed)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
   // Independent offset requests can straddle a colleague's edit. Do not commit
   // an observable drift as a complete list, or advance the cursor on rejection.
   const drift={};
   flight.promise=(async()=>{
-   const ids=new Set(append?this.data.customers.map(row=>String(row.id)):[]);
-   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=append?this.__total:null;
-   for(let pageNo=firstPage;pageNo<=lastPage;pageNo++){
-    const res=await this.__crmApi.customers.page(pageNo,50,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
+   const ids=new Set(mergeAppend?this.data.customers.map(row=>String(row.id)):[]);
+   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=mergeAppend?this.__total:null;
+   const batchSize=windowed?lastPage*SERVER_PAGE_SIZE:SERVER_PAGE_SIZE;
+   for(let pageNo=firstPage;pageNo<=(windowed?1:lastPage);pageNo++){
+    const res=await this.__crmApi.customers.page(pageNo,batchSize,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
     if(this.stale(gen,sessionGen,postKey))return;
     const rows=res&&res.list||[];
     total=typeof(res&&res.total)==='number'?res.total:ids.size+rows.length;
@@ -78,8 +83,9 @@ module.exports=()=>({
     for(const row of rows){
      const id=String(row.id);if(ids.has(id))throw drift;ids.add(id);
     }
-    list=list.concat(rows);lastCount=rows.length;loadedPage=pageNo;
-    if(!rows.length||pageNo*50>=total){
+    list=list.concat(rows);lastCount=rows.length;loadedPage=windowed?Math.max(1,Math.ceil(rows.length/SERVER_PAGE_SIZE)):pageNo;
+    if(windowed&&typeof res?.total==='number'&&ids.size!==Math.min(total,batchSize))throw drift;
+    if(!rows.length||pageNo*batchSize>=total){
      if(typeof res?.total==='number'&&ids.size!==total)throw drift;
      break;
     }
@@ -88,7 +94,7 @@ module.exports=()=>({
   })().then(res=>{
    if(this.stale(gen,sessionGen,postKey))return;
    const rows=res.list.map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write'),visited:tab==='visited'}));
-   const merged=append?this.data.customers.concat(rows):rows;
+   const merged=mergeAppend?this.data.customers.concat(rows):rows;
    this.__pageNo=res.loadedPage;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__loadedQuery=query;this.__total=res.total;this.__serverHasMore=merged.length<res.total&&res.lastCount>0;
    this.__listRetry=null;
    const pageSize=displaySize;
