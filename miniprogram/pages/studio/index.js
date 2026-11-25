@@ -1,6 +1,6 @@
 const studio = require('../../utils/studio');
 const MaterialLibrary = require('./material-library');
-const makeTaskTitle = require('./task-title');
+
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const TaskResult=require('./content-task-result');
 const TaskDisplay=require('./task-display');
@@ -8,6 +8,18 @@ const contentApi=P.api;                                 // /franchise/content/**
 const crm=require('../../api/franchise/crm');            // 客资登记（发布链接回填时同页登记）
 const http=require('../../api/http');
 const keyboard=require('../../utils/creation-keyboard');
+function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
+  const labels={ai_video:'AI视频',ai:'AI视频',digital:'数字人口播',copy:'文案二创',remix:'文案二创',image:'AI图片'};
+  const prefix=(labels[kind]||'AI创作')+'｜';
+  let topic=String(title||sourceTitle||description||text||'').trim();
+  if(topic.startsWith(prefix))topic=topic.slice(prefix.length);
+  topic=topic.split(/\r?\n/)[0].replace(/\s+/g,' ').trim();
+  topic=topic.replace(/^(?:(?:请帮我|帮我|请)\s*)?(?:生成|制作|创作)(?:一个|一段|一条|一份)?\s*/,'').trim();
+  const chars=Array.from(topic);
+  return prefix+(chars.length>24?chars.slice(0,23).join('')+'…':topic||'未命名创作');
+}
+
+
 function listIdentity() {
 const post=require('../../api/auth').currentApiPost()||{};
 return JSON.stringify([studio.scope(),http.sessionGeneration(),http.tenantId(),post.orgId,post.postId,post.userId,post.orgType,post.roleCode]);

@@ -12,8 +12,16 @@ const root = path.resolve(__dirname, '..');
 const pageSource = page => fs.readFileSync(path.join(root,'miniprogram',...(page==='creation'?['utils','sales-creation-page.js']:['pages',page,'index.js'])),'utf8');
 const api = require('../miniprogram/api/franchise/content');
 const P = require('../miniprogram/utils/platform-content');
-const makeTaskTitle = require('../miniprogram/pages/studio/task-title');
-const makeVideoTaskTitle = require('../miniprogram/pages/ai-video/task-title');
+const vm = require('node:vm');
+const titleSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
+const videoTitleSource = fs.readFileSync(path.join(root, 'miniprogram/pages/ai-video/index.js'), 'utf8');
+function readTitleHelper(source) {
+  const match = source.match(/function makeTaskTitle\([\s\S]*?\n\}/);
+  assert.ok(match, 'makeTaskTitle helper exists');
+  return vm.runInNewContext('(' + match[0] + ')');
+}
+const makeTaskTitle = readTitleHelper(titleSource);
+const makeVideoTaskTitle = readTitleHelper(videoTitleSource);
 assert.equal(typeof global.wx, 'undefined', '契约层顶层不得触碰 wx（纯函数可直 require）');
 
 // ===== 导出面：api/franchise/content.js =====
