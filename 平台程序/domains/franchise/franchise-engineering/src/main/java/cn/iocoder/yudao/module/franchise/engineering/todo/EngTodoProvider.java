@@ -75,81 +75,33 @@ public class EngTodoProvider implements TodoProvider {
                             "/pages/build/record/index?id="+project.getId()+"&view=delay&nodeId="+n.getId(),project.getCreateTime()));
                 }
             }
-            boolean toppingDone = nodes.stream().anyMatch(n ->
-                    FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone())
-                            && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()));
-            LocalDate startDue = nodes.isEmpty() ? null : nodes.get(0).getStartDate();
-            // M09-T03/R05（批次#35）：开工资金门槛不足待补收——统一实收账净口径
-            // （Σ分笔−Σ已核实退款）。退款回缺不被既有催收投影捕捉（其 confirmed 读工程
-            // 留痕行，退款不删留痕行）；本待办与 requireStartGate 同源读数，补收足额即消失。
-            // 仅提示补收，不撤任何施工/交付事实（门禁只拦动作）。
-            // R1 P3：期款行整表读取一次，投影段与催收段共用（未开工项目量级有限，登记边界）
-            java.util.List<FrEngCollectionTermDO> terms = collectionTerms.selectByProject(post.orgId(), project.getId());
-            Long currentContractId=project.getSaleContractId()!=null?project.getSaleContractId():project.getCustomerId()==null?null:unifiedStages.activeContractId(post,project.getCustomerId());
-            if(currentContractId!=null){
-                var current=unifiedStages.stageBalances(post,currentContractId);
-                if(current!=null&&!current.isEmpty())terms=current.stream().filter(b->!"tail".equals(b.stage())).map(b->new FrEngCollectionTermDO().setStage(b.stage()).setAmountCents(b.expectedCents())).toList();
+            Long contractId=project.getSaleContractId()!=null?project.getSaleContractId():project.getCustomerId()==null?null:unifiedStages.activeContractId(post,project.getCustomerId());
+            var current=contractId==null?java.util.List.<cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance>of():unifiedStages.stageBalances(post,contractId);
+            if(current==null || current.isEmpty()) {
+                var cash=collections.selectByProject(post.orgId(),project.getId());
+                current=collectionTerms.selectByProject(post.orgId(),project.getId()).stream().map(t->
+                        new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance(t.getStage(),t.getAmountCents(),
+                                contractId==null?cash.stream().filter(c->t.getStage().equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum():unifiedStages.stageCollectedCents(post,contractId,t.getStage()))).toList();
             }
-            if (project.getActualStartAt() == null) {
-                FrEngCollectionTermDO signTerm = terms.stream()
-                        .filter(t -> FrEngCollectionTermDO.STAGE_SIGN_AFTER.equals(t.getStage()))
-                        .filter(t -> t.getAmountCents() != null && t.getAmountCents() > 0)
-                        .findFirst().orElse(null);
-                if (signTerm != null) {
-                    Long contractId = project.getSaleContractId() != null
-                            ? project.getSaleContractId()
-                            : (project.getCustomerId() == null ? null
-                            : unifiedStages.activeContractId(post, project.getCustomerId()));
-                    long confirmed = contractId == null ? 0
-                            : unifiedStages.stageCollectedCents(post, contractId, FrEngCollectionTermDO.STAGE_SIGN_AFTER);
-                    long shortfall = signTerm.getAmountCents() - confirmed;
-                    if (shortfall > 0) {
-                        todos.add(new TodoItem(domain(), "fr-eng:gate-shortfall:" + project.getId(),
-                                "开工资金门槛不足待补收 · " + project.getName(),
-                                "shortfall", shortfall, true, null,
-                                "/pages/build/record/index?id=" + project.getId() + "&view=collection",
-                                project.getCreateTime()));
-                    }
-                }
+            if(project.getActualStartAt()==null) {
+                long shortfall=current.stream().filter(b->cn.iocoder.yudao.module.franchise.engineering.content.EngPaymentDates.beforeStart(b.trigger(),b.stage()))
+                        .mapToLong(b->Math.max(0,b.expectedCents()-b.collectedCents())).sum();
+                if(shortfall>0) todos.add(new TodoItem(domain(),"fr-eng:gate-shortfall:"+project.getId(),
+                        "开工资金门槛不足待补收 · "+project.getName(),"shortfall",shortfall,true,null,
+                        "/pages/build/record/index?id="+project.getId()+"&view=collection",project.getCreateTime()));
             }
-            LocalDate toppingDue = nodes.stream()
-                    .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
-                    .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
-            for (FrEngCollectionTermDO term : terms) {
-                // M07-T06：CAP_DONE 期须封顶完成；BASE_DONE 期须基础节点完成留痕（与收款门禁同规则）
-                if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage()) && !toppingDone) {
-                    continue; // 封顶款待封顶完成后进入待办（收款侧前置的同向派生）
-                }
-                long confirmed = currentContractId!=null?unifiedStages.stageCollectedCents(post,currentContractId,term.getStage()):collections.selectByProject(post.orgId(), project.getId()).stream()
-                        .filter(c -> term.getStage().equals(c.getStage()))
-                        .mapToLong(FrEngCollectionDO::getAmountCents).sum();
-                long remaining = term.getAmountCents() - confirmed;
-                if (remaining <= 0) {
-                    continue;
-                }
-                // R2 P2-6：BASE_DONE 到期=基础节点完成日（无则 null——未约定日期不显示逾期压力）
-                LocalDate due;
-                if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(term.getStage())) {
-                    due = toppingDue;
-                } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(term.getStage())) {
-                    due = nodes.stream()
-                            .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()) && !"START".equals(n.getMilestone())
-                                    && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
-                            .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
-                } else {
-                    due = startDue;
-                }
-                boolean overdue = due != null && due.isBefore(today);
-                FrEngFollowupDO last = followups.selectByProject(post.orgId(), project.getId()).stream()
-                        .filter(f -> FrEngFollowupDO.KIND_COLLECTION.equals(f.getKind())
-                                && term.getStage().equals(f.getStage()))
-                        .findFirst().orElse(null);
-                String title = stageTitle(term.getStage())
-                        + (overdue ? "已逾期待催收" : "待登记收款") + " · " + project.getName();
-                todos.add(new TodoItem(domain(), "eng-collect:" + project.getId() + ":" + term.getStage(),
-                        title, overdue ? "overdue" : "pending", remaining,
-                        false, null, "/pages/build/record/index?id=" + project.getId() + "&view=collection",
-                        last != null ? last.getCreateTime() : null));
+            var contactHistory=followups.selectByProject(post.orgId(),project.getId());
+            for(var balance:current) {
+                if(cn.iocoder.yudao.module.franchise.engineering.content.EngPaymentDates.waitingForWork(balance,nodes)) continue;
+                long remaining=balance.expectedCents()-balance.collectedCents();
+                if(remaining<=0) continue;
+                LocalDate due=cn.iocoder.yudao.module.franchise.engineering.content.EngPaymentDates.due(balance,nodes);
+                boolean overdue=due!=null && due.isBefore(today);
+                var last=contactHistory.stream().filter(f->FrEngFollowupDO.KIND_COLLECTION.equals(f.getKind()) && balance.stage().equals(f.getStage())).findFirst().orElse(null);
+                String label=balance.label()==null?stageTitle(balance.stage()):balance.label();
+                todos.add(new TodoItem(domain(),"eng-collect:"+project.getId()+":"+balance.stage(),
+                        label+(overdue?"已逾期待催收":"待登记收款")+" · "+project.getName(),overdue?"overdue":"pending",remaining,false,null,
+                        "/pages/build/record/index?id="+project.getId()+"&view=collection",last==null?null:last.getCreateTime()));
             }
         }
         return todos;
