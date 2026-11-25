@@ -319,6 +319,63 @@ test('customer refresh preserves every loaded server page until the replacement 
   assert.deepEqual(c.calls.slice(-2).map(call => call.pageNo), [1, 2]);
 });
 
+test('customer refresh with equal totals rejects a duplicate page after a colleague moves a customer', async () => {
+  const c=customers();await c.page.onShow();
+  for(let i=0;i<5;i++)await c.page.more();
+  const before=JSON.stringify(c.page.data.customers),calls=[],initial=c.database.slice();
+  const moved=[initial[57],...initial.filter(row=>row.id!=='58')];
+  let inconsistent=true;
+  c.api.customers.page=async(pageNo,pageSize)=>{
+    calls.push(pageNo);
+    const rows=inconsistent&&pageNo===1?initial:moved;
+    return {list:rows.slice((pageNo-1)*pageSize,pageNo*pageSize),total:rows.length};
+  };
+  await c.page.onShow();
+  assert.deepEqual(calls,[1,2]);
+  assert.match(c.page.data.platformError,/名单正在变化/);
+  assert.equal(JSON.stringify(c.page.data.customers),before);
+  assert.equal(c.page.data.visibleCustomers.length,60);
+  const {render}=require('./role-page-runtime.cjs');
+  const flatten=nodes=>nodes.flatMap(node=>[node,...flatten(node.children||[])]);
+  const controls=flatten(render(root+'/miniprogram/templates/sales-customers.wxml',c.page.data));
+  assert(controls.some(node=>node.attrs?.bindtap==='retryPlatform'));
+  inconsistent=false;await c.page.retryPlatform();
+  assert.deepEqual(calls,[1,2,1,2]);
+  assert.equal(c.page.data.platformError,'');
+  assert.equal(new Set(c.page.data.customers.map(row=>row.id)).size,60);
+  assert.equal(c.page.data.customers[0].id,'58');
+});
+
+test('customer refresh rejects a short final page even without changing totals or duplicate IDs', async () => {
+  const c=customers();await c.page.onShow();
+  for(let i=0;i<5;i++)await c.page.more();
+  c.api.customers.page=async pageNo=>({list:pageNo===1?c.database.slice(0,50):c.database.slice(51),total:60});
+  await c.page.onShow();
+  assert.match(c.page.data.platformError,/名单正在变化/);
+  assert.equal(c.page.data.customers.length,60);
+  assert(c.page.data.customers.some(row=>row.id==='51'));
+});
+
+test('customer append with a changed total preserves the old list and retries from page one to the requested depth', async () => {
+  const c=customers();await c.page.onShow();
+  for(let i=0;i<4;i++)await c.page.more();
+  const before=JSON.stringify(c.page.data.customers),calls=[];
+  const next=[{...c.database[0],id:'61',name:'刚登记客户'},...c.database];
+  c.api.customers.page=async(pageNo,pageSize)=>{
+    calls.push(pageNo);
+    return {list:next.slice((pageNo-1)*pageSize,pageNo*pageSize),total:next.length};
+  };
+  await c.page.more();
+  assert.deepEqual(calls,[2]);assert.equal(c.page.__pageNo,1);
+  assert.equal(JSON.stringify(c.page.data.customers),before);
+  assert.match(c.page.data.platformError,/名单正在变化/);
+  await c.page.retryPlatform();
+  assert.deepEqual(calls,[2,1,2]);assert.equal(c.page.__pageNo,2);
+  assert.equal(c.page.data.customers.length,61);
+  assert.equal(new Set(c.page.data.customers.map(row=>row.id)).size,61);
+  assert.equal(c.page.data.visibleCustomers.length,60);
+});
+
 test('customer return starts a fresh read after an edit while the pre-hide read is pending', async () => {
   const c=customers();c.page.onShow();await flush();
   const old=deferred(),fresh=deferred();let calls=0;

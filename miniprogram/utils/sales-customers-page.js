@@ -17,7 +17,7 @@ module.exports=()=>({
   if(PF.pageMode(http.token(),post)==='api'){
    this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../api/franchise/crm');
    const postKey=String(post.postId),scope=JSON.stringify([http.sessionGeneration(),post.tenantId,post.orgId,postKey,post.roleCode,post.orgType]);
-   if(this.__customerScope!==scope){this.__customerScope=scope;this.__postKey=postKey;this.__pageNo=0;this.__serverHasMore=false;this.__total=0;this.__loadedQuery='';this.__listFlight=null;this.setData({keyword:'',tab:this.data.tab,pageSize:10,platformMode:true,platformRefreshing:false,authError:false,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[]});}
+   if(this.__customerScope!==scope){this.__customerScope=scope;this.__postKey=postKey;this.__pageNo=0;this.__serverHasMore=false;this.__total=0;this.__loadedQuery='';this.__listFlight=null;this.__listRetry=null;this.setData({keyword:'',tab:this.data.tab,pageSize:10,platformMode:true,platformRefreshing:false,authError:false,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[]});}
    else if(!this.data.platformMode)this.setData({platformMode:true});
    const isBossView=['boss','owner'].includes(post.roleCode),isLead=post.roleCode==='sales-lead',actor=Job.apiContext(post);
    const navigationIndex=Job.navigation(actor).tabs.find(tab=>tab.key===(isBossView?'owner-business':'customers'))?.index??7;
@@ -25,7 +25,7 @@ module.exports=()=>({
    return this.loadPlatformList();
   }
   // 非 API 态（无 token / 无销售岗位）：不再回落本地演示数据，显示错误态 + 登录引导
-  this.__post=null;this.__postKey='';this.__customerScope='';this.__loadedQuery='';this.__listFlight=null;
+  this.__post=null;this.__postKey='';this.__customerScope='';this.__loadedQuery='';this.__listFlight=null;this.__listRetry=null;
   this.setData({platformMode:true,platformStatus:'degraded',platformRefreshing:false,platformError:http.token()?'当前身份暂无客户查看权限':'请先登录后查看客户',authError:!http.token(),customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[],hasMore:false,canRegister:false});
  },
  goLogin(){wx.redirectTo({url:'/pages/account/index?view=login'});},
@@ -40,7 +40,7 @@ module.exports=()=>({
    if(sessionGenAtRequest!==this.__http.sessionGeneration())return true;// 迟到业务 401：整体丢弃，保护新会话现场
    this.__http.clearSession();
   }
-  this.__loadedQuery='';
+  this.__loadedQuery='';this.__listRetry=null;
   this.setData({platformStatus:'degraded',platformRefreshing:false,platformError:'登录已过期，请重新登录',authError:true,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[],hasMore:false});
   return true;
  },
@@ -52,23 +52,37 @@ module.exports=()=>({
   if(append&&(keyword!==this.__loadedKeyword||tab!==this.__loadedTab))append=false;
   const sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const query=JSON.stringify([sessionGen,post.tenantId,post.orgId,postKey,post.roleCode,post.orgType,keyword,tab]);
+  const retry=this.__listRetry?.query===query?this.__listRetry:null;
+  if(append&&retry)append=false;
   const firstPage=append?(this.__pageNo||0)+1:1;
   if(this.__listFlight&&this.__listFlight.query===query&&this.__listFlight.append===append&&this.__listFlight.gen===this.__loadGen)return this.__listFlight.promise;
   const gen=this.__loadGen=(this.__loadGen||0)+1,retain=this.__loadedQuery===query;
-  const lastPage=append?firstPage:retain?Math.max(1,this.__pageNo||1):1;
+  const lastPage=append?firstPage:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
+  const displaySize=append?this.data.pageSize+10:retry?.displaySize??this.data.pageSize;
   const flight={query,gen,append,promise:null};this.__listFlight=flight;
   if(!append&&!retain)this.__loadedQuery='';
   if(!append)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
-  // Reload the already visited server pages as one snapshot so returning from
-  // a detail never truncates a longer list back to the first fifty customers.
+  // Independent offset requests can straddle a colleague's edit. Do not commit
+  // an observable drift as a complete list, or advance the cursor on rejection.
+  const drift={};
   flight.promise=(async()=>{
-   let list=[],total=0,loadedPage=firstPage,lastCount=0;
+   const ids=new Set(append?this.data.customers.map(row=>String(row.id)):[]);
+   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=append?this.__total:null;
    for(let pageNo=firstPage;pageNo<=lastPage;pageNo++){
     const res=await this.__crmApi.customers.page(pageNo,50,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
     if(this.stale(gen,sessionGen,postKey))return;
-    const rows=res&&res.list||[];list=list.concat(rows);lastCount=rows.length;loadedPage=pageNo;
-    total=typeof(res&&res.total)==='number'?res.total:list.length;
-    if(!rows.length||pageNo*50>=total)break;
+    const rows=res&&res.list||[];
+    total=typeof(res&&res.total)==='number'?res.total:ids.size+rows.length;
+    if(expectedTotal!==null&&expectedTotal!==total)throw drift;
+    expectedTotal=total;
+    for(const row of rows){
+     const id=String(row.id);if(ids.has(id))throw drift;ids.add(id);
+    }
+    list=list.concat(rows);lastCount=rows.length;loadedPage=pageNo;
+    if(!rows.length||pageNo*50>=total){
+     if(typeof res?.total==='number'&&ids.size!==total)throw drift;
+     break;
+    }
    }
    return {list,total,loadedPage,lastCount};
   })().then(res=>{
@@ -76,18 +90,24 @@ module.exports=()=>({
    const rows=res.list.map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write'),visited:tab==='visited'}));
    const merged=append?this.data.customers.concat(rows):rows;
    this.__pageNo=res.loadedPage;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__loadedQuery=query;this.__total=res.total;this.__serverHasMore=merged.length<res.total&&res.lastCount>0;
-   const pageSize=append?this.data.pageSize+10:this.data.pageSize;
+   this.__listRetry=null;
+   const pageSize=displaySize;
    this.setData({platformStatus:'ready',platformRefreshing:false,platformError:'',customers:merged,pageSize,tabs:this.platformTabs(merged),...this.customerListPatch(merged,pageSize)});
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
    if(this.stale(gen,sessionGen,postKey))return;
+   if(err===drift){
+    this.__listRetry={query,lastPage,displaySize};
+    this.setData({platformStatus:retain?'ready':'degraded',platformRefreshing:false,platformError:'客户名单正在变化，请重试'});
+    return;
+   }
    const denied=[403,1103000002].includes(Number(err&&err.code));
-   if(denied)this.__loadedQuery='';
+   if(denied){this.__loadedQuery='';this.__listRetry=null;}
    this.setData({platformStatus:retain&&!denied?'ready':'degraded',platformRefreshing:false,platformError:PF.errorMessage(err),...(denied?{customers:[],visibleCustomers:[],filteredCustomers:[],tabs:[],hasMore:false,canRegister:false}:{})});
   }).finally(()=>{if(this.__listFlight===flight)this.__listFlight=null;});
   return flight.promise;
  },
- retryPlatform(){this.cancelSearch();this.loadPlatformList();},
+ retryPlatform(){this.cancelSearch();return this.loadPlatformList();},
  platformTabs(customers=this.data.customers){return TABS.map(([key,label])=>({key,label,count:key===this.data.tab?this.__total:'—',dot:key==='due'&&customers.some(r=>r.rank===0)}));},
  refreshPlatformTabs(){this.setData({tabs:this.platformTabs()});},
  customerListPatch(customers=this.data.customers,pageSize=this.data.pageSize){const keyword=this.data.keyword.trim(),rows=this.__pf.sortRows(customers);
