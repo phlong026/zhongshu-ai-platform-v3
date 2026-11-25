@@ -104,6 +104,18 @@ class OrgDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(service.lifecycle(org,"reopen","验收门店","测试启用","reopen",1).organization().status()).isEqualTo("ACTIVE");
         assertThat(service.audits(org,1,20).getTotal()).isEqualTo(4);
     }
+    @Test void lifecycleExpectedAuditIsCheckedUnderOrganizationLockAndReplayDoesNotOverwriteLaterActions() {
+        service.lifecycle(org,"close","验收门店","测试名单确认","batch-close:"+org,1,"NONE");
+        var close=service.audits(org,1,20).getList().get(0);
+        assertThat(close.get("request_key")).isEqualTo("batch-close:"+org);
+        service.lifecycle(org,"reopen","验收门店","另一位管理员启用","other-reopen:"+org,1);
+        service.lifecycle(org,"close","验收门店","另一位管理员再次关闭","other-close:"+org,1);
+        assertThatThrownBy(()->service.lifecycle(org,"reopen","验收门店","演练恢复","batch-restore:"+org,1,close.get("id").toString()))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("操作记录已变化");
+        assertThat(service.lifecycle(org,"close","验收门店","测试名单确认","batch-close:"+org,1,"NONE").organization().status()).isEqualTo("DISABLED");
+        assertThat(service.audits(org,1,20).getTotal()).isEqualTo(3);
+    }
+
     @Test void refusesCloseWhileChargeIsPendingAndDeleteWithRemainingBalance(){
         jdbc.update("INSERT INTO org_point_ledger(id,org_id,operation_id,type,available_delta) VALUES(?,?,'pending','RESERVE',-10)",org+8,org);
         assertThatThrownBy(()->service.lifecycle(org,"close","验收门店","测试","close-pending",1)).isInstanceOf(ServiceException.class);
