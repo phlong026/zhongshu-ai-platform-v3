@@ -73,6 +73,13 @@ public class LocalAssetService implements AssetAccessPort {
         this.headquartersDocuments = access;
     }
 
+    private cn.iocoder.yudao.module.franchise.api.ContractDocumentAccessPort contractScopes;
+
+    @Autowired(required = false)
+    public void setContractScopes(cn.iocoder.yudao.module.franchise.api.ContractDocumentAccessPort scopes) {
+        this.contractScopes = scopes;
+    }
+
     @Autowired(required = false)
     public void setWorkflowScopes(cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort scopes) {
         this.workflowScopes = scopes;
@@ -293,9 +300,35 @@ public class LocalAssetService implements AssetAccessPort {
         long tenant = authorize(actor);
         Asset asset = accepted(tenant, actor, id);
         requireChannel(actor, asset.type());
+        requireContractAssetVisibility(asset);
         String token = issueDownload(tenant, actor, id);
         return new DownloadUrlView("/admin-api/franchise/assets/" + id + "/content?token=" + token,
                 Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    @Override
+    public DownloadUrlView createContractDownloadUrl(Actor actor, long contractId, long assetId) {
+        long tenant = authorize(actor);
+        Asset asset = accepted(tenant, actor, assetId);
+        requireContractScope(contractId, asset);
+        requireChannel(actor, asset.type());
+        String token = token();
+        db("issue-contract-download", assetId, () -> jdbc.update("INSERT INTO fr_asset_download_ticket"
+                        + " (token_hash,asset_id,tenant_id,org_id,user_id,post_id,expires_at,scope_contract_id)"
+                        + " VALUES (?,?,?,?,?,?,?,?)", hash(token), assetId, tenant, actor.orgId(), actor.userId(), actor.postId(),
+                Timestamp.from(Instant.now().plusSeconds(DOWNLOAD_TTL)), contractId));
+        return new DownloadUrlView("/admin-api/franchise/assets/" + assetId + "/content?token=" + token,
+                Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    private void requireContractScope(long contractId, Asset asset) {
+        if (contractScopes == null || !"CONTRACT_ATTACHMENT".equals(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+        contractScopes.requireReadable(posts.require(), contractId, asset.id());
+    }
+    private void requireContractAssetVisibility(Asset asset) {
+        if (!"CONTRACT_ATTACHMENT".equals(asset.type())) return;
+        if (contractScopes == null) throw exception(RESOURCE_FORBIDDEN);
+        contractScopes.requireAssetReadable(posts.require(), asset.id());
     }
 
     @Override
@@ -362,7 +395,7 @@ public class LocalAssetService implements AssetAccessPort {
     public DownloadContent readDownload(Actor actor, long id, String token) {
         long tenant = authorize(actor);
         if (token == null || token.length() != 64) throw exception(RESOURCE_FORBIDDEN);
-        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot,scope_customer_id,scope_workflow_step"
+        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot,scope_customer_id,scope_workflow_step,scope_contract_id"
                         + " FROM fr_asset_download_ticket WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=?"
                         + " AND user_id=? AND post_id=? AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP",
                 hash(token), id, tenant, actor.orgId(), actor.userId(), actor.postId()));
@@ -370,13 +403,13 @@ public class LocalAssetService implements AssetAccessPort {
         var ticket = tickets.get(0);
         Long commissionId = ticket.get("scope_commission_id") instanceof Number n ? n.longValue() : null;
         Long customerId = ticket.get("scope_customer_id") instanceof Number n ? n.longValue() : null;
+        Long contractId = ticket.get("scope_contract_id") instanceof Number n ? n.longValue() : null;
         String workflowStep = (String) ticket.get("scope_workflow_step");
         CommissionDeliverableAccessPort.DeliverableRef ref = null;
         Asset asset;
         if (commissionId == null) {
             asset = accepted(tenant, actor, id);
-            if (customerId == null) requireChannel(actor, asset.type());
-            else { requireWorkflowScope(customerId, workflowStep, id); requireWorkflowType(asset); }
+            requireDownloadScope(actor, asset, customerId, workflowStep, contractId);
         } else {
             ref = requireScope(commissionId, ((Number) ticket.get("scope_dispatch_seq")).intValue(), Slot.valueOf((String) ticket.get("scope_slot")));
             if (ref.assetId() != id || ref.ownerOrgId() != ((Number) ticket.get("owner_org_id")).longValue())
@@ -391,11 +424,11 @@ public class LocalAssetService implements AssetAccessPort {
             if (ref == null) {
                 // Customer ownership may change while storage I/O is in flight; the ticket is not an authorization cache.
                 Asset current = accepted(tenant, actor, id);
-                if (customerId == null) requireChannel(actor, current.type());
-                else { requireWorkflowScope(customerId, workflowStep, id); requireWorkflowType(current); }
+                requireDownloadScope(actor, current, customerId, workflowStep, contractId);
                 if (!java.util.Objects.equals(asset.objectKey(), current.objectKey())) throw exception(RESOURCE_FORBIDDEN);
-                if ("BUSINESS_DOCUMENT".equals(current.type()) && (bytes.length != current.acceptedSize()
-                        || !hash(bytes).equals(current.acceptedSha()))) throw invalid("业务资料与已校验内容不一致");
+                if (("BUSINESS_DOCUMENT".equals(current.type()) || "CONTRACT_ATTACHMENT".equals(current.type()))
+                        && (bytes.length != current.acceptedSize() || !hash(bytes).equals(current.acceptedSha())))
+                    throw invalid("资料与已校验内容不一致");
             } else {
                 var current = requireScope(ref.commissionId(), ref.dispatchSeq(), ref.slot());
                 if (!ref.equals(current)) throw exception(RESOURCE_FORBIDDEN);
@@ -447,6 +480,16 @@ public class LocalAssetService implements AssetAccessPort {
                 || "CONTENT_ASSET".equals(asset.type()) || asset.acceptedSize() <= 0
                 || asset.acceptedSize() > MAX_BYTES.get(asset.type())) throw exception(RESOURCE_FORBIDDEN);
         return asset;
+    }
+
+    private void requireDownloadScope(Actor actor, Asset asset, Long customerId, String workflowStep, Long contractId) {
+        if (contractId != null) {
+            requireChannel(actor, asset.type()); requireContractScope(contractId, asset);
+        } else if (customerId != null) {
+            requireWorkflowScope(customerId, workflowStep, asset.id()); requireWorkflowType(asset);
+        } else {
+            requireChannel(actor, asset.type()); requireContractAssetVisibility(asset);
+        }
     }
 
     @Override

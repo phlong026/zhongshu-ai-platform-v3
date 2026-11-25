@@ -17,8 +17,16 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Exercises the actual source schemas and SQL, including legacy rows that merely claim a status. */
-@Import({SaleWorkflowFactsAdapter.class, EngWorkflowFactsAdapter.class})
+@Import({SaleWorkflowFactsAdapter.class, EngWorkflowFactsAdapter.class, WorkflowSourceFactsPgIntegrationTest.Config.class})
 class WorkflowSourceFactsPgIntegrationTest extends FranchisePgIntegrationTest {
+    @org.springframework.boot.test.context.TestConfiguration
+    static class Config {
+        @org.springframework.context.annotation.Bean
+        cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort evidence() {
+            return (tenant, ids, types) -> ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")
+                    ? java.util.Map.of(9001L, tenant) : java.util.Map.of();
+        }
+    }
     @Resource JdbcTemplate jdbc;
     @Resource SaleWorkflowFactsAdapter contracts;
     @Resource EngWorkflowFactsAdapter engineering;
@@ -40,6 +48,12 @@ class WorkflowSourceFactsPgIntegrationTest extends FranchisePgIntegrationTest {
         });
         jdbc.update("UPDATE fr_sale_contract SET signed_date=?,asset_id=9001 WHERE id=?", today(), contract);
         assertThat(contracts.findFacts(tenant, Map.of(customer, store.orgId()))).singleElement().satisfies(fact -> assertThat(fact.complete()).isTrue());
+        jdbc.update("UPDATE fr_sale_contract SET asset_id=9002 WHERE id=?", contract);
+        assertThat(contracts.findFacts(tenant, Map.of(customer, store.orgId()))).singleElement().satisfies(fact -> {
+            assertThat(fact.complete()).isFalse();
+            assertThat(fact.missingEvidence()).contains("合同附件未通过验收或已失效，请在合同模块补录");
+        });
+        jdbc.update("UPDATE fr_sale_contract SET asset_id=9001 WHERE id=?", contract);
         assertThat(contracts.findFacts(tenant + 1, Map.of(customer, store.orgId()))).isEmpty();
         assertThat(contracts.findFacts(tenant, Map.of(customer, store.orgId() + 1))).isEmpty();
         jdbc.update("UPDATE fr_sale_contract SET signed_date=? WHERE id=?", today().plusDays(1), contract);

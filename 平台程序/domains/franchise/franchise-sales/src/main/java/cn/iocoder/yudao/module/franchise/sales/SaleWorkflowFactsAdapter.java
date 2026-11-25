@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowFactsPort;
+import cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -17,12 +18,14 @@ import java.util.Objects;
 @Component
 public class SaleWorkflowFactsAdapter implements CustomerWorkflowFactsPort {
     private final NamedParameterJdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<AssetEvidenceQueryPort> evidence;
     public SaleWorkflowFactsAdapter(JdbcTemplate jdbc) { this.jdbc = new NamedParameterJdbcTemplate(jdbc); }
 
     @Override
     public List<Fact> findFacts(long tenantId, Map<Long, Long> customerCompanies) {
         if (customerCompanies.isEmpty()) return List.of();
-        return jdbc.query("""
+        List<Fact> facts = jdbc.query("""
                 SELECT c.id,c.company_id,c.customer_id,c.signed_date,c.total_cents,c.asset_id,c.status,c.revision
                 FROM fr_sale_contract c JOIN system_dept d ON d.id=c.company_id
                 WHERE d.tenant_id=:tenant AND d.status=0 AND d.deleted=0 AND c.deleted=FALSE
@@ -48,5 +51,20 @@ public class SaleWorkflowFactsAdapter implements CustomerWorkflowFactsPort {
             if (total <= 0) missing.add("待补录合同金额");
             return new Fact(customer, company, "CONTRACT", signed, fields, missing.isEmpty(), List.copyOf(missing));
         }).stream().filter(Objects::nonNull).toList();
+        java.util.Set<Long> requested = new java.util.HashSet<>();
+        facts.forEach(fact -> {
+            Object asset = fact.fields().get("assetId");
+            if (asset != null && Long.parseLong(String.valueOf(asset)) > 0) requested.add(Long.parseLong(String.valueOf(asset)));
+        });
+        var verifier = evidence == null ? null : evidence.getIfAvailable();
+        var accepted = verifier == null ? Map.<Long, Long>of() : verifier.acceptedOwners(tenantId, requested, java.util.Set.of("CONTRACT_ATTACHMENT"));
+        return facts.stream().map(fact -> {
+            Object asset = fact.fields().get("assetId");
+            if (asset == null || Long.parseLong(String.valueOf(asset)) <= 0) return fact;
+            long assetId = Long.parseLong(String.valueOf(asset));
+            if (Objects.equals(accepted.get(assetId), fact.companyId())) return fact;
+            List<String> missing = new ArrayList<>(fact.missingEvidence()); missing.add("合同附件未通过验收或已失效，请在合同模块补录");
+            return new Fact(fact.customerId(), fact.companyId(), fact.stepCode(), fact.occurredOn(), fact.fields(), false, List.copyOf(missing));
+        }).toList();
     }
 }

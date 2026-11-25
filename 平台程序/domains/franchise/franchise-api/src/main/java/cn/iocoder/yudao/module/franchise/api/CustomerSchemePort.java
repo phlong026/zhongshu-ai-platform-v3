@@ -37,6 +37,11 @@ public interface CustomerSchemePort {
     /** 交易流对象校验（板块 B SalesAccess）：客户存在且 company_id==post.orgId()（不收窄岗位，boss/finance 均过） */
     void requireAccessible(PostSnapshot post, long customerId);
 
+    /** Private customer documents follow current CRM owner/team visibility, beyond organization-only trade access. */
+    default void requireDocumentReadable(PostSnapshot post, long customerId) {
+        throw new IllegalStateException("客户资料可见权限未配置");
+    }
+
     /** 报价抬头快照（板块 B）：客户名/电话当时值（创建时冻结用） */
     CustomerBrief getCustomerBrief(PostSnapshot post, long customerId);
 

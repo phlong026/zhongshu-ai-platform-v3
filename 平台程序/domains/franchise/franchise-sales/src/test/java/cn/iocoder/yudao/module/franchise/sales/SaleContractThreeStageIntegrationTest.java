@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.controller.admin.SalesController;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import jakarta.annotation.Resource;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -50,23 +52,24 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
             return new cn.iocoder.yudao.module.franchise.test.BusinessReceiptPortTestStub(jdbc);
         }
 
-        /** AssetAccessPort/StoreServiceAccountPort 动态代理桩：本测试 assetId 恒 null 不触达（validateAsset 早退） */
+        /** Payment tests use one accepted contract fixture; the evidence suite runs real scanning and assets. */
         @Bean
         cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            var port = org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9001L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("CONTRACT_ATTACHMENT")))).thenReturn(true);
+            return port;
         }
 
         @Bean
         cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort storeServiceAccountPort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort.class);
+            return orgId -> orgId;
         }
 
-        @SuppressWarnings("unchecked")
-        private static <T> T untouchedStub(Class<T> type) {
-            return (T) java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                    (proxy, method, args) -> {
-                        throw new UnsupportedOperationException("本测试不触达 " + type.getSimpleName() + "." + method.getName());
-                    });
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort assetEvidenceQueryPort() {
+            return (tenant, ids, types) -> ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")
+                    ? java.util.Map.of(9001L, tenant) : java.util.Map.of();
         }
 
         /** SalesAccess 客户组织校验桩：jdbc 直查（客户存在且同组织即过——CustomerAccess 语义的组织部分） */
@@ -132,15 +135,19 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     @BeforeEach
     void organization() {
         store = fixture.store();
+        jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'合同回款测试',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id", store.orgId(), store.orgId());
+        TenantContextHolder.setTenantId(store.orgId());
         salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
         boss = fixture.post(store.orgId(), BOSS, null);
         finance = fixture.post(store.orgId(), "finance", null);
     }
 
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
     @Test
     void depositAllocationUsesTheExistingReceiptOnly(){
         long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
-        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(c.getId()),idem()));
         long receipt=PHONES.incrementAndGet();
         jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,source_type,name,amount_cents,status,received_date,revision_version,registrar_user_id) VALUES(?,?,'manual','前期定金',20000,'已登记',CURRENT_DATE,1,?)",receipt,finance.orgId(),finance.userId());
         String key=idem();long stage=stageIdOf(c.getId(),"SIGN_AFTER");
@@ -154,7 +161,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     @Test
     void returnedDeclarationCannotBeConfirmedAndCanBeResubmitted(){
         long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
-        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(c.getId()),idem()));
         long stage=stageIdOf(c.getId(),"SIGN_AFTER");var cmd=new SaleContractService.CollectCommand(10000,"bank",txn(),java.time.LocalDate.now(),null,"公司对公户");
         long declaration=((Number)as(salesA1,()->contracts.collect(salesA1,stage,cmd,idem())).get("declarationId")).longValue();
         contracts.returnDeclaration(finance,declaration,"补充实际到账信息",idem());
@@ -172,7 +179,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     void salesDeclarationDoesNotCollectUntilFinanceConfirms(){
         long customerId=newCustomer();
         var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
-        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(c.getId()),idem()));
         long stage=stageIdOf(c.getId(),"SIGN_AFTER");String key=idem();
         var cmd=new SaleContractService.CollectCommand(50000,"bank",txn(),java.time.LocalDate.now(),null,"公司银行");
         var declaration=as(salesA1,()->contracts.collect(salesA1,stage,cmd,key));
@@ -198,7 +205,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     @Test
     void confirmedChangeAddsAfterDeliveryTailWithoutCopyingReceipts(){
         long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
-        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),null),revisionOf(c.getId()),idem()));
+        as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(c.getId()),idem()));
         contracts.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(80000,0,0,30000,java.time.LocalDate.now().plusMonths(1),"业主确认增项及尾款约定"),idem());
         assertThat(contracts.financialStages(finance)).anySatisfy(r->{assertThat(r.get("stage")).isEqualTo("tail");assertThat(r.get("after_delivery")).isEqualTo(true);});
         assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_sale_contract WHERE id=?",Long.class,c.getId())).isEqualTo(110000);
@@ -284,7 +291,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                         revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
 
@@ -315,7 +322,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                         revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
 
@@ -353,7 +360,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 30_000_000L, 30_000_000L, 0L, 0L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                         revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
         // 一次收满 → SETTLED
@@ -373,7 +380,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                 revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
         String key = idem();
@@ -404,7 +411,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 30_000_000L, 30_000_000L, 0L, 0L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                 revisionOf(created.getId()), idem()));
         long signStageId = stageIdOf(created.getId(), "SIGN_AFTER");
         as(finance, () -> contracts.collect(finance, signStageId,
@@ -463,7 +470,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
                 customerId, 68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L), idem()));
         as(salesA1, () -> contracts.sign(salesA1, created.getId(),
-                new SaleContractService.SignCommand(java.time.LocalDate.now(), null),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L),
                         revisionOf(created.getId()), idem()));
         as(finance, () -> contracts.collect(finance, stageIdOf(created.getId(), "SIGN_AFTER"),
                 new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), java.time.LocalDate.now()), idem()));

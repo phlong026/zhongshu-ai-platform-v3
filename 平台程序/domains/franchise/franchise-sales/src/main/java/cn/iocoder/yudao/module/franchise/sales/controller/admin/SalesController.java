@@ -217,7 +217,30 @@ public class SalesController {
         requireIdem(idem);
         var contract = contracts.sign(post(), contractId,
                 new SaleContractService.SignCommand(req.signedDate(), req.assetId()), req.revision(), idem);
-        return success(Map.of("contractId", contract.getId(), "status", contract.getStatus()));
+        return success(contractEvidenceResult(contract));
+    }
+
+    @PostMapping("/contracts/{contractId}/evidence")
+    @Operation(summary = "补录或更正已签合同凭证，保留变更原因及前后版本")
+    @PreAuthorize("@post.has('franchise:sale:write')")
+    public CommonResult<Map<String, Object>> supplementEvidence(@PathVariable long contractId,
+            @RequestBody SaleContractService.EvidenceCommand req, @RequestHeader("Idempotency-Key") String key) {
+        return success(contractEvidenceResult(contracts.supplementEvidence(post(), contractId, req, key)));
+    }
+
+    @PostMapping("/contracts/{contractId}/assets/{assetId}/download-tickets")
+    @PreAuthorize("@post.has('franchise:sale:query')")
+    public CommonResult<cn.iocoder.yudao.module.franchise.api.AssetAccessPort.DownloadUrlView> contractDownload(
+            @PathVariable long contractId, @PathVariable long assetId) {
+        return success(contracts.evidenceDownload(post(), contractId, assetId));
+    }
+
+    private static Map<String,Object> contractEvidenceResult(SaleContractDO contract) {
+        Map<String,Object> result = new java.util.LinkedHashMap<>();
+        result.put("contractId", contract.getId().toString()); result.put("status", contract.getStatus());
+        result.put("revision", contract.getRevision()); result.put("signedDate", contract.getSignedDate());
+        result.put("assetId", contract.getAssetId() == null ? null : contract.getAssetId().toString());
+        return result;
     }
 
     @PostMapping("/contracts/{contractId}/void")

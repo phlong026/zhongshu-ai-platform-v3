@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.engineering.todo.EngTodoProvider;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
@@ -17,6 +18,7 @@ import cn.iocoder.yudao.module.platform.workflow.TodoItem;
 import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -54,7 +56,15 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
         @Bean
         cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            var port = org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9001L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("CONTRACT_ATTACHMENT")))).thenReturn(true);
+            return port;
+        }
+
+        @Bean cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort evidence() {
+            return (tenant, ids, types) -> ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")
+                    ? java.util.Map.of(9001L, tenant) : java.util.Map.of();
         }
 
         @Bean
@@ -172,6 +182,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     @BeforeEach
     void setUpProjectWithRealContract() {
         store = fixture.store();
+        jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'工程合同测试',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id", store.orgId(), store.orgId());
+        TenantContextHolder.setTenantId(store.orgId());
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
         finance = fixture.post(engineer.orgId(), "finance", null);
         // 客户 + 真实合同（68 万：40/18/10）并签约
@@ -184,7 +196,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                         10_000_000L, null, null, null),
                 idem()));
         as(engineer, () -> contracts.sign(engineer, created.getId(),
-                new SaleContractService.SignCommand(LocalDate.now(), null),
+                new SaleContractService.SignCommand(LocalDate.now(), 9001L),
                 revisionOf(created.getId()), idem()));
         signStageId = stageRowOf(created.getId(), SIGN_AFTER);
         // 工程项目：挂同一客户 + 冻结统一合同 id；约定行（term）SIGN_AFTER 40 万
@@ -201,6 +213,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_eng_collection_term (id, company_id, project_id, stage, amount_cents) "
                 + "VALUES (?, ?, ?, ?, 40000000)", IDS.incrementAndGet(), store.orgId(), projectId, SIGN_AFTER);
     }
+
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void collectionSummaryFollowsContractChangesIncludingTail() {

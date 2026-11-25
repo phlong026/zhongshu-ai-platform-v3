@@ -190,6 +190,7 @@ class LocalAssetServiceTest {
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261115.984__design_deliverables_scopes.sql")).execute(ds);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261125.1041__business_document_assets.sql")).execute(ds);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261125.1043__workflow_download_scope.sql")).execute(ds);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/franchise-asset/V20261125.1046__contract_download_scope.sql")).execute(ds);
         jdbc.execute("CREATE TABLE pf_org_unit (dept_id BIGINT,org_id BIGINT,kind VARCHAR(8),status VARCHAR(16))");
         jdbc.execute("CREATE TABLE system_dept (id BIGINT,tenant_id BIGINT,status INT,deleted INT)");
         jdbc.update("INSERT INTO pf_org_unit VALUES (33,33,'ORG','ACTIVE')");
