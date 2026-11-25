@@ -77,8 +77,9 @@ async function run() {
     await assert.rejects(request('/franchise/company-points/recharge/orders/'+signedOrder+'/pay-params','POST',
       {code:'stale-signature'},'alpha'),e=>e.code===409);
     recharge.dismissOrder();
+    assert.equal(recharge.data.order.id,signedOrder);
     for(let i=0;i<2;i++) await request('/fixture/paid','POST',{});
-    await recharge.refresh(); assert.equal(recharge.data.order.label,'积分已到账');
+    await recharge.refresh(); assert.equal(recharge.data.order.label,'额度已到账');
     assert.equal(recharge.data.order.credits,'12');
     await update(5,199,'ACTIVE');
     console.log('PASS 真实套餐管理接口改价 1.00 → 1.99 元，页面自动更新；旧版本拒单；下架自动移除；上架恢复；同单支付事实重放后显示 12 积分已到账');

@@ -333,3 +333,44 @@ test('switching from a rechargeable identity to salesperson and back keeps only 
   assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
  }
 });
+
+test('revised company quote keeps the original unconfirmed order visible until a terminal result', async () => {
+  const file = path.join(__dirname, '../miniprogram/pages/wallet/company-recharge/index.js');
+  const option = { id: 'plan', version: '2', amountCents: 200, name: '套餐', credits: '12' };
+  const pending = { id: 'original', status: 'PROCESSING', quoteCurrent: false, amountCents: 100, credits: '12' };
+  let order = pending, definition, postCalls = 0;
+  const api = {
+    get: async () => ({ enabled: true, plans: [option], currentOrder: order }),
+    post: async () => { postCalls++; throw Error('unexpected payment write'); }
+  };
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
+    Page(value) { definition = value; },
+    require(name) {
+      if (name.endsWith('/http')) return api;
+      if (name.endsWith('/company-points')) return { fingerprint: () => 'owner', formatCredits: String };
+      if (name.endsWith('/wallet-view')) return { formatYuan: String };
+      return {};
+    }
+  }, { filename: file });
+  const page = {
+    ...definition, actor: 'owner', foreground: true, data: structuredClone(definition.data),
+    setData(patch) { Object.assign(this.data, patch); }
+  };
+  await page.refresh();
+  assert.equal(page.data.order.id, 'original');
+  assert.equal(page.data.order.canPay, false);
+  assert.equal(page.data.order.quoteExpired, true);
+  page.dismissOrder();
+  page.choose({ currentTarget: { dataset: { id: 'plan' } } });
+  await page.checkout();
+  assert.equal(page.data.order.id, 'original');
+  assert.equal(page.data.selected, null);
+  assert.equal(postCalls, 0);
+  assert.doesNotMatch(fs.readFileSync(file.replace(/\.js$/, '.wxml'), 'utf8'), /order\.quoteExpired\|\|[^"]+dismissOrder/);
+  order = { ...pending, status: 'CLOSED' };
+  await page.refresh();
+  page.dismissOrder();
+  assert.equal(page.data.order, null);
+  page.choose({ currentTarget: { dataset: { id: 'plan' } } });
+  assert.equal(page.data.selected.amountCents, 200);
+});
