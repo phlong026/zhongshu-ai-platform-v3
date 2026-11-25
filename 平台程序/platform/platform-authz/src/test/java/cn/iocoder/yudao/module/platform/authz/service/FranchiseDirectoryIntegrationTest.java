@@ -150,9 +150,9 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         var snapshot=maps.snapshot();
         var row=records(snapshot).stream().filter(r->r.regionCodes().contains("420117")).findFirst().orElseThrow();
         assertThat(row.name()).isEqualTo("测试甲 · 湖北省·武汉市·新洲区门店");
-        assertThat(row.publicAddress()).isEqualTo("武汉市新洲区示例路8号");
+        assertThat(row.publicAddress()).isEmpty();
         String json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(snapshot);
-        assertThat(json).doesNotContain("李秘密","王私有","赵联系人","13900001331","13900001332","13900001333","其他租户秘密地址","originalRegionText","linkedOrgId","contact_name","contact_mobile","loginName","userId");
+        assertThat(json).doesNotContain("李秘密","王私有","赵联系人","13900001331","13900001332","13900001333","武汉市新洲区示例路8号","其他租户秘密地址","originalRegionText","linkedOrgId","contact_name","contact_mobile","loginName","userId");
         assertThat(row.id()).isNotEqualTo(Long.toString(other.orgId()));
         assertThat(((List<FranchiseMapService.Store>)snapshot.get("stores"))).extracting(FranchiseMapService.Store::id).contains(row.id());
     }
