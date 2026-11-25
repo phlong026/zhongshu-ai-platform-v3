@@ -23,6 +23,7 @@ public class HeadquartersDocumentController {
     @GetMapping("/customers/{id}/workflow/{step}/assets/{asset}/content")
     @ApiAccessLog(requestEnable = false, responseEnable = false)
     public ResponseEntity<byte[]> customer(@PathVariable long id, @PathVariable String step, @PathVariable long asset) {
+        cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Step.parse(step);
         return content(new Request(Resource.CUSTOMER, id, step, asset));
     }
 

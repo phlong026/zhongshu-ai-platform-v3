@@ -43,6 +43,7 @@ public class HeadquartersDocumentAccess implements HeadquartersDocumentAccessPor
         Map<String,Object> record = reads.detail(actor, dataset, request.resourceId());
         long company = Long.parseLong(record.get("companyId").toString());
         if (request.resource() == Resource.CUSTOMER) {
+            if (request.section().startsWith("EXTERNAL_")) return external(actor, company, request);
             CustomerWorkflowModel.Step.parse(request.section());
             if ("CONTRACT".equals(request.section())) {
                 Boolean linked = jdbc.queryForObject("""
@@ -61,6 +62,22 @@ public class HeadquartersDocumentAccess implements HeadquartersDocumentAccessPor
             return scope(actor, company, request.referenceId(), Set.of("FIN_VOUCHER"));
         }
         return project(actor, company, record, request);
+    }
+
+    private Scope external(HeadquartersReadGuard.Actor actor, long company, Request request) {
+        var reference=HeadquartersExternalEntrustKind.fromSection(request.section());
+        var source=reference.kind();
+        String attachment=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                java.util.List.of(Map.of("assetId",Long.toString(request.referenceId()))));
+        Boolean linked=jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM "+source.table+" r"
+                +" JOIN fr_commission c ON c.id=r.commission_id AND c.company_id=r.company_id"
+                +" AND c.customer_id=r.customer_id AND c.workflow_mode='EXTERNAL'"
+                +" JOIN fr_customer subject ON subject.id=c.customer_id AND subject.company_id=c.company_id"
+                +" WHERE r.tenant_id=? AND r.company_id=? AND r.customer_id=? AND r.version=?"
+                +" AND "+source.attachments+" @> CAST(? AS jsonb))",Boolean.class,
+                actor.tenantId(),company,request.resourceId(),reference.version(),attachment);
+        if (!Boolean.TRUE.equals(linked)) throw HeadquartersReadGuard.missing();
+        return scope(actor,company,request.referenceId(),Set.of("BUSINESS_DOCUMENT"));
     }
 
     private Scope project(HeadquartersReadGuard.Actor actor, long company, Map<String,Object> project, Request request) {
@@ -113,6 +130,26 @@ public class HeadquartersDocumentAccess implements HeadquartersDocumentAccessPor
                 ? HeadquartersDocumentReference.parse(Objects.toString(documents.get(0).get("file_ref"), "")) : null;
         if (reference == null) throw HeadquartersReadGuard.missing();
         if (reference.commissionId() == null) {
+            if (project.get("commissionId") != null) {
+                long commission=Long.parseLong(project.get("commissionId").toString());
+                var owners=jdbc.queryForList("SELECT workflow_mode,customer_id FROM fr_commission WHERE id=? AND company_id=?",commission,company);
+                if (owners.size()!=1) throw HeadquartersReadGuard.missing();
+                if ("EXTERNAL".equals(owners.get(0).get("workflow_mode"))) {
+                    if (!sameId(project.get("customerId"),((Number)owners.get(0).get("customer_id")).longValue()))
+                        throw HeadquartersReadGuard.missing();
+                    Boolean accepted=jdbc.queryForObject("""
+                            SELECT EXISTS(SELECT 1 FROM fr_commission c JOIN fr_customer customer
+                              ON customer.id=c.customer_id AND customer.company_id=c.company_id
+                              JOIN fr_commission_handover h ON h.commission_id=c.id AND h.company_id=c.company_id
+                                AND h.version=c.handover_version AND h.status='ACCEPTED' AND h.source_mode='EXTERNAL'
+                              WHERE c.id=? AND c.company_id=? AND c.status='ACCEPTED'
+                                AND (h.result_file=? OR h.drawing_file=? OR h.review_file=? OR h.confirmation_asset_id=?))
+                            """,Boolean.class,commission,company,Long.toString(reference.assetId()),
+                            Long.toString(reference.assetId()),Long.toString(reference.assetId()),reference.assetId());
+                    if (!Boolean.TRUE.equals(accepted)) throw HeadquartersReadGuard.missing();
+                    return scope(actor,company,reference.assetId(),Set.of("BUSINESS_DOCUMENT"));
+                }
+            }
             return scope(actor, company, reference.assetId(), Set.of("ENG_DRAWING", "BUSINESS_DOCUMENT", "CONTRACT_ATTACHMENT"));
         }
         // Old engineering handovers contain a JSON reference to an immutable dispatch, not a public URL.

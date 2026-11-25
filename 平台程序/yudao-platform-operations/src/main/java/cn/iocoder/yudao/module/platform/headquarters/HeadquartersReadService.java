@@ -189,6 +189,36 @@ public class HeadquartersReadService {
     }
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public Page externalVersions(long customerId, String kind, int pageNo, int pageSize) {
+        new Filter(null,null,"","",null,null,pageNo,pageSize);
+        var actor=guard.require();
+        var customer=detail(actor,"customers",customerId);
+        long company=Long.parseLong(customer.get("companyId").toString());
+        var source=HeadquartersExternalEntrustKind.fromPath(kind);
+        String from=" FROM "+source.table+" r JOIN fr_commission c ON c.id=r.commission_id"
+                +" AND c.company_id=r.company_id AND c.customer_id=r.customer_id AND c.workflow_mode='EXTERNAL'"
+                +" JOIN fr_customer subject ON subject.id=c.customer_id AND subject.company_id=c.company_id"
+                +" LEFT JOIN system_users u ON u.id=r.actor_user_id AND u.tenant_id=r.tenant_id AND u.deleted=0"
+                +" WHERE r.tenant_id=? AND r.company_id=? AND r.customer_id=?";
+        Long total=jdbc.queryForObject("SELECT count(*)"+from,Long.class,actor.tenantId(),company,customerId);
+        String payment=source==HeadquartersExternalEntrustKind.REQUESTS ? "r.payment_plan::text" : "NULL::text";
+        var rows=jdbc.queryForList("SELECT r.version,r.data::text AS data,"+payment+" AS \"paymentPlan\","
+                +source.attachments+" AS attachments,r.created_at AS \"createdAt\",u.nickname AS \"actorName\""
+                +from+" ORDER BY r.version DESC LIMIT ? OFFSET ?",actor.tenantId(),company,customerId,pageSize,(pageNo-1L)*pageSize);
+        for (var row : rows) {
+            row.put("data",JsonUtils.parseObject(Objects.toString(row.get("data"),"{}"),Map.class));
+            Object plan=row.get("paymentPlan");
+            if (source==HeadquartersExternalEntrustKind.REQUESTS)
+                row.put("paymentPlan",plan==null?null:JsonUtils.parseObject(plan.toString(),Map.class));
+            else row.remove("paymentPlan");
+            var attachments=JsonUtils.parseObject(Objects.toString(row.get("attachments"),"[]"),List.class);
+            row.put("attachments",attachments==null?List.of():attachments);
+        }
+        guard.requireCompanies(actor,java.util.Set.of(company));
+        return new Page(rows,total==null?0:total,pageNo,pageSize,true);
+    }
+
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> ledger(long company,String scope) {
         var actor=guard.require();guard.company(actor,company);
         return finance.ledger(company,scope);
