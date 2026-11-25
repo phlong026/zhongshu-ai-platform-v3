@@ -1160,6 +1160,47 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         }
     }
 
+    @Resource private EngExpenseService expensesService;
+
+    @Test
+    void revisingAnUnpaidExpenseSynchronizesItsExactPayableAndProjectSettlement() {
+        var expense = as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("劳务", "LABOR", new BigDecimal("1000"), ""), idem()));
+        long expenseId = Long.parseLong((String) expense.get("expenseId"));
+        var withPayable = as(engineer, () -> expensesService.terms(engineer, expenseId,
+                new EngExpenseService.TermsCommand("收款人", "原凭据"), idem()));
+        long payableId = Long.parseLong((String) withPayable.get("payableId"));
+        String key = idem();
+        for (int i=0;i<2;i++) {
+            var edited=as(engineer, () -> expensesService.revise(engineer, expenseId, new BigDecimal("800"), "核减", key));
+            assertThat(edited.get("payableId")).isEqualTo(Long.toString(payableId));
+            assertThat(((Number) edited.get("amountCents")).longValue()).isEqualTo(80000);
+        }
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payableId)).isEqualTo(80000);
+        assertThat(jdbc.queryForObject("SELECT agreement_ref FROM fr_fin_payable WHERE id=?",String.class,payableId)).isEqualTo("原凭据");
+        assertThat(jdbc.queryForObject("SELECT recipient FROM fr_fin_payable WHERE id=?",String.class,payableId)).isEqualTo("收款人");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isEqualTo(1);
+        assertThat(((Number) as(engineer,()->closuresService.settleSummary(engineer,projectId)).get("expensesTotalCents"))
+                .longValue()).isEqualTo(80000);
+        var finance=fixture.post(store.orgId(),"finance",null);
+        long paymentId = paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                payableId,100000,java.time.LocalDate.now(),null,null));
+        // 实际付出多于已修应付时保留实付证据，仅超出部分进入待关联。
+        assertThat(jdbc.queryForObject("SELECT pending_link_cents FROM fr_fin_payment WHERE id=?",Long.class,paymentId)).isEqualTo(20000);
+        as(engineer, () -> expensesService.revise(engineer, expenseId, new BigDecimal("700"), "已付款后核减", idem()));
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,payableId)).isEqualTo(80000);
+        assertThat(jdbc.queryForObject("SELECT sum(amount_cents) FROM fr_fin_payment WHERE payable_id=? AND status='已核实'",
+                Long.class,payableId)).isEqualTo(100000);
+        var other=fixture.store();var alien=fixture.post(other.orgId(),"engineer",other.engineeringTeam());
+        assertThatThrownBy(()->as(alien,()->expensesService.revise(alien,expenseId,BigDecimal.TEN,"不同公司",idem())))
+                .isInstanceOf(ServiceException.class);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        assertThatThrownBy(()->tx.executeWithoutResult(status->payablePort.syncUnpaidExpenseAmount(
+                engineer,projectId,expenseId+1,payableId,60000,idem()))).isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE command='engineering-expense-unpaid-sync' AND aggregate_id=?",
+                Long.class,payableId)).isEqualTo(1);
+    }
+
     private static String idem() {
         return "idem-" + IDS.incrementAndGet();
     }

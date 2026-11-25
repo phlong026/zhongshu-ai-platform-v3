@@ -9,6 +9,11 @@ import java.util.List;
 @Mapper
 public interface FrEngExpenseMapper extends BaseMapperX<FrEngExpenseDO> {
 
+    default FrEngExpenseDO lockByCompany(Long companyId, Long id) {
+        return selectOne(new LambdaQueryWrapperX<FrEngExpenseDO>()
+                .eq(FrEngExpenseDO::getCompanyId, companyId).eq(FrEngExpenseDO::getId, id).last("FOR UPDATE"));
+    }
+
     default List<FrEngExpenseDO> selectByProject(Long companyId, Long projectId) {
         return selectList(new LambdaQueryWrapperX<FrEngExpenseDO>()
                 .eq(FrEngExpenseDO::getCompanyId, companyId)
