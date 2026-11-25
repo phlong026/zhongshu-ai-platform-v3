@@ -54,8 +54,8 @@ test('reference media keeps asset ids and type roles; stale uploads never submit
 });
 
 function uploader(ticketUrl, response = { statusCode: 200, data: '' }, options = {}) {
-  const requests = [], completed = [], tickets = [];
-  let upload;
+  const requests = [], completed = [], tickets = [], reads = [];
+  let upload, stats = 0;
   const http = { base: () => 'https://platform.example/admin-api', token: () => 'private-token',
     currentPostId: () => 'post', tenantId: () => 'tenant' };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../miniprogram/utils/content-media.js'), 'utf8'), {
@@ -64,10 +64,13 @@ function uploader(ticketUrl, response = { statusCode: 200, data: '' }, options =
       uploadTicket: async body => { tickets.push(body); return { assetId: '9007199254740993', uploadUrl: ticketUrl }; },
       complete: async id => { completed.push(id); return options.complete ? options.complete(completed.length) : { status: 'ACCEPTED' }; }
     } },
-    wx: { getFileSystemManager: () => ({ readFile: o => o.success({ data: options.bytes || new ArrayBuffer(4) }) }),
+    wx: { getFileSystemManager: () => ({ statSync: () => {
+        if(options.badStat)throw Error('cannot stat');
+        return {size: options.sizes ? options.sizes[stats++] : options.bytes?.byteLength ?? 4};
+      }, readFile: o => { reads.push({position:o.position,length:o.length}); o.success({ data: options.bytes || new ArrayBuffer(4) }); } }),
       request: o => { requests.push(o); o.success(response); } }, ArrayBuffer, Promise, setTimeout: callback => callback()
   });
-  return { upload, requests, completed, tickets };
+  return { upload, requests, completed, tickets, reads };
 }
 
 test('COS raw PUT sends bytes without platform credentials; B proxy keeps its single admin-api prefix', async () => {
@@ -84,6 +87,25 @@ test('COS raw PUT sends bytes without platform credentials; B proxy keeps its si
   assert.equal(proxy.requests[0].header.Authorization, 'Bearer private-token');
   assert.equal(proxy.requests[0].header['X-Post-Id'], 'post');
   assert.equal(proxy.requests[0].header['tenant-id'], 'tenant');
+});
+
+test('oversized or unreadable media is rejected before allocating a buffer or requesting a ticket', async () => {
+  for (const options of [{sizes:[50*1024*1024+1]}, {sizes:[500*1024*1024]}, {sizes:[0]}, {badStat:true}]) {
+    const mock = uploader('https://bucket.example/object', undefined, options);
+    await assert.rejects(mock.upload('/tmp/large.mp4', () => true), /50MB|核对素材大小/);
+    assert.equal(mock.reads.length, 0);
+    assert.equal(mock.tickets.length, 0);
+    assert.equal(mock.requests.length, 0);
+  }
+});
+test('media reads only the preflight length and never uploads a changed or partial file', async () => {
+  for (const sizes of [[4,5], [5,4]]) {
+    const mock = uploader('https://bucket.example/object', undefined, {sizes});
+    await assert.rejects(mock.upload('/tmp/moved.mp4', () => true), /素材已变化/);
+    assert.deepEqual(mock.reads, [{position:0,length:sizes[0]}]);
+    assert.equal(mock.tickets.length, 0);
+    assert.equal(mock.requests.length, 0);
+  }
 });
 
 test('task response loss retries the same payload and idempotency key without uploading again', async () => {
