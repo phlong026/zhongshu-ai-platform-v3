@@ -49,6 +49,8 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource
     private ContentPublicationService service;
     @Resource
+    private ContentDraftService drafts;
+    @Resource
     private ContentPublisherAccountService publisherAccounts;
     @Resource
     private JdbcTemplate jdbc;
@@ -74,6 +76,23 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         insertWork(workId, store.orgId(), owner.userId(), "本人作品");
         currentPost.use(owner);
         when(serviceAccounts.requireServiceAccount(anyLong())).thenReturn(50L);
+    }
+
+    @Test
+    void privateWorkDetailUsesOwnSavedScriptAndStatusChangesStayWithTheAuthor() {
+        jdbc.update("UPDATE fr_content_draft SET script=? WHERE id=?", "第一段\n第二段", workId);
+        var mine = drafts.workOfAuthor(store.orgId(), owner.userId(), workId);
+        assertThat(mine.getTitle()).isEqualTo("本人作品");
+        assertThat(mine.getScript()).isEqualTo("第一段\n第二段");
+        for (var other : java.util.List.of(colleague, outsider)) {
+            assertThatThrownBy(() -> drafts.workOfAuthor(other.orgId(), other.userId(), workId))
+                    .isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> drafts.updateWorkStatus(other.orgId(), other.userId(), workId, "saved"))
+                    .isInstanceOf(ServiceException.class);
+        }
+        assertThat(drafts.workOfAuthor(store.orgId(), owner.userId(), workId).getStatus()).isEqualTo("draft");
+        assertThat(drafts.updateWorkStatus(store.orgId(), owner.userId(), workId, "saved").getStatus())
+                .isEqualTo("saved");
     }
 
     @Test
