@@ -79,49 +79,13 @@ public class OrgPointService implements OrgPointPort {
         this.priceService = java.util.Objects.requireNonNull(priceService, "OrgPointPriceService");
     }
 
-    private java.util.Set<Long> simulatedPurchaseOrgs=java.util.Set.of();
-
+    // Rolling-upgrade compatibility only. Production company quotas use verified XPAY orders.
     @org.springframework.beans.factory.annotation.Value("${platform.company-points.simulation-org-ids:}")
-    void configurePurchaseOrgs(String ids) {
-        simulatedPurchaseOrgs=java.util.Arrays.stream(ids.split(",")).map(String::trim).filter(s->!s.isEmpty())
-                .map(Long::valueOf).collect(java.util.stream.Collectors.toUnmodifiableSet());
-    }
+    void configurePurchaseOrgs(String ids) { }
 
-    @Override public List<PackagePlan> simulatedPackages(long tenantId,long orgId) {
-        if (!simulatedPurchaseOrgs.contains(orgId)) return List.of();
-        return jdbc.query("SELECT id,version,name,price_fen,base_points,bonus_points FROM pf_recharge_plan WHERE tenant_id=? AND status='ACTIVE' ORDER BY sort,id",
-                (rs,n)->new PackagePlan(rs.getString(1),rs.getString(2),rs.getString(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),tenantId);
-    }
-
+    @Override public List<PackagePlan> simulatedPackages(long tenantId,long orgId) { return List.of(); }
     @Override public PackageReceipt purchaseSimulated(long tenantId,long orgId,long actor,long post,long planId,long version,String key) {
-        if (key==null || !key.matches("[a-zA-Z0-9_-]{8,100}")) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"请重新确认套餐");
-        String bizKey="package-sim:"+tenantId+":"+orgId+":"+actor+":"+post+":"+key;
-        return tx.execute(status->{
-            lockAccount(orgId);
-            var prior = jdbc.query("SELECT receipt FROM org_point_simulated_purchase WHERE org_id=? AND biz_key=?",
-                    (rs, row) -> cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(rs.getString(1), PackageReceipt.class), orgId, bizKey);
-            if (!prior.isEmpty()) {
-                var receipt = prior.get(0);
-                if(!receipt.planId().equals(Long.toString(planId)) || !receipt.version().equals(Long.toString(version))) throw exception(ORG_POINT_REPLAY_CONFLICT);
-                return receipt;
-            }
-            if (!simulatedPurchaseOrgs.contains(orgId)) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"本公司未开放套餐模拟支付");
-            var account=findAccount(orgId);
-            if(account==null) throw exception(ORG_NOT_ENABLED);
-            if(!"ACTIVE".equals(account.status())) throw exception(ORG_POINT_SUSPENDED);
-            var plans=jdbc.query("SELECT id,version,name,price_fen,base_points,bonus_points FROM pf_recharge_plan WHERE tenant_id=? AND id=? AND version=? AND status='ACTIVE' FOR SHARE",
-                    (rs,n)->new PackagePlan(rs.getString(1),rs.getString(2),rs.getString(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),tenantId,planId,version);
-            if(plans.isEmpty()) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,"套餐已变更，请刷新后重新选择");
-            var plan=plans.get(0);
-            long credits=Math.addExact(plan.basePoints(),plan.bonusPoints()), id=IdWorker.getId();
-            var receipt=new PackageReceipt(Long.toString(id),plan.id(),plan.version(),plan.name(),plan.priceFen(),credits);
-            jdbc.update("""
-                    INSERT INTO org_point_simulated_purchase(id,tenant_id,org_id,biz_key,price_fen,test_points,receipt)
-                    VALUES (?,?,?,?,?,?,?::jsonb)
-                    """, id,tenantId,orgId,bizKey,plan.priceFen(),credits,
-                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(receipt));
-            return receipt;
-        });
+        throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"模拟充值已停用，请使用公司额度充值");
     }
 
     // ==================== 开通/账户（B-1/B-8） ====================

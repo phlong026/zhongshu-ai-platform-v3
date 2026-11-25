@@ -401,6 +401,17 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?",Long.class,post.orgId())).isEqualTo(20);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=? AND type='COMPANY_RECHARGE'",Long.class,post.orgId())).isOne();
         assertBalance(0,0,0);
+        var authorization=mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
+        when(authorization.has("platform:wallet:recharge")).thenReturn(true);
+        var catalog=new CompanyRechargeCatalog(jdbc,scope,authorization,payment);
+        assertThat(tx.execute(status->catalog.read()).currentOrder().status()).isEqualTo("CREDITED");
+        var refund=new RefundPaymentService(dataSource,transactionManager,scope,points,payment,new PaymentFactValidator());
+        var refunded=new PaymentPort.ChannelRefundResult("SUCCEEDED",order.orderNo(),"external-company-refund","wx-refund-"+order.id(),100L,"FEN",1,8);
+        refund.processRefundFact(tenant,walletId,Long.parseLong(order.id()),refunded);
+        refund.processRefundFact(tenant,walletId,Long.parseLong(order.id()),refunded);
+        assertThat(tx.execute(status->catalog.read()).currentOrder().status()).isEqualTo("REFUNDED");
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?",Long.class,post.orgId())).isEqualTo(8);
+        assertBalance(0,0,0);
     }
 
     @Test
