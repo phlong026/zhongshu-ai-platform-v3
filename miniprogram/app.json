@@ -19,6 +19,7 @@
       "root": "pages/workflow",
       "name": "business-workflow",
       "pages": [
+        "payment-plan/index",
         "commission/index",
         "quote-export/index",
         "explore/index",

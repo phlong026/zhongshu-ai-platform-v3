@@ -16,7 +16,7 @@ module.exports = function (page, api) {
       if (!alive() || this.__disposed) return;
       const rows = reimbursements.map(r => ({ ...r, pay_date:financeDay(r.pay_date), id: r.payable_id, remaining: Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0),
         absoluteAmount:yuan(Math.abs(Number(r.eligible_cents)-Number(r.reimbursed_cents)+Number(r.recovered_cents||0))),amount: yuan(Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0)), paidText: yuan(r.reimbursed_cents) }));
-      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,label: (r.customer_name||"合同收款")+" · "+({SIGN_AFTER:"签约后",BASE_DONE:"基础完成",CAP_DONE:"封顶后",tail:"交付尾款"}[r.stage]||r.stage)+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
+      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
         'deskHome.focus': rows.filter(r => r.remaining !== 0).map(r => ({ id: r.id, name: r.payer_name + ' · '+r.stage,
           amount: '¥' + BookView.money(r.remaining), status: r.remaining < 0 ? '员工应归还公司' : Number(r.reimbursed_cents) > 0 ? '部分报销' : '待报销', url: '/pages/admin/finance-desk/index?view=reimbursements' })) });
       this.__commissionStages=commission===null?null:commission.flatMap(r=>r.stages||[]);
@@ -81,9 +81,10 @@ module.exports = function (page, api) {
   page.recoverEmployee=function(e){const row=(this.data.reimbursementRows||[]).find(r=>r.id===String(e.currentTarget.dataset.id));if(!row||row.remaining>=0)return;this.wbKey=api.idemKey('employee-recover');this.setData({wbForm:{type:'recovery',payableId:row.id,name:'员工归还 · '+row.payer_name,amount:yuan(-row.remaining),date:date(),accountName:''},wbError:''});};
   page.assignPayableBook=function(e){this.wbKey=api.idemKey('assign-book');this.setData({wbForm:{type:'assignbook',payableId:String(e.currentTarget.dataset.id),name:'补充账本归属'},wbError:''});};
   page.openContractChange=function(e){
-    const id=String(e.currentTarget.dataset.id),stages=(this.data.financialStages||[]).filter(r=>String(r.contract_id)===id);
-    const amounts={};for(const r of stages)amounts[r.stage]=yuan(r.amount_cents);
-    this.wbKey=api.idemKey('contract-change');this.setData({wbForm:{type:'contractchange',contractId:id,name:'合同增减项及尾款调整',signAfter:amounts.SIGN_AFTER||'0',baseDone:amounts.BASE_DONE||'0',capDone:amounts.CAP_DONE||'0',tail:amounts.tail||'0'},wbError:''});
+    if(this.data.wbBusy||this.data.busy||this.__disposed)return;
+    const id=String(e.currentTarget.dataset.id);
+    if(!(this.data.financialStages||[]).some(r=>String(r.contract_id)===id))return this.setData({wbError:'合同数据已变化，请刷新后重试'});
+    require('../../../utils/page-navigation').open('/pages/workflow/payment-plan/index?contractId='+encodeURIComponent(id));
   };
   page.openPayableAdjustment=function(e){this.wbKey=api.idemKey('payable-adjust');this.setData({wbForm:{type:'payablechange',payableId:String(e.currentTarget.dataset.id),name:'采购/费用结算调整'},wbError:''});};
   page.linkFinanceBook=function(){this.wbKey=api.idemKey('book-link');this.setData({wbForm:{type:'linkbook',bookId:String(this.data.bookScope).slice(5),name:'关联已有工程'},wbError:''});};
@@ -125,10 +126,7 @@ module.exports = function (page, api) {
       let body = { name: f.name.trim() }, endpoint = '/books';
       if(['contractchange','payablechange','linkbook','assignbook','recovery','supplement','allocation'].includes(f.type)){
         if(f.type==='contractchange'){
-          const parse=v=>String(v)==='0'?0:Money.toCents(v);const values=[f.signAfter,f.baseDone,f.capDone,f.tail].map(parse);
-          if(values.some(v=>v===null)||!(f.reason||'').trim())throw Error('请填写各期金额及已确认的变更依据');
-          body={signAfterCents:values[0],baseDoneCents:values[1],capDoneCents:values[2],tailCents:values[3],tailDueDate:f.tailDueDate||undefined,reason:f.reason};
-          endpoint='/franchise/sales/contracts/'+encodeURIComponent(f.contractId)+'/change-amounts';
+          return this.openContractChange({currentTarget:{dataset:{id:f.contractId}}});
         }else if(f.type==='payablechange'){
           const total=String(f.amount)==='0'?0:Money.toCents(f.amount);if(total===null||!(f.reason||'').trim())throw Error('请填写调整后结算总额和依据');
           body={totalCents:total,reason:f.reason,dueDate:f.dueDate||undefined};endpoint=base+'/payables/'+encodeURIComponent(f.payableId)+'/adjust';

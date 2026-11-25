@@ -358,7 +358,9 @@ test('trade views expose loading, retry, and saleWrite button gates', () => {
   assert.match(wxml, /bindtap="retryRequirements"/);
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">登记需求/);
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">开始测算/);
-  assert.match(wxml, /saleWrite&&requirementsStatus==='ready'&&contractForm/);
+  assert.match(wxml, /saleWrite&&requirementsStatus==='ready'&&!contractsHasActive/);
+  assert.match(wxml, /bindtap="openContractForm">新建合同/);
+  assert.doesNotMatch(wxml, /contractForm\.(signAfter|baseDone|capDone)/, '固定三期表单由独立付款计划页面替代');
 });
 
 test('real contract stages map and render without shadowing the tone WXS module', async () => {
