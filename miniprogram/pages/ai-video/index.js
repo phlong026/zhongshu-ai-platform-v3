@@ -1,6 +1,7 @@
 const { persistMedia } = require('../../utils/creation');
 const studio = require('../../utils/studio');
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：F11 参数映射/降级文案）
+const makeTaskTitle = require('./task-title');
 const contentApi=require('../../api/franchise/content');
 const http=require('../../api/http');
 const media=require('../../utils/content-media');
@@ -302,7 +303,7 @@ const hasVisual=form.mode==='frames'?!!(form.firstFrame||form.lastFrame||form.fi
 if(hasVisual)mapped.ratio='adaptive';
 else if(mapped.ratio==='adaptive')throw Error('纯文生视频请选择具体画面比例');
 const description = form.description.trim();
- const title = P.makeTaskTitle({ kind: 'ai_video', description });
+ const title = makeTaskTitle({ kind: 'ai_video', description });
  const payload = { kind: 'ai_video', title, description, resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
 const inputs=form.mode==='reference'
   ? form.references.map(item=>({assetId:item.assetId,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
