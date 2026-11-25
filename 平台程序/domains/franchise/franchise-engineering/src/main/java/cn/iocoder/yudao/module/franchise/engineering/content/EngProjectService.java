@@ -21,7 +21,6 @@ import cn.iocoder.yudao.module.platform.command.Revisions;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
-import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -344,31 +343,55 @@ public class EngProjectService {
 
     // ===================== 换负责人 =====================
 
-    /** 换负责人（D-3：在岗校验 010+CAS+审计；旧负责人立即失权） */
+    public List<Map<String, Object>> managerCandidates(PostSnapshot post, long projectId) {
+        var project = requireOwned(post, projectId, "project");
+        if (project.getManagerUserId() != post.userId()) throw exception(ENGINEERING_FORBIDDEN);
+        var ids = activeManagerIds(post);
+        ids.remove(post.userId());
+        if (ids.isEmpty()) return List.of();
+        var users = systemDirectory.usersByIds(ids).stream()
+                .filter(SystemDirectory.UserBrief::active)
+                .sorted(java.util.Comparator.comparing((SystemDirectory.UserBrief u) -> StrUtil.nullToEmpty(u.name()))
+                        .thenComparingLong(SystemDirectory.UserBrief::userId))
+                .toList();
+        return users.stream().map(u -> {
+            String name = StrUtil.blankToDefault(u.name(), "未填写姓名");
+            boolean duplicate = users.stream().filter(other -> name.equals(StrUtil.blankToDefault(other.name(), "未填写姓名"))).count() > 1;
+            return Map.<String, Object>of("id", Long.toString(u.userId()),
+                    "name", duplicate ? name + "（编号 " + u.userId() + "）" : name);
+        }).toList();
+    }
+
+    private java.util.Set<Long> activeManagerIds(PostSnapshot post) {
+        var ids = new java.util.LinkedHashSet<Long>();
+        for (String role : List.of(FranchiseRoles.ENGINEER, FranchiseRoles.PROJECT_MANAGER)) {
+            staffPosts.listActivePostsInOrg(post.orgId(), role).forEach(p -> ids.add(p.getUserId()));
+        }
+        return ids;
+    }
+
+    /** 换负责人（在岗校验、CAS、审计；旧负责人立即失权）。 */
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> changeManager(PostSnapshot post, long projectId, ManagerCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projects.lockById(projectId);
-        if (project == null) {
-            // 组织过滤后不可见（跨组织/不存在）——走 requireOwned 统一句柄抛业务异常而非 NPE（e2e AC13）
-            requireOwned(post, projectId, "project");
-        }
-        // 重放检查先于 requireOwned：换负责人成功后旧负责人重试同键应得既有结果而非 000（评审十三 P1-3）
+        if (project == null || project.getCompanyId() != post.orgId())
+            throw exception(ENGINEERING_INPUT_INVALID, "工程不存在或无权查看");
+        // 原操作者才可能发起转交。用其稳定 ID 恢复旧指纹，不使用已改变的当前负责人。
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("fromUserId", project.getManagerUserId());
+        payload.put("fromUserId", post.userId());
         payload.put("toUserId", cmd.engineerUserId());
         payload.put("note", StrUtil.nullToEmpty(cmd.note()));
-        var replayed = commands.replayed(post, idempotencyKey, payload);
-        if (replayed.isPresent()) {
+        var prior = commands.previous(post, idempotencyKey, "eng-project-manager", projectId);
+        if (prior.isPresent()) {
+            if (!java.util.Objects.equals(prior.get().getActorPostId(), post.postId()))
+                throw exception(ENGINEERING_FORBIDDEN);
+            commands.replayed(post, idempotencyKey, payload);
             return detail(post, projectId);
         }
         requireOwned(post, projectId, "project");
         if (project.getManagerUserId() != post.userId()) throw exception(ENGINEERING_FORBIDDEN);
-        // 在岗工程线（engineer / project-manager——HandoverService.requireManager 同款口径，F1 继承）
-        List<StaffPostDO> engineers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.ENGINEER);
-        List<StaffPostDO> managers = staffPosts.listActivePostsInOrg(post.orgId(), FranchiseRoles.PROJECT_MANAGER);
-        boolean active = engineers.stream().anyMatch(p -> p.getUserId() == cmd.engineerUserId())
-                || managers.stream().anyMatch(p -> p.getUserId() == cmd.engineerUserId());
-        if (!active) {
+        if (cmd.engineerUserId() == post.userId() || !activeManagerIds(post).contains(cmd.engineerUserId())
+                || !systemDirectory.userUsable(cmd.engineerUserId())) {
             throw exception(MANAGER_INVALID);
         }
         long revision = project.getRevision();
