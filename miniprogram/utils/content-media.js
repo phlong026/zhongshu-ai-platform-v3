@@ -1,15 +1,29 @@
 const http = require('../api/http');
 const api = require('../api/franchise/content');
+const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
+
+function checkedSize(fs, filePath) {
+  let size;
+  try { size = fs.statSync(filePath).size; }
+  catch (_) { throw Error('无法核对素材大小，请重新选择'); }
+  if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_MEDIA_BYTES)
+    throw Error('素材大小需在 50MB 以内');
+  return size;
+}
 
 async function upload(filePath, alive, options = {}) {
   if (!alive()) throw Error('工作身份已变化，请重新打开页面');
   const stage = value => { if (alive() && options.onStage) options.onStage(value); };
   stage('reading');
-  const bytes = await new Promise((resolve, reject) => wx.getFileSystemManager().readFile({
-    filePath, success: result => resolve(result.data), fail: () => reject(Error('素材读取失败，请重新选择'))
+  const fs = wx.getFileSystemManager();
+  const expectedSize = checkedSize(fs, filePath);
+  const bytes = await new Promise((resolve, reject) => fs.readFile({
+    filePath, position: 0, length: expectedSize,
+    success: result => resolve(result.data), fail: () => reject(Error('素材读取失败，请重新选择'))
   }));
-  if (!bytes.byteLength || bytes.byteLength > 50 * 1024 * 1024) throw Error('素材大小需在 50MB 以内');
   if (!alive()) throw Error('工作身份已变化，请重新打开页面');
+  if (bytes?.byteLength !== expectedSize || checkedSize(fs, filePath) !== expectedSize)
+    throw Error('素材已变化，请重新选择后上传');
   const mimeType = require('./media-formats').mimeType(filePath, bytes, options);
   const sha256 = require('../api/finance').sha256Hex(bytes);
   const ticket = await api.assets.uploadTicket({ mimeType, sizeBytes: bytes.byteLength, sha256 });
