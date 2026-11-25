@@ -53,6 +53,7 @@ function fixture({ submit = async () => ({ taskId: '9007199254740993', status: '
         if (name === '../../utils/platform-content') return utility;
         if (name === '../../api/http') return http;
         if (name === '../../api/auth') return { currentApiPost: () => ({ postId, roleCode: 'sales' }) };
+        if (name === '../../api/franchise/crm') return { leads: { capture: async () => ({ result: 'CREATED', customerId: 'customer-1' }) } };
         if (name === '../../utils/storage-keys') return { creationDraft: 'creation-draft' };
         if (name === '../../utils/creation-keyboard') return { open() {}, close() {}, stop() {} };
         if (name === '../../utils/creation-text-resize' || name === './material-library') return { data: {}, handlers: {} };

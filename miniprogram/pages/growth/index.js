@@ -29,7 +29,7 @@ this.resetPendingState(true);
 this.setData({canManage:false,canCapture:false,form:{},contents:[],leads:[],lead:null,content:null,existingCustomer:null,
   published:[],publishedNames:[DIRECT_SOURCE],publishedIndex:0,directSourceChosen:false,growthStats:null});
 return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('加盟商内容与线索')});
-}const a={active:true,orgType:'store',role:post.roleCode,staffId:'',name:post.name||''};const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='前往发布设置';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
+}const a={active:true,orgType:'store',role:post.roleCode,staffId:'',name:post.name||''};const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='回填发布链接';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
 const identity=http.sessionGeneration()+':'+post.postId;
 if(this.__growthIdentity!==identity){
   this.__captureSeq=(this.__captureSeq||0)+1;
@@ -142,7 +142,7 @@ return crm.customers.get(customerId).then(()=>{
   this.fail('客资已关联，查看客户失败，请点击登记客资重试查看');
 });
 },
-editContent(){const c=this.data.content;if(c)wx.navigateTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(c.workId)+'&content='+encodeURIComponent(c.id)});},
+editContent(){const c=this.data.content;if(c)wx.navigateTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(c.workId)});},
 goCustomer(){if(this.data.lead?.customerId)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.lead.customerId)});},
 resetPendingState(render){
   this.__pendingSeq=(this.__pendingSeq||0)+1;

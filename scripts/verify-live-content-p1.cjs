@@ -105,8 +105,9 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
       degradeMessage(error) { return error.message || '加载失败'; }
     },
     '../../api/auth': { currentApiPost() { return post; } },
+    '../../api/franchise/crm': { leads: { capture: async () => ({ result: 'CREATED', customerId: 'customer-1' }) } },
     '../../api/http': {
-      token() { return token; }, tenantId() { return 1; }, sessionGeneration() { return generation; },
+      token() { return token; }, tenantId() { return 1; }, sessionGeneration() { return generation; }, sessionGuard() { return () => alive; },
       requestGuard(domain) { const g = generation, n = sequences[domain] = (sequences[domain] || 0) + 1; return () => alive && generation === g && sequences[domain] === n; }
     }
   }, wxOverrides);
