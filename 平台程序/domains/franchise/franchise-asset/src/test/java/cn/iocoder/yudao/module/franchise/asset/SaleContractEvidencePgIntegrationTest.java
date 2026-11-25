@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.asset;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort;
@@ -180,9 +181,16 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
                 new SaleContractService.EvidenceCommand(today().minusDays(1), replacement, "更正签署日期及清晰扫描件", version + 1), key()));
         var history = jdbc.queryForList("SELECT before_evidence::text,after_evidence::text,reason,previous_revision,revision FROM fr_sale_contract_evidence_event WHERE contract_id=? ORDER BY revision", contract.getId());
         assertThat(history).hasSize(2); assertThat(history.get(0).get("reason")).isEqualTo("补录纸质已签合同");
-        assertThat(history.get(0).get("before_evidence").toString()).contains("null");
-        assertThat(history.get(1).get("before_evidence").toString()).contains(Long.toString(file));
-        assertThat(history.get(1).get("after_evidence").toString()).contains(Long.toString(replacement));
+        var emptyEvidence = JsonUtils.parseObject(history.get(0).get("before_evidence").toString(), Map.class);
+        assertThat(emptyEvidence.get("signedDate")).isNull(); assertThat(emptyEvidence.get("assetId")).isNull();
+        var supplementedEvidence = JsonUtils.parseObject(history.get(0).get("after_evidence").toString(), Map.class);
+        var correctionBefore = JsonUtils.parseObject(history.get(1).get("before_evidence").toString(), Map.class);
+        var correctionAfter = JsonUtils.parseObject(history.get(1).get("after_evidence").toString(), Map.class);
+        assertThat(supplementedEvidence.get("signedDate")).isEqualTo(today().toString());
+        assertThat(supplementedEvidence.get("assetId")).isEqualTo(Long.toString(file));
+        assertThat(correctionBefore).isEqualTo(supplementedEvidence);
+        assertThat(correctionAfter.get("signedDate")).isEqualTo(today().minusDays(1).toString());
+        assertThat(correctionAfter.get("assetId")).isEqualTo(Long.toString(replacement));
         assertThat(plan(contract.getId())).isEqualTo(beforePlan); assertThat(auditCount(contract.getId(), "sale-contract-evidence")).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_contract WHERE customer_id=?", Long.class, customer)).isEqualTo(1);
         assertError(STATE_VERSION_CONFLICT.getCode(), () -> as(sales, () -> contracts.supplementEvidence(sales, contract.getId(), command, key())));
