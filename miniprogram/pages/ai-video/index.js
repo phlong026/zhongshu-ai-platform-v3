@@ -301,7 +301,9 @@ const mapped = form.parameters;
 const hasVisual=form.mode==='frames'?!!(form.firstFrame||form.lastFrame||form.firstFrameAssetId||form.lastFrameAssetId):form.references.some(r=>r.type==='image'||r.type==='video');
 if(hasVisual)mapped.ratio='adaptive';
 else if(mapped.ratio==='adaptive')throw Error('纯文生视频请选择具体画面比例');
-const payload = { kind: 'ai_video', description: form.description.trim(), resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
+const description = form.description.trim();
+ const title = P.makeTaskTitle({ kind: 'ai_video', description });
+ const payload = { kind: 'ai_video', title, description, resolution: mapped.resolution, duration: mapped.duration, ratio: mapped.ratio };
 const inputs=form.mode==='reference'
   ? form.references.map(item=>({assetId:item.assetId,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
   : [{assetId:form.firstFrameAssetId,role:'first_frame'},{assetId:form.lastFrameAssetId,role:'last_frame'}].filter(item=>item.assetId);

@@ -132,6 +132,28 @@ function rowsOf(rows) {
   return [];
 }
 
+// Task titles are fixed at submission time from the user's input, never from generated output.
+function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
+  const labels = { ai_video: 'AI视频', ai: 'AI视频', digital: '数字人口播', copy: '文案二创', remix: '文案二创', image: 'AI图片' };
+  const label = labels[kind] || 'AI创作';
+  const prefix = label + '｜';
+  const clean = value => String(value || '').replace(/^[#*\s【】《》]+|[#*\s]+$/g, '').trim();
+  const explicit = clean(title);
+  let topic = explicit || clean(sourceTitle) || String(description || text || '');
+  topic = clean(topic.split(/\r?\n/)[0]).replace(/\s+/g, ' ');
+  topic = topic.replace(/^(?:(?:请帮我|帮我|请)\s*)?(?:生成|制作|创作)(?:一个|一段|一条|一份)?\s*/, '');
+  topic = clean(topic);
+  if (topic.startsWith(prefix)) {
+    const normalizedTopic = topic.slice(prefix.length).trim();
+    const chars = Array.from(normalizedTopic);
+    return prefix + (chars.length > 24 ? chars.slice(0, 23).join('') + '…' : normalizedTopic || '未命名创作');
+  }
+  const points = Array.from(topic);
+  if (points.length > 24) topic = points.slice(0, 23).join('') + '…';
+  if (!topic) topic = '未命名创作';
+  return prefix + topic;
+}
+
 function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxConsecutiveErrors = 2 } = {}) {
   let cancelled = false, rejectRef = null;
   const promise = new Promise((resolve, reject) => {
@@ -167,5 +189,5 @@ module.exports = {
   api,
   saveFailure, taskView, progressOf, mapResolution, mapDuration, mapRatio, mapVideoParameters, restoreVideoParameters,
   mapReferences, shareLinkUrl, validateShareLink, validatePublicationForm, validatePublishedUrl,
-  degradeMessage, rowsOf, pollTask
+  degradeMessage, rowsOf, makeTaskTitle, pollTask
 };

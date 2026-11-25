@@ -219,7 +219,7 @@ const view = P.taskView(task.status);
 const text = String((task.result && (task.result.text || task.result.script)) || '').trim();
 return {
 id: String(task.id), apiTask: true, kind, ...result,
-title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
+title: P.makeTaskTitle({ kind: task.kind, title: task.title, description: task.description || (task.input && task.input.description), text: task.result && (task.result.text || task.result.script) }),
 status: view, canDismiss: task.canDismiss !== false && !P.saveFailure(task)
   && ['SUCCEEDED','FAILED','CANCELLED'].includes(task.status), saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
@@ -538,7 +538,7 @@ if(this.__generating)return; // 提交防重（loading 只护提交阶段）
 if(!this.__digitalAttempt&&!this.digitalSelectionCurrent())return; // 新提交核对资源身份；待确认请求仍使用冻结参数与幂等键
 if(!this.__digitalAttempt&&(this.data.digitalLoading||!this.data.avatarCloneId||!this.data.voiceCloneId))return wx.showToast({title:'请先选择已就绪的数字分身和克隆声音',icon:'none'});
 const text=this.data.script.trim();
-const title=String(this.data.title||'').trim()||text.split('\n')[0].slice(0,28);
+const title=P.makeTaskTitle({kind:'digital',title:this.data.title,text});
 if(!this.__digitalAttempt&&(!text||text.length>10000))return this.setData({operationError:'口播文案须为1至10000字'});
 const state=studio.read();state.script=text;state.title=title;studio.write(state); // 本地留痕（script/title 非守卫键）
 if(!this.__digitalAttempt){this.__digitalAttempt={personaId:this.data.digitalPersonaId,payload:{kind:'digital',avatarCloneId:this.data.avatarCloneId,voiceCloneId:this.data.voiceCloneId,text,title},key:this.contentKey('task')};wx.setStorageSync(studio.scopedKey('zs-digital-attempt'),this.__digitalAttempt);}
@@ -688,7 +688,7 @@ if(!task||task.outputType!=='video'||!task.videoReady){this.setData({resultError
 const alive=http.requestGuard('studio-save-result'),scope=this.actorScope;
 this.setData({resultSaving:true,resultError:''});
 try{
- const res=await contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:'+this.data.taskId));
+ const res=await contentApi.tasks.saveWork(this.data.taskId, task.title || '', this.contentKey('save-work:'+this.data.taskId));
  if(!alive()||this.__closed||scope!==studio.scope())return;
  if(!res||!res.workId)throw Error('作品保存结果缺少编号，请重试');
  this.contentDropKey('save-work:'+this.data.taskId);
