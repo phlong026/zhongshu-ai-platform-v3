@@ -60,6 +60,12 @@ function parent(page=current()){
  if(route==='pages/admin/finance-desk/index'){const D=require('./finance-desk');return ['statement','partner'].includes(v)?D.url(require('./access').context().orgType==='headquarters'?'partners':'projects'):v==='project'?D.url('projects'):homeUrl();}
  if(route==='pages/workflow/quote-export/index')return target('/pages/workflow/index','budget-result',id);
  if(route==='pages/build/index')return v==='projects'?homeUrl():target('/pages/build/index',v==='overview'?'projects':'overview',id);
+ if(route==='pages/account/announcements/detail')return '/pages/account/announcements/index';
+ if(route==='pages/account/announcements/index'){
+  const session=apiSession(),O=require('./organization');
+  const profile=session&&O.navigation(O.apiContext(session.post)).tabs.find(tab=>tab.index===4);
+  return profile?profile.url:'/pages/profile/index';
+ }
  if(route==='pages/account/index'){
   const map={course:'learning',resource:'learning',service:'services',request:'service',product:'selection',procure:'product',purchase:'purchases',order:'orders',plan:'order',delivery:'order',cancel:'order',feedback:'help',binding:'privacy',devices:'privacy',permissions:'privacy',policy:'privacy',agreement:'privacy'};
   return map[v]?target('/pages/account/index',map[v],id,{service:o.service}):'/pages/profile/index';

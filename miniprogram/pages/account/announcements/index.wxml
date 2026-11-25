@@ -1,0 +1,21 @@
+<brand-header title="公司公告" back="{{true}}"/>
+<view class="announcement-page">
+  <view class="announcement-search">
+    <input value="{{searchText}}" placeholder="搜索公告" maxlength="80" confirm-type="search" bindinput="input" bindconfirm="search"/>
+    <button wx:if="{{searchText}}" class="search-clear" bindtap="clearSearch" aria-label="清除搜索">清除</button>
+    <button class="search-submit" bindtap="search">搜索</button>
+  </view>
+  <view wx:if="{{loading}}" class="announcement-state">正在读取公告…</view>
+  <view wx:elif="{{!items.length&&!error}}" class="announcement-state">{{keyword?'没有找到相关公告':'暂无公告'}}</view>
+  <button wx:for="{{items}}" wx:key="id" class="announcement-card announcement-row" data-id="{{item.id}}" bindtap="openAnnouncement">
+    <view class="announcement-heading"><text wx:if="{{item.pinned}}" class="announcement-pin">置顶</text><text class="announcement-title">{{item.title}}</text><view class="chevron"/></view>
+    <text wx:if="{{item.summary}}" class="announcement-summary">{{item.summary}}</text>
+    <text class="announcement-date">{{item.date}}</text>
+  </button>
+  <view wx:if="{{error}}" class="announcement-state announcement-error">
+    <text>{{error}}</text>
+    <view class="announcement-actions"><button class="announcement-button" bindtap="retry">重新载入</button><button wx:if="{{!items.length}}" class="announcement-text-button" bindtap="chooseIdentity">登录 / 切换身份</button></view>
+  </view>
+  <button wx:elif="{{hasMore}}" class="announcement-more" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">{{loadingMore?'正在加载…':'加载更多'}}</button>
+  <text wx:elif="{{items.length}}" class="announcement-end">已显示全部公告</text>
+</view>

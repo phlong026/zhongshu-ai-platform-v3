@@ -13,6 +13,7 @@ const TEAM = { 'sales-lead': ['业务团队', 'business-team'], 'project-manager
 const account = (view, extra = '') => '/pages/account/index?view=' + view + extra;
 const ACTIONS = {
   login: () => account('login'), profile: () => account('profile'), messages: () => account('messages'),
+  announcements: () => '/pages/account/announcements/index',
   performance: (engineering, id, owner) => '/pages/admin/tasks/index?view=' + (owner ? 'team' : 'mine'),
   identity: () => account('identity'), help: () => account('help'), privacy: () => account('privacy'), policy: () => account('policy'), agreement: () => account('agreement'),
   services: () => account('services'), selection: () => account('selection'),
@@ -23,7 +24,7 @@ const ACTIONS = {
   course: (eng, id) => account('course', id ? '&id=' + encodeURIComponent(id) : '')
 };
 // actions that need a signed-in account
-const LOGIN_ONLY = ['profile', 'messages', 'performance', 'storeMap', 'academy'];
+const LOGIN_ONLY = ['profile', 'messages', 'announcements', 'performance', 'storeMap', 'academy'];
 const emptyCourse = () => ({ learningLabel: '', courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
 const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
 const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyProfile().avatar, unread: 0, role: '', company: '',
