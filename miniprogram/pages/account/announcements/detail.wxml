@@ -1,0 +1,15 @@
+<brand-header title="公告详情" back="{{true}}"/>
+<view class="announcement-page">
+  <view wx:if="{{loading}}" class="announcement-state">正在读取公告…</view>
+  <view wx:elif="{{error}}" class="announcement-state announcement-error">
+    <text>{{error}}</text>
+    <view class="announcement-actions"><button class="announcement-button" bindtap="load">重新载入</button><button class="announcement-text-button" bindtap="backToList">返回公告列表</button></view>
+    <button class="announcement-text-button" bindtap="chooseIdentity">登录 / 切换身份</button>
+  </view>
+  <view wx:elif="{{announcement}}" class="announcement-card announcement-detail">
+    <text wx:if="{{announcement.pinned}}" class="announcement-pin">置顶</text>
+    <text class="announcement-detail-title">{{announcement.title}}</text>
+    <text class="announcement-date">{{announcement.date}}</text>
+    <text class="announcement-content" selectable="{{true}}">{{announcement.content}}</text>
+  </view>
+</view>
