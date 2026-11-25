@@ -67,6 +67,52 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  }
 
  @Test @org.springframework.transaction.annotation.Transactional
+ void employeeRecoveryIsASubsetOfCashReceiptsAndKeepsLegacyConfirmation() {
+  createCashTables();
+  var actor=fixture.post(fixture.store().orgId(),"finance",null);
+  var other=fixture.post(fixture.store().orgId(),"finance",null);
+  long org=actor.orgId();
+  jdbc.update("""
+      INSERT INTO fr_fin_receipt VALUES
+      (1,?,1000000,'已登记','2026-11-01'), (2,?,20000,'已登记','2026-11-02'),
+      (3,?,99000,'已作废','2026-11-03'), (4,?,88000,'已登记','2026-12-01'),
+      (5,?,77000,'已登记','2026-11-05')
+      """,org,org,org,org,other.orgId());
+  jdbc.update("INSERT INTO fr_fin_refund VALUES(6,?,3000,'已核实','2026-11-06',NULL,'expense','EMPLOYEE')",org);
+  for (long id : List.of(2L,3L,4L,5L)) {
+   commands.record(id==5L?other:actor,"fin-employee-recovery",id,1,"fin-employee-recovery",Map.of("fixture",id),"recover-fixture-"+id);
+  }
+  var oldFacts=jdbc.queryForList("""
+      SELECT 'receipt' AS kind,id::text AS id,amount_cents,'COMPANY' AS funding,received_date::text AS business_date
+      FROM fr_fin_receipt WHERE company_id=? AND status='已登记'
+          AND received_date>='2026-11-01'::date AND received_date<'2026-12-01'::date
+      UNION ALL
+      SELECT refund_direction,id::text,amount_cents,funding_type,date::text FROM fr_fin_refund WHERE company_id=?
+      ORDER BY kind,id
+      """,org,org);
+  String oldSignature=PerfSupport.signature(oldFacts.stream().map(JsonUtils::toJsonString).toList());
+  jdbc.update("""
+      INSERT INTO fr_perf_reconciliation(id,company_id,period,income_cents,paid_cents,net_cents,receipt_count,payment_count,by_user_id,source_snapshot)
+      VALUES(?,?, '2026-11',1020000,0,1020000,2,0,?,?)
+      """,com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),org,actor.userId(),
+      JsonUtils.toJsonString(Map.of("sourceSignature",oldSignature,"grossReceiptsCents",1020000,"grossReceiptsCount",2)));
+  var preview=operating.monthReconciliation(actor,"2026-11");
+  var current=(Map<String,Object>)preview.get("current");
+  var oldConfirmed=(Map<String,Object>)preview.get("confirmed");
+  assertThat(preview.get("needsReview")).isEqualTo(false);
+  assertThat(oldConfirmed).containsEntry("incomeCents",1020000L).doesNotContainKeys("employeeRecoveryCents","employeeRecoveryCount");
+  assertThat(current).containsEntry("employeeRecoveryCents",20000L).containsEntry("employeeRecoveryCount",1)
+      .containsEntry("employeeReturnedCents",3000L).containsEntry("grossReceiptsCents",1020000L)
+      .containsEntry("grossReceiptsCount",2).containsEntry("incomeCents",1020000L)
+      .containsEntry("netCents",1020000L).containsEntry("sourceSignature",oldSignature);
+  var confirmed=operating.reconcile(actor,"2026-11",oldSignature,"employee-recovery-breakdown");
+  assertThat(((Number)confirmed.get("employeeRecoveryCents")).longValue()).isEqualTo(20000L);
+  assertThat(((Number)confirmed.get("employeeRecoveryCount")).intValue()).isEqualTo(1);
+  assertThat(JsonUtils.toJsonString(operating.reconcile(actor,"2026-11",oldSignature,"employee-recovery-breakdown")))
+      .isEqualTo(JsonUtils.toJsonString(confirmed));
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
  void stalePreviewCannotConfirmAndEqualTotalsStillDetectChangedSourceRows(){
   createCashTables();var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
   jdbc.update("INSERT INTO fr_fin_payment VALUES(1,?,20000,'已核实','2026-11-03','COMPANY')",org);
