@@ -175,7 +175,7 @@ public class OrgDirectoryService {
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM pf_org_admin_audit WHERE tenant_id=? AND org_id=?",
                 Long.class, tenant, orgId);
         var rows = jdbc.queryForList("""
-                SELECT a.id,a.action,a.reason,a.create_time,COALESCE(u.nickname,'已删除用户') AS actor_name
+                SELECT a.id,a.action,a.reason,a.request_key,a.create_time,COALESCE(u.nickname,'已删除用户') AS actor_name
                 FROM pf_org_admin_audit a LEFT JOIN system_users u ON u.id=a.actor_id AND u.tenant_id=a.tenant_id AND u.deleted=0
                 WHERE a.tenant_id=? AND a.org_id=? ORDER BY a.create_time DESC,a.id DESC LIMIT ? OFFSET ?
                 """, tenant, orgId, size(pageSize), offset(pageNo, pageSize));
@@ -184,6 +184,11 @@ public class OrgDirectoryService {
 
     @Transactional(rollbackFor = Exception.class)
     public Detail lifecycle(long orgId, String action, String confirmedName, String reason, String requestKey, long actorId) {
+        return lifecycle(orgId,action,confirmedName,reason,requestKey,actorId,null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Detail lifecycle(long orgId, String action, String confirmedName, String reason, String requestKey, long actorId, String expectedAuditId) {
         if (reason == null || reason.isBlank() || reason.length() > 500 || requestKey == null
                 || requestKey.isBlank() || requestKey.length() > 100) throw new ServiceException(400, "请填写操作原因");
         if (action == null || !List.of("close", "reopen", "delete", "restore").contains(action)) throw new ServiceException(400, "操作无效");
@@ -200,6 +205,12 @@ public class OrgDirectoryService {
                 throw new ServiceException(409, "该请求已用于其他操作");
             }
             return detail(orgId);
+        }
+        // Rehearsal/restore commands must not overwrite a later operator's decision between GET and POST.
+        if (expectedAuditId != null) {
+            var latest = jdbc.queryForList("SELECT id FROM pf_org_admin_audit WHERE tenant_id=? AND org_id=? ORDER BY create_time DESC,id DESC LIMIT 1",String.class,tenant,orgId);
+            String actual = latest.isEmpty() ? "NONE" : latest.get(0);
+            if (!actual.equals(expectedAuditId)) throw new ServiceException(409,"组织操作记录已变化，请重新核对");
         }
         if ("close".equals(action) || "delete".equals(action)) {
             Long pending = jdbc.queryForObject("SELECT COUNT(*) FROM org_point_ledger r WHERE r.org_id=? AND r.type='RESERVE' AND NOT EXISTS (SELECT 1 FROM org_point_ledger t WHERE t.operation_id=r.operation_id AND t.type IN ('SETTLE','RELEASE'))", Long.class, orgId);

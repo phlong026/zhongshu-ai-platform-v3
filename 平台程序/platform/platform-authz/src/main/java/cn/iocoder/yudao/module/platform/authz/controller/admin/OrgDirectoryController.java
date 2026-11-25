@@ -63,10 +63,12 @@ public class OrgDirectoryController {
             @RequestParam(defaultValue="1") int pageNo,@RequestParam(defaultValue="20") int pageSize) {
         return success(service.audits(orgId,pageNo,pageSize));
     }
-    public record LifecycleRequest(String action,String confirmedName,String reason,String requestKey) { }
+    public record LifecycleRequest(String action,String confirmedName,String reason,String requestKey,String expectedAuditId) {
+        public LifecycleRequest(String action,String confirmedName,String reason,String requestKey) { this(action,confirmedName,reason,requestKey,null); }
+    }
     @PostMapping("/{orgId}/lifecycle")
     @PreAuthorize("@ss.hasPermission('platform:org:onboard') && @ss.hasRole('super_admin')")
     public CommonResult<OrgDirectoryService.Detail> lifecycle(@PathVariable long orgId,@RequestBody LifecycleRequest body) {
-        return success(service.lifecycle(orgId,body.action(),body.confirmedName(),body.reason(),body.requestKey(),SecurityFrameworkUtils.getLoginUserId()));
+        return success(service.lifecycle(orgId,body.action(),body.confirmedName(),body.reason(),body.requestKey(),SecurityFrameworkUtils.getLoginUserId(),body.expectedAuditId()));
     }
 }

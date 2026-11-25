@@ -93,6 +93,34 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(points.findAccount(store).balance()).isEqualTo(105);
     }
 
+    @Test void backfillOnlyCreatesZeroPoolAndKeepsExistingBalanceAndSuspension() {
+        makeSuperAdministrator(maker);
+        long target=org("store","存量公司");String key="backfill:"+target;
+        assertThat(points.findAccount(target)).isNull();
+        assertThat(service.provisionPool(maker,target,"已核对存量公司",key).balance()).isZero();
+        points.adjustBalance(target,15,"existing:"+target,"已存在真实额度",maker);
+        jdbc.update("UPDATE org_point_account SET status='SUSPENDED' WHERE org_id=?",target);
+        var replay=service.provisionPool(maker,target,"已核对存量公司",key);
+        assertThat(replay.balance()).isEqualTo(15);assertThat(replay.status()).isEqualTo("SUSPENDED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_pool_backfill WHERE org_id=?",Long.class,target)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=?",Long.class,target)).isEqualTo(1);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"不同内容",key)).hasMessageContaining("冲突");
+        assertThatThrownBy(()->service.provisionPool(checker,target,"没有超管权限",key+"-denied")).hasMessageContaining("权限范围");
+        jdbc.update("UPDATE system_dept SET tenant_id=? WHERE id=?",TENANT+1,target);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"已核对存量公司",key)).hasMessageContaining("权限范围");
+    }
+
+    @Test void backfillAndAuditRollbackTogetherAndNeverReenableDisabledOrganizations() {
+        makeSuperAdministrator(maker);long target=org("headquarters","存量总部");
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(tx->{
+            service.provisionPool(maker,target,"演练回滚","rollback:"+target);tx.setRollbackOnly();
+        });
+        assertThat(points.findAccount(target)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_pool_backfill WHERE org_id=?",Long.class,target)).isZero();
+        jdbc.update("UPDATE pf_org_unit SET status='DISABLED' WHERE dept_id=?",target);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"停用公司","disabled:"+target)).hasMessageContaining("权限范围");
+    }
+
     @Test void superAdministratorCreditsImmediatelyAndReplaysWithoutDoubleCredit() {
         makeSuperAdministrator(maker);
         var first=service.creditDirectly(maker,store,12,"联调赠分","direct:test");
