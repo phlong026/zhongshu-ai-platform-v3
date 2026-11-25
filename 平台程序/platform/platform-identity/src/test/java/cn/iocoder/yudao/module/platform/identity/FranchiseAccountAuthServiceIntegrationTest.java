@@ -1078,7 +1078,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     private String passwordUpgradeSchema() {
         String schema = "password_upgrade_" + IDS.incrementAndGet();
         jdbc.execute("CREATE SCHEMA " + schema);
-        for (String table : List.of("system_users", "pf_org_unit", "pf_staff_post", "pf_franchise_account")) {
+        for (String table : List.of("system_users", "system_dept", "pf_org_unit", "pf_staff_post", "pf_franchise_account")) {
             jdbc.execute("CREATE TABLE " + schema + "." + table + " (LIKE " + table + " INCLUDING ALL)");
         }
         jdbc.execute("CREATE TABLE " + schema + ".pf_staff_password_policy "
