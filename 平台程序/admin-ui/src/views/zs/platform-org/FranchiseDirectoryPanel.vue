@@ -26,7 +26,8 @@
       <el-table-column label="名称 / 品牌" min-width="210">
         <template #default="{ row }"
           ><strong>{{ row.name || row.originalRegionText }}</strong
-          ><div class="muted">{{ row.brandName || row.brand }}</div></template
+          ><div class="muted">{{ row.brandName || row.brand }}</div
+          ><div v-if="row.publicName" class="muted">地图：{{ row.publicName }}</div></template
         >
       </el-table-column>
       <el-table-column label="地区资料" min-width="240">
@@ -50,8 +51,9 @@
       <el-table-column label="账号" width="100">
         <template #default="{ row }">{{ row.linkedOrgId ? '已关联' : '未开通' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="174" fixed="right">
+      <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" :disabled="busy" @click="openMapEditor(row)">地图名称</el-button>
           <el-button
             link
             type="primary"
@@ -80,6 +82,22 @@
       @current-change="loadList"
       class="directory-pagination"
     />
+
+    <el-dialog
+      v-model="mapEditVisible"
+      title="公开地图名称"
+      width="min(520px, 96vw)"
+      :close-on-click-modal="!saving"
+      :close-on-press-escape="!saving"
+      :show-close="!saving"
+    >
+      <el-input v-model.trim="mapPublicName" maxlength="128" :disabled="saving" placeholder="不含人员姓名；留空则显示品牌与行政区" />
+      <el-alert v-if="mapEditError" :title="mapEditError" type="error" :closable="false" />
+      <template #footer>
+        <el-button :disabled="saving" @click="mapEditVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="saveMapDisplay">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="importVisible"
@@ -242,6 +260,7 @@ import {
   getDirectoryRegions,
   createDirectoryRecord,
   updateDirectoryRecord,
+  updateDirectoryMapDisplay,
   precheckDirectoryImport,
   submitDirectoryImport,
   type DirectoryItem,
@@ -265,6 +284,10 @@ const editVisible = ref(false)
 const editing = ref<DirectoryItem | null>(null)
 const saving = ref(false)
 const editError = ref('')
+const mapEditVisible = ref(false)
+const mapEditing = ref<DirectoryItem | null>(null)
+const mapPublicName = ref('')
+const mapEditError = ref('')
 const draft = reactive<DirectoryInput>({
   name: '',
   brand: '',
@@ -406,6 +429,38 @@ function openEditor(item?: DirectoryItem) {
   editVisible.value = true
 }
 
+function openMapEditor(item: DirectoryItem) {
+  if (busy.value) return
+  mapEditing.value = item
+  mapPublicName.value = item.publicName || ''
+  mapEditError.value = ''
+  mapEditVisible.value = true
+}
+
+async function saveMapDisplay() {
+  if (busy.value || !mapEditing.value) return
+  const generation = lifecycleGeneration
+  const item = mapEditing.value
+  saving.value = true
+  mapEditError.value = ''
+  try {
+    await updateDirectoryMapDisplay(item.id, {
+      publicName: mapPublicName.value.trim(),
+      expectedVersion: item.version
+    })
+    if (!active || generation !== lifecycleGeneration) return
+    mapEditVisible.value = false
+    ElMessage.success('地图名称已保存')
+    await loadList()
+  } catch (error: any) {
+    if (active && generation === lifecycleGeneration) {
+      mapEditError.value = error?.msg || error?.message || '保存失败，请重新打开记录后核对'
+    }
+  } finally {
+    if (active && generation === lifecycleGeneration) saving.value = false
+  }
+}
+
 async function saveRecord() {
   if (busy.value) return
   editError.value = ''
@@ -536,6 +591,10 @@ function dispose() {
   editVisible.value = false
   importVisible.value = false
   editing.value = null
+  mapEditVisible.value = false
+  mapEditing.value = null
+  mapPublicName.value = ''
+  mapEditError.value = ''
   Object.assign(draft, { name: '', brand: '', originalRegionText: '', regionCodes: [] })
   saving.value = false
   importing.value = false

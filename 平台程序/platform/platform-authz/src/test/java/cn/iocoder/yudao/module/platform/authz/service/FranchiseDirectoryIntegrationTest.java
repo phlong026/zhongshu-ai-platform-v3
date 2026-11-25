@@ -56,12 +56,14 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach void setup() {
         tenant=IDS.incrementAndGet();TenantContextHolder.setTenantId(tenant);headquarters();
+        // The profile is optional in the platform-authz module fixture; the full server owns this table.
+        jdbc.execute("CREATE TABLE IF NOT EXISTS pf_org_profile(tenant_id bigint NOT NULL,org_id bigint NOT NULL REFERENCES pf_org_unit(dept_id),contact_name varchar(40),contact_mobile varchar(20),address varchar(300),version bigint NOT NULL DEFAULT 0,updated_by bigint,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(tenant_id,org_id))");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('store','test','门店') ON CONFLICT DO NOTHING");
         jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types,lead) VALUES('boss','test','store,headquarters',false) ON CONFLICT(role_code) DO UPDATE SET org_types='store,headquarters'");
         system.roleIdsByCode.put("boss",501L);
     }
     @AfterEach void clear(){TenantContextHolder.clear();selected.value=null;}
-    private void headquarters(){selected.value=new PostSnapshot(1,7,999,"headquarters","sales",null,false,Set.of());}
+    private void headquarters(){selected.value=new PostSnapshot(1,7,999,"headquarters","hq-admin",null,false,Set.of());}
     private FranchiseDirectoryWorkbook.Row row(String key,String brand,String raw,List<String> codes) {
         return new FranchiseDirectoryWorkbook.Row(key,3,"Synthetic","C3",brand,brand+" · "+raw,"湖北省","武汉市",raw,"COVERAGE",codes,"");
     }
@@ -117,17 +119,60 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(regions.all()).filteredOn(r->r.code().equals("110101")).allMatch(r->r.cityCode().isEmpty());
     }
 
-    @Test void allValidHeadquartersRolesCanReadAllBrandsWhileStoreStaffRemainBrandScoped() {
+    @Test void onlyHeadquartersAdminAndFinanceReadAllBrandsWhileStoreStaffRemainBrandScoped() {
         directory.importRows(List.of(row("a","测试甲","黄陂区",List.of("420116")),row("b","测试乙","新洲区",List.of("420117"))),false,7);
         var opened=onboard.onboardWithDistrict("测试甲","湖北省","武汉市","黄陂区","测试老板","13900001231",null,null,"",7,"420116");
         assertThat(system.roleHasPermission("sales",FranchiseMapService.READ_ALL)).isFalse();
         assertThat(records(maps.snapshot())).hasSize(3).extracting(FranchiseMapService.MapRecord::brandName).contains("测试甲","测试乙");
+        for(String role:List.of("hq-admin","finance","finance-lead")) {
+            selected.value=new PostSnapshot(1,7,999,"headquarters",role,null,false,Set.of());
+            assertThat(records(maps.snapshot())).hasSize(3);
+        }
+        for(String role:List.of("sales","hq-design-admin","hq-operations","boss")) {
+            selected.value=new PostSnapshot(1,7,999,"headquarters",role,null,false,Set.of());
+            assertThatThrownBy(()->maps.snapshot()).isInstanceOf(ServiceException.class);
+        }
         selected.value=new PostSnapshot(2,7,opened.orgId(),"store","finance",null,false,Set.of());
         var own=maps.snapshot();assertThat(own.get("scope")).isEqualTo("brand");
         assertThat(records(own)).hasSize(2).allMatch(r->r.brandName().equals("测试甲"));
         headquarters();jdbc.update("UPDATE pf_org_unit SET status='DISABLED' WHERE dept_id=?",opened.orgId());
         assertThat(records(maps.snapshot())).hasSize(2);
         selected.value=null;assertThatThrownBy(()->maps.snapshot()).isInstanceOf(ServiceException.class);
+    }
+
+    @Test void mapProjectionNeverReturnsInternalNamesRawImportsOrOrgReferencesAndKeepsPublicAddressTenantScoped() {
+        var opened=onboard.onboardWithDistrict("测试甲","湖北省","武汉市","黄陂区","李秘密","13900001331",null,null,"",7,"420116");
+        var other=onboard.onboardWithDistrict("测试甲","湖北省","武汉市","新洲区","王私有","13900001332",null,null,"",7,"420117");
+        jdbc.update("INSERT INTO pf_org_profile(tenant_id,org_id,contact_name,contact_mobile,address) VALUES(?,?,?,?,?)",tenant,other.orgId(),"赵联系人","13900001333","武汉市新洲区示例路8号");
+        jdbc.update("INSERT INTO pf_org_profile(tenant_id,org_id,address) VALUES(?,?,?)",tenant+100000,other.orgId(),"其他租户秘密地址");
+        jdbc.update("UPDATE pf_franchise_directory SET name=?,original_region_text=? WHERE tenant_id=? AND org_id=?","王私有-内部名称","联系人王私有13900001332",tenant,other.orgId());
+        selected.value=new PostSnapshot(2,7,opened.orgId(),"store","sales",null,false,Set.of());
+        var snapshot=maps.snapshot();
+        var row=records(snapshot).stream().filter(r->r.regionCodes().contains("420117")).findFirst().orElseThrow();
+        assertThat(row.name()).isEqualTo("测试甲 · 湖北省·武汉市·新洲区门店");
+        assertThat(row.publicAddress()).isEqualTo("武汉市新洲区示例路8号");
+        String json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(snapshot);
+        assertThat(json).doesNotContain("李秘密","王私有","赵联系人","13900001331","13900001332","13900001333","其他租户秘密地址","originalRegionText","linkedOrgId","contact_name","contact_mobile","loginName","userId");
+        assertThat(row.id()).isNotEqualTo(Long.toString(other.orgId()));
+        assertThat(((List<FranchiseMapService.Store>)snapshot.get("stores"))).extracting(FranchiseMapService.Store::id).contains(row.id());
+    }
+
+    @Test void publicMapNameHasIndependentRevisionAndDoesNotRewriteInternalAccountNames() {
+        var opened=onboard.onboardWithDistrict("测试甲","湖北省","武汉市","黄陂区","陈私有","13900001334",null,null,"",7,"420116");
+        var original=directory.get(opened.accountId());
+        var input=new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店",original.version());
+        var updated=directory.updateMapDisplay(original.id(),input);
+        assertThat(updated.publicName()).isEqualTo(input.publicName());
+        assertThat(updated.name()).isEqualTo(original.name());
+        assertThat(records(maps.snapshot()).get(0).name()).isEqualTo(input.publicName());
+        assertThatThrownBy(()->directory.updateMapDisplay(original.id(),input)).isInstanceOf(ServiceException.class).hasMessageContaining("已变化");
+        assertThatThrownBy(()->directory.updateMapDisplay(original.id(),new FranchiseDirectoryService.MapDisplayRequest("陈私有门店",updated.version()))).isInstanceOf(ServiceException.class).hasMessageContaining("人员姓名");
+        assertThatThrownBy(()->directory.updateMapDisplay(original.id(),new FranchiseDirectoryService.MapDisplayRequest("门店13900001334",updated.version()))).isInstanceOf(ServiceException.class).hasMessageContaining("联系方式");
+        var cleared=directory.updateMapDisplay(original.id(),new FranchiseDirectoryService.MapDisplayRequest("",updated.version()));
+        assertThat(cleared.publicName()).isEmpty();
+        assertThat(records(maps.snapshot()).get(0).name()).doesNotContain("陈私有");
+        TenantContextHolder.setTenantId(tenant+100000);
+        assertThatThrownBy(()->directory.updateMapDisplay(original.id(),new FranchiseDirectoryService.MapDisplayRequest("其他租户",cleared.version()))).isInstanceOf(ServiceException.class);
     }
 
     @Test void importsAndDirectoryReadsRemainTenantScoped() {

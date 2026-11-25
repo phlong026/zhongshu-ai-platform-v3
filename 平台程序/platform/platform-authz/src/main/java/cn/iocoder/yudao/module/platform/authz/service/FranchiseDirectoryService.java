@@ -21,11 +21,12 @@ public class FranchiseDirectoryService {
     public record Item(String id,String name,String brandId,String brandName,String brandColor,String recordType,
                        String originalRegionText,String matchStatus,List<String> regionCodes,String provinceCode,
                        String cityCode,String linkedOrgId,String sourceKey,Integer sourceRow,String sourceSheet,
-                       String sourceCell,String brand,String province,String city,String area,String districtCode,long version) { }
+                       String sourceCell,String brand,String province,String city,String area,String districtCode,long version,String publicName) { }
     public record RecordRequest(String name,String brand,String recordType,String originalRegionText,List<String> regionCodes,
                                 String provinceCode,String cityCode,Long expectedVersion) { }
     public record FromDirectoryRequest(String recordId,Long expectedVersion,String adminName,String adminMobile,
                                        String areaPinyin,String ownerPinyin,String remark,String districtCode) { }
+    public record MapDisplayRequest(String publicName,Long expectedVersion) { }
     public record ImportRow(String sourceKey,int sourceRow,String sourceSheet,String sourceCell,String brand,String name,
                             String recordType,String originalRegionText,String provinceCode,String cityCode,List<String> regionCodes,
                             String matchStatus,String status,String message,String recordId) { }
@@ -66,7 +67,7 @@ public class FranchiseDirectoryService {
             r.getString("match_status"),List.of(codes),pc,cc,r.getString("org_id"),r.getString("source_key"),
             r.getObject("source_row",Integer.class),text(r.getString("source_sheet")),text(r.getString("source_cell")),
             r.getString("brand_name"),province,city,district==null?r.getString("original_region_text"):district.name(),
-            district==null?"":district.code(),r.getLong("version"));
+            district==null?"":district.code(),r.getLong("version"),text(r.getString("public_name")));
     }
     public Item get(String id) {
         var rows=query(" AND d.id=?",id);if(rows.isEmpty())throw new ServiceException(404,"加盟商名录记录不存在");return rows.get(0);
@@ -196,6 +197,24 @@ public class FranchiseDirectoryService {
         var row=requestRow(input,"manual:"+UUID.randomUUID());
         ImportRow result=persist(prepare(row,regions.all()),actor,true);return get(result.recordId());
     }
+    @Transactional(rollbackFor=Exception.class)
+    public Item updateMapDisplay(String id,MapDisplayRequest input) {
+        lock(id);Item before=get(id);
+        if(input==null||input.expectedVersion()==null||input.expectedVersion()!=before.version())throw new ServiceException(409,"名录资料已变化，请重新载入");
+        String name=text(input.publicName());
+        if(name.length()>128||name.codePoints().anyMatch(Character::isISOControl)
+                ||name.matches(".*(?:\\d[ -]?){7,}.*"))throw invalid("公开地图名称不能包含联系方式或控制字符，最多128字");
+        if(!name.isEmpty()&&before.linkedOrgId()!=null) {
+            var people=jdbc.queryForList("SELECT owner_name,login_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=?",tenant(),Long.parseLong(before.linkedOrgId()));
+            for(var person:people)for(String key:List.of("owner_name","login_name")) {
+                String privateValue=text((String)person.get(key));
+                if(privateValue.length()>1&&name.toLowerCase(Locale.ROOT).contains(privateValue.toLowerCase(Locale.ROOT)))throw invalid("公开地图名称不能包含人员姓名或登录账号");
+            }
+        }
+        jdbc.update("UPDATE pf_franchise_directory SET public_name=?,version=version+1,updated_at=now() WHERE tenant_id=? AND id=?",emptyNull(name),tenant(),id);
+        return get(id);
+    }
+
     @Transactional(rollbackFor=Exception.class)
     public Item update(String id,RecordRequest input,long actor) {
         lock(id);Item before=get(id);

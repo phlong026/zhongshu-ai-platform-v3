@@ -20,10 +20,10 @@ public class FranchiseMapService {
         this.current=current;this.jdbc=jdbc;this.directory=directory;this.regions=regions;
     }
     public record Store(String id,String name,String brandId,String brandName,String brandColor,String provinceCode,String provinceName,
-                        String cityCode,String cityName,String districtCode,String districtName,Double longitude,Double latitude,String locationPrecision) { }
+                        String cityCode,String cityName,String districtCode,String districtName,Double longitude,Double latitude,String locationPrecision,String publicAddress) { }
     public record Brand(String id,String name,String color) { }
-    public record MapRecord(String id,String name,String brandId,String brandName,String brandColor,String recordType,String originalRegionText,
-                            String matchStatus,List<String> regionCodes,String provinceCode,String cityCode,String linkedOrgId) { }
+    public record MapRecord(String id,String name,String brandId,String brandName,String brandColor,String recordType,
+                            String matchStatus,List<String> regionCodes,String provinceCode,String cityCode,String publicAddress) { }
     public record Point(String id,String recordId,String regionCode,double longitude,double latitude,String locationPrecision) { }
 
     public static String brandColor(long id) {
@@ -43,7 +43,8 @@ public class FranchiseMapService {
     }
     private void requireReader() {
         var post=current.require();
-        if(!List.of("headquarters","store").contains(post.orgType()))throw new ServiceException(403,"当前工作身份无权查看加盟商地图");
+        if(!"store".equals(post.orgType())&&!("headquarters".equals(post.orgType())
+                &&List.of("hq-admin","finance","finance-lead").contains(post.roleCode())))throw new ServiceException(403,"当前工作身份无权查看加盟商地图");
     }
 
     @Transactional(isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ,readOnly=true)
@@ -59,14 +60,20 @@ public class FranchiseMapService {
             brand=owners.get(0).get("id").toString();brandName=(String)owners.get(0).get("name");
         }
         var items=directory.mapRecords(all?null:Long.parseLong(brand));
+        Map<String,String> addresses=new HashMap<>();
+        jdbc.query("SELECT org_id,address FROM pf_org_profile WHERE tenant_id=?",r->{
+            addresses.put(r.getString("org_id"),r.getString("address")==null?"":r.getString("address").trim());
+        },tenant);
         Map<String,FranchiseRegionCatalog.Region> catalog=new HashMap<>();regions.all().forEach(r->catalog.put(r.code(),r));
         List<MapRecord> records=new ArrayList<>();List<Point> points=new ArrayList<>();List<Store> stores=new ArrayList<>();
         Object[] brandArgs=all?new Object[]{tenant}:new Object[]{tenant,Long.parseLong(brand)};
         var brands=jdbc.query("SELECT id,name FROM pf_map_brand WHERE tenant_id=?"+(all?"":" AND id=?")+" ORDER BY name,id",
                 (r,i)->new Brand(r.getString("id"),r.getString("name"),brandColor(r.getLong("id"),r.getString("name"))),brandArgs);
         for(var item:items) {
-            records.add(new MapRecord(item.id(),item.name(),item.brandId(),item.brandName(),item.brandColor(),item.recordType(),
-                    item.originalRegionText(),item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),item.linkedOrgId()));
+            String publicName=publicName(item,catalog);
+            String publicAddress=item.linkedOrgId()==null?"":addresses.getOrDefault(item.linkedOrgId(),"");
+            records.add(new MapRecord(item.id(),publicName,item.brandId(),item.brandName(),item.brandColor(),item.recordType(),
+                    item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),publicAddress));
             FranchiseRegionCatalog.Region firstDistrict=null;
             for(String code:item.regionCodes()) {
                 var region=catalog.get(code);
@@ -77,13 +84,23 @@ public class FranchiseMapService {
             // Older clients only understand stores: do not label coverage source rows as stores.
             if(item.recordType().equals("FRANCHISE")) {
                 var r=firstDistrict;
-                stores.add(new Store(item.linkedOrgId()==null?item.id():item.linkedOrgId(),item.name(),item.brandId(),item.brandName(),item.brandColor(),
+                stores.add(new Store(item.id(),publicName,item.brandId(),item.brandName(),item.brandColor(),
                         item.provinceCode(),item.province(),item.cityCode(),item.city(),r==null?"":r.code(),r==null?"":r.name(),
-                        r==null?null:r.longitude(),r==null?null:r.latitude(),r==null?"unknown":"district"));
+                        r==null?null:r.longitude(),r==null?null:r.latitude(),r==null?"unknown":"district",publicAddress));
             }
         }
         Map<String,Object> result=new LinkedHashMap<>();result.put("schemaVersion",2);result.put("scope",all?"all":"brand");
         result.put("brandId",brand);result.put("brandName",brandName);result.put("brands",brands);
         result.put("records",records);result.put("points",points);result.put("stores",stores);return result;
+    }
+
+    private static String publicName(FranchiseDirectoryService.Item item,Map<String,FranchiseRegionCatalog.Region> catalog) {
+        if(item.publicName()!=null&&!item.publicName().isBlank())return item.publicName();
+        LinkedHashSet<String> location=new LinkedHashSet<>();
+        if(catalog.containsKey(item.provinceCode()))location.add(catalog.get(item.provinceCode()).name());
+        if(catalog.containsKey(item.cityCode()))location.add(catalog.get(item.cityCode()).name());
+        for(String code:item.regionCodes())if(catalog.containsKey(code))location.add(catalog.get(code).name());
+        String region=location.isEmpty()?"地区待完善":String.join("·",location);
+        return item.brandName()+" · "+region+("FRANCHISE".equals(item.recordType())?"门店":"覆盖记录");
     }
 }
