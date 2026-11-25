@@ -2,7 +2,7 @@
 const copy=require('./clone');
 const current=()=>getCurrentPages().slice(-1)[0];
 const tabs=['home','business','engineering','management','profile'].map(v=>'/pages/'+v+'/index');
-const salesTabs={creation:'/pages/home/index',design:'/pages/engineering/index',customers:'/pages/management/index'};
+const salesTabs={creation:'/pages/home/index',customers:'/pages/management/index'};
 let pendingTabEntry=null;
 const stateKeys=["form","keyword","filter","versionFilter","flowTab","statusFilter","sort","due","nodeFilter","materialFilter","nodeId","mode","destination","category","tab","orderTab","messageTab","financeTab","dataTab","activeCustomerTab","caseTab","floor","selectedPlan","searchWidth","searchDepth","pickingRef","caseItem","filteredCases","taskFilter","recordFilter","editingText","optimizeRequirement","expanded","courseTab"];
 function apiSession(){try{const auth=require('../api/auth'),http=require('../api/http');const token=http.token();const post=token?auth.currentApiPost():null;return post?{post,gen:http.sessionGeneration()}:null;}catch(e){return null;}}
@@ -10,9 +10,11 @@ function scope(){const api=apiSession();if(api){const p=api.post;return ['api',p
 // Resolve old sales entry paths before opening a page. Native switchTab cannot
 // carry query parameters; the destination consumes this scoped intent once.
 function salesDestination(destination){
- const [path,query='']=destination.split('?'),kind=Object.keys(salesTabs).find(key=>path==='/pages/'+key+'/index');
+ const [path,query='']=destination.split('?'),kind=['creation','design','customers'].find(key=>path==='/pages/'+key+'/index');
  if(!kind)return null;
  const api=apiSession();if(!api||!['sales','sales-lead'].includes(api.post.roleCode))return null;
+ // The retired sales scheme Tab is now the inspiration tool. Keep other roles' routes intact.
+ if(kind==='design')return {url:'/design-migration/pages/library/index'};
  const options={};
  for(const pair of query.split('&')){
   const split=pair.indexOf('='),key=split<0?pair:pair.slice(0,split);
@@ -56,10 +58,16 @@ function parent(page=current()){
   const next=Object.prototype.hasOwnProperty.call(map,v)?map[v]:'delivery',c=d.customer;
   return next&&(!c||require('./access').workflow(next,c,false))?target('/pages/workflow/index',next,id):homeUrl();
  }
- if(route==='pages/workflow/explore/index')return '/pages/design/index';
+ if(route==='pages/workflow/explore/index'){const api=apiSession();return api&&['sales','sales-lead'].includes(api.post.roleCode)?'/pages/business/index':'/pages/design/index';}
  if(route==='pages/admin/finance-desk/index'){const D=require('./finance-desk');return ['statement','partner'].includes(v)?D.url(require('./access').context().orgType==='headquarters'?'partners':'projects'):v==='project'?D.url('projects'):homeUrl();}
  if(route==='pages/workflow/quote-export/index')return target('/pages/workflow/index','budget-result',id);
  if(route==='pages/build/index')return v==='projects'?homeUrl():target('/pages/build/index',v==='overview'?'projects':'overview',id);
+ if(route==='pages/account/announcements/detail')return '/pages/account/announcements/index';
+ if(route==='pages/account/announcements/index'){
+  const session=apiSession(),O=require('./organization');
+  const profile=session&&O.navigation(O.apiContext(session.post)).tabs.find(tab=>tab.index===4);
+  return profile?profile.url:'/pages/profile/index';
+ }
  if(route==='pages/account/index'){
   const map={course:'learning',resource:'learning',service:'services',request:'service',product:'selection',procure:'product',purchase:'purchases',order:'orders',plan:'order',delivery:'order',cancel:'order',feedback:'help',binding:'privacy',devices:'privacy',permissions:'privacy',policy:'privacy',agreement:'privacy'};
   return map[v]?target('/pages/account/index',map[v],id,{service:o.service}):'/pages/profile/index';

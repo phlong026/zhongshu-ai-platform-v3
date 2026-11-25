@@ -185,7 +185,7 @@ test('全部真实工作台模板保留刷新中的 todo-preview，并提供局�
  const {render}=require('./role-page-runtime.cjs'),flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]);
  const surfaces=[
   ['pages/business/index.wxml',{guest:false,isSalesHome:true}],
-  ['pages/engineering/index.wxml',{guest:false,canWork:true}],
+  ['pages/engineering/index.wxml',{guest:false,canWork:true,redirectingSales:false}],
   ['pages/build/home/index.wxml',{eng:{},homeMounted:true,workspaceView:'home'}],
   ['pages/admin/home/index.wxml',{desk:{}}],
   ['pages/admin/finance-desk/index.wxml',{view:'desk',ready:true,financeRefreshing:false}],
@@ -199,6 +199,15 @@ test('全部真实工作台模板保留刷新中的 todo-preview，并提供局�
   const retry=file.includes('finance-desk')?'refreshFinanceTasks':'retryPlatformTodos';
   if(state.refreshError)assert.ok(nodes.some(n=>n.attrs?.bindtap===retry),file+' has local retry');
  }
+});
+
+test('退役销售方案入口跳转期间不绘制其他岗位的工程待办',async()=>{
+ const h=await loadedTodos();
+ const {render}=require('./role-page-runtime.cjs'),flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]);
+ const nodes=flat(render(path.join(root,'miniprogram/pages/engineering/index.wxml'),{
+  guest:false,canWork:true,redirectingSales:true,platformTodos:h.page.data.platformTodos
+ }));
+ assert.equal(nodes.some(n=>n.tag==='todo-preview'),false);
 });
 
 test('老板今日待办仅预览三条，全部角标表示未完成总数，两个入口独立',()=>{

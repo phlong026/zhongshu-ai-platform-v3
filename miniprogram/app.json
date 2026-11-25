@@ -43,7 +43,9 @@
         "index",
         "training/index",
         "store-map/index",
-        "store-profile/index"
+        "store-profile/index",
+        "announcements/index",
+        "announcements/detail"
       ],
       "root": "pages/account",
       "name": "account-workflow"

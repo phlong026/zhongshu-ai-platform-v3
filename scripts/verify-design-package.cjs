@@ -43,16 +43,26 @@ const path = require('path');
   // 切生产收尾批（Codex R2 P2）：cases/entries/explore/studio 段随演示 seed 与本地链下线摘除——
   // 存活断言保留：分包归属（主包无 design 页）、loadSubpackage 禁依赖、入口渲染图分包归属
   checkImages('design entrance');
-  // Codex R3 P2：四入口跳转断言复活——mock 平台会话（design:use 三岗）后逐入口跳转匹配目标 view
+  // Sales no longer owns a scheme Tab: old paths must enter the retained inspiration tool.
   global.wx.request = o => o.fail && o.fail({ errMsg: 'request:fail no-handler' }); // explore 拉数走错误态（route/view 仍设置）
   const auth = require('../miniprogram/api/auth'), httpApi = require('../miniprogram/api/http');
   auth.saveLogin({ accessToken: 'design-t', posts: [] });
-  auth.savePosts([{ postId: 21, roleCode: 'sales', orgType: 'store' }]);
-  httpApi.saveSession({ postId: 21 });
+  for (const role of ['sales', 'sales-lead']) {
+    auth.savePosts([{ postId: 21, roleCode: role, orgType: 'store' }]);
+    httpApi.saveSession({ postId: 21 });
+    await runtime.callWxMethod('reLaunch', { url: '/pages/design/index' });
+    const inspiration = getCurrentPages().at(-1);
+    assert.equal(inspiration.route, 'design-migration/pages/library/index', role + ' 旧方案入口进入灵感检索');
+    assert.equal(inspiration.data.accessReady, true, role + ' 可以读取保留的灵感库');
+  }
+  // In-flight legacy design administration is a separate migration task. Its existing
+  // authorized tools retain their subpackage and asset contract until that migration.
+  auth.savePosts([{ postId: 22, roleCode: 'hq-design-admin', orgType: 'headquarters' }]);
+  httpApi.saveSession({ postId: 22 });
   await runtime.callWxMethod('reLaunch', { url: '/pages/design/index' });
   const dpage = getCurrentPages().at(-1);
   dpage.onShow();
-  assert.equal(dpage.data.entranceEnabled, true, 'sales 岗授权态入口可用');
+  assert.equal(dpage.data.entranceEnabled, true, '在途旧设计行政授权入口保持可用');
   const targets = {
     inspiration: { route: 'design-migration/pages/library/index' },
     'ai-config': { route: 'design-migration/pages/ai-design/index', line: 'FLAT' },
@@ -66,6 +76,6 @@ const path = require('path');
     assert.equal(target.route, expected.route, entry.view + ' 入口跳转目标');
     if (expected.line) assert.equal(target.data.line, expected.line, entry.view + ' 设计类型透传');
   }
-  assert(dpage.data.entries.length === 4, '四入口完整');
+  assert(dpage.data.entries.length === 4, '在途旧设计行政的四入口完整');
   console.log(JSON.stringify({ ...report, renderedImages: imageChecks }, null, 2));
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });
