@@ -42,7 +42,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
       api: {
         publications: { create, page: list, verify, link },
         publisherAccounts: { list: accounts },
-        drafts: { works },
+        drafts: { works, work: async () => null },
         tasks: { page: async () => [] }
       },
       validatePublicationForm(form) {

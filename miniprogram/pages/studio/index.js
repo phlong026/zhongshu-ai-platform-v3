@@ -735,14 +735,17 @@ async loadApiResult(taskId) {
  }catch(e){if(current()&&!e.silent)this.setData({resultError:P.degradeMessage(e)});}
  finally{if(current())this.setData({resultLoading:false});}
 },
-/** 在线作品回读：drafts.works 找标题/文案（best-effort，失败沿用当前表单值） */
+/** 本人作品正文只从详情读取；已填写或恢复的发布表单优先。 */
 loadApiWork(workId) {
 this.setData({ workId, publishOnline: true });
 const alive=http.requestGuard('publication-work'),scope=this.actorScope;
-contentApi.drafts.works().then(rows => {
-if(!alive()||this.__closed||scope!==studio.scope()||this.data.view!=='publish'||String(this.data.workId)!==String(workId))return;
-const work=P.rowsOf(rows).find(item=>item&&String(item.workId!=null?item.workId:item.id)===String(workId));
-if(work){const title=String(work.title||this.data.title||'').trim();const publishText=String(work.script||work.text||work.publishText||'').trim()||title;this.setData({title,publishText,cover:String(work.cover||work.image||this.data.cover||'/pages/studio/assets/studio-publication-cover.jpg')});}
+const titleEdit=this.__workTitleEdit,textEdit=this.__workTextEdit;
+return contentApi.drafts.work(workId).then(work => {
+if(!alive()||this.__closed||scope!==studio.scope()||this.data.view!=='publish'||String(this.data.workId)!==String(workId)||String(work?.workId)!==String(workId)||this.__publicationDraftRestored)return;
+const next={};
+if(titleEdit===this.__workTitleEdit&&!this.data.title&&work.title)next.title=String(work.title).trim();
+if(textEdit===this.__workTextEdit&&!this.data.publishText&&work.script)next.publishText=String(work.script).trim();
+this.setData(next);
 }).catch(() => {});
 },
 editResult() {
@@ -776,9 +779,9 @@ const rows=this.data.view==='records'?this.data.records:[this.data.detail];
 if(!(rows||[]).some(row=>row&&row.coverAssetId))return;
 return require('./publication-cover').hydrate(this,this.publicationEnvironment());
 },
-inputTitle(e) { this.setData({ title: e.detail.value }); },
-clearTitle() { this.setData({ title: '' }); },
-inputPublishText(e) { this.setData({ publishText: e.detail.value }); },
+inputTitle(e) { this.__workTitleEdit=(this.__workTitleEdit||0)+1;this.setData({ title: e.detail.value }); },
+clearTitle() { this.__workTitleEdit=(this.__workTitleEdit||0)+1;this.setData({ title: '' }); },
+inputPublishText(e) { this.__workTextEdit=(this.__workTextEdit||0)+1;this.setData({ publishText: e.detail.value }); },
 inputTags(e) { this.setData({ tags: e.detail.value }); },
 loadPublisherAccounts(){return require('./publication-accounts').load(this,this.publicationEnvironment());},
 selectPublisherAccount(e){return require('./publication-accounts').select(this,e.currentTarget.dataset.id);},
