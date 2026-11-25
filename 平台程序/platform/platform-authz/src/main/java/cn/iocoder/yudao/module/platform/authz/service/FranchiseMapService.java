@@ -90,6 +90,7 @@ public class FranchiseMapService {
             }
         }
         Map<String,Object> result=new LinkedHashMap<>();result.put("schemaVersion",2);result.put("scope",all?"all":"brand");
+        result.put("publicProjectionVersion",1);
         result.put("brandId",brand);result.put("brandName",brandName);result.put("brands",brands);
         result.put("records",records);result.put("points",points);result.put("stores",stores);return result;
     }
