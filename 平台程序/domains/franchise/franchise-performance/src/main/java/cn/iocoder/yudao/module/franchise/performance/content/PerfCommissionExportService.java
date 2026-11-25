@@ -62,7 +62,7 @@ import java.util.regex.Pattern;
  * 该结论在本机无法替代生产核验（本机 Testcontainers 为 UTC），故只登记为部署前置，不在代码内
  * 硬编码时区（避免与既有经营看板/月度对账口径分叉）。
  *
- * <p><b>已付口径</b>：该月 release 关联应付的 {@code fr_fin_payment.status='已核实'} 付款累计，
+ * <p><b>已付口径</b>：该月 release 关联应付的已核实付款，扣除待关联及有效支出退回的重叠金额，
  * 与 {@link PerfCommissionService#row} 的 paid 完全一致；不按 pay_date 再切月（避免同一应付
  * 跨月付款被拆成两行）。未付 = max(0, 已生成应付 − 已付)，超付不倒扣（红线：无自动扣薪/追回）。
  *
@@ -372,7 +372,12 @@ public class PerfCommissionExportService {
             return true;
         }
         boolean eligible = release.factRequired() > 0 && release.factReceived() >= release.factRequired();
-        return release.payableCents() == null || PerfCommissionService.needsReceiptReview(eligible,
+        if (release.payableCents() == null || PerfCommissionService.needsPaymentReview(release.payableCents(),
+                release.paidCents(), release.appliedReturnCents(), release.reviewedPaid(), release.reviewedReturn())) return true;
+        if (PerfCommissionService.reviewedPaymentReturn(release.paidCents(), release.appliedReturnCents(),
+                release.reviewedPaid(), release.reviewedReturn())
+                && PerfCommissionService.sameStageSignature(release.factSignature(), release.receiptSignature())) return false;
+        return PerfCommissionService.needsReceiptReview(eligible,
                 release.factSignature(), release.receiptSignature(), release.payableCents(), release.paidCents(), release.reviewedPaid())
                 && !(eligible && LegacyCommissionReview.covers(release.factSignature(), release.receiptSignature(), release.legacyReview()));
     }
@@ -420,8 +425,8 @@ public class PerfCommissionExportService {
                     rs.getLong("base_done_cents"), rs.getLong("topping_cents"),
                     rs.getObject("current_version", Integer.class),
                     rs.getLong("project_id"), rs.getString("stage"),
-                    rs.getObject("policy_version", Integer.class), rs.getString("receipt_signature"), rs.getString("reviewed_paid"),
-                    rs.getObject("payable_cents", Long.class), rs.getLong("paid_cents"),
+                    rs.getObject("policy_version", Integer.class), rs.getString("receipt_signature"), rs.getString("reviewed_paid"), rs.getString("reviewed_return"),
+                    rs.getObject("payable_cents", Long.class), rs.getLong("paid_cents"), rs.getLong("applied_return_cents"),
                     rs.getLong("fact_required"), rs.getLong("fact_received"), rs.getString("fact_signature"),
                     rs.getString("legacy_review"));
 
@@ -502,7 +507,8 @@ public class PerfCommissionExportService {
                                 OffsetDateTime policyUpdateTime, long totalCents, long startCents,
                                 long baseDoneCents, long toppingCents, Integer currentVersion,
                                 long projectId, String stage, Integer policyVersion,
-                                String receiptSignature, String reviewedPaid, Long payableCents, long paidCents,
+                                String receiptSignature, String reviewedPaid, String reviewedReturn, Long payableCents, long paidCents,
+                                long appliedReturnCents,
                                 long factRequired, long factReceived, String factSignature, String legacyReview) {
     }
 

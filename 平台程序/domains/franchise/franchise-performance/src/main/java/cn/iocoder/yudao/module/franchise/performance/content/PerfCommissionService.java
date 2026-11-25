@@ -264,8 +264,9 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
         // M10-T05：已付留痕核对路径——已付>0 时即使净额不足（退款/冲正后）也可独立异常留痕核对
         //（「实际已付即使 reviewDue/超正常余额也可独立异常留痕，不绕有效账上限；无自动扣薪/追回」）；
         // 未释放/已释放未付且净额不足 → 仍拒绝（待足额后核对）
-        long paidForStage = verifiedPaid(rel);
-        if (!facts.eligible && paidForStage <= 0) {
+        PaymentBalance balance = paymentBalance(rel);
+        long paidForStage = balance.net();
+        if (!facts.eligible && balance.gross() <= 0) {
             throw exception(COMMISSION_NOT_ELIGIBLE,
                     "退款、冲正或更正后净实收仍未足额，" + ("START".equals(stageKey) ? "开工款" : "封顶款"));
         }
@@ -273,10 +274,11 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
             throw exception(PERF_INPUT_INVALID, "请上传人工核对依据并填写说明");
         }
         long agreed = policyAmountOf(rel);
-        String reviewedPaid = lastReviewedPaid(rel, agreed, paidForStage);
+        String reviewedPaid = lastReviewedPaid(rel);
         // 旧页面也可能提交另一幂等键。在行锁内确认同一笔已付清提成是否已经办结。
         if (Long.toString(paidForStage).equals(reviewedPaid)
-                && !reviewDue(currentPolicy, rel, facts, agreed, paidForStage, reviewedPaid)) {
+                && (paidForStage == agreed || balance.appliedReturn() > 0)
+                && !reviewDue(currentPolicy, rel, facts, agreed, balance, reviewedPaid)) {
             return row(post, projectId);
         }
         Map<String, Object> record = new LinkedHashMap<>();
@@ -292,6 +294,8 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
         // 此前混用 facts.received（客户阶段净收款，8 万级）与提成已付（千元级）导致差额 -79000 误记；
         // 阶段净收款作为到账事实单列，不进差额
         record.put("paidCents", paidForStage);
+        record.put("grossPaidCents", balance.gross());
+        record.put("appliedPaymentReturnCents", balance.appliedReturn());
         record.put("commissionAmountCents", agreed);
         record.put("diffCents", paidForStage - agreed);
         record.put("stageNetCollectedCents", facts.received);
@@ -498,7 +502,7 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
             long required = row.getLong("fact_required");
             boolean eligible = required > 0 && row.getLong("fact_received") >= required;
             long paid = row.getLong("paid_cents");
-            if (!eligible && paid == 0) return;
+            if (!eligible && row.getLong("gross_paid_cents") == 0) return;
             String stage = requireStage(row.getString("stage"));
             long agreed = stageAmountOf(row.getLong("start_cents"), row.getLong("base_done_cents"),
                     row.getLong("topping_cents"), stage);
@@ -507,7 +511,13 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
             boolean versionChanged = !Objects.equals(row.getObject("policy_version"), row.getObject("current_version"));
             boolean receiptChanged = needsReceiptReview(eligible, current, saved, agreed, paid, row.getString("reviewed_paid"))
                     && !(eligible && LegacyCommissionReview.covers(current, saved, row.getString("legacy_review")));
-            if (!versionChanged && !receiptChanged) return;
+            long appliedReturn = row.getLong("applied_return_cents");
+            String reviewedReturn = row.getString("reviewed_return");
+            String reviewedPaid = row.getString("reviewed_paid");
+            boolean paymentChanged = needsPaymentReview(agreed, paid, appliedReturn, reviewedPaid, reviewedReturn);
+            boolean exactReturnReview = reviewedPaymentReturn(paid, appliedReturn, reviewedPaid, reviewedReturn)
+                    && sameStageSignature(current, saved);
+            if (!versionChanged && !paymentChanged && (!receiptChanged || exactReturnReview)) return;
             long projectId = row.getLong("project_id");
             String title = "核对" + stageLabel(stage) + " · " + Objects.requireNonNullElse(row.getString("project_name"), "项目 " + projectId);
             items.add(new TodoItem("fr-perf", "commission-review:" + projectId + ":" + stage, title,
@@ -516,24 +526,42 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
         return items;
     }
 
-    private long verifiedPaid(FrPerfCommissionReleaseDO release) {
-        if (release == null || release.getPayableId() == null) return 0;
-        return jdbc.queryForObject("SELECT COALESCE(SUM(amount_cents), 0) FROM fr_fin_payment "
-                + "WHERE company_id = ? AND payable_id = ? AND status = '已核实'",
-                Long.class, release.getCompanyId(), release.getPayableId());
+    private record PaymentBalance(long gross, long net, long appliedReturn) {}
+
+    private PaymentBalance paymentBalance(FrPerfCommissionReleaseDO release) {
+        if (release == null || release.getPayableId() == null) return new PaymentBalance(0, 0, 0);
+        return jdbc.queryForObject(CommissionReleaseFacts.paymentTotals("pm.company_id=? AND pm.payable_id=?"),
+                (rs, n) -> new PaymentBalance(rs.getLong("gross_paid_cents"), rs.getLong("paid_cents"),
+                        rs.getLong("applied_return_cents")), release.getCompanyId(), release.getPayableId());
     }
 
-    private static String lastReviewedPaid(FrPerfCommissionReleaseDO release, long agreed, long paid) {
-        if (release == null || paid <= 0 || paid != agreed) return null;
+    static boolean needsPaymentReview(long agreed, long paid, long appliedReturn, String reviewedPaid, String reviewedReturn) {
+        return agreed > 0 && paid < agreed && appliedReturn > 0
+                && !reviewedPaymentReturn(paid, appliedReturn, reviewedPaid, reviewedReturn);
+    }
+
+    static boolean reviewedPaymentReturn(long paid, long appliedReturn, String reviewedPaid, String reviewedReturn) {
+        return appliedReturn > 0 && Long.toString(paid).equals(reviewedPaid)
+                && Long.toString(appliedReturn).equals(reviewedReturn);
+    }
+
+    private static String lastReviewedPaid(FrPerfCommissionReleaseDO release) {
+        if (release == null) return null;
         var history = JsonUtil.parseList(release.getReconciliations());
         return history.isEmpty() ? null : Objects.toString(history.get(history.size() - 1).get("paidCents"), null);
     }
 
     private boolean reviewDue(FrPerfCommissionPolicyDO policy, FrPerfCommissionReleaseDO release,
-                                     StageFacts facts, long agreed, long paid, String reviewedPaid) {
+                                     StageFacts facts, long agreed, PaymentBalance balance, String reviewedPaid) {
         if (release == null) return false;
         if (!Objects.equals(release.getPolicyVersion(), policy.getVersion())) return true;
-        return needsReceiptReview(facts.eligible, facts.signature, release.getReceiptSignature(), agreed, paid, reviewedPaid)
+        var history = JsonUtil.parseList(release.getReconciliations());
+        String reviewedReturn = history.isEmpty() ? null
+                : Objects.toString(history.get(history.size() - 1).get("appliedPaymentReturnCents"), null);
+        if (needsPaymentReview(agreed, balance.net(), balance.appliedReturn(), reviewedPaid, reviewedReturn)) return true;
+        if (reviewedPaymentReturn(balance.net(), balance.appliedReturn(), reviewedPaid, reviewedReturn)
+                && sameStageSignature(facts.signature, release.getReceiptSignature())) return false;
+        return needsReceiptReview(facts.eligible, facts.signature, release.getReceiptSignature(), agreed, balance.net(), reviewedPaid)
                 && !legacyReviewCovers(facts, release);
     }
 
@@ -560,9 +588,10 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
                     ? policy.getBaseDoneCents()
                     : (FrPerfCommissionReleaseDO.STAGE_SIGN_AFTER.equals(stage)
                             ? policy.getStartCents() : policy.getToppingCents());
-            long paid = verifiedPaid(rel);
-            String reviewedPaid = lastReviewedPaid(rel, amount, paid);
-            boolean reviewDue = reviewDue(policy, rel, facts, amount, paid, reviewedPaid);
+            PaymentBalance balance = paymentBalance(rel);
+            long paid = balance.net();
+            String reviewedPaid = lastReviewedPaid(rel);
+            boolean reviewDue = reviewDue(policy, rel, facts, amount, balance, reviewedPaid);
             String status;
             if (amount <= 0) {
                 status = "未约定"; // R2 P2-9：0=未约定期优先显示（无 release、金额及已付均为零时不显示已付清）
@@ -584,7 +613,7 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
             String refundImpact;
             if (rel == null) {
                 refundImpact = "NOT_RELEASED_RECALC"; // 未释放重算：eligible 由 stageFacts 实时净口径派生
-            } else if (paid > 0) {
+            } else if (balance.gross() > 0) {
                 long paidDiff = amount - paid; // 正=少付差额，负=超付差额
                 refundImpact = paidDiff == 0 ? "PAID_MATCHED" : "PAID_DIFF_PENDING"; // 已付留痕+核差额
             } else {
@@ -602,9 +631,12 @@ public class PerfCommissionService implements CommissionPaymentReviewPort {
             stageView.put("eligible", facts.eligible);
             stageView.put("payableId", rel == null || rel.getPayableId() == null ? null : String.valueOf(rel.getPayableId()));
             stageView.put("paidCents", paid);
+            stageView.put("grossPaidCents", balance.gross());
+            stageView.put("appliedPaymentReturnCents", balance.appliedReturn());
             stageView.put("outstandingCents", Math.max(0, amount - paid));
             stageView.put("reviewDue", reviewDue);
-            stageView.put("settledReviewCurrent", !reviewDue && Long.toString(paid).equals(reviewedPaid));
+            stageView.put("settledReviewCurrent", amount > 0 && paid == amount && !reviewDue
+                    && Long.toString(paid).equals(reviewedPaid));
             stageView.put("reconciliations", rel == null ? null : rel.getReconciliations());
             stageView.put("status", status);
             stages.add(stageView);
