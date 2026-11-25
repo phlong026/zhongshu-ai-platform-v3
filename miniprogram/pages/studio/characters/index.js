@@ -28,14 +28,14 @@ Page({
   data: { view:'home',pageTitle:'人物库',rows: [], filtered: [], keyword: '', loading: false, saving: false, error: '', editing: false, editId: '', form: {}, fields: FIELDS, extraFields:EXTRA, canCreate:false, canManage: false,canUseDigital:false,cloneFileName:'',cloneUploadStatus:'',draftStatus:'',draftConfirming:false,
     digitalPersona: null, digitalPeople: [], digitalPersonIndex: 0, cloneEntryKind: '', cloneRows: [], cloneLoading: false, cloneBusy: false, cloneError: '', cloneKind: 'AVATAR', cloneTitle: '', cloneUploadId: '', cloneConsented: false, cloneQuote: null, cloneRetry: false,expressionTags:[],profileExpanded:false,
     cloneSelecting:false,cloneUploading:false,cloneReceiptPending:false,cloneUploadElapsed:0,cloneUploadPhase:0,cloneVideoPath:'',cloneVideoPoster:'',cloneAudioPath:'',cloneFileMeta:'',clonePreviewError:'',clonePreviewOpen:false,clonePreviewTop:24,cloneUploadSteps:['读取素材','上传素材','格式处理','确认上传'],
-    previewAudioId:'',previewAudioPlaying:false,previewAudioLoading:false,previewAudioProgress:0,previewAudioPosition:'00:00',previewAudioDuration:'00:00',previewAudioError:'',resourceFilter:'ALL',visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,cloneCreatedNotice:'',
+    previewAudioId:'',previewAudioPlaying:false,previewAudioLoading:false,previewAudioProgress:0,previewAudioPosition:'00:00',previewAudioDuration:'00:00',previewAudioError:'',resourceFilter:'ALL',visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',cloneRefreshing:false,cloneRefreshError:'',avatarCount:0,voiceCount:0,cloneCreatedNotice:'',
     cloneStatus: { SUBMITTING:'提交确认中', RUNNING:'制作中', READY:'已就绪', FAILED:'制作失败', UNKNOWN:'结果待核实' } },
   onLoad() { if (!studio.guard()) return; this.__closed=false;this.__scope = studio.scope();this.__generation=http.sessionGeneration();this.__draftNetwork=e=>{if(e.isConnected&&this.__draft&&this.alive())this.__draft.flush().catch(()=>{});};if(wx.onNetworkStatusChange)wx.onNetworkStatusChange(this.__draftNetwork); },
   onShow() {
     if (!studio.guard()) return;
     const post = auth.currentApiPost();
     this.__hidden=false;
-    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.stopRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
+    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.cancelCloneRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
     this.__scope = studio.scope();
     this.__generation=http.sessionGeneration();
     if (this.__uploadTick) this.__uploadTick();
@@ -46,10 +46,10 @@ Page({
     if(!this.data.editing&&!this.data.cloneBusy)this.load();
     if(this.data.digitalPersona){if(this.data.cloneBusy)this.scheduleRefresh();else this.loadClones();}
   },
-  onUnload() {this.resetAudioPreview();this.flushDraft(true);this.__closed = true;this.stopUploadClock();this.stopRefresh();if(wx.offNetworkStatusChange&&this.__draftNetwork)wx.offNetworkStatusChange(this.__draftNetwork); if(this.__audio)this.__audio.destroy(); },
-  onHide() {this.pauseAudioPreview();if(this.data.clonePreviewOpen&&wx.createVideoContext)wx.createVideoContext('clone-preview-player',this).pause();this.flushDraft();this.__hidden=true;this.stopRefresh(); if(this.__audio)this.__audio.stop(); },
+  onUnload() {this.resetAudioPreview();this.flushDraft(true);this.__closed = true;this.stopUploadClock();this.cancelCloneRefresh();if(wx.offNetworkStatusChange&&this.__draftNetwork)wx.offNetworkStatusChange(this.__draftNetwork); if(this.__audio)this.__audio.destroy(); },
+  onHide() {this.pauseAudioPreview();if(this.data.clonePreviewOpen&&wx.createVideoContext)wx.createVideoContext('clone-preview-player',this).pause();this.flushDraft();this.__hidden=true;this.cancelCloneRefresh(); if(this.__audio)this.__audio.stop(); },
   alive() { return !this.__closed && !!http.token() && this.__scope === studio.scope()&&this.__generation===http.sessionGeneration(); },
-  showView(view) {this.pauseAudioPreview();this.stopRefresh();this.setData({view,pageTitle:view==='edit'&&this.data.editId?'编辑定位':TITLES[view],error:''});if(wx.pageScrollTo)wx.pageScrollTo({scrollTop:0,duration:0});},
+  showView(view) {this.pauseAudioPreview();this.cancelCloneRefresh();this.setData({cloneRefreshError:'',view,pageTitle:view==='edit'&&this.data.editId?'编辑定位':TITLES[view],error:''});if(wx.pageScrollTo)wx.pageScrollTo({scrollTop:0,duration:0});},
   back() {if(this.data.clonePreviewOpen)return this.closeClonePreview();if(this.data.saving||this.data.cloneBusy)return;if(this.data.view==='supplement')return this.showView('edit');if(this.data.view==='edit')return this.close();this.__cloneAttempt=null;this.setData({cloneRetry:false});this.showView(this.data.view==='detail'?'home':this.data.digitalPersona?'detail':'home');},
   detail(e) {const row=this.data.rows.find(r=>r.id===String(e.currentTarget.dataset.id));if(row&&this.alive()){this.setData({digitalPersona:row,canManage:this.canEditPersona(row),profileExpanded:false});this.showView('detail');}},
   toggleProfile() {this.setData({profileExpanded:!this.data.profileExpanded});},
@@ -186,11 +186,12 @@ Page({
     this.showView(this.data.cloneKind==='AVATAR'?'avatar':this.data.canManage&&row.enabled?'voice':'resources');
     this.loadClones();if(this.data.canManage&&row.enabled)this.loadQuote();
   },
-  async loadClones() {
+  async loadClones(accept) {
+    const valid=()=>typeof accept!=='function'||accept();
     const person=this.data.digitalPersona;if(!person)return;
     const guard=http.requestGuard('character-clones');this.setData({cloneLoading:true,cloneListError:''});
-    try{const rows=await api.clones.list(person.id);if(guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.setData({canUseDigital:person.enabled&&this.readyPair()});this.filterClones();if(this.__cloneTitleAuto&&!this.data.cloneRetry&&['avatar','voice'].includes(this.data.view))this.suggestCloneTitle();this.scheduleRefresh();}}
-    catch(e){if(guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id)this.setData({cloneLoading:false,cloneListError:P.degradeMessage(e)});}
+    try{const rows=await api.clones.list(person.id);if(valid()&&guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.setData({canUseDigital:person.enabled&&this.readyPair()});this.filterClones();if(this.__cloneTitleAuto&&!this.data.cloneRetry&&['avatar','voice'].includes(this.data.view))this.suggestCloneTitle();this.scheduleRefresh();}}
+    catch(e){if(valid()&&guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id)this.setData({cloneLoading:false,cloneListError:P.degradeMessage(e)});}
   },
   async loadQuote() {
     const kind=this.data.cloneKind,guard=http.requestGuard('clone-quote');this.setData({cloneQuote:null});
@@ -212,14 +213,46 @@ Page({
     }catch(error){if(guard()&&this.alive()&&this.data.digitalPersona?.id===person.id)this.setData({cloneBusy:false,cloneError:P.degradeMessage(error)});}
   },
   stopRefresh() {if(this.__refreshTimer)clearTimeout(this.__refreshTimer);this.__refreshTimer=null;},
+  cancelCloneRefresh() {
+    this.stopRefresh();
+    const operation=this.__cloneRefresh;
+    this.__cloneRefresh=null;
+    if(!this.__closed&&this.data.cloneRefreshing)this.setData({cloneRefreshing:false,...(operation?.reading?{cloneLoading:false}:{})});
+  },
   refreshingRows() {return this.data.view==='avatar'?this.data.avatarCloneRows:this.data.cloneRows;},
-  scheduleRefresh() {this.stopRefresh();if(this.__hidden||!['avatar','resources'].includes(this.data.view)||!this.refreshingRows().some(r=>['SUBMITTING','RUNNING'].includes(r.status)||(r.status==='READY'&&!r.ready)))return;this.__refreshTimer=setTimeout(()=>this.refreshAll(),8000);},
-  async refreshAll() {
-    if(!this.alive()||!this.data.digitalPersona)return;
+  scheduleRefresh() {
+    this.stopRefresh();
+    if(this.__hidden||!this.alive()||this.__cloneRefresh||!['avatar','resources'].includes(this.data.view)
+      ||!this.refreshingRows().some(r=>['SUBMITTING','RUNNING'].includes(r.status)||(r.status==='READY'&&!r.ready)))return;
+    this.__refreshTimer=setTimeout(()=>this.refreshAll(),8000);
+  },
+  refreshAll() {return this.refreshCloneStatuses();},
+  async refreshCloneStatuses(id) {
+    const person=this.data.digitalPersona?.id,view=this.data.view;
+    if(this.__hidden||!this.alive()||!person||!['avatar','resources'].includes(view)||this.__cloneRefresh)return;
     if(this.data.cloneBusy||this.data.cloneRetry)return this.scheduleRefresh();
-    const person=this.data.digitalPersona.id,guard=http.requestGuard('clone-refresh');this.setData({cloneBusy:true,cloneError:''});
-    try{for(const row of this.refreshingRows().filter(r=>r.status!=='FAILED'&&!(r.status==='READY'&&r.ready))){if(!guard()||!this.alive()||!this.data.digitalPersona||this.data.digitalPersona.id!==person)return;await api.clones.refresh(row.id);}if(guard()&&this.alive()){this.setData({cloneBusy:false});await this.loadClones();}}
-    catch(e){if(guard()&&this.alive())this.setData({cloneBusy:false,cloneError:P.degradeMessage(e)});}
+    const rows=this.refreshingRows().filter(r=>r.status!=='FAILED'&&!(r.status==='READY'&&r.ready)&&(id==null||String(r.id)===id));
+    const operation=this.__cloneRefresh={};
+    const valid=()=>this.__cloneRefresh===operation&&!this.__hidden&&this.alive()
+      &&this.data.digitalPersona?.id===person&&this.data.view===view;
+    this.setData({cloneRefreshing:true});
+    let failures=0;
+    try {
+      for(const row of rows) {
+        if(!valid())return;
+        try{await api.clones.refresh(row.id);}catch(_){failures++;}
+      }
+      if(!valid())return;
+      this.setData({cloneRefreshError:failures?'部分制作状态暂未查到，请稍后再试':''});
+      operation.reading=true;
+      await this.loadClones(valid);
+    } finally {
+      if(this.__cloneRefresh===operation){
+        const active=valid();
+        this.__cloneRefresh=null;
+        if(active){this.setData({cloneRefreshing:false});this.scheduleRefresh();}
+      }
+    }
   },
   cloneTitle(e) {if(!this.data.cloneRetry){this.__cloneTitleAuto=false;this.setData({cloneTitle:e.detail.value});}},
   consent(e) {this.setData({cloneConsented:e.detail.value.includes('authorized')});},
@@ -396,12 +429,7 @@ Page({
       this.setData({cloneBusy:false,cloneError:P.degradeMessage(e)});
     }}
   },
-  async refreshClone(e) {
-    if(this.data.cloneBusy||!this.alive())return;
-    const id=String(e.currentTarget.dataset.id),guard=http.requestGuard('clone-refresh');this.setData({cloneBusy:true,cloneError:''});
-    try{await api.clones.refresh(id);if(guard()&&this.alive()){this.setData({cloneBusy:false});this.loadClones();}}
-    catch(error){if(guard()&&this.alive())this.setData({cloneBusy:false,cloneError:P.degradeMessage(error)});}
-  },
+  refreshClone(e) {return this.refreshCloneStatuses(String(e.currentTarget.dataset.id));},
   useDigital() {
     const person=this.data.digitalPersona;
     if(this.alive()&&person&&person.enabled&&this.readyPair())wx.navigateTo({url:'/pages/studio/index?view=digital&persona='+encodeURIComponent(person.id)});

@@ -427,7 +427,7 @@ test('restored digital submission displays its original resource IDs rather than
 test('resource refresh retries unfinished settlement before enabling digital use',async()=>{
   const refreshed=[],ready=[{id:'31',kind:'AVATAR',status:'READY',ready:true},{id:'32',kind:'VOICE',status:'READY',ready:true}];
   const h=harness('studio/characters/index.js',{clones:{refresh:async id=>refreshed.push(id),list:async()=>ready}});h.page.onLoad();
-  Object.assign(h.page.data,{digitalPersona:{id:'21',enabled:true},cloneRows:[{...ready[0],ready:false},ready[1]]});await h.page.refreshAll();assert.deepEqual(refreshed,['31']);assert.equal(h.page.data.canUseDigital,true);
+  Object.assign(h.page.data,{view:'resources',digitalPersona:{id:'21',enabled:true},cloneRows:[{...ready[0],ready:false},ready[1]]});await h.page.refreshAll();assert.deepEqual(refreshed,['31']);assert.equal(h.page.data.canUseDigital,true);
 });
 
 test('digital resources never display marked demo people, avatars or voices',async()=>{
