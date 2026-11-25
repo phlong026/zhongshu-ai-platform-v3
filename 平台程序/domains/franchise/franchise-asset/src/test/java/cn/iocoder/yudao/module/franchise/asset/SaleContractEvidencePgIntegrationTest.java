@@ -284,6 +284,34 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(() -> as(sales, () -> assets.createDownloadUrl(actor(sales), file))).isInstanceOf(ServiceException.class);
     }
 
+    @Test void scopedTicketsPreserveAllCurrentAndHistoricalCustomerReferencesToSharedBytes() throws Exception {
+        for (boolean historicalReference : List.of(false, true)) {
+            long firstCustomer = customer(sales), secondCustomer = customer(sales);
+            var first = draft(sales, firstCustomer); var second = draft(sales, secondCustomer);
+            long file = upload(sales, "CONTRACT_ATTACHMENT");
+            sign(first, today(), file, revision(first.getId()), key());
+            sign(second, today(), file, revision(second.getId()), key());
+            if (historicalReference) {
+                long replacement = upload(sales, "CONTRACT_ATTACHMENT");
+                as(sales, () -> contracts.supplementEvidence(sales, second.getId(),
+                        new SaleContractService.EvidenceCommand(today(), replacement, "保留原文件历史", revision(second.getId())), key()));
+            }
+            String scoped = token(as(sales, () -> contracts.evidenceDownload(sales, first.getId(), file)).downloadUrl());
+            String generic = token(as(sales, () -> assets.createDownloadUrl(actor(sales), file)).downloadUrl());
+            jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", colleague.userId(), secondCustomer);
+            assertThatThrownBy(() -> as(sales, () -> contracts.evidenceDownload(sales, first.getId(), file))).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> as(sales, () -> assets.createDownloadUrl(actor(sales), file))).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> as(sales, () -> assets.readDownload(actor(sales), file, scoped))).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> as(sales, () -> assets.readDownload(actor(sales), file, generic))).isInstanceOf(ServiceException.class);
+            var authorized = as(boss, () -> contracts.evidenceDownload(boss, first.getId(), file));
+            assertThat(as(boss, () -> assets.readDownload(actor(boss), file, token(authorized.downloadUrl()))).bytes()).isEqualTo(PDF);
+            jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", sales.userId(), secondCustomer);
+            String duringRead = token(as(sales, () -> contracts.evidenceDownload(sales, first.getId(), file)).downloadUrl());
+            storage.beforeRead = () -> jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", colleague.userId(), secondCustomer);
+            assertThatThrownBy(() -> as(sales, () -> assets.readDownload(actor(sales), file, duringRead))).isInstanceOf(ServiceException.class);
+        }
+    }
+
     @Test void storageReadRechecksCustomerAndCurrentEvidenceAndAcceptedBytesBeforeReturning() throws Exception {
         long customer = customer(sales); var contract = draft(sales, customer); long file = upload(sales, "CONTRACT_ATTACHMENT"), replacement = upload(sales, "CONTRACT_ATTACHMENT");
         sign(contract, today(), file, revision(contract.getId()), key());

@@ -29,7 +29,9 @@ public class ContractDocumentAccessPolicy implements ContractDocumentAccessPort 
                   AND d.tenant_id=? AND d.status=0 AND d.deleted=0
                 """, Long.class, contractId, post.orgId(), assetId, tenant);
         if (rows.size() != 1) throw exception(RESOURCE_FORBIDDEN);
-        requireCustomer(post, rows.get(0));
+        // A scoped ticket must retain every current and historical customer ACL
+        // attached to these bytes, just like the generic asset download path.
+        requireAssetReadable(post, assetId);
     }
 
     @Override public void requireAssetReadable(PostSnapshot post, long assetId) {
