@@ -519,8 +519,11 @@ public class EngMaterialService {
                 || cmd.actual().compareTo(BigDecimal.ZERO) <= 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写更正原因与有效实到数量");
         }
+        if (receipt.getActualQuantity() == null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "这批货还未登记实收，请用确认到货");
+        }
         BigDecimal q = cmd.actual();
-        if (receipt.getActualQuantity() != null && q.compareTo(receipt.getActualQuantity()) == 0) {
+        if (q.compareTo(receipt.getActualQuantity()) == 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "更正后的数量与原记录相同");
         }
         BigDecimal others = supplyReceipts.selectBySupply(post.orgId(), supply.getId()).stream()
@@ -536,7 +539,7 @@ public class EngMaterialService {
             throw exception(MATERIAL_INVALID, "本计划所属节点已完成，到货改少前请先撤回节点完成");
         }
         String corrections = EngPlanService.JsonList.append(receipt.getCorrections(), Map.of(
-                "from", receipt.getActualQuantity() == null ? "" : receipt.getActualQuantity().toPlainString(),
+                "from", receipt.getActualQuantity().toPlainString(),
                 "to", q.toPlainString(), "reason", cmd.reason(),
                 "date", LocalDate.now().toString(), "actorUserId", post.userId()));
         jdbcTemplate.update("UPDATE fr_eng_supply_receipt SET actual_quantity = ?, expected_quantity = ?, "
@@ -648,7 +651,8 @@ public class EngMaterialService {
             line.put("paymentStatus", cancelled ? "已取消"
                     : total == 0 ? "待记录采购金额" : paid >= total ? "已付清" : paid > 0 ? "部分已付" : "待付款");
             if (full) {
-                line.put("receipts", receipts.stream().map(r -> {
+                // 这里是实收历史。待补发行只影响剩余量提示，不是实收、质检或可更正记录。
+                line.put("receipts", receipts.stream().filter(r -> r.getActualQuantity() != null).map(r -> {
                     Map<String, Object> receipt = new LinkedHashMap<>();
                     receipt.put("id", String.valueOf(r.getId()));
                     receipt.put("actualQuantity", r.getActualQuantity());

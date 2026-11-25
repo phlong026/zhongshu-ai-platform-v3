@@ -848,6 +848,50 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 BigDecimal.class, supplyId)).isEqualByComparingTo("100.000");
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void pendingReshipIsNotAnArrivalUntilItIsActuallyReceived() {
+        jdbc.update("UPDATE fr_eng_material SET quantity = 10 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 10 WHERE id = ?", supplyId);
+        long initialEvidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> materialsService.arrival(engineer, supplyId,
+                new EngMaterialService.ArrivalCommand(null, new BigDecimal("10"), new BigDecimal("6"),
+                        "OK", "initial-arrival-" + supplyId, initialEvidence, null, null, null), idem()));
+        long outstanding = jdbc.queryForObject(
+                "SELECT id FROM fr_eng_supply_receipt WHERE supply_id=? AND kind='RESHIP'", Long.class, supplyId);
+        var before = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) before.get("received")).isEqualByComparingTo("6");
+        assertThat((BigDecimal) before.get("remaining")).isEqualByComparingTo("4");
+        assertThat((java.util.List<java.util.Map<String,Object>>) before.get("receipts")).hasSize(1);
+
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, outstanding,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("4"), "记录未实收到货"), idem())))
+                .isInstanceOfSatisfying(ServiceException.class, error -> assertThat(error.getCode()).isEqualTo(1115000001));
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id=?",
+                BigDecimal.class, outstanding)).isNull();
+
+        long arrivalEvidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> materialsService.arrival(engineer, supplyId,
+                new EngMaterialService.ArrivalCommand(outstanding, null, new BigDecimal("4"),
+                        "OK", "replacement-arrival-" + supplyId, arrivalEvidence, null, null, null), idem()));
+        var after = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) after.get("received")).isEqualByComparingTo("10");
+        assertThat((BigDecimal) after.get("remaining")).isEqualByComparingTo("0");
+        var arrivals = (java.util.List<java.util.Map<String,Object>>) after.get("receipts");
+        assertThat(arrivals).hasSize(2).anySatisfy(row -> {
+            assertThat(row.get("id")).isEqualTo(String.valueOf(outstanding));
+            assertThat(row.get("fileAssetId")).isEqualTo(arrivalEvidence);
+            assertThat((BigDecimal) row.get("actualQuantity")).isEqualByComparingTo("4");
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.Map<String,Object> onlyMaterialSummaryLine() {
+        var plans = (java.util.List<java.util.Map<String,Object>>) materialsService.summary(engineer, projectId, null).get("plans");
+        return plans.stream().flatMap(x -> ((java.util.List<java.util.Map<String,Object>>) x.get("lines")).stream())
+                .filter(row -> row.get("materialId").equals(materialId)).findFirst().orElseThrow();
+    }
+
     private long insertArrivalForCorrection(String actual) {
         long id = IDS.incrementAndGet();
         long assetId = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
