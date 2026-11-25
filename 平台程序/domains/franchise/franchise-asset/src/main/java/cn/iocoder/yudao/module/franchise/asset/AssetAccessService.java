@@ -35,7 +35,7 @@ public class AssetAccessService {
     /** 本通道可操作的资产类型白名单（与 design AssetTypePolicy 的 B_END 同源；新增先登记 14 文档 §五.2）。
      *  包级可见供快照锁测试比对（跨域经 Port 禁直依赖 design 模块——评审基线强制清单 #13）。 */
     static final Set<String> B_END_TYPES =
-            Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET", "DESIGN_REFERENCE", "DESIGN_DELIVERABLE");
+            Set.of("FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET", "DESIGN_REFERENCE", "DESIGN_DELIVERABLE", "BUSINESS_DOCUMENT");
 
     private final AssetAccessPort assets;
     private final StoreServiceAccountPort serviceAccounts;
@@ -137,7 +137,8 @@ public class AssetAccessService {
             "CONTRACT_ATTACHMENT", List.of("sales", "sales-lead", "boss", "owner"),
             "CONTENT_ASSET", List.of("sales", "sales-lead", "boss", "owner"),
             "DESIGN_REFERENCE", List.of("sales", "sales-lead", "hq-design-admin"),
-            "DESIGN_DELIVERABLE", List.of("hq-design-admin"));
+            "DESIGN_DELIVERABLE", List.of("hq-design-admin"),
+            "BUSINESS_DOCUMENT", List.of("sales", "sales-lead", "boss", "owner"));
 
     /** 代理层审计（14 文档 §四）：独立短事务（无外层事务包裹），仅写操作调用 */
     private void audit(PostSnapshot post, String action, long assetId, String assetType) {

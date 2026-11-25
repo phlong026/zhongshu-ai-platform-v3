@@ -44,7 +44,7 @@ import static org.mockito.Mockito.*;
 
 /** PostgreSQL/Flyway and real row/advisory locks; only external catalog/asset/source ports are controlled fixtures. */
 @Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
-        CustomerWorkflowReadService.class, CustomerWorkflowService.class, CustomerWorkflowIntegrationTest.Ports.class})
+        CustomerWorkflowReadService.class, CustomerWorkflowService.class, CustomerWorkflowAssetPolicy.class, CustomerWorkflowIntegrationTest.Ports.class})
 class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     private static final AtomicLong PHONES = new AtomicLong(15_000_000_000L + System.nanoTime() % 900_000_000L);
     @Resource CustomerWorkflowService workflow;
