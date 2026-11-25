@@ -61,6 +61,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                     org.mockito.ArgumentMatchers.eq(9001L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("CONTRACT_ATTACHMENT")))).thenReturn(true);
             org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
                     org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING")))).thenReturn(true);
             return port;
         }
 
@@ -147,6 +149,11 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
             return new cn.iocoder.yudao.module.franchise.test.BusinessReceiptPortTestStub(jdbc);
         }
 
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort() {
+            return untouchedStub(cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort.class);
+        }
+
         @SuppressWarnings("unchecked")
         private static <T> T untouchedStub(Class<T> type) {
             return (T) java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
@@ -174,6 +181,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     @Resource
     private JdbcTemplate jdbc;
     @Resource private EngFollowupService followupService;
+    @Resource private EngClosureService closureService;
     @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
 
     private Store store;
@@ -269,6 +277,46 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         asRun(engineer, () -> planService.requireStartGate(engineer, projectId));
         assertThat(gateShortfallTodo(engineer)).as("补收后待办消失").isNull();
         assertThat(engCollectTodo(engineer)).as("补收后催收消失").isNull();
+    }
+
+    @Test
+    void deliveryUsesEachCustomInstallmentsNetAndIgnoresUnpaidTail() {
+        long contractId = contractsActiveId();
+        var inputs = java.util.List.of(
+                installment("签约款", 10_000_000L, "ON_SIGN"),
+                installment("施工前款", 15_000_000L, "BEFORE_START"),
+                installment("主体进度款", 12_000_000L, "MANUAL"),
+                installment("交付前款", 8_000_000L, "MANUAL"),
+                installment("交付后尾款", 23_000_000L, "ON_FINISH"));
+        as(finance, () -> contracts.replacePaymentPlan(finance, contractId,
+                new SaleContractService.PaymentPlanCommand(68_000_000L, inputs, revisionOf(contractId), "约定五期"), idem()));
+        var ids = jdbc.queryForList("""
+                SELECT id FROM fr_sale_payment_stage WHERE contract_id=? AND NOT deleted ORDER BY sequence
+                """, Long.class, contractId);
+        assertThat(ids).hasSize(5);
+        jdbc.update("UPDATE fr_eng_project SET actual_start_at=CURRENT_DATE WHERE id=?", projectId);
+        var command = new EngClosureService.DeliverCommand(LocalDate.now(), "接收人", null, 9002L, "交付");
+        for (int i = 0; i < 4; i++) {
+            int n = i;
+            assertError(() -> asRun(engineer, () -> closureService.deliver(engineer, projectId, command, idem())), GATE_NOT_MET);
+            as(finance, () -> contracts.collect(finance, ids.get(n),
+                    new SaleContractService.CollectCommand(inputs.get(n).amountCents(), "bank", txn(), LocalDate.now()), idem()));
+        }
+        long receiptId = jdbc.queryForObject(
+                "SELECT receipt_id FROM fr_sale_stage_receipt WHERE stage_id=?", Long.class, ids.get(2));
+        jdbc.update("""
+                INSERT INTO fr_fin_refund (id, receipt_id, company_id, amount_cents, status, reason, operator_user_id, refund_direction, date)
+                VALUES (?, ?, ?, 10000, '已核实', '协商退款', ?, 'client', CURRENT_DATE)
+                """, IDS.incrementAndGet(), receiptId, store.orgId(), finance.userId());
+        assertError(() -> asRun(engineer, () -> closureService.deliver(engineer, projectId, command, idem())), GATE_NOT_MET);
+        as(finance, () -> contracts.collect(finance, ids.get(2),
+                new SaleContractService.CollectCommand(10_000L, "bank", txn(), LocalDate.now()), idem()));
+        assertThat(as(engineer, () -> closureService.deliver(engineer, projectId, command, idem()))).isNotEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?", Long.class, ids.get(4))).isZero();
+    }
+
+    private static cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input installment(String label, long cents, String trigger) {
+        return new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null, label, cents, null, null, trigger, null);
     }
 
     @Test
