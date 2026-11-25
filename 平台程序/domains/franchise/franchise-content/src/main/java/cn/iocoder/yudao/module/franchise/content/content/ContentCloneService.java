@@ -88,7 +88,6 @@ public class ContentCloneService {
         var replay=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key);
         if(!replay.isEmpty()) { if(!hash.equals(replay.get(0).hash()))throw invalid("请求参数已变化，请重新确认制作"); return view(replay.get(0)); }
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
-        assertAccess(post,kind);
         var uploaded=uploads.requireAuthorizedUpload(post,persona,source,kind,consent);
         long id=IdWorker.getId();
         boolean inserted=Boolean.TRUE.equals(tx.execute(status->{
