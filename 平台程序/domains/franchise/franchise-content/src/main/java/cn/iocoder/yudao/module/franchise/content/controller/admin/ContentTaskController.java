@@ -92,6 +92,10 @@ public class ContentTaskController {
         if (!java.util.Objects.equals(task.getAuthorUserId(), post.userId())) {
             throw exception(INPUT_INVALID); // same generic response; do not reveal another user's task
         }
+        if (!canDismiss(task)) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                    INPUT_INVALID.getCode(), "任务仍在处理或待补保存，请在任务中心继续查看");
+        }
         jdbcTemplate.update(
                 "INSERT INTO fr_content_task_hidden (company_id, author_user_id, task_id, actor_post_id) "
                         + "VALUES (?, ?, ?, ?) ON CONFLICT (company_id, author_user_id, task_id) DO NOTHING",
@@ -198,13 +202,24 @@ public class ContentTaskController {
         return success(Map.of("expired", false, "message", ""));
     }
 
+    private static boolean waitingForSave(FrContentTaskDO task) {
+        return ("copy".equals(task.getKind()) || "asr".equals(task.getKind()))
+                && "SUCCEEDED".equals(task.getStatus()) && !"READY".equals(task.getResultState());
+    }
+
+    static boolean canDismiss(FrContentTaskDO task) {
+        String status = task.getStatus();
+        return "FAILED".equals(status) || "CANCELLED".equals(status)
+                || "SUCCEEDED".equals(status) && !waitingForSave(task);
+    }
+
     static Map<String, Object> viewOf(FrContentTaskDO task) {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", task.getId());
         view.put("kind", task.getKind());
         // Media is usable as soon as link_parse succeeds, even while its optional caption is saving.
-        boolean needsScript = java.util.Set.of("copy","asr").contains(task.getKind());
-        boolean pending = needsScript && "SUCCEEDED".equals(task.getStatus()) && !"READY".equals(task.getResultState());
+        boolean pending = waitingForSave(task);
+        view.put("canDismiss", canDismiss(task));
         view.put("status", pending ? ("FAILED".equals(task.getResultState()) ? "FAILED" : "ARCHIVING") : task.getStatus());
         view.put("generationStatus", task.getStatus());
         view.put("saveRetryable", pending && "FAILED".equals(task.getResultState()));

@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -26,6 +28,31 @@ class ContentTaskResultHttpContractTest {
         ReflectionTestUtils.setField(controller,"tasks",tasks);
         ReflectionTestUtils.setField(controller,"drafts",new ContentDraftService(null,null,null,tasks,null));
         return MockMvcBuilders.standaloneSetup(controller).build();
+    }
+
+    @Test void pendingGenerationAndUnarchivedWorkCannotBeRemovedFromTaskCenter() {
+        var current=mock(CurrentPost.class);
+        when(current.require()).thenReturn(new PostSnapshot(77L,77L,33L,"store","boss",null,false,Set.of()));
+        var tasks=mock(ContentTaskService.class);
+        var jdbc=mock(JdbcTemplate.class);
+        var controller=new ContentTaskController();
+        ReflectionTestUtils.setField(controller,"currentPost",current);
+        ReflectionTestUtils.setField(controller,"tasks",tasks);
+        ReflectionTestUtils.setField(controller,"jdbcTemplate",jdbc);
+        var task=new FrContentTaskDO().setId(123L).setAuthorUserId(77L).setKind("copy");
+        when(tasks.requireOwned(33L,123L)).thenReturn(task);
+        for(String status:List.of("QUEUED","RUNNING","SUBMISSION_UNCERTAIN")) {
+            task.setStatus(status);
+            assertThatThrownBy(()->controller.dismiss(123L)).hasMessageContaining("仍在处理");
+        }
+        for(String result:List.of("PENDING","FAILED")) {
+            task.setStatus("SUCCEEDED").setResultState(result);
+            assertThatThrownBy(()->controller.dismiss(123L)).hasMessageContaining("待补保存");
+        }
+        verifyNoInteractions(jdbc);
+        task.setResultState("READY");
+        org.assertj.core.api.Assertions.assertThat(controller.dismiss(123L).getData()).isTrue();
+        verify(jdbc).update(startsWith("INSERT INTO fr_content_task_hidden"),eq(33L),eq(77L),eq(123L),eq(77L));
     }
 
     @Test void mediaParsingSuccessDoesNotWaitForOptionalCaptionPersistence() throws Exception {
@@ -51,6 +78,7 @@ class ContentTaskResultHttpContractTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.generationStatus").value("SUCCEEDED"))
                     .andExpect(jsonPath("$.data.saveRetryable").value("FAILED".equals(state)))
+                    .andExpect(jsonPath("$.data.canDismiss").value("READY".equals(state)))
                     .andExpect(jsonPath("$.data.status").value(switch(state){case "PENDING"->"ARCHIVING";case "FAILED"->"FAILED";default->"SUCCEEDED";}));
         }
     }
