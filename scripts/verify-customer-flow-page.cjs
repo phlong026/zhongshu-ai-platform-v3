@@ -60,6 +60,40 @@ function harness(options = {}) {
   return h;
 }
 
+test('05测量和06报价能进入外部委托，06保留预算并提供付款草案，跳转不保存或完成步骤', async () => {
+  const { render } = require('./role-page-runtime.cjs'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  for (const step of ['MEASUREMENT', 'QUOTATION']) {
+    const h = harness({ step }); await h.open();
+    const controls = flatten(render(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), h.page.data));
+    assert.equal(controls.some(node => node.attrs?.bindtap === 'openEntrust'), true);
+    h.page.openEntrust(); assert.equal(h.navigations.at(-1).url, '/pages/external-entrust/index?customerId=42');
+    if (step === 'QUOTATION') {
+      assert.equal(controls.some(node => node.attrs?.bindtap === 'openBudget'), true);
+      assert.equal(controls.some(node => node.attrs?.bindtap === 'openPaymentDraft'), true);
+      h.page.openPaymentDraft(); assert.equal(h.navigations.at(-1).url, '/pages/workflow/payment-plan/index?customerId=42&draft=1');
+    }
+    assert.equal(h.callsFor('save').length + h.callsFor('complete').length, 0);
+  }
+  const start = harness({ step: 'START' }); await start.open(); start.page.openSource(); assert.match(start.navigations.at(-1).url, /external-entrust\/index\?customerId=42/);
+  start.state.steps[7].fields.projectId = '77'; await start.page.load(); start.page.openSource(); assert.equal(start.navigations.at(-1).url, '/pages/build/index?view=overview&id=77');
+});
+
+test('相关办理入口对未保存填写给出提示，保存结果未知或切岗后不跳转', async () => {
+  const h = harness({ step: 'QUOTATION' }); await h.open(); h.page.input(event('note', '测量资料尚未保存'));
+  h.page.openEntrust(); assert.equal(h.navigations.length, 0); assert.ok(h.modal); h.modal.success({ confirm: true }); assert.equal(h.navigations.length, 1);
+  h.page.data.uncertain = true; h.page.openPaymentDraft(); assert.equal(h.navigations.length, 1);
+  h.page.data.uncertain = false; h.page.openPaymentDraft(); h.switchSession(); h.modal.success({ confirm: true }); assert.equal(h.navigations.length, 1);
+  assert.equal(h.callsFor('save').length + h.callsFor('complete').length, 0);
+});
+
+test('未保存提示打开后进入提交或上传状态，确认不跳转', async () => {
+  for (const state of ['busy', 'uploading', 'uncertain']) {
+    const h = harness({ step: 'QUOTATION' }); await h.open(); h.page.input(event('note', '尚未保存'));
+    h.page.openEntrust(); assert.ok(h.modal); h.page.data[state] = true; h.modal.success({ confirm: true });
+    assert.equal(h.navigations.length, 0, state);
+  }
+});
+
 test('保存未齐资料只产生草稿，不本地推进百分比；完成先保存再交服务端验证', async () => {
   const h = harness(); await h.open();
   h.page.input(event('note', '本次仅联系，待确定到店时间'));

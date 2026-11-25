@@ -244,12 +244,27 @@ Page({
     const form = clone(this.data.form); form.fields.referenceCaseId = ''; form.fields.referenceCaseName = ''; this.change(form);
   },
   openBudget() { if (this.alive()) navigation.open('/design-migration/pages/budget/quick?customerId=' + encodeURIComponent(this.customerId)); },
+  openEntrust() {
+    if (['MEASUREMENT', 'QUOTATION', 'START'].includes(this.selectedCode)) this.openRelated('/pages/external-entrust/index?customerId=' + encodeURIComponent(this.customerId));
+  },
+  openPaymentDraft() {
+    if (this.selectedCode === 'QUOTATION') this.openRelated('/pages/workflow/payment-plan/index?customerId=' + encodeURIComponent(this.customerId) + '&draft=1');
+  },
+  openRelated(url) {
+    if (!this.alive() || this.data.busy || this.data.uploading || this.data.uncertain) return;
+    const savedScope = this._scope, go = () => {
+      if (this.alive(savedScope) && !this.data.busy && !this.data.uploading && !this.data.uncertain) navigation.open(url);
+    };
+    if (!Object.keys(this._drafts || {}).length && !this._pendingFile) return go();
+    wx.showModal({ title: '本步尚未保存', content: '继续办理不会保存或完成本步，请核对未保存的填写。', confirmText: '继续办理', success: result => { if (result.confirm && this.alive(savedScope)) go(); } });
+  },
   openCustomer() { if (this.alive()) navigation.open('/pages/workflow/index?view=customer&id=' + encodeURIComponent(this.customerId)); },
   openSource() {
-    if (!this.alive()) return;
+    if (!this.alive() || this.data.busy || this.data.uploading || this.data.uncertain) return;
     if (this.selectedCode === 'CONTRACT') return navigation.open('/pages/workflow/index?view=contract&id=' + encodeURIComponent(this.customerId));
     const projectId = model.id(this.data.step?.fields?.projectId);
-    navigation.open(projectId ? '/pages/build/index?view=overview&id=' + encodeURIComponent(projectId) : '/pages/workflow/commission/index?view=submit&customerId=' + encodeURIComponent(this.customerId));
+    if (projectId) navigation.open('/pages/build/index?view=overview&id=' + encodeURIComponent(projectId));
+    else this.openEntrust();
   },
   toggleHistory() { if (!this.alive() || this.data.busy) return; this.setData({ showHistory: !this.data.showHistory, activeRecord: null }); if (this.data.showHistory) return this.loadHistory(true); },
   async loadHistory(reset = false) {
