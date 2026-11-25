@@ -27,6 +27,11 @@
       ]
     },
     {
+      "root": "pages/contract-documents",
+      "name": "contract-documents",
+      "pages": ["index"]
+    },
+    {
       "root": "pages/build",
       "name": "engineering-workflow",
       "pages": [

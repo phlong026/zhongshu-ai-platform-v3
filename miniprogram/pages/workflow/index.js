@@ -417,24 +417,13 @@ Page({
  platformCommandFor(action,targetId){this.__cmdKeys=this.__cmdKeys||{};const k=action+':'+targetId;if(!this.__cmdKeys[k])this.__cmdKeys[k]=PF.commandKey(action);return this.__cmdKeys[k];},
  platformDropCommandFor(action,targetId){if(this.__cmdKeys)delete this.__cmdKeys[action+':'+targetId];},
  platformContractSign(e){
-  const id=e.currentTarget.dataset.id,card=(this.data.salesContracts||[]).find(c=>c.id===String(id));
-  const fail=msg=>this.setData({contractError:msg,busy:false});
-  if(!card||card.revision==null)return fail('数据已变化，请刷新后重试');
-  const key=this.platformCommandFor('sign',id);
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({busy:true,contractError:''});
-  this.platformSalesApi().contracts.sign(id,{revision:card.revision},key).then(res=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommandFor('sign',id);this.setData({busy:false});
-   if(res&&res.status==='SIGNED')wx.showToast({title:'已签订',icon:'none'});else wx.showToast({title:'合同状态已变化，已刷新',icon:'none'});
-   this.loadPlatformContract();
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});
-   if((err&&err.code)!==-1)this.platformDropCommandFor('sign',id);
-   fail(PF.errorMessageSales(err));
-  });
+  const card=(this.data.salesContracts||[]).find(c=>c.id===String(e.currentTarget.dataset.id));
+  if(this.data.busy||!PF.can(this.__post,'saleWrite')||!card||card.status!=='WAIT_SIGN')return;
+  return this.openContractEvidence(e);
+ },
+ openContractEvidence(e){
+  const id=String(e.currentTarget.dataset.id);
+  if(!this.data.busy&&(this.data.salesContracts||[]).some(c=>c.id===id))require('../../utils/page-navigation').open('/pages/contract-documents/index?contractId='+encodeURIComponent(id));
  },
  platformContractVoid(e){
   const id=e.currentTarget.dataset.id,card=(this.data.salesContracts||[]).find(c=>c.id===String(id));
