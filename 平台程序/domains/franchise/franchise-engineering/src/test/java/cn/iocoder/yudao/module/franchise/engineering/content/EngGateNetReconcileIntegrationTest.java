@@ -149,6 +149,11 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
             return new cn.iocoder.yudao.module.franchise.test.BusinessReceiptPortTestStub(jdbc);
         }
 
+        @Bean
+        cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort engineeringLedgerQueryPort() {
+            return untouchedStub(cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort.class);
+        }
+
         @SuppressWarnings("unchecked")
         private static <T> T untouchedStub(Class<T> type) {
             return (T) java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
