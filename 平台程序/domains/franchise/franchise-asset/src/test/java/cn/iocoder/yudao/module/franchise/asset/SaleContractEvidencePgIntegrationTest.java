@@ -332,7 +332,7 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
     }
     private long customer(PostSnapshot post) {
         long id = IdWorker.getId();
-        jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,team_id,name,phone,source,status) VALUES(?,?,?,?,'实际签约客户',?,'到店','REGISTERED')", id, post.orgId(), post.userId(), post.teamId(), Long.toString(id)); return id;
+        jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,team_id,name,phone,source,status) VALUES(?,?,?,?,'实际签约客户',?,'到店','REGISTERED')", id, post.orgId(), post.userId(), post.teamId(), Long.toString(10000000000L + Math.floorMod(id, 10000000000L))); return id;
     }
     private long upload(PostSnapshot post, String type) throws Exception {
         currentPost.use(post); var ticket = assets.createUploadTicket(actor(post), type, "application/pdf", PDF.length, sha(PDF));
