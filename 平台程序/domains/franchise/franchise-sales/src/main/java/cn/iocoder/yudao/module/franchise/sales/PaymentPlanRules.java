@@ -37,7 +37,8 @@ public final class PaymentPlanRules {
                 throw invalid("付款节点编号重复或无效");
             }
             String trigger = row.trigger() == null ? "MANUAL" : row.trigger();
-            if (!TRIGGERS.contains(trigger)
+            boolean retainedLegacy = row.stageId() != null && Set.of("LEGACY_BASE_DONE","LEGACY_TOPPING").contains(trigger);
+            if ((!TRIGGERS.contains(trigger) && !retainedLegacy)
                     || ("DATE".equals(trigger) && row.dueDate() == null)
                     || ("NODE_COMPLETED".equals(trigger) && (row.nodeIndex() == null || row.nodeIndex() < 1 || row.nodeIndex() > 100))
                     || (!"NODE_COMPLETED".equals(trigger) && row.nodeIndex() != null)) {
