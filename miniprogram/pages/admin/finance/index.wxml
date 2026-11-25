@@ -1,5 +1,6 @@
 <view class="owner-page"><owner-header title="经营"/><view class="owner-content"><view class="owner-refresh-status" bindtap="retryHome">{{homeAccessError||(homeRefreshError?'更新失败，点此重试':homeRefreshing?'更新中…':'')}}</view><block wx:if="{{ready}}">
 <view class="owner-period"><text class="owner-muted">{{desk.company}}</text><picker mode="date" fields="month" value="{{desk.period}}" bindchange="month"><view>{{desk.periodLabel}}<image class="owner-arrow owner-select-icon" src="/assets/creation-chevron.png"/></view></picker></view>
+<button class="owner-card home-brief-entry" data-url="/pages/admin/payroll/index" bindtap="go"><view class="owner-grow"><text class="owner-name">薪酬核算记录</text><text class="owner-muted">查看业务、工程的规则和人工核算版本</text></view><image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
 <view wx:if="{{!desk.business.available}}" class="owner-card"><view class="owner-heading"><text>经营数据</text></view><text class="owner-muted">{{desk.business.message}}</text></view>
 <block wx:else>
 <view class="biz-headline"><view wx:for="{{desk.business.summary}}" wx:key="key" class="biz-headline-item"><text class="biz-headline-label">{{item.label}}</text><text class="biz-headline-value">{{item.value}}</text><text class="biz-headline-note">{{item.note}}</text></view></view>

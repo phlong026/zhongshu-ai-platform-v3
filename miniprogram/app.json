@@ -63,6 +63,7 @@
         "detail/index",
         "finance-desk/index",
         "accounting/index",
+        "payroll/index",
         "operations/index",
         "commission/index",
         "brief/index"
