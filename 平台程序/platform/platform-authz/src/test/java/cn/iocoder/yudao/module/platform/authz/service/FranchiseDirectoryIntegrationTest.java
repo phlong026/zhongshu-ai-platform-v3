@@ -84,7 +84,7 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(written.created()).isEqualTo(1);String id=written.rows().get(0).recordId();
         assertThat(directory.get(id).regionCodes()).containsExactly("420116","420117");
         assertThat(directory.importRows(List.of(input),false,7).skipped()).isEqualTo(1);
-        var map=maps.snapshot();assertThat(map.get("schemaVersion")).isEqualTo(2);
+        var map=maps.snapshot();assertThat(map.get("schemaVersion")).isEqualTo(2);assertThat(map.get("publicProjectionVersion")).isEqualTo(1);
         assertThat(records(map)).hasSize(1);assertThat(records(map).get(0).recordType()).isEqualTo("COVERAGE");
         assertThat(points(map)).hasSize(2).extracting(FranchiseMapService.Point::recordId).containsOnly(id);
         assertThat((List<?>)map.get("stores")).isEmpty();
