@@ -18,7 +18,7 @@
       </button>
     </view>
     <view class="flow-section-heading"><text>{{step.number}} · {{step.name}}</text><button class="flow-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回本步':'查看记录'}}</button></view>
-    <view wx:if="{{error}}" class="flow-error" aria-live="polite"><text>{{error}}</text><button wx:if="{{uncertain}}" class="flow-link" bindtap="runPending" loading="{{busy}}" disabled="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="flow-link" bindtap="reloadLatest">载入最新</button></view>
+    <view wx:if="{{error||uncertain}}" class="flow-error" aria-live="polite"><text>{{error||'保存结果尚未确认，请重试核对'}}</text><button wx:if="{{uncertain}}" class="flow-link" bindtap="runPending" loading="{{busy}}" disabled="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="flow-link" bindtap="reloadLatest">载入最新</button></view>
     <view wx:if="{{conflict}}" class="flow-error"><text>记录已更新，请载入最新版本后继续。</text><button class="flow-link" bindtap="reloadLatest">载入最新</button></view>
     <block wx:if="{{showHistory}}">
       <view class="flow-card flow-records">

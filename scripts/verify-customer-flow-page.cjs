@@ -164,6 +164,30 @@ test('保存超时原body和幂等键重试；确定的领域错误不会错误�
   await h.page.submit(); assert.equal(h.page.data.uncertain, false); assert.match(h.page.data.error, /幂等键/);
 });
 
+test('保存或完成结果未知时切回页面仍可点击重试，保留原命令且不再保存一次', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  for (const action of ['save', 'complete']) {
+    const h = harness(); await h.open();
+    h.page.input(event('note', '待核对的原始记录'));
+    h.overrides[action] = async () => { throw { code: -1, message: 'timeout' }; };
+    await h.page.submit({ currentTarget: { dataset: { action } } });
+    const original = h.callsFor(action)[0], pending = h.page._pending;
+    h.page.onHide(); await h.page.onShow();
+    assert.equal(h.page.data.uncertain, true); assert.equal(h.page._pending, pending);
+    assert.equal(h.page.data.error, '', '正常刷新可清除旧读取错误');
+    const nodes = flatten(render(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), h.page.data));
+    const retry = nodes.find(node => node.attrs?.bindtap === 'runPending');
+    assert.ok(retry, '未确认命令的重试入口不能依赖读取错误');
+    assert.match(nodes.map(node => node.text || '').join(''), /保存结果尚未确认/);
+    assert.equal(retry.attrs.disabled, false);
+    delete h.overrides[action]; await h.page[retry.attrs.bindtap]();
+    assert.deepEqual(h.callsFor(action)[1].args, original.args);
+    assert.equal(h.callsFor('save').length, action === 'save' ? 2 : 1);
+    assert.equal(h.page.data.uncertain, false); assert.equal(h.page._pending, null);
+  }
+});
+
 test('版本冲突保留填写并停止写入，确认载入最新后才能继续', async () => {
   const h = harness(); await h.open(); h.page.input(event('note', '仍需保留的填写'));
   h.overrides.save = async () => { throw { code: 409, message: '记录已更新' }; };
