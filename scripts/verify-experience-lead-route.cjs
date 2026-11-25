@@ -12,6 +12,7 @@ let customerReadError;
 let captureImpl;
 let customerReadImpl;
 let summaryImpl=async()=>({perPublication:[]});
+let pendingImpl=async()=>[], linkImpl=async()=>({}), invalidateImpl=async()=>({});
 let sessionGeneration = 1;
 let currentPost = { postId: 'post-sales-a', orgType: 'store', roleCode: 'sales' };
 const navigations = [];
@@ -27,7 +28,9 @@ const crm = {
       if (captureError) throw captureError;
       return captureResponse;
     },
-    pending: async () => []
+    pending: () => pendingImpl(),
+    link: (...args) => linkImpl(...args),
+    invalidate: (...args) => invalidateImpl(...args)
   },
   customers: {
     get: async id => {
@@ -85,6 +88,7 @@ function page() {
     refresh() {}
   };
   instance.data.published = [];
+  instance.data.directSourceChosen = true; // Existing non-publication scenarios start after a deliberate direct selection.
   return instance;
 }
 
@@ -307,6 +311,84 @@ async function submit(response, readError, requestError) {
   await settle();
   assert.equal(instance.data.published.length,0);
   assert.equal(instance.data.form.contentId,'');
+
+  summaryImpl=async()=>{throw Error('作品接口弱网');};
+  instance=page();instance.refresh=definition.refresh;
+  instance.onLoad({view:'capture'});instance.onShow();await settle();
+  captureKeys.length=0;sentSource=undefined;
+  const offlineFields={name:'明示来源测试',phone:'13812345678',need:'现场咨询'};
+  const directForm=()=>({...offlineFields,...instance.data.form});
+  assert.equal(instance.data.directSourceChosen,false);
+  assert.match(instance.data.publicationError,/暂时无法读取/);
+  instance.captureOnline(directForm());await settle();
+  assert.equal(captureKeys.length,0,'作品接口失败不能用默认值登记为直接来访');
+  instance.chooseDirectSource();
+  instance.captureOnline(directForm());await settle();
+  assert.equal(sentSource,'直接来访');
+  assert.equal(captureKeys.length,1,'明确选择非作品来源不必等待无关的作品接口');
+  console.log('PASS 来源接口失败不默认来访，用户点选后仍能登记');
+
+  summaryImpl=async()=>({perPublication:[{id:publicationId,title:'旧显示顺序作品'}]});
+  instance=page();instance.refresh=definition.refresh;
+  instance.onLoad({view:'capture',publicationId});instance.onShow();await settle();
+  assert.equal(instance.data.publishedIndex,1);
+  summaryImpl=async()=>{throw Error('作品接口弱网');};
+  await instance.syncGrowth();
+  assert.equal(instance.data.form.contentId,publicationId,'失败保留原作品选择');
+  assert.equal(instance.data.published.length,0,'失败不把旧名单当作有效候选');
+  sentSource=undefined;
+  instance.captureOnline(directForm());await settle();
+  assert.equal(sentSource,undefined);
+  summaryImpl=async()=>({perPublication:[{id:'90071992547409935',title:'另一作品'},{id:publicationId,title:'原作品'}]});
+  await instance.syncGrowth();
+  assert.equal(instance.data.publishedIndex,2);
+  instance.captureOnline(directForm());await settle();
+  assert.equal(sentSource,'内容发布:'+publicationId,'作品排序变化后仍用原 ID');
+  console.log('PASS 弱网保留固定作品编号，重新排列不改来源');
+
+  const pendingRow=(id,name)=>({id,name,phone:'13812345678',status:'LINK_REQUIRED',revision:1});
+  const oldList=deferred();
+  currentPost={postId:'lead-manager-old',orgType:'store',roleCode:'sales-lead'};
+  pendingImpl=()=>oldList.promise;
+  instance=page();instance.refresh=definition.refresh;instance.onLoad({view:'home'});instance.onShow();
+  currentPost={postId:'lead-manager-new',orgType:'store',roleCode:'boss'};sessionGeneration++;
+  pendingImpl=async()=>[pendingRow('new-lead','新岗位客资')];
+  instance.onShow();await settle();
+  oldList.resolve([pendingRow('old-lead','旧岗位客资')]);await settle();
+  assert.deepEqual(Array.from(instance.data.pendingLeads, r=>r.leadId),['new-lead']);
+  const oldMutation=deferred();
+  linkImpl=()=>oldMutation.promise;
+  toasts.length=0;
+  instance.onlineLinkLead({currentTarget:{dataset:{leadId:'new-lead'}}});
+  currentPost={postId:'outside',orgType:'other',roleCode:'boss'};sessionGeneration++;
+  instance.onShow();
+  assert.equal(instance.data.pendingLeads.length,0,'撤权跳转之前必须清掉姓名和手机号');
+  oldMutation.resolve({});await settle();
+  assert.equal(instance.data.pendingLeads.length,0);
+  assert.deepEqual(toasts,[],'旧岗位操作回调不能在新岗位跳成功提示');
+  console.log('PASS 待关联名单及办理回调不能跨岗位；撤权先清空再跳转');
+
+  const pendingRead=deferred(), pendingWrite=deferred(), newRead=deferred(), actions=[];
+  currentPost={postId:'lead-manager',orgType:'store',roleCode:'sales-lead'};sessionGeneration++;
+  pendingImpl=async()=>[pendingRow('other','同事另一个线索'),pendingRow('to-link','应关联')];
+  instance=page();instance.refresh=definition.refresh;instance.onLoad({view:'home'});instance.onShow();await settle();
+  pendingImpl=()=>pendingRead.promise;
+  const oldRequest=instance.loadPendingLeads();
+  linkImpl=(...args)=>{actions.push(['link',...args]);return pendingWrite.promise;};
+  invalidateImpl=(...args)=>{actions.push(['invalidate',...args]);return Promise.resolve({});};
+  const actionEvent={currentTarget:{dataset:{leadId:'to-link',idx:0}}};
+  const saving=instance.onlineLinkLead(actionEvent);
+  instance.onlineInvalidateLead(actionEvent);
+  assert.equal(actions.length,1,'同一条在处理时不能另起作废');
+  assert.equal(actions[0][1],'to-link','按稳定编号而不是旧列表位置操作');
+  pendingImpl=()=>newRead.promise;
+  pendingWrite.resolve({});await settle();
+  assert.deepEqual(Array.from(instance.data.pendingLeads, r=>r.leadId),['other']);
+  pendingRead.resolve([pendingRow('to-link','过期列表不应重现')]);await oldRequest;
+  assert.deepEqual(Array.from(instance.data.pendingLeads, r=>r.leadId),['other']);
+  newRead.resolve([pendingRow('other','另一条')]);await saving;
+  assert.deepEqual(Array.from(instance.data.pendingLeads, r=>r.leadId),['other']);
+  console.log('PASS 处理成功立即从名单移除，早先的名单不会恢复；不会按行号操作错人');
 
   console.log('PASS CREATED 登记后进入 customerId 对应客户工作区');
   console.log('PASS LINKED 仅在当前岗位可读时进入客户工作区');
