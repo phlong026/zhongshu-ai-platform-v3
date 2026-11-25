@@ -24,6 +24,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,13 +37,16 @@ import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class})
+@TestPropertySource(properties = "platform.legacy-design-bridge.enabled=false")
+@Import({LeadService.class, LeadImportService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class})
 class CrmIntegrationTest extends FranchisePgIntegrationTest {
 
     private static final AtomicLong PHONES = new AtomicLong(13_000_000_000L + System.nanoTime() % 900_000_000L);
 
     @Resource
     private LeadService leads;
+    @Resource
+    private LeadImportService imports;
     @Resource
     private CustomerService customers;
 
@@ -206,6 +210,46 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate followJdbc;
+
+    @Test
+    void leadImportPrecheckAndSubmitUseTheSamePublishedSourceRule() {
+        // CRM's isolated test profile does not run the Content module's migrations.
+        // Keep the fixture compatible with the full publication table if present.
+        followJdbc.execute("""
+            CREATE TABLE IF NOT EXISTS fr_content_publication (
+              id bigint PRIMARY KEY, company_id bigint, author_user_id bigint, work_id bigint,
+              title text, account_id text, platform text, status text, published_url text, published_at timestamptz)
+            """);
+        long published=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        long earlierDraft=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        for (long id : List.of(published, earlierDraft)) {
+            boolean live=id==published;
+            followJdbc.update("""
+                INSERT INTO fr_content_publication (id,company_id,author_user_id,work_id,title,account_id,platform,status,published_url,published_at)
+                VALUES(?,?,?,?,?,'fixture-account','douyin',?,?,CASE WHEN ? THEN now() ELSE NULL END)
+                """,id,boss.orgId(),boss.userId(),id,"合成视频",live?"published":"publishing",
+                    live?"https://example.invalid/work/"+id:null,live);
+        }
+        String existingPhone=phone();
+        capture(salesA1,existingPhone);
+        String fresh=phone();
+        var rows=List.of(new LeadImportService.Row(1,"合成客户甲",fresh,"咨询", "内容发布:"+published),
+                new LeadImportService.Row(2,"合成客户乙",existingPhone,"咨询","内容发布:"+earlierDraft),
+                new LeadImportService.Row(3,"合成客户丙",phone(),"咨询","内容发布:"+earlierDraft));
+        String batch="publication-precheck-"+published;
+        var precheck=as(boss,()->imports.precheck(boss,batch,rows));
+        assertThat(precheck.rows()).extracting(LeadImportService.RowResult::status).containsExactly("OK","FAILED","FAILED");
+        assertThat(precheck.rows().get(1).message()).contains("已发布的视频");
+        assertThat(followJdbc.queryForObject("SELECT count(*) FROM fr_customer WHERE company_id=? AND phone=?",Long.class,boss.orgId(),fresh)).isZero();
+        var submitted=as(boss,()->imports.submit(boss,batch,rows));
+        assertThat(submitted.created()).isEqualTo(1);
+        assertThat(submitted.failed()).isEqualTo(2);
+        // The successful row stays replayable even if its source later changes state.
+        followJdbc.update("UPDATE fr_content_publication SET status='failed' WHERE id=?",published);
+        var retried=as(boss,()->imports.submit(boss,batch,rows));
+        assertThat(retried.skipped()).isEqualTo(1);
+        assertThat(retried.created()).isZero();
+    }
 
     @Test
     void oldDefaultDateCanReplayAcrossMidnightButChangedContentCannot() {
