@@ -530,8 +530,12 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
     private void assertProgress(long customer,int completed) { assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).completedCount()).isEqualTo(completed); }
     private long upload(PostSnapshot post,String type) throws Exception {
-        return as(post,()->{ var ticket=assets.createUploadTicket(actor(post),type,"application/pdf",PDF.length,sha(PDF));
-            assets.receiveUpload(actor(post),ticket.assetId(),token(ticket.uploadUrl()),new ByteArrayInputStream(PDF));
+        var image=new java.io.ByteArrayOutputStream();
+        boolean reference="DESIGN_REFERENCE".equals(type);
+        if (reference) javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1,1,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
+        byte[] bytes=reference?image.toByteArray():PDF;
+        return as(post,()->{ var ticket=assets.createUploadTicket(actor(post),type,reference?"image/png":"application/pdf",bytes.length,sha(bytes));
+            assets.receiveUpload(actor(post),ticket.assetId(),token(ticket.uploadUrl()),new ByteArrayInputStream(bytes));
             assertThat(assets.completeUpload(actor(post),ticket.assetId()).uploadStatus()).isEqualTo("ACCEPTED"); return ticket.assetId(); });
     }
     private AssetAccessPort.Actor actor(PostSnapshot post) { return new AssetAccessPort.Actor(post.orgId(),post.orgId()+1000000L,post.userId(),post.postId()); }
