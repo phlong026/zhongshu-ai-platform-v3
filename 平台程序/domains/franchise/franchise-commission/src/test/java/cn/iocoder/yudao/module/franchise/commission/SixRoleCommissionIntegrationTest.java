@@ -268,45 +268,34 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales,()->grants.requireReadable(sales,id,1,CommissionDeliverableAccessPort.Slot.DRAWING)).assetId()).isEqualTo(102);
         assertThat(jdbc.queryForObject("SELECT drawing_asset_id FROM fr_commission_dispatch_manifest WHERE commission_id=? AND dispatch_seq=1",Long.class,id)).isEqualTo(102);
     }
-    @Test void simulatedPaymentFreezesFactsIsIdempotentAndNeverCreatesActualFinance(){
+    @Test void retiredSimulationCannotBeReenabledAndHistoryNeverBecomesRealCash() {
         var store=fixture.store();var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
         var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
         var finance=fixture.post(store.orgId(),"finance",null);var hqFinance=fixture.post(design.orgId(),"finance",null);
         var outsider=fixture.post(fixture.store().orgId(),"finance",null);
-        long customer=as(sales,()->leads.capture(sales,new LeadService.CaptureCommand("模拟支付验收",String.valueOf(15000000000L+Math.abs(UUID.randomUUID().getLeastSignificantBits()%800000000L)),"建房","验收"),null).customerId());
-        var budget=as(sales,()->customers.saveScheme(sales,customer,new CustomerService.SchemeCommand("BUDGET","预算","{}",BigDecimal.TEN,BigDecimal.TEN,2,new BigDecimal("200"),123456L),null));
+        long customer=createCustomer(sales);var budget=saveBudget(sales,customer);
         var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
-        var brief=new java.util.LinkedHashMap<String,Object>();brief.put("projectName","验收自建房");brief.put("orientation","南");brief.put("entranceAligned","一致");brief.put("householdMembers","5");brief.put("rooms",java.util.List.of("卧室"));brief.put("customer",java.util.Map.of("phone","伪造电话"));brief.put("buildingArea",99999);
-        var input=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,brief,"TEST_SIMULATION");
-        assertThat(as(sales,()->commissions.context(sales,customer)).feeOffer().simulationPaymentMode()).isNull();
-        assertError(()->as(sales,()->commissions.submit(sales,customer,input,key())),SIMULATION_FORBIDDEN);
-        simulations.configureSimulationOrganizations(Long.toString(store.orgId()));
-        assertError(()->as(sales,()->commissions.submit(sales,customer,input,key())),SIMULATION_FORBIDDEN);
-        simulations.configureSimulationOrganizations(store.orgId()+","+design.orgId());
-        assertThat(as(sales,()->commissions.context(sales,customer)).feeOffer().simulationPaymentMode()).isEqualTo("TEST_SIMULATION");
-        var detail=as(sales,()->commissions.submit(sales,customer,input,key()));long id=detail.commission().getId();
-        assertThat(detail.simulatedPayment().amountCents()).isEqualTo(20000);
-        assertThat(detail.allowedActions()).contains("commission-simulate-pay");
-        assertThat(detail.submissions().get(0).getSchemeSnapshot()).doesNotContain("伪造电话","99999");
-        assertError(()->as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("完成",true),key())),FIRST_PAYMENT_NOT_READY);
-        assertError(()->as(outsider,()->commissions.paymentReceipt(outsider,id)),COMMISSION_NOT_FOUND);
-        String payKey=key();var pay=new CommissionService.SimulatePayCommand("WECHAT",true);
-        var paid=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
-        var again=as(sales,()->commissions.simulatePay(sales,id,pay,payKey));
-        assertThat(again.commission().getRevision()).isEqualTo(paid.commission().getRevision());
+        var simulation=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,"TEST_SIMULATION");
+        for(String config:java.util.List.of("",Long.toString(store.orgId()),store.orgId()+","+design.orgId())) {
+            simulations.configureSimulationOrganizations(config);
+            assertThat(as(sales,()->commissions.context(sales,customer)).feeOffer().simulationPaymentMode()).isNull();
+            assertError(()->as(sales,()->commissions.submit(sales,customer,simulation,key())),SIMULATION_FORBIDDEN);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission WHERE customer_id=?",Long.class,customer)).isZero();
+        var formal=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,null);
+        long id=as(sales,()->commissions.submit(sales,customer,formal,key())).commission().getId();
+        var row=as(sales,()->commissions.get(sales,id)).commission();
+        assertError(()->simulations.create(row,20000),SIMULATION_FORBIDDEN);
+        seedHistoricalSimulation(id,store.orgId(),design.orgId(),sales.userId());
+        assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("WECHAT",true),key())),SIMULATION_FORBIDDEN);
+        assertError(()->simulations.pay(row,"ALIPAY",sales),SIMULATION_FORBIDDEN);
         assertThat(as(finance,()->commissions.paymentReceipt(finance,id)).paid()).isTrue();
         assertThat(as(hqFinance,()->commissions.paymentReceipt(hqFinance,id)).paid()).isTrue();
-        assertThat(as(design,()->commissions.get(design,id)).allowedActions()).contains("design-complete");
-        assertThat(as(design,()->commissions.get(design,id)).submissions().get(0).getSchemeSnapshot()).doesNotContain("\"phone\"","123456");
-        assertError(()->as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("ALIPAY",true),key())),COMMISSION_STATE_INVALID);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE customer_id=?",Long.class,customer)).isZero();
+        assertError(()->as(outsider,()->commissions.paymentReceipt(outsider,id)),COMMISSION_NOT_FOUND);
+        assertThat(as(sales,()->commissions.get(sales,id)).allowedActions()).doesNotContain("commission-simulate-pay");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,store.orgId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id IN (?,?)",Long.class,store.orgId(),design.orgId())).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
-        as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("演练完成",true),key()));
-        simulations.configureSimulationOrganizations("");
-        var dispatch=new CommissionService.DispatchCommand("演练下发","测试经办",true,"V1",1L,2L,3L);
-        assertError(()->as(design,()->commissions.dispatch(design,id,dispatch,key())),TAIL_PAYMENT_NOT_READY);
-        assertThat(as(design,()->commissions.get(design,id)).allowedActions()).doesNotContain("design-dispatch");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_dispatch_manifest WHERE commission_id=?",Long.class,id)).isZero();
     }
     @Test void oldClientPaymentMarkerCreatesOnlyFormalPayablesAndReplaysSafely() {
         var store=fixture.store();
@@ -347,16 +336,17 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         var budget=saveBudget(sales,customer);
         var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
         var input=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,
-                budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,"TEST_SIMULATION");
-        simulations.configureSimulationOrganizations(store.orgId()+","+design.orgId());
+                budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,null);
         long id=as(sales,()->commissions.submit(sales,customer,input,key())).commission().getId();
-        as(sales,()->commissions.simulatePay(sales,id,new CommissionService.SimulatePayCommand("WECHAT",true),key()));
-        as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("历史演练完成",true),key()));
+        // Import old immutable facts directly; a retired writer must not be reopened to create test history.
+        seedHistoricalSimulation(id,store.orgId(),design.orgId(),sales.userId());
+        jdbc.update("UPDATE fr_commission SET status='DISPATCHED',dispatch_seq=1,dispatched_submission_version=1 WHERE id=?",id);
+        for(String kind:java.util.List.of("COMPLETE","DISPATCH")) jdbc.update("INSERT INTO fr_commission_progress(id,company_id,design_org_id,commission_id,kind,seq,note,recipient,actor_user_id,actor_post_id) VALUES(?,?,?,?,?,1,'历史登记','业务',?,?)",
+                cn.hutool.core.util.IdUtil.getSnowflakeNextId(),store.orgId(),design.orgId(),id,kind,design.userId(),design.postId());
+        jdbc.update("INSERT INTO fr_commission_dispatch_manifest(id,commission_id,dispatch_seq,submission_version,design_org_id,result_asset_id,drawing_asset_id,review_asset_id,drawing_version,actor_user_id,actor_post_id) VALUES(?,?,1,1,?,101,102,103,'V1',?,?)",
+                cn.hutool.core.util.IdUtil.getSnowflakeNextId(),id,design.orgId(),design.userId(),design.postId());
         org.mockito.Mockito.when(assets.validateReference(org.mockito.ArgumentMatchers.any(AssetAccessPort.Actor.class),
                 org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anySet())).thenReturn(true);
-        as(design,()->commissions.dispatch(design,id,new CommissionService.DispatchCommand(
-                "历史下发","经办",true,"V1",101L,102L,103L),key()));
-        simulations.configureSimulationOrganizations("");
 
         var packet=new HandoverService.PacketCommand(1,null,null,null,null,null,java.time.LocalDate.now(),
                 "交底",engineer.userId(),true,104L);
@@ -398,6 +388,10 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales,()->handovers.submit(sales,id,packet,key())).commission().getStatus()).isEqualTo("HANDOVER_SUBMITTED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_dispatch_manifest WHERE commission_id=?",Long.class,id)).isEqualTo(1L);
         assertThat(jdbc.queryForObject("SELECT status FROM fr_commission_simulated_order WHERE commission_id=?",String.class,id)).isEqualTo("PAID");
+    }
+
+    private void seedHistoricalSimulation(long commission,long company,long design,long user) {
+        jdbc.update("INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,order_number,amount_cents,status,channel,paid_by_user_id,paid_at) VALUES(?,1,?,?,?,20000,'PAID','WECHAT',?,now())",commission,company,design,"SIM-OLD-"+commission,user);
     }
 
     private long createCustomer(PostSnapshot sales) {
