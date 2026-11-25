@@ -24,6 +24,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@TestPropertySource(properties = "platform.legacy-design-bridge.enabled=false")
 @Import({LeadService.class, LeadImportService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class})
 class CrmIntegrationTest extends FranchisePgIntegrationTest {
 
