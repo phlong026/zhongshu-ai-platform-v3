@@ -1,0 +1,43 @@
+<import src="./parts.wxml"/>
+<view class="entrust-page">
+  <business-header title="工程移交"/>
+  <view class="entrust-body">
+    <view wx:if="{{error||conflict||uncertain}}" class="entrust-error" role="alert"><text>{{error||(conflict?'移交版本已更新，请载入最新记录后重新核对。':'')}}</text><button wx:if="{{uncertain}}" class="entrust-link" loading="{{busy}}" disabled="{{busy}}" bindtap="runPending">用原请求重试核对</button><button wx:elif="{{conflict}}" class="entrust-link" bindtap="reloadLatest">载入最新记录</button></view>
+    <view wx:if="{{loading&&!ready}}" class="entrust-empty">正在读取工程移交…</view>
+    <view wx:elif="{{!ready}}" class="entrust-empty"><text>暂无可查看的移交内容</text><button class="entrust-secondary" bindtap="load">重新加载</button><button class="entrust-link" bindtap="chooseIdentity">登录或切换工作身份</button></view>
+    <block wx:else>
+      <view class="entrust-card"><view class="entrust-heading"><text>{{context.customerName||'客户工程移交'}}</text><text class="entrust-badge">{{context.statusLabel}}</text></view><text class="entrust-muted entrust-spaced">委托编号 {{context.commissionId}}</text></view>
+      <view class="entrust-tabs"><button class="{{tab==='current'?'selected':''}}" data-tab="current" bindtap="changeTab">本次移交</button><button class="{{tab==='history'?'selected':''}}" data-tab="history" bindtap="changeTab">历史版本</button></view>
+      <block wx:if="{{tab==='current'}}">
+        <block wx:if="{{context.canSubmit&&source}}">
+          <view wx:if="{{context.currentPacket.status==='RETURNED'}}" class="entrust-error"><text>上次退回原因</text><text class="entrust-copy">{{context.currentPacket.decisionNote}}</text><text class="entrust-muted entrust-spaced">核对并补充后，提交新的移交版本</text></view>
+          <view class="entrust-card"><view class="entrust-heading"><text>外部成果 V{{source.resultVersion}}</text><text class="entrust-muted">{{source.drawingVersion}}</text></view><view class="entrust-fact"><text>实际交付日期</text><text>{{source.deliveredOn||'—'}}</text></view><template is="files" data="{{files:source.files}}"/></view>
+          <view class="entrust-card"><text class="entrust-heading">补充客户确认与交底</text>
+            <view class="entrust-field"><text class="entrust-label">客户确认日期 <text class="entrust-required">*</text></text><picker mode="date" value="{{form.confirmationDate}}" end="{{today}}" data-key="confirmationDate" bindchange="input" disabled="{{busy||uploading||uncertain||conflict}}"><view class="entrust-input entrust-picker">{{form.confirmationDate||'请选择实际确认日期'}}<text>›</text></view></picker></view>
+            <view class="entrust-field"><text class="entrust-label">客户确认凭据 <text class="entrust-required">*</text></text><button wx:if="{{form.confirmationAssetId}}" class="entrust-file entrust-file-name" data-asset-id="{{form.confirmationAssetId}}" bindtap="previewFile">{{confirmationTitle||'客户确认凭据'}} · 查看</button><view class="entrust-actions"><button class="entrust-secondary" bindtap="chooseFile" disabled="{{busy||uploading||uncertain||conflict||uploadFailed}}">{{form.confirmationAssetId?'替换文件':'选择文件'}}</button><button class="entrust-secondary" bindtap="choosePhoto" disabled="{{busy||uploading||uncertain||conflict||uploadFailed}}">拍照 / 相册</button></view><text class="entrust-muted entrust-spaced">PDF、JPG、PNG，不超过 30MB</text></view>
+            <view class="entrust-field"><text class="entrust-label">工程接收人 <text class="entrust-required">*</text></text><picker range="{{receivers}}" range-key="name" value="{{receiverIndex}}" bindchange="pickReceiver" disabled="{{busy||uploading||uncertain||conflict||!receivers.length}}"><view class="entrust-input entrust-picker">{{receiverIndex>=0?receivers[receiverIndex].name:'请选择本公司工程接收人'}}<text>›</text></view></picker><text wx:if="{{receiverError||!receivers.length}}" class="entrust-muted entrust-spaced">{{receiverError||'暂无可选接收人，请先安排本公司在岗工程人员'}}</text><button wx:if="{{receiverError||!receivers.length}}" class="entrust-link" bindtap="load">重新读取接收人</button></view>
+            <view class="entrust-field"><text class="entrust-label">交底说明 <text class="entrust-required">*</text></text><textarea class="entrust-input entrust-textarea" value="{{form.note}}" data-key="note" bindinput="input" maxlength="1000" placeholder="说明现场条件、客户确认内容和施工注意事项" disabled="{{busy||uploading||uncertain||conflict}}"/></view>
+          </view>
+          <view class="entrust-card"><template is="plan" data="{{plan:source.plan}}"/><text class="entrust-muted entrust-spaced">本次随包保存该版委托的付款约定；开工准备再核对正式合同。</text></view>
+          <button class="handover-confirm" bindtap="toggleConfirmed" disabled="{{busy||uploading||uncertain||conflict}}"><text class="handover-check {{form.confirmed?'checked':''}}">{{form.confirmed?'✓':''}}</text><text>已核对客户确认、成果资料及付款约定</text></button>
+        </block>
+        <block wx:elif="{{context.currentPacket}}">
+          <view class="entrust-card"><view class="entrust-heading"><text>移交 V{{context.currentPacket.version}}</text><text class="entrust-badge">{{context.currentPacket.statusLabel}}</text></view><template is="packet" data="{{record:context.currentPacket}}"/></view>
+          <view class="entrust-card"><template is="plan" data="{{plan:context.currentPacket.plan}}"/><text class="entrust-muted entrust-spaced">提交时的付款约定快照；开工准备读取当前正式合同。</text></view>
+          <view wx:if="{{context.canReceive||context.canReturn}}" class="entrust-card"><text class="entrust-heading">工程接收核对</text><button class="handover-confirm" bindtap="toggleConfirmed" disabled="{{busy||uncertain||conflict}}"><text class="handover-check {{form.confirmed?'checked':''}}">{{form.confirmed?'✓':''}}</text><text>已核对本版移交资料与付款约定</text></button><text class="entrust-label">接收说明 / 退回原因</text><textarea class="entrust-input entrust-textarea" value="{{form.reason}}" data-key="reason" maxlength="500" bindinput="input" placeholder="退回时必填；接收时可补充说明" disabled="{{busy||uncertain||conflict}}"/><text class="entrust-muted entrust-spaced">接收后建立工程档案，实际开工另行登记。</text></view>
+          <view wx:if="{{context.projectId&&context.currentPacket.status==='ACCEPTED'}}" class="entrust-card"><text class="entrust-heading">工程已建档</text><text class="entrust-muted entrust-spaced">工程编号 {{context.projectId}}</text><button wx:if="{{context.canOpenProject}}" class="entrust-secondary entrust-spaced" bindtap="openProject">查看工程记录</button></view>
+        </block>
+        <view wx:else class="entrust-card entrust-empty">{{context.status==='EXTERNAL_PENDING'?'等待业务登记完整的外部成果':'暂无可办理的工程移交'}}</view>
+      </block>
+      <block wx:else>
+        <view wx:if="{{!context.packets.length}}" class="entrust-card entrust-empty">暂无工程移交历史</view>
+        <view wx:for="{{context.packets}}" wx:key="version" class="entrust-card"><button class="entrust-history-heading" data-version="{{item.version}}" bindtap="toggleHistory"><view><text>移交 V{{item.version}} · {{item.statusLabel}}</text><text class="entrust-muted">{{item.managerName||'工程接收人'}} · {{item.createdOn}}</text></view><text>{{historyVersion===item.version?'收起':'查看'}}</text></button><block wx:if="{{historyVersion===item.version}}"><template is="packet" data="{{record:item}}"/><view class="entrust-history-plan"><template is="plan" data="{{plan:item.plan}}"/></view></block></view>
+      </block>
+      <view wx:if="{{uploading||uploadFailed}}" class="entrust-upload"><text>{{uploadName}}</text><text>{{uploading?'正在上传并验收文件…':uploadRetryable?'上传结果待核对':'文件验收未通过，请重新选择'}}</text><view wx:if="{{!uploading}}" class="entrust-actions"><button wx:if="{{uploadRetryable}}" class="entrust-secondary" bindtap="retryUpload">重试核对</button><button wx:if="{{uploadRestartAllowed}}" class="entrust-secondary" bindtap="restartUpload">重新上传</button><button class="entrust-link" bindtap="discardUpload">取消本次选择</button></view></view>
+    </block>
+  </view>
+  <view wx:if="{{ready&&editing&&tab==='current'}}" class="entrust-footer">
+    <button wx:if="{{context.canSubmit}}" class="entrust-primary" data-action="submit" loading="{{busy}}" disabled="{{busy||uploading||uploadFailed||uncertain||conflict||!source||!receivers.length}}" bindtap="submit">提交工程接收</button>
+    <view wx:else class="handover-decision"><button wx:if="{{context.canReturn}}" class="entrust-secondary" data-action="return" disabled="{{busy||uncertain||conflict}}" bindtap="submit">退回补充</button><button wx:if="{{context.canReceive}}" class="entrust-primary" data-action="receive" loading="{{busy}}" disabled="{{busy||uncertain||conflict}}" bindtap="submit">确认接收并建档</button></view>
+  </view>
+</view>

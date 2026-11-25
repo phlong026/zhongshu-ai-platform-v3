@@ -138,12 +138,20 @@
       "root": "pages/home-metrics",
       "name": "home-metrics",
       "pages": [
-        "index","record"
+        "index",
+        "record"
       ]
     },
     {
       "root": "pages/external-entrust",
       "name": "external-entrust",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/external-handover",
+      "name": "external-handover",
       "pages": [
         "index"
       ]

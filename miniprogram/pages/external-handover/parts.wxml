@@ -1,0 +1,17 @@
+<template name="files">
+  <view wx:for="{{files}}" wx:key="slot" class="entrust-file"><button class="entrust-file-name" data-asset-id="{{item.assetId}}" data-kind="{{item.kind}}" data-version="{{item.version}}" data-slot="{{item.slot}}" bindtap="previewFile">{{item.title}} · 查看</button></view>
+</template>
+<template name="plan">
+  <view class="entrust-heading"><text>随包付款约定</text><text class="entrust-muted">{{plan.sourceLabel}}{{plan.version?' · V'+plan.version:''}}</text></view>
+  <block wx:if="{{plan.rows.length}}"><view class="entrust-total">¥ {{plan.totalText}}</view><view wx:for="{{plan.rows}}" wx:key="sequence" class="entrust-plan-row"><view><text>{{item.label}}</text><text class="entrust-muted">{{item.condition}}{{item.dueDate?' · '+item.dueDate:''}}</text></view><view><text>¥ {{item.amountText}}</text><text wx:if="{{item.ratioText}}" class="entrust-muted">{{item.ratioText}}</text></view></view></block>
+  <text wx:else class="entrust-muted entrust-spaced">本版委托尚未约定工程付款节点</text>
+</template>
+<template name="packet">
+  <view class="entrust-fact"><text>对应外部成果</text><text>V{{record.resultVersion}} · {{record.drawingVersion}}</text></view>
+  <view class="entrust-fact"><text>客户确认日期</text><text>{{record.confirmationDate||'—'}}</text></view>
+  <view class="entrust-fact"><text>工程接收人</text><text>{{record.managerName||'编号 '+record.managerUserId}}</text></view>
+  <template is="files" data="{{files:record.files}}"/>
+  <text class="entrust-label">交底说明</text><text class="entrust-copy">{{record.note}}</text>
+  <view wx:if="{{record.decisionNote}}"><text class="entrust-label">{{record.status==='RETURNED'?'退回原因':'接收说明'}}</text><text class="entrust-copy">{{record.decisionNote}}</text></view>
+  <text class="entrust-muted entrust-spaced">提交日期 {{record.createdOn||'—'}}{{record.decidedOn?' · 办理日期 '+record.decidedOn:''}}</text>
+</template>

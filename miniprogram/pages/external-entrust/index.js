@@ -151,6 +151,11 @@ Page({
       ? 'contractId=' + encodeURIComponent(context.currentPlan.contractId) : 'customerId=' + encodeURIComponent(this.customerId) + '&draft=1'));
   },
   openLegacy() { if (this.data.context?.commissionId) this.leaveTo('/pages/workflow/commission/index?view=progress&history=1&commissionId=' + encodeURIComponent(this.data.context.commissionId)); },
+  openHandover() {
+    const context = this.data.context;
+    if (context?.commissionId && (context.canHandover || ['HANDOVER_SUBMITTED', 'HANDOVER_RETURNED', 'ACCEPTED'].includes(context.status)))
+      this.leaveTo('/pages/external-handover/index?commissionId=' + encodeURIComponent(context.commissionId));
+  },
   chooseIdentity() { navigation.open('/pages/account/index?view=' + (http.token() ? 'identity' : 'login')); },
   navigationBack() {
     if (this.data.busy || this.data.uploading || this.data.uncertain) return wx.showToast({ title: this.data.uncertain ? '请先核对办理结果' : '请等待当前操作完成', icon: 'none' });

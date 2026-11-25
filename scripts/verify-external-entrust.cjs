@@ -250,4 +250,14 @@ test('upload failure exposes exact-asset confirmation and explicit new-ticket re
   await h.page.restartUpload(); assert.equal(h.page.data.form.attachments[0].assetId, '89'); assert.equal(h.page.data.uploadFailed, false);
 });
 
+test('external results open engineering handover with the same commission; pending results cannot expose submit link', async () => {
+  const h = harness({ kind: 'ready' }); await h.open(); h.page.changeTab(tabEvent('result'));
+  assert.ok(h.controls().some(node => node.attrs?.bindtap === 'openHandover')); h.page.openHandover();
+  assert.equal(h.navigations.at(-1).url, '/pages/external-handover/index?commissionId=91'); assert.equal(h.callsFor('results').length, 0);
+  const pending = harness({ kind: 'pending' }); await pending.open(); pending.page.changeTab(tabEvent('result')); pending.page.openHandover();
+  assert.equal(pending.controls().some(node => node.attrs?.bindtap === 'openHandover'), false); assert.equal(pending.navigations.length, 0);
+  const accepted = harness({ kind: 'ready', role: 'boss' }); accepted.state.status = 'ACCEPTED'; accepted.state.allowedActions = []; await accepted.open(); accepted.page.openHandover();
+  assert.equal(accepted.navigations.at(-1).url, '/pages/external-handover/index?commissionId=91');
+});
+
 module.exports = { load, harness, state };

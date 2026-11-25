@@ -6,8 +6,10 @@
  <brand-header id="brand-header" title="{{title}}" divider="{{true}}"/>
  <view class="eng-content">
   <text wx:if="{{error}}" class="eng-error">{{error}}</text>
+  <button wx:if="{{error&&!p}}" class="eng-outline" bindtap="reloadProject">重新加载工程</button>
   <block wx:if="{{p}}">
    <view class="eng-section record-project-header"><view class="record-title-row"><text class="eng-name">{{p.name}}</text><text class="eng-tag">{{stageText}}</text></view><text class="eng-muted">{{p.manager}}{{p.city?' · '+p.city:''}}{{p.area?' · '+p.area+'㎡':''}}{{p.floors?' · '+p.floors+'层':''}}</text></view>
+   <view wx:if="{{externalHandoverUrl&&(view==='overview'||view==='prepare'||view==='documents'||view==='archive')}}" class="eng-section"><view class="eng-heading"><text>外部成果移交 V{{externalHandoverVersion}}</text><button class="eng-link" data-url="{{externalHandoverUrl}}" bindtap="go">查看移交记录</button></view><text class="eng-muted">查看客户确认凭据、成果资料及随包付款约定</text></view>
    <view wx:if="{{(view==='node'||view==='delay'||view==='start')&&node}}" class="eng-section progress-card">
     <text wx:if="{{view==='delay'}}" class="eng-name">{{node.name}}</text><view class="eng-heading"><text>进度偏差</text><text class="progress-pace {{node.deviationDays>0?'progress-late':''}}">{{node.pace||'待排期'}}</text></view>
     <text class="eng-muted">原计划完成 {{node.baselineEnd||node.end||'待填写'}}</text><text wx:if="{{node.completedAt}}" class="eng-muted">实际完成 {{node.completedAt}}</text>

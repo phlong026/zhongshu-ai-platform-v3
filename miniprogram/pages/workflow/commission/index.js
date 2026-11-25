@@ -213,6 +213,11 @@ Page({
       return this.setData({ platformStatus: 'degraded', error: Presentation.errorMessage(err) });
     }
     if (!alive() || this.disposed) return;
+    if (!this.historyOnly && (res?.commission || res)?.workflowMode === 'EXTERNAL' && ['handover', 'receive', 'progress'].includes(this.view)) {
+      this.failState('正在打开外部成果移交');
+      Nav.open('/pages/external-handover/index?commissionId=' + encodeURIComponent(this.id), { replace: true });
+      return;
+    }
     const c = Presentation.normalize(res || {});
     if(this.__context){c.name=c.name||this.__context.customerName||'';c.city=c.city||this.__context.city||'';}
     if (!c.name && this.view === 'submit' && this.__byCustomer && this.options.customerName) {
