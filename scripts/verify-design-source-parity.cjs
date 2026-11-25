@@ -15,6 +15,7 @@ function helper(root,name,overrides={}){
  const module={exports:{}};
  vm.runInNewContext(fs.readFileSync(path.join(root,name+'.js'),'utf8'),{module,exports:module.exports,Uint8Array,ArrayBuffer,unescape,encodeURIComponent,require(request){
   if(Object.hasOwn(overrides,request))return overrides[request];
+  if(request==='../../utils/design-retirement')return require('../miniprogram/utils/design-retirement');
   if(request==='./budget-draft')return {id:validId};
   if(request==='./api')return {};
   if(request==='./format')return helper(root,'format');
@@ -83,14 +84,14 @@ test('切岗或换号后的迟到结果被拒绝；未登录不发起请求',asy
 });
 test('B价格变化走重新确认语义，报价与余额来自真实公司积分接口',async()=>{
  const h=requestHarness();assert.equal((await h.m.get('/app-api/design/v1/point-account')).availablePoints,950);
- const q=await h.m.get('/app-api/design/v1/generation-price-quotes?stage=FLAT&count=2&resolution=2K');assert.equal(q.companyPrice.priceVersion,'v1');assert.equal(q.totalPointCost,12);
- h.http.post=()=>Promise.reject({code:1072000016,message:'价格已改变'});await assert.rejects(h.m.post('/app-api/design/v1/design-projects/9/flat-jobs',{}),e=>e.code==='DESIGN_PRICE_CHANGED');
- h.http.post=()=>Promise.reject({code:1072000001,message:'公司没有开通设计能力'});await assert.rejects(h.m.post('/app-api/design/v1/design-projects/9/flat-jobs',{}),e=>e.code===1072000001);
+ const q=await h.m.get('/app-api/design/v1/budget-point-quotes');assert.equal(q.companyPrice.priceVersion,'v1');assert.equal(q.totalPointCost,12);
+ h.http.post=()=>Promise.reject({code:1072000016,message:'价格已改变'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code==='DESIGN_PRICE_CHANGED');
+ h.http.post=()=>Promise.reject({code:1072000001,message:'公司没有开通设计能力'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code===1072000001);
 });
-test('四个旧业务入口都指向注册的迁移页面；立面入口保持独立线路',()=>{
+test('旧出图入口回到灵感资料库，快速预算仍独立可用',()=>{
  let page;const routes=[];vm.runInNewContext(fs.readFileSync(path.join(ROOT,'miniprogram/pages/workflow/explore/index.js'),'utf8'),{Page:p=>page=p,wx:{redirectTo:o=>routes.push(o.url)},require:p=>p.endsWith('/api/http')?{token:()=> 'b'}:p.endsWith('/api/auth')?{currentApiPost:()=>({postId:'1'})}:p.endsWith('/utils/platform-design')?{pageMode:()=> 'api'}:p==='./platform-bridge'?p=>{p.platTeardown=()=>{};p.platOnLoadInit=()=>{throw Error('old flow invoked');};}: {}});
  page.setData=()=>{};for(const view of ['inspiration','ai-config','ai-facade','budget'])page.onLoad({view});
- assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/ai-design/index?line=FLAT','/design-migration/pages/ai-design/index?line=ELEVATION','/design-migration/pages/budget/quick']);
+ assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/budget/quick']);
 });
 test('全图展示和公司归档入口已接入；历史只读与完成后才导出预算图保持原限制',()=>{
  const root=path.join(ROOT,'miniprogram/design-migration');assert.match(fs.readFileSync(path.join(root,'pages/library/detail.wxml'),'utf8'),/aspectFit/);assert.match(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/pages\/customer\/archive/);assert.doesNotMatch(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/ai-design\/publish/);

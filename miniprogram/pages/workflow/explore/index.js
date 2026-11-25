@@ -9,6 +9,7 @@ Page({data:{view:'inspiration',title:'灵感库',kind:'plan',form:{},keyword:'',
   const token=http?http.token():'';
   if(!token){const params=[];if(o&&o.view)params.push('view='+encodeURIComponent(o.view));if(o&&o.id)params.push('id='+encodeURIComponent(o.id));const q=params.length?'?'+params.join('&'):'';return wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/workflow/explore/index'+q)});}
   if(!post||PFD.pageMode(token,post)!=='api')return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('设计赋能')});
+  if(['ai-config','ai-facade','facade-config'].includes(o.view))return wx.redirectTo({url:'/design-migration/pages/library/index'});
   const migrated={inspiration:'library/index',search:'library/index',case:'library/detail', 'ai-config':'ai-design/index','ai-facade':'ai-design/index',budget:'budget/quick',projects:'profile/records?type=projects'};
   if(migrated[o.view||'inspiration']) {
    const target='/design-migration/pages/'+migrated[o.view||'inspiration']+(o.view==='case'?'?id='+encodeURIComponent(o.id||''):o.view==='ai-config'?'?line=FLAT':o.view==='ai-facade'?'?line=ELEVATION':'');

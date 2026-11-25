@@ -1,4 +1,5 @@
 const http = require('../http');
+const retired = require('../../utils/design-retirement');
 
 const idem = (key, action) => (key ? { 'Idempotency-Key': key } : { 'Idempotency-Key': 'design-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8) });
 
@@ -22,15 +23,15 @@ const projects = {
   create: (data, key) => http.post('/franchise/design/projects', data, idem(key, 'proj')),
   list: (params) => http.get('/franchise/design/projects', params),
   detail: (projectId, jobId) => http.get('/franchise/design/projects/' + projectId, jobId ? { jobId } : undefined),
-  createFlatJob: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/flat-jobs', data, idem(key, 'flat')),
-  createElevationJob: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/elevation-jobs', data, idem(key, 'elev')),
+  createFlatJob: retired.reject,
+  createElevationJob: retired.reject,
   aiJob: (jobId) => http.get('/franchise/design/ai-jobs/' + jobId),
   cancelJob: (jobId) => http.post('/franchise/design/ai-jobs/' + jobId + '/cancellation-requests', {}),
-  notePolish: (data) => http.post('/franchise/design/note-polish', data),
+  notePolish: retired.reject,
   selectFlat: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/flat-selections', data),
   selectElevation: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/elevation-selections', data),
   resultVersions: (projectId) => http.get('/franchise/design/projects/' + projectId + '/result-versions'),
-  revision: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/revision-requests', data, idem(key, 'rev')),
+  revision: retired.reject,
   saveToCustomer: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/save-to-customer', data, idem(key, 'save'))
 };
 

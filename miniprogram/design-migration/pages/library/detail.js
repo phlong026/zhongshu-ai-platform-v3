@@ -147,15 +147,7 @@ protectedPage({
       if (self.current()) wx.showToast({ title: (err && (err.msg || err.message)) || '操作失败', icon: 'none' });
     }).then(function () { if (self.current()) self.setData({ favoriteSaving: false }); });
   },
-  useHouse() {
-    const detail=this.data.caseDetail;if(!this.current()||!detail)return;
-    if(!detail.canDesign){wx.showToast({title:detail.designUnavailableReason,icon:'none'});return;}
-    const app=getDesignApp();
-    app.globalData.refCase={caseId:detail.id,caseVersionId:detail.caseVersionId,dimensionBasis:detail.dimensionBasis,title:detail.title,coverUrl:this.data.drawings[0]&&this.data.drawings[0].url,...require('../../utils/case-entry').parameters(detail)};
-    app.globalData.caseDesignEntry={...app.globalData.refCase,styleCode:detail.styleCode};
-    app.globalData.aiLine=this.data.tab===0?'ELEVATION':'FLAT';
-    wx.navigateTo({url:'/design-migration/pages/ai-design/index?line='+app.globalData.aiLine});
-  },
+  useHouse() {wx.showToast({title:require('../../../utils/design-retirement').message,icon:'none'});},
   quickBudget() {
     const detail=this.data.caseDetail;if(!this.current()||!detail)return;
     getDesignApp().globalData.budgetCaseEntry={caseId:detail.id,caseVersionId:detail.caseVersionId,title:detail.title,values:require('../../utils/case-entry').parameters(detail)};

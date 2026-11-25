@@ -15,7 +15,6 @@
   </view>
   <view wx:if="{{!caseDetail.canDesign}}" class="design-unavailable">{{caseDetail.designUnavailableReason}}</view>
   <view class="detail-action">
-    <button class="v12-primary-button v12-primary-button--md" disabled="{{!caseDetail.canDesign}}" bindtap="useHouse">AI设计</button>
     <button class="budget-action" bindtap="quickBudget">快速预算</button>
   </view>
   </block>

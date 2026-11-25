@@ -117,7 +117,7 @@ protectedPage({
     const seq = this._seq, request = this._imageRequest = (this._imageRequest || 0) + 1;
     const versionId = this.data.latest.versionId;
     this.setData({ activeImageKey: image.key, imageLabel: image.label, imageUrl: '', imageError: '',
-      canRegenerate: image.key === 'ELEVATION' && !this.data.readOnly });
+      canRegenerate: false });
     this.loadGenerationOptions();
     const current = () => this.current(seq) && request === this._imageRequest
       && this.data.latest && this.data.latest.versionId === versionId && this.data.activeImageKey === image.key;
