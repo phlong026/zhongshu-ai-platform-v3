@@ -1,5 +1,5 @@
 // 设计委托页（API 态）：数据源 /franchise/commissions、/franchise/design-policies。
-// 面积计价与历史首尾款默认走正式财务流程，测试组织可显式选择模拟付款。
+// 实体设计费在外部付款，由财务登记实际流水和凭证；旧模拟记录仅供历史查阅。
 const Nav = require('../../../utils/page-navigation');
 const Money = require('../../../utils/money');
 const http = require('../../../api/http');
@@ -27,7 +27,7 @@ Page({
     this.__byCustomer = !!this.customerId;
     let view = options.view || 'progress';
     if (view==='paid') view='receipt';
-    if (view==='created') view='progress';
+    if (view==='created'||view==='pay') view='progress';
     this.view = view; this.initialized = false; // 加载统一由 onShow→refresh 触发，避免冷启动重复请求
   },
   onShow() { return this.refresh(false); },
@@ -74,7 +74,7 @@ Page({
     return this.refreshCommission(alive, reset);
   },
   async refreshReceipt(alive){
-    this.setData({title:'模拟付款登记凭据',view:'receipt',platformStatus:'loading',error:'',primary:'',fields:[],rows:[],designBriefEnabled:false,customer:null,paymentOrder:null});
+    this.setData({title:'历史模拟记录',view:'receipt',platformStatus:'loading',error:'',primary:'',fields:[],rows:[],designBriefEnabled:false,customer:null,paymentOrder:null});
     try{const order=await API.commissions.simulatedReceipt(this.id);if(!alive()||this.disposed)return;this.setData({platformStatus:'ready',paymentOrder:paymentView(order),customer:{name:order.customerName}});}
     catch(e){if(alive()&&!this.disposed)this.setData({platformStatus:'degraded',error:Presentation.errorMessage(e)});}
   },
@@ -187,7 +187,7 @@ Page({
         this.__context = context;
         if(this.view==='submit'&&context.commissionId&&!(context.allowedActions||[]).includes('commission-submit')){
           this.id=String(context.commissionId);this.__byCustomer=false;this.initialized=false;
-          this.view=context.commission&&context.commission.simulatedPayment&&context.commission.simulatedPayment.status==='PENDING'?'pay':'progress';
+          this.view='progress';
         }
         if(!context.customerName&&!(context.allowedActions||[]).includes('commission-submit')){
           const detail=await require('../../../api/franchise/crm').customers.get(this.customerId);
@@ -238,7 +238,7 @@ Page({
     let form = (reset || !this.initialized) ? Presentation.formInit(c, view) : this.data.form;
     // 参考预算更新后保留已填内容，但确认勾选必须对本版重做
     if (budgetChanged) { form = { ...form, __budgetVersion: basis && basis.version, __pricingVersion: currentQuote && currentQuote.pricingVersion, __mode: c.fee && c.fee.mode, scope: currentQuote ? currentQuote.scope : form.scope, checked: false }; this.dropCmdKey('commission-submit'); }
-    const simulationAllowed = view === 'submit' && can && this.__context?.feeOffer?.simulationPaymentMode === 'TEST_SIMULATION';
+    const simulationAllowed = false;
     const simulationWithdrawn = view === 'submit' && this.data.form.testPayment === true && !simulationAllowed;
     const paymentChoiceRequired = view === 'submit' && (simulationWithdrawn || this.data.paymentChoiceRequired);
     if (paymentChoiceRequired) form = { ...form, testPayment: false, checked: false };
@@ -255,11 +255,11 @@ Page({
         form = { ...form, managerUserId: selected ? selected.id : '', managerName: selected ? selected.label : '' };
       } catch (e) { if (!alive() || this.disposed) return; this.setData({ error: '工程接收人加载失败：' + Presentation.errorMessage(e) }); }
     }
-    const labels = { pay:'登记付款',submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
+    const labels = { submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
     this.action = can ? action : '';
     this.nextView = !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
     this.setData({
-      title: ({ pay:'设计费付款登记',submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
+      title: ({ submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
       view, platformStatus: 'ready', error: preservedError,
       customer: c.id || c.name ? { id: c.id, projectId: c.projectId, name: c.name, city: c.city, revision: c.revision } : null,
       form, fields:view==='pay'?[]:fields, rows,
@@ -273,7 +273,7 @@ Page({
       budgetReady: !!basis, budgetBasis: basis,
       budgetNotice: budgetChanged ? '参考预算已更新，请核对本版尺寸、需求和范围后重新勾选确认。' : view === 'submit' ? this.data.budgetNotice : '',
       pricingQuote: Presentation.quoteOf(c),
-      primary: can ? (view === 'submit' && !basis ? '先完成参考预算' : labels[view]) : this.nextView ? (this.nextView==='pay'?'登记付款':'继续办理') : '',
+      primary: can ? (view === 'submit' && !basis ? '先完成参考预算' : labels[view]) : this.nextView ? ('继续办理') : '',
       budgetCard:view==='submit',
       canReturn: can && view === 'receive',
       isComplete: !!c.acceptance
@@ -362,7 +362,7 @@ Page({
   },
   chooseCommissionPayment(testPayment) {
     if (this.view !== 'submit' || this.data.busy || this.data.platformStatus !== 'ready'
-        || (testPayment && !this.data.simulationAllowed)) return;
+        || testPayment) return;
     this.dropCmdKey('commission-submit');
     this.setData({ 'form.testPayment': testPayment, 'form.checked': false, paymentChoiceRequired: false, error: '' });
   },
@@ -434,11 +434,10 @@ Page({
       if (!scope) throw Error('请填写本次交付范围');
       if (!f.checked) throw Error('请勾选确认已核对需求、尺寸来源、交付范围及费用约定');
       if (!f.__budgetVersion) throw Error('请先完成有效参考预算');
-      if (this.data.paymentChoiceRequired || (f.testPayment === true
-          && (f.__mode !== 'AREA_FULL' || this.__context?.feeOffer?.simulationPaymentMode !== 'TEST_SIMULATION'))) {
-        throw Error('模拟付款资格已变化，请重新选择付款方式');
+      if (this.data.paymentChoiceRequired || f.testPayment === true) {
+        throw Error('模拟付款已停用，请核对费用后重新确认委托');
       }
-      const payload = { ...(f.testPayment === true ? {paymentMode:'TEST_SIMULATION'} : {}),...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
+      const payload = { ...(this.data.designBriefEnabled?{designBrief:this.data.designBrief}:{}), mode: f.__mode, text, scope, confirmed: true, budgetVersion: f.__budgetVersion, attachmentAssetId: assetId(f.attachment) };
       if (f.__mode === 'AREA_FULL') payload.feeRuleVersion = f.__pricingVersion;
       else if (f.__mode === 'LEGACY_SPLIT') {
         payload.totalCents = Money.parseCents(f.total);
@@ -502,7 +501,7 @@ Page({
     if(this.view==='pay'&&this.action==='commission-simulate-pay')return this.simulatePayment();
     if (this.action === 'commission-submit') {
       if (this.data.busy || this.data.platformStatus !== 'ready' || this.data.paymentChoiceRequired) return;
-      if (this.data.form.testPayment && this.__context?.feeOffer?.simulationPaymentMode !== 'TEST_SIMULATION') {
+      if (this.data.form.testPayment) {
         this.setData({ 'form.checked': false, 'form.testPayment': false, paymentChoiceRequired: true, simulationAllowed: false });
         return;
       }
@@ -534,7 +533,7 @@ Page({
           this.__briefScope='';
         }
         this.dropCmdKey(action);
-        this.action = ''; this.nextView = ''; this.view = result&&result.simulatedPayment&&result.simulatedPayment.status==='PENDING'?'pay':'progress'; this.initialized = false;
+        this.action = ''; this.nextView = ''; this.view = 'progress'; this.initialized = false;
         this.setData({ busy: false });
         this.refresh(true);
         wx.pageScrollTo({ scrollTop: 0, duration: 0 });

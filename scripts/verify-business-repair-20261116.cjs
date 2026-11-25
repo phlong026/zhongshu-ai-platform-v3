@@ -140,7 +140,7 @@ test('missing budget exposes preparation without granting commission submission 
 test('read-only customer cannot navigate through the budget write entry',async()=>{
  const {p,getOpened}=commission(false);await p.onShow();p.completeBudget();assert.equal(getOpened(),undefined);assert.equal(p.data.canPrepareBudget,false);assert(p.data.submitBlockedReason);
 });
-test('returning from budget to an existing pending commission resumes its original payment',async()=>{
+test('returning to a historical simulated commission only opens read-only progress',async()=>{
  const detail={commission:{id:'200',customerId:'100',customerName:'验收客户',status:'DESIGNING',submissionVersion:1},submissions:[],allowedActions:['commission-simulate-pay'],simulatedPayment:{status:'PENDING',amountCents:240000}};
- const {p}=commission(true,{commissionId:'200',commission:detail});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'pay');assert.equal(p.action,'commission-simulate-pay');assert.equal(p.data.primary,'登记付款');
+ const {p}=commission(true,{commissionId:'200',commission:detail});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'progress');assert.equal(p.action,'');assert.equal(p.data.primary,'');
 });
