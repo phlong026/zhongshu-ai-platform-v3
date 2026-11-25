@@ -487,7 +487,9 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 new PaymentPlanRules.Input(null,"开工前",40000L,null,null,"BEFORE_START",null),
                 new PaymentPlanRules.Input(null,"完工",60000L,null,null,"ON_FINISH",null))),key()));
         long file=upload(sales,"CONTRACT_ATTACHMENT");
-        return as(sales,()->contracts.sign(sales,draft.getId(),new SaleContractService.SignCommand(today(),file),draft.getRevision(),key()));
+        // Creation uses the database default revision; read the persisted value just as the contract details page does.
+        long revision=jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,draft.getId());
+        return as(sales,()->contracts.sign(sales,draft.getId(),new SaleContractService.SignCommand(today(),file),revision,key()));
     }
     private long manualProject(long customer,PostSnapshot actor) {
         String phone=jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?",String.class,customer);

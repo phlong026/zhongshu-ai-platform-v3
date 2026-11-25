@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort;
 import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
+import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
 import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
@@ -29,6 +30,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -85,8 +87,10 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         @Bean StoreServiceAccountPort accounts() { return org -> org + 1_000_000L; }
         @Bean MemoryStorage storage() { return new MemoryStorage(); }
         @Bean LocalAssetService assets(DataSource data, PlatformTransactionManager transactions, MemoryStorage storage,
-                                      CurrentPost posts, StoreServiceAccountPort accounts) {
-            return new LocalAssetService(data, transactions, storage, new AssetContentScanner(), posts, accounts);
+                                      CurrentPost posts, StoreServiceAccountPort accounts,
+                                      ObjectProvider<CommissionDeliverableAccessPort> deliverables) {
+            return new LocalAssetService(data, transactions, storage, new AssetContentScanner(), posts, accounts,
+                    deliverables.getIfAvailable());
         }
         @Bean AssetEvidenceQueryPort evidence(JdbcTemplate jdbc) { return new AssetEvidenceQueryAdapter(jdbc); }
     }

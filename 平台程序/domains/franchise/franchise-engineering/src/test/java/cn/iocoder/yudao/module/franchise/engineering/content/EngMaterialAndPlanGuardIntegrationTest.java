@@ -331,7 +331,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
         // start 前置：节点日期齐备 + SIGN_AFTER 门禁（统一账读侧桩置累计 40800000=签约后期已收齐）
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         // R1 P1-1：SIGN_AFTER 门禁读统一账——桩置累计 40800000（签约后期已收齐）
@@ -436,7 +436,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
         // start 前置：节点计划日期齐备；SIGN_AFTER 门禁读统一账——桩置累计 40800000（R1 P1-1 读侧）
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         long fakeId = IDS.incrementAndGet();
@@ -502,7 +502,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     void nodeCompletionKeepsEveryAuthorizedPhotoAndReplaysTheExactEvidence() {
         long startAsset=insertAsset("ENG_DRAWING",true,store.orgId());
         as(engineer,()->planService.prepare(engineer,projectId,startCmd(startAsset),idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE,end_date=CURRENT_DATE+30 WHERE project_id=?",projectId);
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE,end_date=CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE+30 END WHERE project_id=?",projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER,40800000L);
         as(engineer,()->planService.start(engineer,projectId,
                 new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"实际开工",startAsset,true),idem()));
@@ -733,7 +733,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private CompletedInspection completedInspection() {
         long startAsset = insertAsset("ENG_DRAWING", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(startAsset), idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE-2,end_date=CURRENT_DATE+30 WHERE project_id=?", projectId);
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE-2,end_date=CASE WHEN milestone='START' THEN CURRENT_DATE-2 ELSE CURRENT_DATE+30 END WHERE project_id=?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         var date = java.time.LocalDate.now().minusDays(1);
         as(engineer, () -> planService.start(engineer, projectId,
@@ -859,7 +859,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 IDS.incrementAndGet(), projectId); // 交付全累计收款门禁走统一账读侧
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         long total = 40800000L + 18000000L + 9200000L;
         jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 40800000 WHERE project_id = ? AND stage = 'SIGN_AFTER'", projectId);
@@ -1014,6 +1014,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     private long insertNode() {
+        // Existing projects receive the same index-0 START node in migration 950.
+        // Keep its real evidence separate from the material/inspection node below.
+        jdbc.update("INSERT INTO fr_eng_plan_node (id,company_id,project_id,node_index,name,status,milestone,create_time) "
+                + "VALUES (?,?,?,0,'正式开工','PENDING','START',now())", IDS.incrementAndGet(),store.orgId(),projectId);
         long id = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_eng_plan_node (id, company_id, project_id, node_index, name, status, create_time) "
                 + "VALUES (?, ?, ?, 1, '主体施工', 'PENDING', now())", id, store.orgId(), projectId);
