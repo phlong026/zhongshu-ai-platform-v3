@@ -203,6 +203,7 @@ public class LeadImportService {
 
         CustomerDO existing = customerMapper.selectByPhoneInOrg(orgId, phone);
         if (existing != null) {
+            leadService.validatePublicationSource(post, source);
             // 需求 §三.8：同手机号已有客户一律不覆盖、落待关联；姓名相同也不能证明是重放。
             return new RowResult(line, name, phone, need, source, "OK", null,
                     "同手机号已存在客户，等负责人关联", null, existing.getId(),
@@ -214,6 +215,9 @@ public class LeadImportService {
             return skipped(line, name, phone, need, source, "该手机号已登记", latest.getCustomerId());
         }
 
+        // Both candidate actions will write a lead. Use the live rule here so
+        // precheck can flag the exact row and actual capture still rechecks on write.
+        leadService.validatePublicationSource(post, source);
         return new RowResult(line, name, phone, need, source, "OK", null, "", null, null, null,
                 ACTION_CREATE);
     }
