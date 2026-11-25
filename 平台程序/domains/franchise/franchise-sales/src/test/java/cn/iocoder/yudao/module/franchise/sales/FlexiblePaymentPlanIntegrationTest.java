@@ -114,6 +114,29 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales,()->service.paymentPlanDetail(sales,c.getId()))).containsEntry("canEdit",false);
     }
 
+    @Test void retiredPaymentNodeCannotConsumeAnUnallocatedReceipt() {
+        var contract=create(customer(),100000,List.of(input(null,"原付款节点",100000)));
+        signed(contract);
+        long retired=((Number)as(finance,()->service.stageSummary(finance,contract.getId())).get(0).get("stageId")).longValue();
+        as(finance,()->service.replacePaymentPlan(finance,contract.getId(),
+                new SaleContractService.PaymentPlanCommand(100000,List.of(input(null,"新付款节点",100000)),revision(contract),"改用新节点"),key()));
+        long active=((Number)as(finance,()->service.stageSummary(finance,contract.getId())).get(0).get("stageId")).longValue();
+        long receipt=IdWorker.getId();
+        jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,source_type,name,amount_cents,status,received_date,revision_version,registrar_user_id) VALUES(?,?,'manual','前期定金',20000,'已登记',CURRENT_DATE,1,?)",
+                receipt,finance.orgId(),finance.userId());
+        String allocationKey=key();
+        assertThatThrownBy(()->as(finance,()->{service.allocateReceipt(finance,retired,receipt,allocationKey);return true;}))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(jdbc.queryForMap("SELECT source_type,source_ref FROM fr_fin_receipt WHERE id=?",receipt))
+                .containsEntry("source_type","manual").containsEntry("source_ref",null);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receipt)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_type='sale-receipt-allocation' AND aggregate_id=?",Long.class,receipt)).isZero();
+        as(finance,()->{service.allocateReceipt(finance,active,receipt,allocationKey);return true;});
+        as(finance,()->{service.allocateReceipt(finance,active,receipt,allocationKey);return true;});
+        assertThat(as(finance,()->service.stageCollected(finance,active))).isEqualTo(20000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receipt)).isEqualTo(1);
+    }
+
     @Test void oldWholeStageEvidenceSurvivesAnIncreaseAndTailTriggersFollowDateChanges() {
         long customer=customer();
         var c=as(sales,()->service.create(sales,new SaleContractService.ContractCommand(customer,100000,100000,0,0,null,null,requirement(customer)),key()));
