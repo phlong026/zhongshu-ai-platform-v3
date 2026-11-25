@@ -68,6 +68,10 @@ public class EngFollowupService {
     /** 催收回访（stage 维度；TOPPING 须封顶完成；本期有剩余才可催收） */
     @Transactional(rollbackFor = Exception.class)
     public List<Map<String, Object>> dunning(PostSnapshot post, long projectId, DunningCommand cmd, String idempotencyKey) {
+        projectService.requireOwned(post, projectId, "dunning");
+        // Collection and starting work lock project -> contract. Take the same
+        // order before reading payment balances, then refresh ownership/revision.
+        projectService.projects().lockById(projectId);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "dunning");
         Map<String, Object> payload = dunningPayload(cmd);
         var replayed = commands.replayed(post, idempotencyKey, payload);

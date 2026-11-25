@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 3. 单次计数结构固化：fr_sale_stage_receipt 一笔 receipt 至多归一期（uk 结构直插反证）、
  *    期次读数不串（资格/门禁/待办同源一个 port）。
  */
-@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
+@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class, EngFollowupService.class,
         EngClosureService.class, EngExpenseService.class, EngTodoProvider.class,
         SaleContractService.class, SaleRequirementService.class,
         cn.iocoder.yudao.module.franchise.sales.SalesAccess.class, UnifiedStageAccountAdapter.class,
@@ -54,7 +54,10 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
         @Bean
         cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            var port = org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
+            return port;
         }
 
         @Bean
@@ -161,6 +164,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     private UnifiedStageAccountPort unifiedStages;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource private EngFollowupService followupService;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
 
     private Store store;
     private PostSnapshot engineer;
@@ -280,6 +285,50 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         // 期次读数不串：SIGN_AFTER 含该笔、BASE_DONE 恒 0
         assertThat(unifiedStages.stageCollectedCents(engineer, contractsActiveId(), SIGN_AFTER)).isEqualTo(25_000_000L);
         assertThat(unifiedStages.stageCollectedCents(engineer, contractsActiveId(), "BASE_DONE")).isZero();
+    }
+
+    @Test
+    void dunningWaitsForTheProjectBeforeTakingTheContractLock() throws Exception {
+        long contractId = contractsActiveId();
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waitingPid = new java.util.concurrent.atomic.AtomicInteger();
+        var pending = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<java.util.List<java.util.Map<String,Object>>>>();
+        currentPost.use(engineer);
+        try {
+            new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+                jdbc.queryForObject("SELECT id FROM fr_eng_project WHERE id=? FOR UPDATE", Long.class, projectId);
+                int holdingPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                pending.set(pool.submit(() -> {
+                    TenantContextHolder.setTenantId(store.orgId());
+                    try {
+                        return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx -> {
+                            waitingPid.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                            return followupService.dunning(engineer, projectId,
+                                    new EngFollowupService.DunningCommand(SIGN_AFTER, LocalDate.now().plusDays(1), "并发催收"), idem());
+                        });
+                    } finally { TenantContextHolder.clear(); }
+                }));
+                boolean waiting = false;
+                for (int attempt = 0; attempt < 250; attempt++) {
+                    if (waitingPid.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                            "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, holdingPid, waitingPid.get()))) {
+                        waiting = true; break;
+                    }
+                    try { Thread.sleep(20); }
+                    catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
+                }
+                assertThat(waiting).as("催收正在等待本事务持有的工程锁").isTrue();
+                // With the old lock order the waiting dunning request already owns
+                // this contract lock; NOWAIT proves the inversion without hanging.
+                assertThat(jdbc.queryForObject("SELECT id FROM fr_sale_contract WHERE id=? FOR UPDATE NOWAIT", Long.class, contractId)).isEqualTo(contractId);
+                collectionService.register(finance, projectId,
+                        new EngCollectionService.CollectCommand(SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), LocalDate.now(), 9002L), idem());
+            });
+            assertThat(pending.get().get(10, java.util.concurrent.TimeUnit.SECONDS)).hasSize(1);
+            assertThat(unifiedStages.stageCollectedCents(engineer, contractId, SIGN_AFTER)).isEqualTo(10000);
+            assertThat(jdbc.queryForObject("SELECT revision FROM fr_eng_project WHERE id=?", Long.class, projectId)).isEqualTo(3);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_followup WHERE project_id=?", Long.class, projectId)).isEqualTo(1);
+        } finally { pool.shutdownNow(); currentPost.clear(); }
     }
 
     // ========== helpers ==========
