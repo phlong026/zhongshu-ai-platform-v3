@@ -500,3 +500,63 @@ test('a restored growth platform is applied before the first account request', a
   assert.equal(page.data.publisherAccountsLoading,false);
   assert.equal(page.data.publisherAccountId,'202');
 });
+
+test('a saved link must match the visible link before recording a consultation', async () => {
+  let linked = '';
+  let captured = 0;
+  const page = loadPage({
+    create: async () => ({ id: '91', status: 'publishing' }),
+    list: async () => linked ? [{ id: '91', status: 'published', publishedUrl: linked }] : [],
+    link: async (_, url) => { linked = url; throw { code: -1, message: '回执未返回' }; },
+    capture: async () => { captured++; return { result: 'CREATED', customerId: '100' }; },
+    pageData: { ...basePublishData, publishedUrlInput: 'https://v.douyin.com/exampleA/' }
+  });
+  await page.submitLinkAndLead();
+  assert.equal(linked, 'https://v.douyin.com/exampleA/');
+  Object.assign(page.data, {publishedUrlInput:'https://v.douyin.com/exampleB/',leadOpen:true,leadName:'示例客户',leadPhone:'13900000000',leadNeed:'咨询乡墅'});
+  await page.submitLinkAndLead();
+  assert.equal(captured, 0, 'consultation from B must not be linked to publication A');
+});
+
+test('unknown lead response only retries the original contact against the confirmed link', async () => {
+  const calls=[];
+  let linkWrites=0;
+  const url='https://v.douyin.com/original/';
+  const original={leadOpen:true,leadName:'示例甲',leadPhone:'13900000001',leadNeed:'咨询庭院'};
+  const page=loadPage({
+    create:async()=>({id:'91',status:'publishing'}),
+    list:async()=>[{id:'91',status:'published',publishedUrl:url}],
+    link:async()=>{linkWrites++;},
+    capture:async(payload,key)=>{
+      calls.push({payload:JSON.parse(JSON.stringify(payload)),key});
+      if(calls.length===1)throw {code:-1,message:'未收到回执'};
+      return {result:'CREATED',customerId:'100'};
+    },
+    pageData:{...basePublishData,...original,publishedUrlInput:url}
+  });
+  await page.submitLinkAndLead();
+  page.data.leadPhone='13900000002';
+  await page.submitLinkAndLead();
+  assert.equal(calls.length,1);
+  Object.assign(page.data,original);
+  await page.submitLinkAndLead();
+  assert.equal(calls.length,2);
+  assert.deepEqual(calls[0],calls[1]);
+  assert.equal(linkWrites,1);
+  assert.equal(page.data.linkSaved,true);
+});
+
+test('a published record without a matching server URL cannot attach a contact even on first submit',async()=>{
+  for(const publishedUrl of ['', 'https://v.douyin.com/another/']){
+    let captured=0;
+    const page=loadPage({
+      create:async()=>({id:'91',status:'published',publishedUrl}),
+      list:async()=>[],
+      capture:async()=>{captured++;return {result:'CREATED',customerId:'100'};},
+      pageData:{...basePublishData,leadOpen:true,leadName:'示例甲',leadPhone:'13900000001',leadNeed:'咨询庭院'}
+    });
+    await page.submitLinkAndLead();
+    assert.equal(captured,0);
+    assert.match(page.data.operationError,/链接与当前输入不一致/);
+  }
+});
