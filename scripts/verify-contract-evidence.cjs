@@ -103,6 +103,23 @@ test('未知办理结果冻结原日期、资产和原幂等键；重试不重�
   assert.equal(h.callsFor('evidence').length, 0); assert.equal(h.page.data.uncertain, false);
 });
 
+test('签约结果未知时切回页面可见原请求重试，保持签约正文与幂等键', async () => {
+  const h = harness({ api: { sign: async () => { throw { code: -1 }; } } });
+  await h.open(); await h.fill(); await h.page.submit();
+  const original = h.callsFor('sign')[0], pending = h.page._pending;
+  h.page.onHide(); await h.page.onShow();
+  assert.equal(h.page.data.uncertain, true); assert.equal(h.page._pending, pending);
+  assert.equal(h.page.data.error, '');
+  const controls = h.visibleControls(), retry = controls.find(node => node.attrs?.bindtap === 'runPending');
+  assert.ok(retry, '读取最新合同成功不会隐藏尚未确认签约的重试入口');
+  assert.match(controls.map(node => node.text || '').join(''), /办理结果尚未确认/);
+  assert.equal(retry.attrs.disabled, false);
+  delete h.overrides.sign; await h.page[retry.attrs.bindtap]();
+  assert.deepEqual(h.callsFor('sign')[1].args, original.args);
+  assert.equal(h.callsFor('evidence').length, 0);
+  assert.equal(h.page.data.uncertain, false); assert.equal(h.page._pending, null);
+});
+
 test('版本或状态冲突保留草稿，重载服务器SIGNED状态后才进入补证', async () => {
   const h = harness({ api: { sign: async () => { throw { code: 1099000001, msg: '版本变化' }; } } }); await h.open(); await h.fill(); await h.page.submit();
   assert.equal(h.page.data.conflict, true); assert.equal(h.page.data.dirty, true); assert.equal(h.page.data.uncertain, false);
