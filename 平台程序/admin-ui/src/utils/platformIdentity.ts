@@ -22,6 +22,7 @@ export interface CurrentPostContext {
 const POSTS_KEY = 'platform-staff-posts'
 const POST_ID_KEY = 'platform-current-post-id'
 const CONTEXT_KEY = 'platform-current-post-context'
+export const PENDING_ANNOUNCEMENT_CREATE_KEY = 'platform-pending-announcement-create'
 const GENERATION_KEY = 'platform-post-generation'
 const PORTAL_MODE_KEY = 'platform-portal-mode'
 
@@ -54,6 +55,7 @@ export const currentContext = (): CurrentPostContext | null =>
   parse<CurrentPostContext | null>(CONTEXT_KEY, null)
 
 export const beginPostSwitch = (postId: number | string) => {
+  if (String(postId) !== currentPostId()) sessionStorage.removeItem(PENDING_ANNOUNCEMENT_CREATE_KEY)
   const generation = postGeneration() + 1
   sessionStorage.setItem(GENERATION_KEY, String(generation))
   sessionStorage.setItem(POST_ID_KEY, String(postId))
@@ -72,6 +74,7 @@ export const hasCurrentPostPermission = (permission: string) =>
   currentContext()?.permissions?.includes(permission) === true
 
 export const clearPlatformIdentity = () => {
+  sessionStorage.removeItem(PENDING_ANNOUNCEMENT_CREATE_KEY)
   sessionStorage.removeItem(POSTS_KEY)
   sessionStorage.removeItem(POST_ID_KEY)
   sessionStorage.removeItem(CONTEXT_KEY)
