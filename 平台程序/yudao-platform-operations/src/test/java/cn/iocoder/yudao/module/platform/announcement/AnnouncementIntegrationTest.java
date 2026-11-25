@@ -76,7 +76,7 @@ class AnnouncementIntegrationTest extends PlatformPgIntegrationTest {
     void setup() {
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted int2 DEFAULT 0");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,tenant_id bigint,nickname text,mobile text,username text,password text,status int DEFAULT 0,deleted int2 DEFAULT 0,update_time timestamptz)");
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigint PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted int2 DEFAULT 0)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigserial PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted int2 DEFAULT 0)");
         reset(staff, directory);
         posts.clear();
         when(staff.findActivePost(anyLong(), anyLong())).thenAnswer(invocation -> {
