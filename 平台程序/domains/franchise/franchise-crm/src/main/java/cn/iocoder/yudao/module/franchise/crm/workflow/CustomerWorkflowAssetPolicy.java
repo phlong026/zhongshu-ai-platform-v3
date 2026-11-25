@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort;
+import cn.iocoder.yudao.module.franchise.api.CustomerDocumentReferencePort;
 import cn.iocoder.yudao.module.franchise.crm.CustomerAccess;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
@@ -25,7 +26,11 @@ import static cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowMod
 public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, CustomerWorkflowAssetScopePort {
     private final JdbcTemplate jdbc;
     private final CurrentPost posts;
-    public CustomerWorkflowAssetPolicy(JdbcTemplate jdbc, CurrentPost posts) { this.jdbc = jdbc; this.posts = posts; }
+    private final org.springframework.beans.factory.ObjectProvider<CustomerDocumentReferencePort> references;
+    public CustomerWorkflowAssetPolicy(JdbcTemplate jdbc, CurrentPost posts,
+            org.springframework.beans.factory.ObjectProvider<CustomerDocumentReferencePort> references) {
+        this.jdbc = jdbc; this.posts = posts; this.references = references;
+    }
 
     @Override public boolean supports(String type) { return "BUSINESS_DOCUMENT".equals(type) || "DESIGN_REFERENCE".equals(type); }
 
@@ -91,7 +96,7 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
 
     private List<CustomerDO> owners(long tenant, long company, long asset) {
         String json = reference(asset);
-        return jdbc.query("""
+        var owners = new java.util.ArrayList<>(jdbc.query("""
                 SELECT c.id,c.company_id,c.owner_user_id,c.team_id FROM fr_customer c WHERE c.company_id=? AND c.id IN (
                   SELECT w.customer_id FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
                     ON s.workflow_id=w.id AND s.tenant_id=w.tenant_id AND s.company_id=w.company_id
@@ -102,13 +107,28 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                     WHERE w.tenant_id=? AND w.company_id=? AND e.attachments @> CAST(? AS jsonb))
                 """, (rs, n) -> new CustomerDO().setId(rs.getLong("id")).setCompanyId(rs.getLong("company_id"))
                         .setOwnerUserId(rs.getLong("owner_user_id")).setTeamId(rs.getObject("team_id", Long.class)),
-                company, tenant, company, json, tenant, company, json);
+                company, tenant, company, json, tenant, company, json));
+        var extra = references.orderedStream().flatMap(port -> port.customerIds(tenant, company, asset).stream())
+                .filter(id -> owners.stream().noneMatch(customer -> customer.getId().equals(id))).distinct().toList();
+        if (!extra.isEmpty()) {
+            var params = new java.util.ArrayList<Object>(); params.add(company); params.addAll(extra);
+            var referenced = jdbc.query("SELECT id,company_id,owner_user_id,team_id FROM fr_customer WHERE company_id=? AND id IN ("
+                    + String.join(",", java.util.Collections.nCopies(extra.size(), "?")) + ")",
+                    (rs,n) -> new CustomerDO().setId(rs.getLong("id")).setCompanyId(rs.getLong("company_id"))
+                            .setOwnerUserId(rs.getLong("owner_user_id")).setTeamId(rs.getObject("team_id",Long.class)), params.toArray());
+            if (referenced.size() != extra.size()) throw exception(RESOURCE_FORBIDDEN);
+            owners.addAll(referenced);
+        }
+        return owners;
     }
 
     private PostSnapshot requireActor(long tenant, AssetAccessPort.Actor actor) {
         PostSnapshot post = posts.require();
         if (!java.util.Objects.equals(TenantContextHolder.getTenantId(), tenant) || actor == null
                 || post.orgId() != actor.orgId() || post.userId() != actor.userId() || post.postId() != actor.postId()) throw exception(RESOURCE_FORBIDDEN);
+        if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM system_dept d JOIN pf_org_unit o ON o.dept_id=d.id"
+                + " WHERE d.id=? AND d.tenant_id=? AND d.status=0 AND d.deleted=0 AND o.kind='ORG' AND o.status='ACTIVE')",
+                Boolean.class, actor.orgId(), tenant))) throw exception(RESOURCE_FORBIDDEN);
         return post;
     }
     private static String reference(long asset) { return JsonUtils.toJsonString(List.of(Map.of("assetId", Long.toString(asset)))); }
