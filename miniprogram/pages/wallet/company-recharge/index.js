@@ -166,7 +166,7 @@ Page({
   },
   dismissOrder() {
     const order = this.data.order;
-    if (!order || (!order.quoteExpired && !['CREDITED','CLOSED','FAILED','REFUNDED','REFUND_REVIEW'].includes(order.status))) return;
+    if (!order || !['CREDITED','CLOSED','FAILED','REFUNDED','REFUND_REVIEW'].includes(order.status)) return;
     this.lastSeenOrder = order.id + '/' + order.status;
     this.setData({ order: null, note: '' });
   }
