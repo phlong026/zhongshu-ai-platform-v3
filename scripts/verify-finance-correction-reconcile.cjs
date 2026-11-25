@@ -85,9 +85,9 @@ async function main() {
 
   // A2：expense 退回更正链——分流出 expense-refund 表单
   {
-    const { page, calls } = fakePage({});
+    const { page, calls } = fakePage({platformRegister:{expenseRefundable:[{id:7002,refundableCents:300000,fundingType:'EMPLOYEE'}]}});
     page._refundRows = [{ id: 622, refundDirection: 'expense', paymentId: 7002, amountCents: 300000,
-      reason: '供应商退回', date: '', transactionNo: '', status: '已核实' }];
+      reason: '供应商退回', date: '', transactionNo: '', fundingType: 'COMPANY', status: '已核实' }];
     page.openCorrection({ currentTarget: { dataset: { id: 'f-622' } } });
     modalQueue.pop().success({ confirm: true });
     await settle();
@@ -97,6 +97,7 @@ async function main() {
     page.submitRegister();
     await settle();
     assert.equal(calls.expense.length, 1, '支出退回重登发出');
+    assert.equal(calls.expense[0].body.fundingType, 'COMPANY', '只改原因时不按原出资员工推断退回去向');
     assert.equal(calls.expense[0].body.replacesId, '622', '支出退回 replacesId 透传');
     assert.equal(calls.expense[0].body.date, today, '空日期兜底真实今日');
   }
@@ -156,7 +157,7 @@ async function main() {
     assert.equal(calls.refunds[0].body.replacesId, id);
   }
   {
-    const row = { id: '744', refundDirection: 'expense', paymentId: '804',
+    const row = { id: '744', refundDirection: 'expense', paymentId: '804', amountCents: 10000, fundingType: 'COMPANY',
       status: '已作废', voidReason: '更正重登' };
     const click = { currentTarget: { dataset: { id: row.id } } };
     const { page, calls } = fakePage({ refundVoidable: false });
@@ -177,6 +178,16 @@ async function main() {
     await page.resumeRefundCorrection(click);
     assert.equal(page.data.registerType, 'expense-refund');
     assert.equal(page.data.registerForm.paymentId, row.paymentId);
+    assert.equal(page.data.registerForm.refundFundingType, 'COMPANY', '续办保留原来实际退回的公司');
+    const pick = value => page.registerInput({ currentTarget: { dataset: { field: 'refundFundingType' } }, detail: {value} });
+    pick(2); assert.equal(page.data['registerForm.refundFundingType'], 'EMPLOYEE', '财务明确选择才切换');
+    pick(0); assert.equal(page.data['registerForm.refundFundingType'], 'COMPANY', '沿用原退回而非原出资');
+    // 仿小程序 setData 路径，把显式修改后的值提交到登记。
+    pick(2);
+    page.data.registerForm.refundFundingType = page.data['registerForm.refundFundingType'];
+    await page.submitRegister();
+    await settle();
+    assert.equal(calls.expense[0].body.fundingType, 'EMPLOYEE');
     assert.equal(calls.voids.length, 0);
   }
 

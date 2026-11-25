@@ -40,7 +40,7 @@ module.exports = function attach(page, financeApi, PF) {
   };
   page.registerInput = function (e) {
     const field = e.currentTarget.dataset.field;
-    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : field === 'refundFundingType' ? [undefined,'COMPANY','EMPLOYEE'][Number(e.detail.value)] : field === 'fundingType' ? ['COMPANY','EMPLOYEE'][Number(e.detail.value)] : e.detail.value;
+    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : field === 'refundFundingType' ? [this.data.registerForm?.originalRefundFundingType,'COMPANY','EMPLOYEE'][Number(e.detail.value)] : field === 'fundingType' ? ['COMPANY','EMPLOYEE'][Number(e.detail.value)] : e.detail.value;
     this.setData({ ['registerForm.' + field]: value });
   };
   page.registerPick = function (e) {
@@ -210,9 +210,11 @@ module.exports = function attach(page, financeApi, PF) {
     const source = (target.__journeyCash || []).find(r => r.sourceKind === (isExpense ? 'payment' : 'receipt') && String(r.id) === String(sourceId));
     const sourceLabel = source ? source.projectName + ' · ' + source.name : isExpense ? '原付款' : '原收款';
     const date = require('../../../utils/finance-date').day(row.date) || require('../../../utils/account').localDate();
+    const originalRefundFundingType = ['COMPANY', 'EMPLOYEE'].includes(row.fundingType) ? row.fundingType : undefined;
     const form = { amount: row.amountCents ? (row.amountCents / 100).toFixed(2) : '',
       reason: row.reason || '', date, transactionNo: row.transactionNo || '', replacesId: row.id,
-      ...(isExpense ? { paymentId: sourceId, paymentIdLabel: sourceLabel } : { receiptId: sourceId, receiptIdLabel: sourceLabel }) };
+      ...(isExpense ? { paymentId: sourceId, paymentIdLabel: sourceLabel,
+        refundFundingType: originalRefundFundingType, originalRefundFundingType } : { receiptId: sourceId, receiptIdLabel: sourceLabel }) };
     target.registerIdem = null;
     target._registerSeq = (target._registerSeq || 0) + 1;
     const route = target.data.view === 'desk' ? { view: 'flows', title: '资金流水', flowTab: 'ledger' } : {};
