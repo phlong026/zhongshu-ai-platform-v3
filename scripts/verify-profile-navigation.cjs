@@ -367,6 +367,51 @@ test('未知岗位 roleCode：workbench-nav 回退本地导航并告警一次', 
 const nav = require('../miniprogram/utils/page-navigation');
 const tap = dataset => ({ currentTarget: { dataset } });
 const customerRequests = () => requests.filter(request => request.url.endsWith('/franchise/customers'));
+test('销售旧方案入口直接进入灵感检索，不再打开退役的原生方案页', () => {
+  reset('sales');
+  show('/pages/business/index');
+  nav.open('/pages/design/index');
+  assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/design-migration/pages/library/index' }]);
+
+  reset('sales');
+  show('/pages/design/index');
+  assert.deepEqual(navigation, [{ kind: 'redirectTo', url: '/design-migration/pages/library/index' }]);
+});
+
+test('销售直达旧原生方案页回首页，工程与老板继续使用原工程入口', () => {
+  reset('sales');
+  const retired = show('/pages/engineering/index');
+  assert.equal(retired.data.redirectingSales, true);
+  const destination = settleNavigation();
+  assert.equal(destination.route, 'pages/business/index');
+  assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/business/index' }]);
+  assert.equal(destination.bar.data.tabs.some(tab => tab.index === 6), false);
+
+  reset('engineer');
+  show('/pages/engineering/index');
+  assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/build/home/index' }]);
+
+  reset('boss');
+  const engineering = show('/pages/engineering/index');
+  assert.equal(engineering.data.redirectingSales, false);
+  assert.deepEqual(navigation, []);
+  assert.ok(requests.some(request => request.url.includes('/franchise/engineering/projects')));
+});
+
+test('灵感首页入口可用，销售工具冷启动返回首页，预算入口行为保持原样', () => {
+  reset('sales');
+  const business = show('/pages/business/index');
+  const inspiration = business.data.salesShortcuts.find(row => row.action === 'inspiration');
+  assert.equal(inspiration.title, '灵感检索');
+  business.openSalesShortcut(tap(inspiration));
+  assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/design-migration/pages/library/index' }]);
+  assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'budget' } }), '/pages/business/index');
+  assert.equal(business.data.salesShortcuts.find(row => row.action === 'quickBudget').url, '/pages/workflow/explore/index?view=budget');
+
+  reset('hq-design-admin');
+  assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'inspiration' } }), '/pages/design/index');
+});
+
 async function finishCreationAuthorization() {
   for (const request of requests.filter(request => request.url.endsWith('/platform/posts/mine'))) {
     reply(request, auth.apiPosts());

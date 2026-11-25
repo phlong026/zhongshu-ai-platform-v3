@@ -118,10 +118,12 @@ test('an unloaded message page ignores late responses',async()=>{
  let resolve;const waiting=new Promise(r=>resolve=r);const {api,p}=messages(http(async()=>waiting));
  const pending=api.sync.call(p);p.__messagesGen++;resolve({items:[{id:'1',title:'late'}],unread:1});await pending;assert.equal(p.apiMessages.length,0);
 });
-test('sales navigation has exactly five native destinations, while engineer keeps its workbench',()=>{
+test('sales navigation has four native destinations, while engineer keeps its workbench',()=>{
  const O=require('../miniprogram/utils/organization');
  const n=O.navigation({active:true,loggedIn:true,role:'sales',orgType:'store'});
- assert.equal(n.tabs.length,5);assert(n.tabs.every(t=>t.native));assert.equal(new Set(n.tabs.map(t=>t.url)).size,5);
+ assert.equal(n.tabs.length,4);assert(n.tabs.every(t=>t.native));assert.equal(new Set(n.tabs.map(t=>t.url)).size,4);
+ assert.deepEqual(n.tabs.map(t=>t.text),['首页','创作','客户','我的']);
+ assert.deepEqual(n.tabs.map(t=>t.index),[1,5,7,4]);
  assert.equal(n.tabs.find(t=>t.key==='creation').url,'/pages/home/index');
  const eng=O.navigation({active:true,loggedIn:true,role:'engineer',orgType:'store'});assert(eng.tabs.some(t=>t.url==='/pages/build/home/index'));
 });
