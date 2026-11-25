@@ -11,7 +11,7 @@
  <block wx:else>
   <template wx:if="{{view==='projects'}}" is="projectBooks" data="{{keyword,bookListTab,financeProjects,financeProjectLoading,financeProjectError}}"/>
   <button wx:if="{{view==='book'}}" class="journey-back" bindtap="back"><image src="/assets/creation-back.png"/>返回账本列表</button>
-  <template wx:if="{{view==='book'}}" is="projectBook" data="{{journeyEnabled,wbForm,bookName,bookNet,bookCost,bookScope,bookSummary,bookEntries,bookResult,bookEmployeeRows,bookFlowTab,canLinkBook,bookLoading,bookError,bookCollectionUrl,bookMaterialsUrl,bookExpensesUrl}}"/>
+  <template wx:if="{{view==='book'}}" is="projectBook" data="{{journeyEnabled,wbForm,bookName,bookNet,bookCost,bookAccounting,bookAccountingUrl,bookScope,bookSummary,bookEntries,bookResult,bookEmployeeRows,bookFlowTab,canLinkBook,bookLoading,bookError,bookCollectionUrl,bookMaterialsUrl,bookExpensesUrl}}"/>
   <block wx:if="{{view==='reimbursements'}}">
    <view class="journey-page-heading"><text class="journey-title">员工报销</text><text class="journey-muted">{{journeyReimbursements.length}}笔</text></view>
    <text wx:if="{{workbenchError}}" class="journey-error">{{workbenchError}}</text>

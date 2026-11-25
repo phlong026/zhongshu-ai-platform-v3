@@ -62,6 +62,7 @@
         "profile/index",
         "detail/index",
         "finance-desk/index",
+        "accounting/index",
         "operations/index",
         "commission/index",
         "brief/index"

@@ -6,6 +6,7 @@ const Money = require('../../../utils/platform-finance');
 const date = () => require('../../../utils/account').localDate();
 const yuan = n => (Number(n || 0) / 100).toFixed(2);
 const base = '/franchise/finance/workbench';
+const Accounting = require('../accounting/model');
 module.exports = function (page, api) {
   page.loadWorkbench = async function () {
     this.__messageWorkbenchReady=false;
@@ -50,14 +51,17 @@ module.exports = function (page, api) {
   page.changeBookListTab=function(e){this.setData({bookListTab:e.currentTarget.dataset.tab});this.filterFinanceBooks();};
   page.loadBookLedger = async function () {
     const scope=this.options.bookScope,alive=this.financeReadGuard?this.financeReadGuard('finance-book-ledger'):http.requestGuard('finance-book-ledger');
-    if(scope!==this.data.bookScope)this.setData({bookResult:null,bookEntryRows:[],bookEntryDetail:null,bookEntries:[],bookSummary:[],bookEmployeeRows:[],bookName:'',bookNet:'—',bookCost:'—',bookCollectionUrl:'',bookMaterialsUrl:'',bookExpensesUrl:''});
+    if(scope!==this.data.bookScope)this.setData({bookResult:null,bookEntryRows:[],bookEntryDetail:null,bookEntries:[],bookSummary:[],bookEmployeeRows:[],bookName:'',bookNet:'—',bookCost:'—',bookAccounting:null,bookAccountingUrl:'',bookCollectionUrl:'',bookMaterialsUrl:'',bookExpensesUrl:''});
     this.setData({bookLoading:true,bookError:'',bookScope:scope,canLinkBook:String(scope||'').startsWith('book:')});
     try{
       const [result,books]=await Promise.all([http.get(base+'/ledger',{scope}),http.get(base+'/books')]);
       if(!alive()||this.__disposed||scope!==this.options.bookScope)return;
       const s=result.summary,entryRows=BookView.bookRows(result.entries),book=books.find(b=>b.scope===scope);
+      const projectId = String(scope).startsWith('project:') ? Accounting.id(String(scope).slice(8)) : '';
+      const accounting = result.accounting && projectId ? Accounting.view(result.accounting,projectId) : null;
       this.setData({bookLoading:false,bookResult:result,workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
         bookFlowTab:this.data.bookFlowTab||'cash',bookSummary:BookView.summary(s),
+        bookAccounting:accounting,bookAccountingUrl:projectId?'/pages/admin/accounting/index?projectId='+encodeURIComponent(projectId):'',
         bookNet:BookView.money(Number(s.received_cents)+Number(s.expense_refunded_cents)-Number(s.paid_cents)-Number(s.refunded_cents)),bookCost:BookView.money(s.committed_cents),bookEntryDetail:null,bookCollectionUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=collection',bookMaterialsUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=materials',bookExpensesUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=expenses'});this.filterBookEntries();this.updateBookEmployees();
     }catch(e){if(alive()&&!this.__disposed){const patch={bookLoading:false,bookError:e.message||'账本加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);}}
   };

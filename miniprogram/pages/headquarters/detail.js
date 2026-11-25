@@ -37,7 +37,7 @@ Page({
         if (!company) throw { code: 403, message: '公司不属于当前可读范围' };
         const scope = api.bookScope(this.options.scope), result = await api.ledger(recordId, scope);
         if (!S.alive(this, ticket)) return;
-        this.setData({ ledger: M.ledger(result), companyName: company.name, ledgerTitle: scope === 'company' ? '公司日常账' : scope.startsWith('project:') ? '项目账本' : '前期账本', ready: true, loading: false });
+        this.setData({ ledger: M.ledger(result,scope), companyName: company.name, ledgerTitle: scope === 'company' ? '公司日常账' : scope.startsWith('project:') ? '项目账本' : '前期账本', ready: true, loading: false });
       } else {
         const row = await api.detail(kind, recordId);
         if (!S.alive(this, ticket)) return;

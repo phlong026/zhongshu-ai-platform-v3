@@ -131,12 +131,28 @@ function books(rows) {
   if (!Array.isArray(rows)) throw Error('账本列表格式不正确');
   return rows.map(row => ({ scope: api.bookScope(row.scope), name: text(row.name), status: status(row.status), type: row.scope === 'company' ? '公司总账' : row.scope.startsWith('project:') ? '项目账本' : '前期账本' }));
 }
-function ledger(value) {
+function accounting(value,scope) {
+  if (!value) return null;
+  if (value.canConfirm !== false || value.basisCode !== 'CONTRACT_CONFIRMED_COST_V1'
+      || !['UNCONFIRMED','CURRENT','STALE'].includes(value.state) || !api.id(value.projectId)
+      || String(scope).startsWith('project:') && api.id(value.projectId) !== String(scope).slice(8)) throw Error('总部项目核算响应不匹配');
+  const exact = cents => {
+    if (cents == null || typeof cents === 'number' && !Number.isSafeInteger(cents) || !/^-?\d{1,19}$/.test(String(cents))) return '—';
+    const digits=String(cents).replace(/^-/, '').padStart(3,'0');
+    return '¥ '+(String(cents).startsWith('-')?'-':'')+digits.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+digits.slice(-2);
+  };
+  const latest=value.latestSnapshot;
+  if(latest && (api.id(latest.snapshot?.projectId)!==api.id(value.projectId) || latest.snapshot.sourceHash!==latest.sourceHash)) throw Error('核算确认记录不匹配');
+  return { profit:exact(value.grossProfitCents),cash:exact(value.cashNetCents),cost:exact(value.confirmedCostCents),basis:text(value.basisLabel),
+    status:{UNCONFIRMED:'尚未确认',CURRENT:'已确认',STALE:'账目有变化，待复核'}[value.state],
+    latest:latest?{version:latest.version,date:date(latest.confirmedAt),note:text(latest.note),profit:exact(latest.snapshot.grossProfitCents),cash:exact(latest.snapshot.cashNetCents)}:null };
+}
+function ledger(value,scope) {
   if (!value || !value.summary || !Array.isArray(value.entries)) throw Error('账本数据不完整');
   const names = { received_cents: '已收款', paid_cents: '已付款', refunded_cents: '客户退款', expense_refunded_cents: '支出退回', committed_cents: '应付总额', outstanding_cents: '待付款', receivable_cents: '待收款' };
   const types = { RECEIPT: '收款', PAYABLE: '应付', PAYMENT: '付款', ADVANCE: '垫付', REFUND: '客户退款', EXPENSE_REFUND: '支出退回' };
   const kinds = { RECEIPT: 'receipts', PAYABLE: 'payables', PAYMENT: 'payments', ADVANCE: 'payments', REFUND: 'refunds', EXPENSE_REFUND: 'refunds' };
-  return { summary: Object.entries(names).map(([key, label]) => ({ label, value: money(value.summary[key]) })), truncated: value.truncated === true,
+  return { accounting:accounting(value.accounting,scope), summary: Object.entries(names).map(([key, label]) => ({ label, value: money(value.summary[key]) })), truncated: value.truncated === true,
     entries: value.entries.map((row, index) => ({ id: api.id(row.id), key: row.type + ':' + row.id + ':' + index, kind: kinds[row.type] || '', type: types[row.type] || text(row.type),
       name: text(row.name), date: date(row.date), amount: money(row.amount_cents), status: status(row.status), note: row.note || '', counterparty: row.counterparty || '' })) };
 }
