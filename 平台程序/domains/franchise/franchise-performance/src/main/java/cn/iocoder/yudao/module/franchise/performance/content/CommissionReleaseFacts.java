@@ -4,6 +4,17 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 final class CommissionReleaseFacts {
     private CommissionReleaseFacts() {}
 
+    // Same balance as the finance payable: pending cash and returns can overlap on a payment.
+    static String paymentTotals(String paymentScope) {
+        return "SELECT COALESCE(SUM(pm.amount_cents),0) AS gross_paid_cents, "
+                + "COALESCE(SUM(pm.amount_cents-GREATEST(COALESCE(pm.pending_link_cents,0),back.amount)),0) AS paid_cents, "
+                + "COALESCE(SUM(GREATEST(0,back.amount-COALESCE(pm.pending_link_cents,0))),0) AS applied_return_cents "
+                + "FROM fr_fin_payment pm CROSS JOIN LATERAL (SELECT COALESCE(SUM(f.amount_cents),0) AS amount "
+                + "FROM fr_fin_refund f WHERE f.company_id=pm.company_id AND f.payment_id=pm.id "
+                + "AND f.refund_direction='expense' AND f.status='已核实' AND f.replaced_by_id IS NULL AND NOT f.deleted) back "
+                + "WHERE pm.status='已核实' AND NOT pm.deleted AND " + paymentScope;
+    }
+
     static String selectSql() {
         String stage = "CASE r.stage WHEN 'START' THEN 'SIGN_AFTER' "
                 + "WHEN 'TOPPING' THEN 'CAP_DONE' ELSE r.stage END";
@@ -11,12 +22,12 @@ final class CommissionReleaseFacts {
         return "SELECT p.id AS policy_id, p.assignee_user_id, p.assignee_name, "
                 + "p.update_time AS policy_update_time, p.total_cents, p.start_cents, p.base_done_cents, "
                 + "p.topping_cents, p.version AS current_version, r.project_id, project.name AS project_name, r.stage, r.policy_version, "
-                + "r.receipt_signature, r.reconciliations -> -1 ->> 'paidCents' AS reviewed_paid, fp.total_cents AS payable_cents, "
+                + "r.receipt_signature, r.reconciliations -> -1 ->> 'paidCents' AS reviewed_paid, "
+                + "r.reconciliations -> -1 ->> 'appliedPaymentReturnCents' AS reviewed_return, fp.total_cents AS payable_cents, "
                 + "CASE WHEN unified.refunded > 0 AND r.receipt_signature NOT LIKE '%|refunded:%' "
                 + "AND jsonb_typeof(r.reconciliations->-1)='object' THEN (" + LegacyCommissionReview.EVIDENCE
                 + ") END AS legacy_review, "
-                + "COALESCE((SELECT SUM(pm.amount_cents) FROM fr_fin_payment pm "
-                + "WHERE pm.company_id = r.company_id AND pm.payable_id = r.payable_id AND pm.status = '已核实'), 0) AS paid_cents, "
+                + "pay.gross_paid_cents, pay.paid_cents, pay.applied_return_cents, "
                 + required + " AS fact_required, "
                 + "CASE WHEN contract.id IS NOT NULL THEN COALESCE(unified.received, 0) "
                 + "ELSE COALESCE(engineering.received, 0) END AS fact_received, "
@@ -26,6 +37,7 @@ final class CommissionReleaseFacts {
                 + " || CASE WHEN unified.refunded > 0 THEN '|refunded:' || unified.refunded ELSE '' END "
                 + "ELSE COALESCE('|' || engineering.signature_parts, '') END AS fact_signature "
                 + "FROM fr_perf_commission_release r "
+                + "CROSS JOIN LATERAL (" + paymentTotals("pm.company_id=r.company_id AND pm.payable_id=r.payable_id") + ") pay "
                 + "LEFT JOIN fr_perf_commission_policy p "
                 + "ON p.id = r.policy_id AND p.company_id = r.company_id "
                 + "LEFT JOIN fr_fin_payable fp ON fp.id = r.payable_id AND fp.company_id = r.company_id "

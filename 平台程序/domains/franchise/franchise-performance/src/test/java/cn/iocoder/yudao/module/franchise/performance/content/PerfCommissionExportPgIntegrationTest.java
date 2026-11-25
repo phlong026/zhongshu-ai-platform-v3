@@ -213,6 +213,10 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD COLUMN IF NOT EXISTS create_time timestamptz DEFAULT now()");
         jdbc.execute("ALTER TABLE fr_fin_refund ADD COLUMN IF NOT EXISTS create_time timestamptz DEFAULT now(), "
                 + "ADD COLUMN IF NOT EXISTS update_time timestamptz DEFAULT now(), ADD COLUMN IF NOT EXISTS voided_at timestamptz");
+        jdbc.execute("ALTER TABLE fr_fin_refund ADD COLUMN IF NOT EXISTS payment_id bigint, "
+                + "ADD COLUMN IF NOT EXISTS refund_direction varchar(16), ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false");
+        jdbc.execute("ALTER TABLE fr_fin_payment ADD COLUMN IF NOT EXISTS pending_link_cents bigint NOT NULL DEFAULT 0, "
+                + "ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false");
     }
 
     // ===================== 主聚合口径 =====================
@@ -408,6 +412,62 @@ class PerfCommissionExportPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(row.get(4)).isEqualTo("100.00");
         assertThat(row.get(5)).isEqualTo("120.00");
         assertThat(row.get(6)).isEqualTo("0.00");
+    }
+
+    @Test
+    void paymentReturnUpdatesDetailBossReviewAndExportWithoutChangingHistory() {
+        long project = nextId(), payable = payableId(), paymentId = nextId();
+        long policy = insertPolicy(orgId, project, 10_000, 10_000, 0, 0, 850L, "提成员工");
+        release(orgId, project, policy, "SIGN_AFTER", 10_000, payable, "2026-11-12 10:00:00");
+        jdbc.update("INSERT INTO fr_fin_payment (id,payable_id,company_id,amount_cents,status) VALUES (?,?,?,10000,'已核实')",
+                paymentId,payable,orgId);
+        String saved = "[{\"paidCents\":10000}]";
+        jdbc.update("UPDATE fr_perf_commission_release SET reconciliations=?::jsonb WHERE company_id=? AND payable_id=?", saved,orgId,payable);
+        PostSnapshot boss = fixture.post(orgId, "boss", null);
+        currentPost.use(boss);
+        assertThat(commissionStart(project)).containsEntry("status", "已付清").containsEntry("settledReviewCurrent", true);
+
+        expenseReturn(orgId,paymentId,3000,"已核实",null,false);
+        expenseReturn(orgId,paymentId,1000,"已作废",null,false);
+        expenseReturn(orgId,paymentId,1000,"已核实",nextId(),false);
+        expenseReturn(orgId,paymentId,1000,"已核实",null,true);
+        expenseReturn(otherOrgId,paymentId,1000,"已核实",null,false);
+        assertThat(commissionStart(project)).containsEntry("paidCents", 7000L)
+                .containsEntry("outstandingCents", 3000L).containsEntry("status", "待人工核对");
+        assertThat(commissions.reviewTodos(boss)).hasSize(1);
+        assertThat(bodyRows(export(post, MONTH)).get(0).subList(5,9)).containsExactly("70.00","30.00","0","1");
+
+        jdbc.update("UPDATE fr_fin_payment SET pending_link_cents=1000 WHERE id=?",paymentId);
+        assertThat(commissionStart(project)).containsEntry("paidCents", 7000L)
+                .containsEntry("appliedPaymentReturnCents", 2000L);
+        expenseReturn(orgId,paymentId,7000,"已核实",null,false);
+        var fullReturn = commissionStart(project);
+        assertThat(fullReturn).containsEntry("paidCents", 0L).containsEntry("grossPaidCents", 10000L)
+                .containsEntry("status", "待人工核对");
+        assertThat(commissions.reviewTodos(boss)).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT reconciliations->0->>'paidCents' FROM fr_perf_commission_release "
+                + "WHERE company_id=? AND payable_id=?",String.class,orgId,payable)).isEqualTo("10000");
+
+        long voucher = nextId();
+        org.mockito.Mockito.when(accounts.requireServiceAccount(orgId)).thenReturn(777L);
+        var actor = new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(orgId,777L,boss.userId(),boss.postId());
+        org.mockito.Mockito.when(assets.validateReference(actor,voucher,java.util.Set.of("FIN_VOUCHER"))).thenReturn(true);
+        commissions.reconcile(boss,project,"SIGN_AFTER",Long.toString(voucher),"人工核对退回","expense-return-review");
+        commissions.reconcile(boss,project,"SIGN_AFTER",Long.toString(voucher),"同一差额不重复","expense-return-stale");
+        assertThat(commissions.reviewTodos(boss)).isEmpty();
+        assertThat(bodyRows(export(post, MONTH)).get(0).subList(5,9)).containsExactly("0.00","100.00","0","0");
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(reconciliations) FROM fr_perf_commission_release "
+                + "WHERE company_id=? AND payable_id=?",Integer.class,orgId,payable)).isEqualTo(2);
+    }
+
+    private Map<String,Object> commissionStart(long project) {
+        @SuppressWarnings("unchecked") var stages = (List<Map<String,Object>>) commissions.row(postFor(orgId),project).get("stages");
+        return stages.stream().filter(stage -> "SIGN_AFTER".equals(stage.get("stage"))).findFirst().orElseThrow();
+    }
+
+    private void expenseReturn(long org,long payment,long cents,String status,Long replacement,boolean deleted) {
+        jdbc.update("INSERT INTO fr_fin_refund(company_id,payment_id,amount_cents,status,refund_direction,replaced_by_id,deleted) "
+                + "VALUES (?,?,?,?,'expense',?,?)",org,payment,cents,status,replacement,deleted);
     }
 
     @Test
