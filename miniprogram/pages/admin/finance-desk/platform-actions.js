@@ -40,7 +40,7 @@ module.exports = function attach(page, financeApi, PF) {
   };
   page.registerInput = function (e) {
     const field = e.currentTarget.dataset.field;
-    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : field === 'refundFundingType' ? [undefined,'COMPANY','EMPLOYEE'][Number(e.detail.value)] : field === 'fundingType' ? ['COMPANY','EMPLOYEE'][Number(e.detail.value)] : e.detail.value;
+    const value = field === 'method' ? ['bank', 'cash', 'other'][Number(e.detail.value)] : field === 'refundFundingType' ? [this.data.registerForm?.originalRefundFundingType,'COMPANY','EMPLOYEE'][Number(e.detail.value)] : field === 'fundingType' ? ['COMPANY','EMPLOYEE'][Number(e.detail.value)] : e.detail.value;
     this.setData({ ['registerForm.' + field]: value });
   };
   page.registerPick = function (e) {
@@ -191,44 +191,78 @@ module.exports = function attach(page, financeApi, PF) {
   };
 
   // ===================== M08-T08 批次#34：更正链双端（作废→重登携 replacesId 走 CAS 替代） =====================
+  const correctionReason = '更正重登';
+  const pendingCorrection = row => row && row.status === '已作废' &&
+    row.voidReason === correctionReason && row.replacedById == null &&
+    row.id != null && (row.refundDirection === 'expense' ? row.paymentId != null : row.receiptId != null);
+  page.pendingRefundCorrections = (rows, role) => role === 'finance-lead' ? (rows || []).filter(pendingCorrection)
+    .map(row => ({ id: String(row.id), label: row.refundDirection === 'expense' ? '支出退回' : '客户退款',
+      amount: PF.yuan(row.amountCents), date: require('../../../utils/finance-date').day(row.date) || '日期待补' })) : [];
+  const correctionGuard = target => {
+    const session = httpApi.sessionGuard(), post = httpApi.currentPostId(), generation = target.wbGeneration;
+    return () => session() && post === httpApi.currentPostId() && generation === target.wbGeneration &&
+      !target.__disposed && !target.__financeHidden && target.data.refundVoidable === true;
+  };
+  const startCorrection = (target, token, row) => {
+    if (target.data.journeyEnabled && target.rememberEntryOrigin) target.rememberEntryOrigin();
+    const isExpense = row.refundDirection === 'expense', type = isExpense ? 'expense-refund' : 'refund';
+    const sourceId = isExpense ? row.paymentId : row.receiptId;
+    const source = (target.__journeyCash || []).find(r => r.sourceKind === (isExpense ? 'payment' : 'receipt') && String(r.id) === String(sourceId));
+    const sourceLabel = source ? source.projectName + ' · ' + source.name : isExpense ? '原付款' : '原收款';
+    const date = require('../../../utils/finance-date').day(row.date) || require('../../../utils/account').localDate();
+    const originalRefundFundingType = ['COMPANY', 'EMPLOYEE'].includes(row.fundingType) ? row.fundingType : undefined;
+    const form = { amount: row.amountCents ? (row.amountCents / 100).toFixed(2) : '',
+      reason: row.reason || '', date, transactionNo: row.transactionNo || '', replacesId: row.id,
+      ...(isExpense ? { paymentId: sourceId, paymentIdLabel: sourceLabel,
+        refundFundingType: originalRefundFundingType, originalRefundFundingType } : { receiptId: sourceId, receiptIdLabel: sourceLabel }) };
+    target.registerIdem = null;
+    target._registerSeq = (target._registerSeq || 0) + 1;
+    const route = target.data.view === 'desk' ? { view: 'flows', title: '资金流水', flowTab: 'ledger' } : {};
+    if (!finishBusy(target, token, { ...route, registerType: type, registerForm: form, registerError: '',
+      bookEntryDetail: null, journeyResult: null, wbForm: null })) return;
+    if (target.syncJourneyForm) target.syncJourneyForm();
+    target.loadPlatformFinance(true);
+  };
+  const canEnterCorrection = target => target.data.refundVoidable === true &&
+    !target.data.busy && !target.data.registerBusy && !target.data.wbBusy && !target.data.paymentPending;
   page.openCorrection = function (e) {
-    // R1 P2-1：与挂起中的登记互斥——旧登记成功回调会清表单，若放行更正将出现「已作废但更正中断」
-    if (this.data.busy || this.data.registerBusy) return;
+    if (!canEnterCorrection(this)) return;
     const refundId = String(e.currentTarget.dataset.id || '').replace(/^f-/, '');
-    if (!refundId) return;
     const row = (this._refundRows || []).find(r => String(r.id) === refundId);
     if (!row || row.status !== '已核实') return this.setData({ registerError: '仅已核实的退款可更正重登' });
-    const isExpense = row.refundDirection === 'expense';
-    const type = isExpense ? 'expense-refund' : 'refund';
-    const yuanText = row.amountCents ? (row.amountCents / 100).toFixed(2) : '';
+    const alive = correctionGuard(this);
     wx.showModal({
-      title: isExpense ? '作废并重登支出退回' : '作废并重登退款',
-      content: '原记录 ¥' + yuanText + ' 将作废留痕（撤销仅纠正误录），随后打开更正表单，提交后经替代关系锁定更正链。',
+      title: row.refundDirection === 'expense' ? '作废并重登支出退回' : '作废并重登退款',
+      content: '原记录 ¥' + PF.yuan(row.amountCents) + ' 将作废留痕。若中途退出，可从「退款待重登」继续。',
       success: res => {
-        if (!res.confirm) return;
-        if (this.data.journeyEnabled && this.rememberEntryOrigin) this.rememberEntryOrigin();
-        const busyToken = beginBusy(this); if (!busyToken) return;
-        financeApi.voidRefund(refundId, '更正重登', financeApi.idemKey('refund-void'))
-          .then(() => {
-            if (!ownsBusy(this, busyToken)) return;
-            this.registerIdem = null; // 新表单换新键
-            this._registerSeq = (this._registerSeq || 0) + 1; // R3 P2-1：更正接管使挂起旧登记回调过期
-            const today = require('../../../utils/account').localDate();
-            const source=(this.__journeyCash||[]).find(r=>r.sourceKind===(isExpense?'payment':'receipt')&&String(r.id)===String(isExpense?row.paymentId:row.receiptId));
-            const sourceLabel=source?source.projectName+' · '+source.name:isExpense?'原付款':'原收款';
-            const originalDate=require('../../../utils/finance-date').day(row.date)||today;
-            const form = isExpense
-              ? { paymentId: row.paymentId, paymentIdLabel: sourceLabel,
-                  amount: yuanText, reason: row.reason || '', date: originalDate,
-                  transactionNo: row.transactionNo || '', replacesId: row.id }
-              : { receiptId: row.receiptId, receiptIdLabel: sourceLabel,
-                  amount: yuanText, reason: row.reason || '', date: originalDate,
-                  transactionNo: row.transactionNo || '', replacesId: row.id };
-            if (!finishBusy(this, busyToken, { registerType: type, registerForm: form, registerError: '',bookEntryDetail:null,journeyResult:null,wbForm:null })) return;
-            this.loadPlatformFinance(true);
-          })
-          .catch(err => finishBusy(this, busyToken, { registerError: PF.errorMessage(err) }));
+        if (!res.confirm || !alive() || !canEnterCorrection(this)) return;
+        const token = beginBusy(this); if (!token) return;
+        financeApi.voidRefund(refundId, correctionReason, financeApi.idemKey('refund-void'))
+          .then(() => alive() && ownsBusy(this, token) ? startCorrection(this, token, row) : finishBusy(this, token))
+          .catch(err => {
+            if (!alive()) return finishBusy(this, token);
+            if (finishBusy(this, token, { ledgerError: PF.errorMessage(err) })) this.loadPlatformFinance(true);
+          });
       }
+    });
+  };
+  page.resumeRefundCorrection = function (e) {
+    if (!canEnterCorrection(this) || this.data.registerType || this.data.wbForm) return;
+    const refundId = String(e.currentTarget.dataset.id || '');
+    if (!refundId || !(this._refundRows || []).some(row => String(row.id) === refundId && pendingCorrection(row))) return;
+    const alive = correctionGuard(this), token = beginBusy(this);
+    if (!token) return;
+    return financeApi.refunds().then(rows => {
+      if (!alive() || !ownsBusy(this, token)) return finishBusy(this, token);
+      const row = (rows || []).find(r => String(r.id) === refundId);
+      if (pendingCorrection(row)) return startCorrection(this, token, row);
+      if (finishBusy(this, token)) {
+        wx.showToast({ title: '这笔不再待重登', icon: 'none' });
+        this.loadPlatformFinance(true);
+      }
+    }).catch(err => {
+      if (alive() && finishBusy(this, token)) wx.showToast({ title: PF.errorMessage(err), icon: 'none' });
+      else finishBusy(this, token);
     });
   };
 

@@ -13,6 +13,7 @@
  <brand-header id="finance-page-header" wx:else branded fixed divider account-font title="{{title||'财务工作台'}}"/>
  <view class="fin-content">
  <block wx:if="{{ready}}">
+ <template wx:if="{{refundVoidable&&!registerType&&!wbForm&&!bookEntryDetail&&!journeyResult&&!journeyDeclaration&&!designReceiptForm}}" is="refundCorrectionQueue" data="{{items:platformFinance.refundCorrections}}"/>
  <block wx:if="{{journeyEnabled&&!designReceiptForm}}"><include src="./journey.wxml"/></block><block wx:else>
   <template wx:if="{{platformApiMode&&!projectLedgerReadOnly}}" is="workbench" data="{{view,registerType,bookScope,canLinkBook,bookLoading,bookError,bookSummary,bookEntries,bookResult,bookEmployeeRows,bookName,bookNet,bookCost,bookAccounting,bookAccountingUrl,bookFlowTab,bookEntryDetail,bookCollectionUrl,bookMaterialsUrl,bookExpensesUrl,workbenchError,reimbursementRows,wbForm,wbBusy,wbError,workbenchBooks,collectionDeclarations,financialStages,allocationReceipts,workbenchStaff}}"/>
   <template wx:if="{{platformApiMode&&view==='projects'&&!wbForm}}" is="projectBooks" data="{{keyword,bookListTab,financeProjects,financeProjectLoading,financeProjectError}}"/>
@@ -71,7 +72,7 @@
       <view class="fin-form-row"><text class="fin-muted">退款原因</text><input cursor-spacing="24" class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
       <view class="fin-form-row"><text class="fin-muted">退款日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>
      </block>
-     <block wx:if="{{registerType==='expense-refund'}}"><view class="fin-form-row"><text>实际退回至</text><picker range="{{['沿用原出资人','公司账户','原垫付员工']}}" data-field="refundFundingType" bindchange="registerInput"><view class="fin-input">{{registerForm.refundFundingType==='COMPANY'?'公司账户':registerForm.refundFundingType==='EMPLOYEE'?'原垫付员工':'沿用原出资人'}}</view></picker></view>
+     <block wx:if="{{registerType==='expense-refund'}}"><view class="fin-form-row"><text>实际退回至</text><picker range="{{[registerForm.originalRefundFundingType?'沿用原退回去向':'沿用原出资人','公司账户','原垫付员工']}}" data-field="refundFundingType" bindchange="registerInput"><view class="fin-input">{{registerForm.refundFundingType==='COMPANY'?'公司账户':registerForm.refundFundingType==='EMPLOYEE'?'原垫付员工':'沿用原出资人'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">关联付款单</text><picker range="{{platformRegister.expenseRefundable}}" range-key="label" data-field="paymentId" bindchange="registerPick"><view class="fin-input">{{registerForm.paymentIdLabel||'请选择'}}</view></picker></view>
       <view class="fin-form-row"><text class="fin-muted">退回原因</text><input cursor-spacing="24" class="fin-input" data-field="reason" bindinput="registerInput" value="{{registerForm.reason}}"/></view>
       <view class="fin-form-row"><text class="fin-muted">退回日期</text><picker mode="date" data-field="date" bindchange="registerInput"><view class="fin-input">{{registerForm.date||'请选择日期'}}</view></picker></view>

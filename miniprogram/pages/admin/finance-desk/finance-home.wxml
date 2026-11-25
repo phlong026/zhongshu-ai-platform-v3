@@ -1,9 +1,20 @@
+<template name="refundCorrectionQueue">
+ <view wx:if="{{items.length}}" class="fin-card">
+  <text class="fin-title">退款待重登</text>
+  <text class="fin-muted">原单已作废，不计入账目。</text>
+  <view wx:for="{{items}}" wx:key="id" class="fin-flow-row">
+   <text>{{item.label}} · ¥{{item.amount}} · {{item.date}}</text>
+   <button class="fin-text" data-id="{{item.id}}" bindtap="resumeRefundCorrection">继续重登</button>
+  </view>
+ </view>
+</template>
 <template name="financeHome">
 <view class="wb-root fin-page fin-home"><brand-header branded divider account-font title="{{desk.title||'财务工作台'}}"/>
  <view class="fin-content wb-content">
   <view class="fin-home-intro wb-greeting"><view><text class="fin-home-greeting">你好，{{desk.name}}</text></view><month-select wx:if="{{desk.hq}}" id="finance-month" class="fin-month-control" value="{{desk.period}}" bind:change="financeMonth"/></view>
 <view class="fin-refresh-status" bindtap="retryPlatformFinance">{{financeRefreshing?'更新中…':platformFinance.message?'更新失败，点此重试':''}}</view>
 <home-overview id="role-overview" wx:if="{{!desk.hq}}" role="finance" period="{{desk.period}}" bind:monthchange="financeMonth"/><view wx:else class="fin-card fin-home-summary"><view class="fin-home-metrics"><button wx:for="{{desk.metrics}}" wx:key="label" class="fin-home-metric {{item.tone}}" data-url="{{item.url}}" bindtap="go"><text>{{item.label}}</text><text>{{platformFinance&&!item.taskMetric?'¥':''}}{{item.value}}</text></button></view></view>
+  <template is="refundCorrectionQueue" data="{{items:platformFinance.refundCorrections}}"/>
   <view class="fin-card fin-home-list home-todo-shell">
    <text wx:if="{{platformTodos.warning}}" class="fin-muted">{{platformTodos.warning}}</text><text wx:if="{{platformTodos.status==='loading'}}" class="fin-muted">待办加载中…</text><view wx:if="{{platformTodos.status==='degraded'||platformTodos.status==='partial-empty'}}"><text class="fin-muted">{{platformTodos.message||'待办暂时无法完整加载'}}</text><button class="fin-text" bindtap="refreshFinanceTasks">重新加载</button></view>
    <todo-preview wx:if="{{desk.tasks.length||platformTodos.status==='ready'||platformTodos.status==='partial'}}" appearance="home" id="today-todos" rows="{{desk.tasks}}" scope="{{platformTodos.sessionGen+':'+platformTodos.postKey}}" bind:activate="openFinanceTask"/>

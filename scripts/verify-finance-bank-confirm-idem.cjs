@@ -262,6 +262,7 @@ async function main() {
 
     session = 40; post = { postId: 'correction-A', orgId: 'org-A' };
     switched.onShow(); switched.loads = 0;
+    switched.data.refundVoidable = true;
     switched._refundRows = [{ id: 'refund-1', status: '已核实', refundDirection: 'client', receiptId: 'receipt-1', amountCents: 8800 }];
     switched.openCorrection({ currentTarget: { dataset: { id: 'f-refund-1' } } });
     await flush();
@@ -284,6 +285,7 @@ async function main() {
 
     session = 42; post = { postId: 'correction-A-fail', orgId: 'org-A' };
     switched.onShow(); switched.loads = 0;
+    switched.data.refundVoidable = true;
     switched._refundRows = [{ id: 'refund-2', status: '已核实', refundDirection: 'client', receiptId: 'receipt-2', amountCents: 9900 }];
     switched.openCorrection({ currentTarget: { dataset: { id: 'f-refund-2' } } });
     await flush();
