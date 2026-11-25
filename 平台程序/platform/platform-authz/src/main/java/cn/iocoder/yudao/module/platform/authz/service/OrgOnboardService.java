@@ -38,6 +38,8 @@ public class OrgOnboardService {
     private SystemDirectory systemDirectory;
     @Resource
     private cn.iocoder.yudao.module.platform.org.dal.OrgUnitMapper orgUnitMapper;
+    @Resource
+    private org.springframework.context.ApplicationEventPublisher events;
 
     public record OnboardResult(long orgId, long adminUserId, long postId, boolean reusedOrg) {
     }
@@ -67,6 +69,10 @@ public class OrgOnboardService {
         long adminUserId = existing != null ? existing : systemDirectory.createUser(adminName, adminMobile, orgId);
         // boss 任职幂等（同岗位同 team=null 一致即幂等；被占不同 team 时 015 显式拒绝）
         long postId = staffPostService.assignPostInOrg(adminUserId, orgId, ADMIN_ROLE_CODE, null, operatorUserId);
+        if ("store".equals(orgType) || "headquarters".equals(orgType)) {
+            events.publishEvent(new cn.iocoder.yudao.module.platform.org.CompanyAccountRegistered(
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), orgId));
+        }
         return new OnboardResult(orgId, adminUserId, postId, reused != null);
     }
 }
