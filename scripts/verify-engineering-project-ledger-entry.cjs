@@ -69,3 +69,18 @@ test('换岗或非原负责人不提交转交',async()=>{
  const stale=managerHarness();await stale.page.openManagerTransfer();stale.page.pickManagerTransfer({detail:{value:'0'}});
  stale.page.confirmManagerTransfer();stale.switchIdentity();stale.modals[0].success({confirm:true});assert.equal(stale.calls.length,1);
 });
+
+test('cancelled material does not tell staff a linked payable was cancelled',()=>{
+ const {render}=require('./role-page-runtime.cjs'),file=path.join(root,'pages/build/record/index.wxml');
+ const visible=(line)=>{
+  const data={p:{id:'p',delivery:false},view:'material',node:{name:'基础'},
+    plan:{lines:[{id:'a',name:'水泥',paymentStatus:'待付款',...line}]},actions:[],expanded:{}};
+  const textOf=n=>[n.text||'',...(n.children||[]).flatMap(textOf)];
+  const tree=render(file,data);
+  return (Array.isArray(tree)?tree.flatMap(textOf):textOf(tree)).join(' ');
+ };
+ assert.match(visible({cancelled:true,payableId:'payable-a'}),/用料已取消；原应付请财务核对/);
+ assert.match(visible({cancelled:true,payableId:''}),/用料已取消/);
+ assert.doesNotMatch(visible({cancelled:true,payableId:''}),/原应付请财务核对/);
+ assert.doesNotMatch(visible({cancelled:false,payableId:'payable-a'}),/用料已取消/);
+});
