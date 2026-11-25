@@ -273,6 +273,8 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
         var finance=fixture.post(store.orgId(),"finance",null);var hqFinance=fixture.post(design.orgId(),"finance",null);
         var outsider=fixture.post(fixture.store().orgId(),"finance",null);
+        // The headquarters fixture is shared with other tests; preserve its pre-existing real receipts.
+        long receiptsBefore=jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id IN (?,?)",Long.class,store.orgId(),design.orgId());
         long customer=createCustomer(sales);var budget=saveBudget(sales,customer);
         var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
         var simulation=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null,null,"TEST_SIMULATION");
@@ -294,7 +296,7 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertError(()->as(outsider,()->commissions.paymentReceipt(outsider,id)),COMMISSION_NOT_FOUND);
         assertThat(as(sales,()->commissions.get(sales,id)).allowedActions()).doesNotContain("commission-simulate-pay");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,store.orgId())).isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id IN (?,?)",Long.class,store.orgId(),design.orgId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id IN (?,?)",Long.class,store.orgId(),design.orgId())).isEqualTo(receiptsBefore);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
     }
     @Test void oldClientPaymentMarkerCreatesOnlyFormalPayablesAndReplaysSafely() {
