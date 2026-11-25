@@ -470,6 +470,19 @@ page {
   color: #b9690b;
 }
 
+.price-source {
+  display: inline-block;
+  margin-left: 12rpx;
+  padding: 0 12rpx;
+  border-radius: 6rpx;
+  background: #f4f0e9;
+  color: #786858;
+  font-size: 20rpx;
+  font-weight: 400;
+  line-height: 1.8;
+  vertical-align: middle;
+}
+
 .price-actions {
   flex-shrink: 0;
   display: flex;
