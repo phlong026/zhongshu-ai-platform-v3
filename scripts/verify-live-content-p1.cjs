@@ -476,7 +476,7 @@ test('F05 retry-save completion replaces any list request started before the wri
   assert.equal(fixture.calls.tasks, 3, 'the read following a write must not reuse older data');
   next.resolve([{ ...lists.tasks.row('11'), title: '保存已恢复' }]); await retry;
   old.resolve([{ ...lists.tasks.row('11'), title: '保存前' }]); await flush();
-  assert.equal(page.data.tasks[0].title, '保存已恢复');
+  assert.equal(page.data.tasks[0].title, '数字人口播｜保存已恢复');
 });
 
 test('F05 late task mutations cannot alter rows after a role change', async () => {

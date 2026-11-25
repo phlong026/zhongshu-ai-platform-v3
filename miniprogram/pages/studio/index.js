@@ -1,5 +1,6 @@
 const studio = require('../../utils/studio');
 const MaterialLibrary = require('./material-library');
+
 const P=require('../../utils/platform-content');       // 内容域纯函数层（阶段 1.5：七态映射/校验/降级）
 const TaskResult=require('./content-task-result');
 const TaskDisplay=require('./task-display');
@@ -7,13 +8,25 @@ const contentApi=P.api;                                 // /franchise/content/**
 const crm=require('../../api/franchise/crm');            // 客资登记（发布链接回填时同页登记）
 const http=require('../../api/http');
 const keyboard=require('../../utils/creation-keyboard');
+function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
+  const labels={ai_video:'AI视频',ai:'AI视频',digital:'数字人口播',copy:'文案二创',remix:'文案二创',image:'AI图片'};
+  const prefix=(labels[kind]||'AI创作')+'｜';
+  let topic=String(title||sourceTitle||description||text||'').trim();
+  if(topic.startsWith(prefix))topic=topic.slice(prefix.length);
+  topic=topic.split(/\r?\n/)[0].replace(/\s+/g,' ').trim();
+  topic=topic.replace(/^(?:(?:请帮我|帮我|请)\s*)?(?:生成|制作|创作)(?:一个|一段|一条|一份)?\s*/,'').trim();
+  const chars=Array.from(topic);
+  return prefix+(chars.length>24?chars.slice(0,23).join('')+'…':topic||'未命名创作');
+}
+
+
 function listIdentity() {
 const post=require('../../api/auth').currentApiPost()||{};
 return JSON.stringify([studio.scope(),http.sessionGeneration(),http.tenantId(),post.orgId,post.postId,post.userId,post.orgType,post.roleCode]);
 }
 function listQuery(data,kind) { return kind==='tasks'?data.taskFilter:kind==='records'?(data.view==='detail'?String(data.recordId||''):data.recordFilter):''; }
 function emptyList(kind,view) { return kind==='tasks'?{tasks:[],taskCount:0}:kind==='works'?{works:[]}:view==='detail'?{detail:null,timeline:[]}:{records:[]}; }
-// Remove only an explicit leading title; a normal spoken opener is never guessed to be a title.
+// 仅剥显式标题，不猜测口播开场。
 function spokenBody(value) {
 const text=String(value||'').trim();
 const lines=text.split(/\r?\n/);
@@ -88,7 +101,7 @@ onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
 onShow() {if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();const keep=this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):this.data.view==='publish'&&this.data.workId?'&work='+encodeURIComponent(this.data.workId):'';wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+keep});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);if(this.data.view==='publish'&&!initial)this.loadPublisherAccounts();
   },
 onHide() {
-// A return may follow an edit on another page. Keep the snapshot, but never reuse its pre-hide read.
+// 返回时保留快照，但不复用隐藏前读取。
 if(this.__listFlights){this.__listFlights={};this.setData({tasksLoading:false,worksLoading:false,recordsLoading:false});}
 if(this.data.view==='digital')this.cancelDigitalResources();
 this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
@@ -120,7 +133,7 @@ if (this.data.view === 'records') return this.syncApiRecords();
 if (this.data.view === 'detail') return this.syncApiRecords(this.data.recordId);
 return;
 }
-// 无 token：清空演示集合并提示登录（不回落本地数据）
+// 无登录不回退演示数据。
 this.resetLists();
 this.setData({ taskCount:0,tasks: [], records: [], works: [], recent: [], activeTask: null, detail: null, tasksError: '', invalidMessage: '请先登录后使用创作中心' });
 return;
@@ -150,7 +163,7 @@ this.setData(Object.assign({},patch,{[kind+'Loaded']:true,[kind+'Loading']:false
 if(afterRender)afterRender();
 }).catch(error=>{
 const denied=error&&(error.postInvalid||[401,403,1103000002].includes(Number(error.code)));
-// HTTP may expire the session before delivering 401. Only this still-owned request may clear its old frame.
+// 仅当前请求可清除过期会话页面。
 if(!current()&&!(denied&&!this.__closed&&this.__listFlights[kind]===flight&&view===this.data.view))return;
 const clear=denied||error&&error.notFound,message=kind==='tasks'?'任务列表加载失败，请重试':P.degradeMessage(error);
 if(clear)delete this.__listSnapshots[kind];
@@ -219,7 +232,7 @@ const view = P.taskView(task.status);
 const text = String((task.result && (task.result.text || task.result.script)) || '').trim();
 return {
 id: String(task.id), apiTask: true, kind, ...result,
-title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
+title: makeTaskTitle({ kind: task.kind, title: task.title, description: task.description || (task.input && task.input.description), text: task.result && (task.result.text || task.result.script) }),
 status: view, canDismiss: task.canDismiss !== false && !P.saveFailure(task)
   && ['SUCCEEDED','FAILED','CANCELLED'].includes(task.status), saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
@@ -403,7 +416,7 @@ const latest=studio.read();if(latest.optimizationAttempt?.key!==attempt.key)retu
 const applied=latest.copyRevision===attempt.revision&&latest.original===attempt.original&&latest.script===attempt.payload.sourceText&&this.data.sheet!=='editor';
 if(applied)latest.script=text;
 latest.copyOptimizations=(latest.copyOptimizations||[]).concat({before:attempt.payload.sourceText,after:text,requirement:attempt.payload.requirement,taskId:attempt.taskId||'',applied,online:true,at:Date.now()}).slice(-20);
-// Save the secondary draft before releasing the attempt; storage failure must stay recoverable.
+// 先保存副草稿，再释放生成尝试。
 const key=studio.scopedKey(require('../../utils/storage-keys').creationDraft),draft=wx.getStorageSync(key);
 if(applied&&draft&&draft.text===latest.original)wx.setStorageSync(key,Object.assign({},draft,{rewrittenText:text,updatedAt:Date.now()}));
 delete latest.optimizationAttempt;studio.write(latest);this.contentDropKey('optimize');
@@ -415,7 +428,7 @@ if(!alive()||error?.cancelled)return;
 let message=P.degradeMessage(error);
 try{
 const latest=studio.read();
-// Only explicit input rejection or a confirmed generation failure can release the request.
+// 仅确定拒绝或生成失败才释放请求。
 if(attempt&&latest.optimizationAttempt?.key===attempt.key&&(error.taskFailed||creating&&['400','1114000001'].includes(String(error.code)))){
 delete latest.optimizationAttempt;studio.write(latest);this.contentDropKey('optimize');
 }
@@ -505,7 +518,7 @@ flight.promise=(async()=>{try{
 const rows=P.rowsOf(await contentApi.clones.list(personaId)).filter(r=>r&&r.ready&&r.id!=null&&r.mock!==true&&r.demo!==true);
 if(!this.digitalResourceCurrent(flight))return;
 const avatars=rows.filter(r=>r.kind==='AVATAR'),voices=rows.filter(r=>r.kind==='VOICE'),attempt=this.__digitalAttempt;
-// A fresh creation uses server defaults. Refresh keeps live choices, and paid retries keep their exact IDs.
+// 新建用服务端默认；刷新保留选择，重试冻结素材 ID。
 const choose=(options,id,current)=>attempt?options.find(r=>String(r.id)===String(id)):
   (retained&&options.find(r=>String(r.id)===String(current)))||options.find(r=>r.isDefault===true)||options.find(r=>String(r.id)===String(id))||options[0];
 const a=choose(avatars,attempt?attempt.payload.avatarCloneId:saved.avatarId,this.data.avatarCloneId),v=choose(voices,attempt?attempt.payload.voiceCloneId:saved.voiceId,this.data.voiceCloneId);
@@ -538,7 +551,7 @@ if(this.__generating)return; // 提交防重（loading 只护提交阶段）
 if(!this.__digitalAttempt&&!this.digitalSelectionCurrent())return; // 新提交核对资源身份；待确认请求仍使用冻结参数与幂等键
 if(!this.__digitalAttempt&&(this.data.digitalLoading||!this.data.avatarCloneId||!this.data.voiceCloneId))return wx.showToast({title:'请先选择已就绪的数字分身和克隆声音',icon:'none'});
 const text=this.data.script.trim();
-const title=String(this.data.title||'').trim()||text.split('\n')[0].slice(0,28);
+const title=makeTaskTitle({kind:'digital',title:this.data.title,text});
 if(!this.__digitalAttempt&&(!text||text.length>10000))return this.setData({operationError:'口播文案须为1至10000字'});
 const state=studio.read();state.script=text;state.title=title;studio.write(state); // 本地留痕（script/title 非守卫键）
 if(!this.__digitalAttempt){this.__digitalAttempt={personaId:this.data.digitalPersonaId,payload:{kind:'digital',avatarCloneId:this.data.avatarCloneId,voiceCloneId:this.data.voiceCloneId,text,title},key:this.contentKey('task')};wx.setStorageSync(studio.scopedKey('zs-digital-attempt'),this.__digitalAttempt);}
@@ -591,7 +604,7 @@ taskAction(e) {
 const id = e.currentTarget.dataset.id;
 const shown = this.data.tasks.find(task => task.id === id);
 if (!shown) { wx.showToast({ title: '任务不存在或已清理', icon: 'none' }); return; }
-// 在线任务：云端执行，不做本地「标记完成」
+// 在线任务仅由云端执行。
 if (shown.status === 'generating') { wx.showModal({ title: '任务进度', content: (shown.stageLabel||'正在处理')+'，任务在云端执行，可稍后刷新查看。', showCancel: false, confirmColor: '#824019' }); return; }
 if (shown.saveRetryable) return this.retryTaskSave(id);
 if (shown.status === 'failed') { wx.showModal({ title: '生成失败', content: shown.failedReason || '生成失败，请重新创建任务。', showCancel: false, confirmColor: '#824019' }); return; }
@@ -640,7 +653,7 @@ async dismissTask(id) {
  try {
   await contentApi.tasks.dismiss(id);
   if(!current())return;
-  // Invalidate any list response started before dismissal; then refresh the current status filter.
+  // 关闭后废弃旧列表响应，再刷新当前筛选。
   this.__taskListSeq=(this.__taskListSeq||0)+1;
   const remaining=(this.data.tasks||[]).filter(row=>String(row.id)!==String(id));
   this.setData({tasks:remaining,taskCount:remaining.length});
@@ -688,7 +701,7 @@ if(!task||task.outputType!=='video'||!task.videoReady){this.setData({resultError
 const alive=http.requestGuard('studio-save-result'),scope=this.actorScope;
 this.setData({resultSaving:true,resultError:''});
 try{
- const res=await contentApi.tasks.saveWork(this.data.taskId, '', this.contentKey('save-work:'+this.data.taskId));
+ const res=await contentApi.tasks.saveWork(this.data.taskId, task.title || '', this.contentKey('save-work:'+this.data.taskId));
  if(!alive()||this.__closed||scope!==studio.scope())return;
  if(!res||!res.workId)throw Error('作品保存结果缺少编号，请重试');
  this.contentDropKey('save-work:'+this.data.taskId);
@@ -1021,7 +1034,7 @@ const invalid=P.validatePublishedUrl(this.data.publishedUrlInput);
 if(invalid)return this.setData({receiptError:invalid});
 const url=this.data.publishedUrlInput.trim(),recordId=this.data.recordId;
 this.setData({receiptSaving:true,receiptError:''});
-// 后端 verify 仅支持 publishing→verify；失败不可吞，否则 link 会产生误导性二次失败。
+// verify 失败不可吞，否则 link 会误导。
 const status=this.data.detail&&this.data.detail.status;
 const prepare=status==='publishing'?contentApi.publications.verify(recordId,this.contentKey('verify:'+recordId)):Promise.resolve();
 prepare.then(()=>contentApi.publications.link(recordId,url,this.contentKey('link:'+recordId))).then(()=>{

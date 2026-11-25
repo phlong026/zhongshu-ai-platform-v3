@@ -12,6 +12,16 @@ const root = path.resolve(__dirname, '..');
 const pageSource = page => fs.readFileSync(path.join(root,'miniprogram',...(page==='creation'?['utils','sales-creation-page.js']:['pages',page,'index.js'])),'utf8');
 const api = require('../miniprogram/api/franchise/content');
 const P = require('../miniprogram/utils/platform-content');
+const vm = require('node:vm');
+const titleSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
+const videoTitleSource = fs.readFileSync(path.join(root, 'miniprogram/pages/ai-video/index.js'), 'utf8');
+function readTitleHelper(source) {
+  const match = source.match(/function makeTaskTitle\([\s\S]*?\n\}/);
+  assert.ok(match, 'makeTaskTitle helper exists');
+  return vm.runInNewContext('(' + match[0] + ')');
+}
+const makeTaskTitle = readTitleHelper(titleSource);
+const makeVideoTaskTitle = readTitleHelper(videoTitleSource);
 assert.equal(typeof global.wx, 'undefined', '契约层顶层不得触碰 wx（纯函数可直 require）');
 
 // ===== 导出面：api/franchise/content.js =====
@@ -50,6 +60,20 @@ assert.deepEqual(P.rowsOf(null), []);
 assert.deepEqual(P.rowsOf(undefined), []);
 assert.deepEqual(P.rowsOf({ items: 'no' }), []);
 assert.deepEqual(P.rowsOf({ total: 5 }), []);
+assert.equal(typeof P.makeTaskTitle, 'undefined');
+assert.equal(makeVideoTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }), makeTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }));
+assert.ok(Array.from(makeTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) })).length <= 33);
+assert.ok(Array.from(makeVideoTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) })).length <= 33);
+
+
+// ===== Task title contract =====
+assert.equal(makeTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }), 'AI视频｜现代别墅外观展示视频，镜头从入口推进');
+assert.equal(makeTaskTitle({ kind: 'digital', title: '乡墅招商介绍' }), '数字人口播｜乡墅招商介绍');
+assert.equal(makeTaskTitle({ kind: 'copy', text: '农村自建房推广\n第一段正文内容' }), '文案二创｜农村自建房推广');
+assert.equal(makeTaskTitle({ kind: 'ai_video', description: '' }), 'AI视频｜未命名创作');
+const normalizedLongTitle = makeTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) });
+assert.equal(makeTaskTitle({ kind: 'ai_video', title: normalizedLongTitle }), normalizedLongTitle);
+
 
 // ===== taskView：后端七态 → 页面四态 =====
 assert.equal(P.taskView('SUCCEEDED'), 'completed');
@@ -221,7 +245,7 @@ assert.equal(P.degradeMessage(null), '操作未完成，请稍后重试');
   assert.match(studioSrc, /key:this\.contentKey\('task'\)/, 'studio 任务创建未冻结幂等键');
   assert.match(studioSrc, /tasks\.create\(attempt\.payload,attempt\.key\)/, 'studio 任务未使用已冻结请求与幂等键');
   assert.match(studioSrc, /saveWork\(taskId,attempt\.payload\.title,this\.contentKey\('save-work:'/, 'studio 生成链 saveWork 未使用冻结标题或幂等键');
-  assert.match(studioSrc, /saveWork\(this\.data\.taskId, '', this\.contentKey\('save-work:'/, 'studio 结果页 saveWork 未带幂等键');
+  assert.match(studioSrc, /saveWork\(this\.data\.taskId, task\.title \|\| '', this\.contentKey\('save-work:'/, 'studio 结果页 saveWork 未保留任务标题或幂等键');
   assert.match(studioSrc, /publications\.verify\(recordId,this\.contentKey\('verify:/, 'studio verify 未带幂等键');
   assert.match(studioSrc, /publications\.link\(recordId,url,this\.contentKey\('link:/, 'studio link 未带幂等键');
   assert.doesNotMatch(studioSrc, /showLoading\(\{title:'生成口播中'/, 'studio showLoading 不得覆盖全程轮询');

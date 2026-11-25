@@ -1,6 +1,6 @@
 const api = require('../api/franchise/content');
 
-// Older servers expose only resultState. A local save failure must never become a new paid generation.
+// 保存失败不重开付费任务。
 function saveFailure(task) {
   return !!task && (task.saveRetryable === true || (task.resultState === 'FAILED'
     && (task.generationStatus === 'SUCCEEDED' || (!task.generationStatus && task.status === 'FAILED'))));
@@ -158,7 +158,7 @@ function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxCo
     };
     tick();
   });
-  // 立即落定（含在途请求场景，防止调用方 await 挂起）；重复 cancel/已落定后为 no-op
+  // 取消立即落定；重复取消无副作用。
   promise.cancel = () => { cancelled = true; rejectRef({ code: 0, cancelled: true, message: '轮询已取消' }); return promise; };
   return promise;
 }

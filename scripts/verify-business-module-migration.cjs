@@ -365,7 +365,7 @@ test('digital submission accepts the real task DTO id and saves the same complet
     assert.equal(url,'/franchise/content/tasks/'+id+'/save-work');saves.push([id,body.title]);return {workId:'90071992547409932'};
   })});
   Object.assign(h.page.data,{script:'同一人物口播',title:'张工',digitalPersonaId:'21',avatarCloneId:'31',voiceCloneId:'32'});
-  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.deepEqual(saves,[['90071992547409931','张工']]);
+  await h.page.generateDigitalOnline();assert.equal(requests[0][0].avatarCloneId,'31');assert.equal(requests[0][0].voiceCloneId,'32');assert.deepEqual(saves,[['90071992547409931','数字人口播｜张工']]);
   assert.deepEqual(h.calls,[['poll',id]]);
   assert.equal(h.page.data.digitalRetry,false);assert.equal(h.storage.size,0);assert.match(h.navigations[0],/view=tasks/);
 });
@@ -387,7 +387,7 @@ test('digital retry after a lost response replays the frozen request and resumes
   const retry=harness('studio/index.js',{tasks},'sales-lead',{storage:first.storage});
   retry.page.restoreDigitalAttempt();retry.page.data.script='重试不应替换原稿';await retry.page.generateDigitalOnline();
   assert.deepEqual(requests[0],requests[1]);assert.equal(accepted.size,1);
-  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.deepEqual(saves,[{title:'原标题'}]);
+  assert.deepEqual(retry.calls,[['poll','90071992547409933']]);assert.deepEqual(saves,[{title:'数字人口播｜原标题'}]);
   assert.equal(retry.page.data.digitalRetry,false);assert.equal(retry.storage.size,0);assert.match(retry.navigations[0],/view=tasks/);
 });
 
