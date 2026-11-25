@@ -13,8 +13,7 @@ public interface SalePaymentStageMapper extends BaseMapperX<SalePaymentStageDO> 
         // M06-T04：按业务期次排序（签约后→基础完成后→封顶后；存量两期值排最后）
         return selectList(new LambdaQueryWrapperX<SalePaymentStageDO>()
                 .eq(SalePaymentStageDO::getContractId, contractId)
-                .last("ORDER BY CASE stage WHEN 'SIGN_AFTER' THEN 1 WHEN 'BASE_DONE' THEN 2 "
-                        + "WHEN 'CAP_DONE' THEN 3 ELSE 4 END"));
+                .orderByAsc(SalePaymentStageDO::getSequence, SalePaymentStageDO::getId));
     }
 
     /** 欠款期（R1 P2）：PENDING+OPEN 纳入（分笔首笔后尚欠余额的期不得从待办消失），零额期排除 */

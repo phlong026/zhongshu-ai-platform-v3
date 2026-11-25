@@ -69,7 +69,7 @@ public class SalesTodoProvider implements TodoProvider {
                                 ? FLOWS_PAGE
                                 : "/pages/workflow/index?view=contract&id=" + s.getCustomerId();
                         items.add(new TodoItem(DOMAIN, DOMAIN + ":stage-pending:" + s.getId(),
-                                "回款待收 · " + stageLabel(s.getStage())
+                                "回款待收 · " + (s.getLabel()==null || s.getLabel().isBlank()?stageLabel(s.getStage()):s.getLabel())
                                         + " · " + names.getOrDefault(s.getCustomerId(), "客户资料待补充"),
                                 "待收款", s.getAmountCents(), true, null, appPath, s.getCreateTime()));
                     });

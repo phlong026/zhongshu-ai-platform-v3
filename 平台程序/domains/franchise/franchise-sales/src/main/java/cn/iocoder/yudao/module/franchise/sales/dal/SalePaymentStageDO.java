@@ -38,8 +38,15 @@ public class SalePaymentStageDO {
     private Long customerId;
     private Long contractId;
     private String stage;
+    private String label;
+    private Integer sequence;
+    private Integer ratioBps;
+    private String triggerType;
+    private Integer triggerNodeIndex;
+    private Integer planVersion;
     private Long amountCents;
     private java.time.LocalDate dueDate;
+    private Boolean afterDelivery;
     private String status;
     private Long paidReceiptId;
     private OffsetDateTime paidAt;

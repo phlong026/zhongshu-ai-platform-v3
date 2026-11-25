@@ -109,24 +109,14 @@ public class EngCollectionService {
                 row.put("confirmedCents", confirmed);
                 row.put("remainingCents", Math.max(0, expected - confirmed));
             }
-            // R3 P2：三期 due 映射——SIGN_AFTER=首个节点开始日；BASE_DONE=非封顶 DONE 节点完成日
-            //（无则 null，未约定日期不显示逾期）；CAP_DONE=封顶节点日
-            LocalDate due;
-            if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)) {
-                due = toppingDue;
-            } else if (FrEngCollectionTermDO.STAGE_BASE_DONE.equals(stage)) {
-                due = nodes.stream()
-                        .filter(n -> !FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()) && !"START".equals(n.getMilestone())
-                                && FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))
-                        .map(FrEngPlanNodeDO::getEndDate).findFirst().orElse(null);
-            } else {
-                due = startDue;
-            }
-            if (current!=null) row.put("stageId",current.stageId());
-            if (current!=null && current.dueDate()!=null) due=current.dueDate();
-            else if ("tail".equals(stage)) due=null;
-            row.put("due", due);
-            row.put("purpose", purposeOf(stage));
+            var balance=current!=null?current:new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance(stage,expected,confirmed);
+            if(current!=null) {
+                row.put("stageId",current.stageId());row.put("label",current.label());
+                row.put("trigger",current.trigger());row.put("nodeIndex",current.nodeIndex());row.put("planVersion",current.planVersion());
+            } else row.put("label",stageLabel(stage));
+            row.put("due",EngPaymentDates.due(balance,nodes));
+            row.put("waitingForWork",EngPaymentDates.waitingForWork(balance,nodes));
+            row.put("purpose",purposeOf(stage));
             stages.add(row);
         }
         return stages;
@@ -189,13 +179,10 @@ public class EngCollectionService {
         String stage;
         if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stageRaw)) {
             stage = FrEngCollectionTermDO.STAGE_CAP_DONE; // 存量 v3 旧枚举显式映射（登记 18 号）
-        } else if (FrEngCollectionTermDO.STAGE_SIGN_AFTER.equals(stageRaw)
-                || FrEngCollectionTermDO.STAGE_BASE_DONE.equals(stageRaw)
-                || FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stageRaw)) {
-            stage = stageRaw;
-        } else {
-            throw exception(ENGINEERING_INPUT_INVALID, "收款期次不合法（须 签约后/基础完成后/封顶后）");
-        }
+        } else if (java.util.Set.of("SIGN_AFTER","BASE_DONE","CAP_DONE","tail").contains(stageRaw)
+                || stageRaw.matches("STAGE_[0-9]+")) {
+            stage=stageRaw;
+        } else throw exception(ENGINEERING_INPUT_INVALID,"收款节点不合法，请刷新合同付款计划");
         // 门禁（R2 P1-3 与销售域对齐）：仅 CAP_DONE 保留封顶节点门禁（与 CAP_DONE 触发语义精确对应）；
         // BASE_DONE 不设节点门禁——「任意非封顶 DONE 即可触发」被 R1 判过松，而项目无基础里程碑，
         // 与销售域 BASE_DONE 收款语义保持一致（无节点门禁）；「基础完成留痕」由 M07-T04 现场记录链
@@ -230,8 +217,11 @@ public class EngCollectionService {
         if (frozenContractId != null && activeContractId != null
                 && frozenContractId.longValue() != activeContractId.longValue()) {
             throw exception(ENGINEERING_INPUT_INVALID,
-                    "统一建房合同已变更（作废重签），请先重新核对开工准备三期约定");
+                    "统一建房合同已变更（作废重签），请先重新核对合同付款计划");
         }
+        var balances=unifiedStages.stageBalances(post,contractId);
+        if(balances!=null && !balances.isEmpty() && balances.stream().noneMatch(b->stage.equals(b.stage())))
+            throw exception(ENGINEERING_INPUT_INVALID,"合同付款节点不存在或已调整，请刷新后重试");
         var unified = unifiedStages.collectStage(post, contractId, stage,
                 new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
                         amount, "bank", StrUtil.trim(cmd.transactionNo()), date, cmd.fileAssetId()));
@@ -263,7 +253,8 @@ public class EngCollectionService {
         return switch (stage) {
             case FrEngCollectionTermDO.STAGE_BASE_DONE -> FrEngCollectionDO.PURPOSE_BASE_DONE;
             case FrEngCollectionTermDO.STAGE_CAP_DONE -> FrEngCollectionDO.PURPOSE_TOPPING;
-            default -> FrEngCollectionDO.PURPOSE_START;
+            case FrEngCollectionTermDO.STAGE_SIGN_AFTER,FrEngCollectionTermDO.STAGE_START -> FrEngCollectionDO.PURPOSE_START;
+            default -> "工程进度款";
         };
     }
 
