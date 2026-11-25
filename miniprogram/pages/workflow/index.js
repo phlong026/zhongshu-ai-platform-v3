@@ -412,6 +412,7 @@ Page({
   });
  },
  openContractForm(){if(this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id));},
+ openPaymentDraft(){if(this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?draft=1&customerId='+encodeURIComponent(this.id));},
  openPaymentPlan(e){const id=String(e.currentTarget.dataset.id);if((this.data.salesContracts||[]).some(c=>c.id===id))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?contractId='+encodeURIComponent(id));},
  platformSubmitContract(){return this.openContractForm();},
  platformCommandFor(action,targetId){this.__cmdKeys=this.__cmdKeys||{};const k=action+':'+targetId;if(!this.__cmdKeys[k])this.__cmdKeys[k]=PF.commandKey(action);return this.__cmdKeys[k];},

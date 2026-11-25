@@ -6,7 +6,7 @@ function harness(role='boss',orgType='store'){
  const post={roleCode:role,orgType,postId};
  vm.runInNewContext(fs.readFileSync(path.join(root,'pages/build/record/index.js'),'utf8'),{
   Page:p=>{spec=p;},wx:{showToast:o=>notices.push(o)},getApp:()=>({globalData:{}}),
-  require:n=>n.endsWith('/platform-engineering')?{online:()=>true,loadProject:async()=>({}),recordView:()=>({collections:[{id:'receipt-1',fileAssetId:'voucher-1',amountText:'¥ 100'}]}),errorText:e=>String(e)}:n.endsWith('/page-navigation')?{open:u=>urls.push(u)}:n.endsWith('/api/http')?http:n.endsWith('/api/auth')?{currentApiPost:()=>post}:n.endsWith('/view-container')?{makeFormHandlers:()=>({})}:n.endsWith('/organization')?{has:()=>false}:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},
+  require:n=>n==='../payment-plan'?{read:async()=>undefined,apply:()=>{}}:n.endsWith('/platform-engineering')?{online:()=>true,loadProject:async()=>({}),recordView:()=>({collections:[{id:'receipt-1',fileAssetId:'voucher-1',amountText:'¥ 100'}]}),errorText:e=>String(e)}:n.endsWith('/page-navigation')?{open:u=>urls.push(u)}:n.endsWith('/api/http')?http:n.endsWith('/api/auth')?{currentApiPost:()=>post}:n.endsWith('/view-container')?{makeFormHandlers:()=>({})}:n.endsWith('/organization')?{has:()=>false}:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},
  });
  const page={...spec,id:'9007199254740999',__identity:'original-post:1',data:{...spec.data,p:{id:'9007199254740999',projectId:'9007199254740999'},view:'payments'},setData(p){Object.assign(this.data,p);}};
  // Dispatch the event through the actual rendered button's binding, not a fabricated route.

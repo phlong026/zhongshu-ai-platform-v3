@@ -121,6 +121,7 @@
     <view class="page-actions"><button wx:if="{{saleWrite}}" class="btn bottom-inline" disabled="{{requirementsStatus!=='ready'||busy}}" bindtap="submit">登记需求</button></view>
    </block>
    <block wx:elif="{{view==='contract'}}">
+    <view wx:if="{{saleWrite}}" class="card page-actions"><button class="outline btn" bindtap="openPaymentDraft">付款草案</button></view>
     <text class="muted role-note">当前身份：{{role}}</text>
     <view class="card"><view class="heading">报价记录</view><view wx:if="{{quotesError}}" class="soft"><text class="muted">{{quotesError}}</text><button class="link" bindtap="customerTab" data-index="0">重试</button></view><view wx:elif="{{!salesQuotes.length}}" class="soft"><text class="muted">暂无平台预算，可依据外部报价办理合同</text></view><view wx:for="{{salesQuotes}}" wx:key="id" class="soft follow-record"><view class="flex"><text class="row-title">{{item.priceVersion}}</text><text class="amount">¥ {{item.totalText}}</text></view><text class="muted">{{item.date}}</text><button class="link" data-quote-id="{{item.id}}" bindtap="exportPlatformQuote">导出</button></view></view>
     <block wx:if="{{salesContracts&&salesContracts.length}}">

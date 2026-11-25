@@ -11,11 +11,12 @@ const revoked = error => error?.postInvalid || [401, 403, 404, 1110000000, 11100
 
 Page({
   data: { loading: false, refreshing: false, ready: false, context: null, customerName: '', form: null, summary: null,
-    editing: false, creating: false, dirty: false, busy: false, uncertain: false, conflict: false, error: '',
+    editing: false, creating: false, drafting: false, draftSource: 0, dirty: false, busy: false, uncertain: false, conflict: false, error: '',
     triggers: model.TRIGGERS, today: '', showHistory: false, history: [], historyLoading: false, historyError: '', selectedVersion: null },
   onLoad(options = {}) {
     this.contractId = model.id(options.contractId); this.customerId = model.id(options.customerId);
-    this._invalid = !!options.contractId && !this.contractId;
+    this.draftMode = options.draft === '1';
+    this._invalid = !!options.contractId && !this.contractId || this.draftMode && (!!options.contractId || !this.customerId);
     this._openHistory = options.history === '1'; this._rowNo = 1;
     this.setData({ today: require('../../../utils/finance-date').day(Date.now()) });
   },
@@ -30,7 +31,7 @@ Page({
   clear(error = '') {
     this._read = null; this._historyRead = null; this._pending = null;
     this.setData({ ready: false, loading: false, refreshing: false, context: null, customerName: '', form: null, summary: null,
-      editing: false, creating: false, dirty: false, busy: false, uncertain: false, conflict: false, error,
+      editing: false, creating: false, drafting: false, draftSource: 0, dirty: false, busy: false, uncertain: false, conflict: false, error,
       showHistory: false, history: [], historyLoading: false, historyError: '', selectedVersion: null });
   },
   async load(options = {}) {
@@ -44,7 +45,19 @@ Page({
     const current = () => this._visible && this._read === request && this.alive(request.scope);
     this.setData({ loading: !this.data.ready, refreshing: this.data.ready, error: '' });
     try {
-      if (this.contractId) {
+      if (this.draftMode) {
+        if (!['sales', 'sales-lead', 'boss'].includes(post.roleCode) || post.orgType !== 'store') return this.clear('当前岗位不能办理客户付款草案');
+        const result = await api.draft(this.customerId);
+        if (!current()) return;
+        const context = model.draft(result, this.customerId);
+        context.canEdit = !Array.isArray(post.permissions) || post.permissions.includes('franchise:sale:write');
+        if (this.data.context && context.revision < this.data.context.revision) { this.setData({ loading: false, refreshing: false }); return; }
+        const keep = !options.replace && this.data.dirty && context.canEdit;
+        const form = keep ? this.data.form : clone(context.form);
+        if (!keep) this._baseRevision = context.revision;
+        this.setData({ ready: true, loading: false, refreshing: false, context, customerName: '', creating: false, drafting: true,
+          editing: context.canEdit, form, summary: model.preview(form), dirty: keep, conflict: keep && this._baseRevision !== context.revision });
+      } else if (this.contractId) {
         const result = await api.get(this.contractId);
         if (!current()) return;
         const context = model.detail(result, this.contractId, String(post.orgId));
@@ -67,9 +80,10 @@ Page({
         }
         const latest = result.requirements[0]; this.requirementId = latest ? model.id(latest.id) : '';
         const quote = result.quotes[0], keep = !options.replace && this.data.dirty;
-        const form = keep ? this.data.form : model.initial(quote?.totalCents);
+        const savedDraft = result.draft?.revision > 0 ? model.draft(result.draft, this.customerId) : null;
+        const form = keep ? this.data.form : savedDraft ? { ...clone(savedDraft.form), reason: '' } : model.initial(quote?.totalCents);
         this.setData({ ready: true, loading: false, refreshing: false, context: null, customerName: String(quote?.customerName || ''),
-          creating: true, editing: true, form, summary: model.preview(form), dirty: keep, conflict: false });
+          creating: true, drafting: false, draftSource: savedDraft?.revision || 0, editing: true, form, summary: model.preview(form), dirty: keep, conflict: false });
       }
       if ((this._openHistory || this.data.showHistory) && this.contractId) { this._openHistory = false; this.setData({ showHistory: true }); this.loadHistory(); }
     } catch (error) {
@@ -137,8 +151,8 @@ Page({
     if (!this.editable()) return;
     try {
       const body = model.payload(this.data.form, { contractId: this.contractId, customerId: this.customerId,
-        revision: this._baseRevision, requirementId: this.requirementId });
-      this._pending = { scope: this._scope, contractId: this.contractId, body, key: commandKey('payment-plan') };
+        draft: this.draftMode, revision: this._baseRevision, requirementId: this.requirementId });
+      this._pending = { scope: this._scope, contractId: this.contractId, customerId: this.customerId, draft: this.draftMode, body, key: commandKey('payment-plan') };
       return this.runPending();
     } catch (error) { this.setData({ error: errorText(error) }); }
   },
@@ -148,8 +162,16 @@ Page({
     this._read = null; this._historyRead = null;
     this.setData({ busy: true, uncertain: false, error: '', refreshing: false, historyLoading: false });
     try {
-      const result = command.contractId ? await api.save(command.contractId, command.body, command.key) : await api.create(command.body, command.key);
+      const result = command.draft ? await api.saveDraft(command.customerId, command.body, command.key) : command.contractId ? await api.save(command.contractId, command.body, command.key) : await api.create(command.body, command.key);
       if (!this.alive(command.scope) || this._pending !== command) return;
+      if (command.draft) {
+        const context = model.draft(result, command.customerId);
+        if (context.revision <= command.body.revision) throw Error('草案保存结果尚未确认，请重试核对');
+        this._pending = null; this._baseRevision = context.revision;
+        this.setData({ busy: false, uncertain: false, dirty: false, conflict: false, context, form: context.form, summary: model.preview(context.form) });
+        wx.showToast({ title: '付款草案已保存', icon: 'none' });
+        return;
+      }
       const contractId = model.id(result?.contract?.id || result?.contractId);
       if (!contractId || command.contractId && contractId !== command.contractId) throw Error('保存响应未确认，请重试核对');
       this.contractId = contractId; this._pending = null;

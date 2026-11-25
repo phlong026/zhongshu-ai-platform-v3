@@ -20,10 +20,17 @@ function harness(options = {}) {
   let definition, generation = 1, token = 'token', key = 0;
   let post = { postId: '7', orgId: '9', orgType: 'store', roleCode: options.role || 'finance' };
   const h = { state: plan(options.state), calls: [], navigations: [], toasts: [], overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'prepare', 'save', 'create', 'versions'].map(name => [name, async (...args) => {
+  const api = Object.fromEntries(['get', 'prepare', 'save', 'create', 'versions', 'draft', 'saveDraft'].map(name => [name, async (...args) => {
     h.calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
+    if (name === 'draft') return copy(h.draftState || { customerId: '42', revision: 0, totalCents: null, stages: [], note: '' });
+    if (name === 'saveDraft') {
+      const body = args[1]; let allocated = 0;
+      h.draftState = { customerId: args[0], revision: body.revision + 1, totalCents: body.totalCents, note: body.note,
+        stages: body.stages.map((row, index) => { const amountCents = row.amountCents ?? (index === body.stages.length - 1 ? body.totalCents - allocated : model.ratioAmount(body.totalCents, row.ratioBps)); allocated += amountCents; return { ...row, amountCents, sequence: index + 1 }; }) };
+      return copy(h.draftState);
+    }
     if (name === 'prepare') return { contracts: [], requirements: [{ id: '31' }], quotes: [{ totalCents: 10000, customerName: '本店客户' }] };
     if (name === 'versions') return [{ version: 1, contract_revision: 3, total_cents: 10000, reason: '创建', created_at: '2026-11-25',
       stages: [{ id: '900719925474099991', label: '原约定', amount_cents: 10000, ratio_bps: 10000, trigger_type: 'ON_SIGN', sequence: 1 }] }];
@@ -204,7 +211,7 @@ test('付款计划API使用合同专用详情、历史和更新路径及原幂�
   const api = module.exports; await api.get('91'); await api.versions('91'); await api.save('91', { revision: 3 }, 'original-key');
   await api.create({ paymentStages: [] }, 'create-key'); await api.prepare('42');
   assert.deepEqual(copy(calls.slice(0, 3)), [['get', '/franchise/sales/contracts/91/payment-plan'], ['get', '/franchise/sales/contracts/91/payment-plan/versions'], ['post', '/franchise/sales/contracts/91/payment-plan', { revision: 3 }, { 'Idempotency-Key': 'original-key' }]]);
-  assert.deepEqual(copy(calls.slice(-3)), [['contracts', '42'], ['requirements', '42'], ['quotes', '42']]);
+  assert.deepEqual(copy(calls.slice(-4)), [['contracts', '42'], ['requirements', '42'], ['quotes', '42'], ['get', '/franchise/sales/customers/42/payment-plan-draft']]);
   sales.requirements.list = async () => null; await assert.rejects(api.prepare('42'), /不完整/);
 });
 
@@ -248,4 +255,72 @@ test('原合同页新建与已有计划入口均指向动态页，保留原需�
   assert.deepEqual(nav, ['/pages/workflow/payment-plan/index?customerId=42', '/pages/workflow/payment-plan/index?contractId=91']);
   page.data.requirementsStatus = 'loading'; page.platformSubmitContract(); assert.equal(nav.length, 2);
   page.data.requirementsStatus = 'ready'; page.__post.roleCode = 'owner'; page.openContractForm(); assert.equal(nav.length, 2);
+});
+
+test('业务草案模式单独读取客户草案，保存不创建合同，说明必填且不展示签约日期', async () => {
+  const h = harness({ role: 'sales', route: { customerId: '42', draft: '1' } }); await h.open();
+  assert.deepEqual(h.calls.map(c => c.name), ['draft']); assert.equal(h.page.data.drafting, true);
+  assert.equal(h.page.data.creating, false); assert.equal(h.page.data.form.total, '');
+  assert.equal(h.nodes().some(n => n.attrs?.['data-key'] === 'signedDate'), false);
+  assert.equal(h.nodes().some(n => n.attrs?.bindtap === 'toggleHistory'), false);
+  h.page.input(event('total', '100.01')); await h.page.submit();
+  assert.equal(h.callsFor('saveDraft').length, 0); assert.match(h.page.data.error, /草案说明/);
+  h.page.input(event('reason', '按客户协商记录')); await h.page.submit();
+  const saved = h.callsFor('saveDraft')[0]; assert.equal(saved.args[0], '42');
+  assert.equal(saved.args[1].revision, 0); assert.equal(saved.args[1].totalCents, 10001);
+  assert.equal(h.callsFor('create').length, 0); assert.equal(h.callsFor('save').length, 0);
+  assert.equal(h.page.data.context.revision, 1); assert.equal(h.page.data.dirty, false); assert.equal(h.page.contractId, '');
+});
+
+test('草案保存未知结果锁定原说明与幂等键，低版本和写前迟到读取不能回退结果', async () => {
+  const h = harness({ role: 'sales', route: { customerId: '42', draft: '1' } }); await h.open();
+  h.page.input(event('total', '100')); h.page.input(event('reason', '初次沟通约定'));
+  const read = deferred(); h.overrides.draft = () => read.promise; const loading = h.page.load();
+  h.overrides.saveDraft = async () => { throw { code: -1, msg: 'timeout' }; };
+  await h.page.submit(); assert.equal(h.page.data.uncertain, true);
+  h.page.input(event('reason', '不能覆盖原请求')); await h.page.submit(); assert.equal(h.callsFor('saveDraft').length, 1);
+  delete h.overrides.saveDraft; await h.page.runPending();
+  assert.deepEqual(h.callsFor('saveDraft')[0].args, h.callsFor('saveDraft')[1].args);
+  assert.equal(h.page.data.context.revision, 1); assert.equal(h.page.data.form.reason, '初次沟通约定');
+  read.resolve({ customerId: '42', revision: 0, totalCents: null, stages: [], note: '' }); await loading;
+  assert.equal(h.page.data.context.revision, 1); assert.equal(h.page.data.form.total, '100.00');
+  await h.page.load(); assert.equal(h.page.data.context.revision, 1);
+});
+
+test('草案版本冲突保留填写，撤权/切岗清空；财务和总部不能创建客户草案', async () => {
+  const h = harness({ role: 'sales', route: { customerId: '42', draft: '1' } }); await h.open();
+  h.page.input(event('total', '100')); h.page.input(event('reason', '待保存说明'));
+  h.overrides.saveDraft = async () => { throw { code: 1099000001, msg: '草案已有更新' }; };
+  await h.page.submit(); assert.equal(h.page.data.conflict, true); assert.equal(h.page.data.form.reason, '待保存说明');
+  await h.page.submit(); assert.equal(h.callsFor('saveDraft').length, 1);
+  h.overrides.draft = async () => { throw { code: 1110000000, msg: '客户已转交' }; };
+  await h.page.load(); assert.equal(h.page.data.context, null); assert.equal(h.page.data.form, null);
+  for (const role of ['finance', 'hq-admin']) {
+    const denied = harness({ role, route: { customerId: '42', draft: '1' } }); await denied.open();
+    assert.equal(denied.calls.length, 0); assert.equal(denied.page.data.ready, false);
+  }
+  const stale = deferred(), switched = harness({ role: 'sales', route: { customerId: '42', draft: '1' }, api: { draft: () => stale.promise } });
+  const old = switched.open(); switched.switchSession({ orgId: '10', roleCode: 'finance' }); await switched.open();
+  stale.resolve({ customerId: '42', revision: 0, stages: [], totalCents: null, note: '' }); await old;
+  assert.equal(switched.page.data.context, null); assert.equal(switched.page.data.form, null);
+});
+
+test('新建合同优先带入已保存客户草案，保留草案本身并仍需显式创建合同', async () => {
+  const h = harness({ role: 'sales', create: true, api: { prepare: async () => ({ contracts: [], requirements: [], quotes: [{ totalCents: 9999 }], draft: {
+    customerId: '42', revision: 3, totalCents: 20000, note: '委托沟通', stages: [
+      { label: '开工前材料款', amountCents: 20000, ratioBps: 10000, trigger: 'BEFORE_START', sequence: 1 }
+    ]
+  } }) } });
+  await h.open(); assert.equal(h.page.data.form.total, '200.00'); assert.equal(h.page.data.form.rows[0].label, '开工前材料款');
+  assert.equal(h.page.data.draftSource, 3); assert.equal(h.callsFor('create').length, 0);
+  await h.page.submit(); assert.equal(h.callsFor('create')[0].args[0].paymentStages[0].stageId, null);
+  assert.equal(h.callsFor('create')[0].args[0].totalCents, 20000); assert.equal(h.callsFor('saveDraft').length, 0);
+});
+
+test('草案API使用独立GET/PUT与原幂等键，不发送合同命令', async () => {
+  const calls = [], file = path.join(root, 'miniprogram/pages/workflow/payment-plan/api.js'), module = { exports: {} };
+  const http = Object.fromEntries(['get', 'put', 'post'].map(method => [method, async (...args) => { calls.push([method, ...copy(args)]); return {}; }]));
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), { module, require: name => name.endsWith('/http') ? http : {} });
+  await module.exports.draft('900719925474099999'); await module.exports.saveDraft('900719925474099999', { revision: 2, note: '约定' }, 'draft-same-key');
+  assert.deepEqual(calls, [['get', '/franchise/sales/customers/900719925474099999/payment-plan-draft'], ['put', '/franchise/sales/customers/900719925474099999/payment-plan-draft', { revision: 2, note: '约定' }, { 'Idempotency-Key': 'draft-same-key' }]]);
 });

@@ -1,25 +1,25 @@
 <view class="plan-page">
-  <business-header title="{{creating?'新建合同':'付款计划'}}" />
+  <business-header title="{{drafting?'付款草案':creating?'新建合同':'付款计划'}}" />
   <view wx:if="{{!ready}}" class="plan-empty"><text>{{loading?'正在加载付款计划…':error||'付款计划暂不可用'}}</text><view wx:if="{{!loading}}" class="plan-actions"><button class="plan-secondary" bindtap="load">重新加载</button><button class="plan-secondary" bindtap="chooseIdentity">登录／切换身份</button></view></view>
   <view wx:else class="plan-body">
     <view class="plan-card plan-summary">
-      <view class="plan-heading"><text>{{customerName||'合同付款计划'}}</text><text class="plan-badge">{{creating?'待签合同':context.statusLabel}}</text></view>
-      <text wx:if="{{context}}" class="plan-muted">付款计划 V{{context.planVersion||1}}</text>
+      <view class="plan-heading"><text>{{customerName||(drafting?'客户付款草案':'合同付款计划')}}</text><text class="plan-badge">{{creating?'待签合同':context.statusLabel}}</text></view>
+      <text wx:if="{{context&&context.planVersion}}" class="plan-muted">{{drafting?'付款草案':'付款计划'}} V{{context.planVersion}}</text><text wx:if="{{drafting}}" class="plan-muted">客户编号 {{context.customerId}}</text><text wx:if="{{drafting}}" class="plan-muted">草案供委托沟通，正式收款按已签合同执行。</text><text wx:if="{{creating&&draftSource}}" class="plan-muted">已带入付款草案 V{{draftSource}}，请核对后创建合同。</text>
       <view wx:if="{{!editing}}" class="plan-total">¥ {{context.totalText}}</view>
-      <view class="plan-summary-actions"><text class="plan-muted">{{refreshing?'正在更新…':context&&!context.canEdit?'只读查看':''}}</text><button wx:if="{{context}}" class="plan-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回付款计划':'变更记录'}}</button></view>
+      <view class="plan-summary-actions"><text class="plan-muted">{{refreshing?'正在更新…':context&&!context.canEdit?'只读查看':''}}</text><button wx:if="{{context&&!drafting}}" class="plan-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回付款计划':'变更记录'}}</button></view>
     </view>
     <view wx:if="{{error}}" class="plan-error"><text>{{error}}</text><button wx:if="{{uncertain}}" class="plan-link" bindtap="runPending" disabled="{{busy}}" loading="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="plan-link" bindtap="reloadLatest">载入最新</button></view>
-    <view wx:if="{{conflict}}" class="plan-error"><text>合同已有更新，请载入最新版本后调整。</text><button class="plan-link" bindtap="reloadLatest">载入最新</button></view>
+    <view wx:if="{{conflict}}" class="plan-error"><text>付款约定已有更新，请载入最新版本后调整。</text><button class="plan-link" bindtap="reloadLatest">载入最新</button></view>
     <view wx:if="{{showHistory}}" class="plan-card">
       <button wx:for="{{history}}" wx:key="version" class="plan-history" data-version="{{item.version}}" bindtap="viewVersion"><view class="plan-heading"><text>付款计划 V{{item.version}}</text><text>¥ {{item.totalText}}</text></view><text class="plan-muted">{{item.createdOn}} {{item.actorName}}</text><text class="plan-note">{{item.reason||'创建付款计划'}}</text></button>
       <text wx:if="{{historyLoading}}" class="plan-state">正在加载变更记录…</text><view wx:elif="{{historyError}}" class="plan-state"><text>{{historyError}}</text><button class="plan-link" bindtap="loadHistory">重新加载</button></view><text wx:elif="{{!history.length}}" class="plan-state">暂无付款计划变更记录</text>
     </view>
     <block wx:else>
       <view wx:if="{{editing}}" class="plan-card">
-        <view class="plan-field"><text class="plan-label">合同总额</text><view class="plan-input-unit"><input class="plan-input" type="digit" value="{{form.total}}" data-key="total" bindinput="input" maxlength="14" disabled="{{busy||uncertain||conflict}}" placeholder="填写合同总额"/><text>元</text></view></view>
+        <view class="plan-field"><text class="plan-label">{{drafting?'约定总额':'合同总额'}}</text><view class="plan-input-unit"><input class="plan-input" type="digit" value="{{form.total}}" data-key="total" bindinput="input" maxlength="14" disabled="{{busy||uncertain||conflict}}" placeholder="{{drafting?'填写约定总额':'填写合同总额'}}"/><text>元</text></view></view>
         <view class="plan-modes"><button class="{{form.mode==='RATIO'?'selected':''}}" data-mode="RATIO" bindtap="chooseMode" disabled="{{busy||uncertain||conflict}}">按比例</button><button class="{{form.mode==='AMOUNT'?'selected':''}}" data-mode="AMOUNT" bindtap="chooseMode" disabled="{{busy||uncertain||conflict}}">按金额</button></view>
         <view class="plan-allocation"><text>已分配 {{summary.allocatedText}}</text><text class="{{summary.valid?'complete':''}}">{{summary.balanceText}}</text></view>
-        <text wx:if="{{form.mode==='RATIO'}}" class="plan-muted">按合同总额换算，分币尾差计入最后一期。</text>
+        <text wx:if="{{form.mode==='RATIO'}}" class="plan-muted">按总额换算，分币尾差计入最后一期。</text>
       </view>
       <view class="plan-section-heading"><text>付款节点</text><text class="plan-muted">{{form.rows.length}}期</text></view>
       <view wx:for="{{summary.rows}}" wx:key="key" class="plan-card plan-stage">
@@ -38,12 +38,12 @@
       <button wx:if="{{editing}}" class="plan-secondary plan-add" bindtap="addRow" disabled="{{form.rows.length>=20||busy||uncertain||conflict}}">＋ 添加付款节点</button>
       <view wx:if="{{editing}}" class="plan-card">
         <view wx:if="{{creating}}" class="plan-field"><view class="plan-label-row"><text class="plan-label">签约日期（选填）</text><button wx:if="{{form.signedDate}}" class="plan-link" data-key="signedDate" bindtap="clearDate" disabled="{{busy||uncertain||conflict}}">清除</button></view><picker mode="date" end="{{today}}" value="{{form.signedDate}}" data-key="signedDate" bindchange="input" disabled="{{busy||uncertain||conflict}}"><view class="plan-input plan-picker"><text>{{form.signedDate||'选择签约日期'}}</text><text>⌄</text></view></picker></view>
-        <view wx:else class="plan-field"><text class="plan-label">调整原因</text><textarea class="plan-input plan-textarea" value="{{form.reason}}" data-key="reason" bindinput="input" maxlength="500" auto-height disabled="{{busy||uncertain||conflict}}" placeholder="填写与客户确认的调整内容及原因"/></view>
+        <view wx:else class="plan-field"><text class="plan-label">{{drafting?'草案说明':'调整原因'}}</text><textarea class="plan-input plan-textarea" value="{{form.reason}}" data-key="reason" bindinput="input" maxlength="500" auto-height disabled="{{busy||uncertain||conflict}}" placeholder="{{drafting?'填写沟通约定和草案说明':'填写与客户确认的调整内容及原因'}}"/></view>
         <text wx:if="{{dirty&&!summary.valid}}" class="plan-validation">{{summary.errors[0]}}</text>
       </view>
-      <button wx:elif="{{context.canEdit}}" class="plan-primary plan-edit" bindtap="startEdit">调整付款计划</button>
+      <button wx:elif="{{context.canEdit}}" class="plan-primary plan-edit" bindtap="startEdit">调整付款计划</button><view wx:if="{{drafting&&!editing&&form.reason}}" class="plan-card"><text class="plan-label">草案说明</text><text class="plan-note">{{form.reason}}</text></view>
     </block>
   </view>
-  <view wx:if="{{ready&&editing&&!showHistory}}" class="plan-footer"><view><text>{{summary.balanceText}}</text><text class="plan-muted">{{form.rows.length}}期 · 合同总额 ¥{{summary.totalText||'—'}}</text></view><button class="plan-primary" bindtap="submit" loading="{{busy}}" disabled="{{busy||uncertain||conflict}}">{{creating?'创建待签合同':'保存调整'}}</button></view>
+  <view wx:if="{{ready&&editing&&!showHistory}}" class="plan-footer"><view><text>{{summary.balanceText}}</text><text class="plan-muted">{{form.rows.length}}期 · {{drafting?'约定总额':'合同总额'}} ¥{{summary.totalText||'—'}}</text></view><button class="plan-primary" bindtap="submit" loading="{{busy}}" disabled="{{busy||uncertain||conflict}}">{{drafting?'保存付款草案':creating?'创建待签合同':'保存调整'}}</button></view>
   <view wx:if="{{selectedVersion}}" class="plan-sheet-mask" catchtap="closeVersion"><view class="plan-sheet" catchtap="noop"><view class="plan-heading"><text>付款计划 V{{selectedVersion.version}}</text><button class="plan-link" bindtap="closeVersion">关闭</button></view><scroll-view scroll-y class="plan-sheet-content"><text class="plan-muted">{{selectedVersion.createdOn}} {{selectedVersion.actorName}}</text><view class="plan-total">¥ {{selectedVersion.totalText}}</view><text class="plan-note">{{selectedVersion.reason}}</text><view wx:for="{{selectedVersion.rows}}" wx:key="key" class="plan-version-row"><view class="plan-fact"><text>{{item.label}}</text><text>¥ {{item.amountText}}</text></view><text class="plan-muted">{{item.triggerLabel}}{{item.dueDate?' · '+item.dueDate:''}}</text></view></scroll-view></view></view>
 </view>

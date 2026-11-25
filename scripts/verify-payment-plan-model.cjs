@@ -52,3 +52,22 @@ test('合同详情核对公司与合同，长编号原样保留，服务端不�
   assert.equal(detail.canEdit, false); assert.equal(detail.form.rows[0].stageId, '900719925474099999'); assert.equal(detail.form.mode, 'RATIO');
   assert.throws(() => model.detail(result, '92', '9'), /不匹配/); assert.throws(() => model.detail(result, '91', '10'), /不匹配/);
 });
+
+test('客户付款草案保留任意节点和比例，只保存草案说明与revision，不创建正式合同', () => {
+  const empty = model.draft({ customerId: '42', revision: 0, totalCents: null, stages: [], note: '' }, '42');
+  assert.equal(empty.form.total, ''); assert.equal(empty.revision, 0);
+  empty.form.total = '100.01'; empty.form.reason = '客户确认两次付款';
+  const body = model.payload(empty.form, { draft: true, customerId: '42', revision: 0 });
+  assert.deepEqual(Object.keys(body).sort(), ['note', 'revision', 'stages', 'totalCents']);
+  assert.equal(body.stages[0].stageId, null); assert.equal(body.totalCents, 10001);
+  const saved = model.draft({ customerId: '42', revision: 2, totalCents: 10001, note: '沟通约定', stages: [
+    { label: '备料款', amountCents: 6000, ratioBps: 6000, trigger: 'BEFORE_START', sequence: 1 },
+    { label: '完工款', amountCents: 4001, ratioBps: 4000, trigger: 'ON_FINISH', sequence: 2 }
+  ] }, '42');
+  assert.equal(saved.form.rows[0].ratio, '60.00'); assert.equal(saved.form.reason, '沟通约定');
+  assert.deepEqual(model.preview(saved.form).rows.map(r => r.amountCents), [6000, 4001]);
+  assert.throws(() => model.draft({ customerId: '43', revision: 0, stages: [] }, '42'), /不匹配/);
+  assert.throws(() => model.draft({ customerId: '42', revision: 2, totalCents: 1, stages: [{ stageId: '91', amountCents: 1 }] }, '42'), /节点无效/);
+  saved.form.reason = ''; assert.throws(() => model.payload(saved.form, saved), /草案说明/);
+  saved.form.reason = '核对'; saved.form.rows[0].stageId = '91'; assert.throws(() => model.payload(saved.form, saved), /正式收款节点/);
+});

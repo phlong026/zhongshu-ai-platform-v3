@@ -59,6 +59,21 @@ function detail(response, contractId, companyId) {
     statusLabel: STATUS[c.status] || '待核对', revision: c.revision, planVersion: c.paymentPlanVersion,
     totalText: money(c.totalCents), canEdit: response.canEdit === true && ['WAIT_SIGN', 'SIGNED'].includes(c.status), form };
 }
+function draft(response, customerId) {
+  if (!response || id(response.customerId) !== customerId || !Number.isSafeInteger(response.revision) || response.revision < 0
+      || !Array.isArray(response.stages) || response.stages.length > 20
+      || response.revision > 0 && (!response.stages.length || !cents(response.totalCents))) throw Error('客户付款草案响应不匹配，请重新加载');
+  const rows = response.stages.map((row, index) => {
+    if (row.stageId != null || row.id != null || cents(row.amountCents) == null) throw Error('付款草案节点无效，请重新加载');
+    return { ...emptyRow('draft-' + index), label: String(row.label || ''), amount: money(row.amountCents),
+      ratio: row.ratioBps == null ? '' : money(row.ratioBps), dueDate: day(row.dueDate), trigger: row.trigger || '',
+      nodeIndex: String(row.nodeIndex ?? ''), sequence: row.sequence ?? index + 1 };
+  }).sort((a, b) => a.sequence - b.sequence);
+  const form = rows.length ? { total: money(response.totalCents), mode: rows.every(r => !!r.ratio) ? 'RATIO' : 'AMOUNT',
+    signedDate: '', reason: String(response.note || ''), rows } : initial(null);
+  return { draft: true, customerId, revision: response.revision, planVersion: response.revision,
+    statusLabel: response.revision ? '已保存草案' : '待填写草案', totalText: money(response.totalCents), canEdit: true, form };
+}
 function preview(form) {
   const total = toCents(form.total), ratioMode = form.mode === 'RATIO', errors = [], rows = [];
   if (!total) errors.push('请填写有效合同总额，最多两位小数');
@@ -97,6 +112,13 @@ function payload(form, context) {
     ...(form.mode === 'RATIO' ? { ratioBps: row.ratioBps } : { amountCents: row.amountCents }),
     dueDate: row.dueDate || null, trigger: row.trigger, nodeIndex: row.trigger === 'NODE_COMPLETED' ? Number(row.nodeIndex) : null }));
   if (stages.some(row => row.stageId && !id(row.stageId)) || new Set(stages.filter(r => r.stageId).map(r => r.stageId)).size !== stages.filter(r => r.stageId).length) throw Error('付款节点编号无效或重复，请重新加载');
+  if (context.draft) {
+    if (!id(context.customerId) || !Number.isSafeInteger(context.revision) || context.revision < 0) throw Error('付款草案版本无效，请重新加载');
+    if (stages.some(row => row.stageId)) throw Error('付款草案不能引用正式收款节点');
+    const note = String(form.reason || '').trim();
+    if (!note || note.length > 500) throw Error('请填写付款草案说明，不超过500字');
+    return { revision: context.revision, totalCents: summary.totalCents, stages, note };
+  }
   if (context.contractId) {
     if (!Number.isSafeInteger(context.revision) || context.revision < 0) throw Error('合同版本无效，请重新加载');
     const reason = String(form.reason || '').trim();
@@ -115,4 +137,4 @@ function versions(value) {
     actorName: String(v.actorName || ''), rows: (Array.isArray(v.stages) ? v.stages : []).map((row, index) => ({ ...stage(row, index),
       amountText: money(row.amountCents ?? row.amount_cents), triggerLabel: triggerLabel(row.trigger || row.trigger_type) })) }));
 }
-module.exports = { TRIGGERS, id, money, bps, ratioAmount, emptyRow, initial, detail, preview, payload, versions };
+module.exports = { TRIGGERS, id, money, bps, ratioAmount, emptyRow, initial, detail, draft, preview, payload, versions };
