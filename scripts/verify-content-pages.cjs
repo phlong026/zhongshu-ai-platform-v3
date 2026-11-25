@@ -29,7 +29,7 @@ const API_FACE = {
   links: ['parse'],
   scripts: ['extract', 'optimize', 'page', 'get'],
   tasks: ['create', 'page', 'get', 'saveWork', 'resultUrlStatus'],
-  drafts: ['works', 'updateStatus', 'videoDraft', 'saveVideoDraft', 'completeChapter', 'courseProgress'],
+  drafts: ['works', 'work', 'updateStatus', 'videoDraft', 'saveVideoDraft', 'completeChapter', 'courseProgress'],
   assets: ['uploadTicket', 'complete', 'downloadUrl'],
   materials: ['page', 'upload', 'complete', 'download', 'update', 'remove'],
   personas: ['page', 'create', 'update', 'remove'],

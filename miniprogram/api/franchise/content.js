@@ -48,6 +48,7 @@ const tasks = {
 const drafts = {
   /** 我的作品列表 */
   works: () => http.get('/franchise/content/drafts'),
+  work: id => http.get('/franchise/content/drafts/' + encodeURIComponent(id)),
   /** 作品状态 draft|saved；幂等键由调用方生成存 this（重试复用） */
   updateStatus: (workId, status, key) => http.put('/franchise/content/drafts/' + workId + '/status', { status }, idem(key, 'work-status')),
   /** 视频草稿（一人一份；无则 {exists:false}） */

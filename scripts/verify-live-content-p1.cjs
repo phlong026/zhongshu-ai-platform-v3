@@ -72,25 +72,25 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
 });
 
 function studioFixture(overrides = {}, wxOverrides = {}) {
-  let worksResult = Promise.resolve([]);
+  let worksResult = Promise.resolve([]), workResult = Promise.resolve(null);
   let recordsResult = Promise.resolve([]);
   let tasksResult = Promise.resolve([]);
   let dismissResult = Promise.resolve();
   let retrySaveResult = Promise.resolve();
   let alive = true;
-  let scope = 'post-42';
+  let scope = 'post-42', editorTitle = '';
   let generation = 1, token = 'fixture-token';
   let post = { postId: '42', orgId: '8', orgType: 'store', roleCode: 'sales' };
   const calls = { tasks: 0, works: 0, records: 0, dismiss: 0, retrySave: 0 }, sequences = {};
   const result = value => typeof value === 'function' ? value() : value;
   const api = {
-    drafts: { works() { calls.works++; return result(worksResult); } },
+    drafts: { works() { calls.works++; return result(worksResult); }, work(id) { calls.work=id; return result(workResult); } },
     publications: { page() { calls.records++; return result(recordsResult); } },
     tasks: { page() { calls.tasks++; return result(tasksResult); }, dismiss() { calls.dismiss++; return result(dismissResult); }, retrySave() { calls.retrySave++; return result(retrySaveResult); } }
   };
   const studio = {
     title: '', accounts: [], guard() { return true; }, allowed() { return true; },
-    scope() { return scope; }, read() { return { title: '', original: '', script: '', rewriteHistory: [], publishDrafts: {} }; },
+    scope() { return scope; }, read() { return { title: editorTitle, original: '', script: '', rewriteHistory: [], publishDrafts: {} }; },
     imageFor(item) { return item.kind === 'ai' ? '/ai.jpg' : '/digital.jpg'; },
     kindLabel(kind) { return kind === 'ai' ? 'AI视频' : '数字人口播'; },
     formatTime(value) { return value ? '格式化:' + value : '时间未记录'; }
@@ -117,6 +117,8 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   return {
     page, calls,
     setWorks(value) { worksResult = value; },
+    setWork(value) { workResult = value; },
+    setEditorTitle(value) { editorTitle = value; },
     setRecords(value) { recordsResult = value; },
     setTasks(value) { tasksResult = value; },
     setDismiss(value) { dismissResult = value; },
@@ -598,4 +600,53 @@ test('task center never hides a running task or one whose generated work still n
   page.onTaskLongPress(action('14'));assert.equal(confirmations.length,2);
   confirmations[1].success({confirm:true});await flush();
   assert.equal(fixture.calls.dismiss,1);
+});
+
+test('publishing a personal work uses its saved multi-line script, not the works list', async () => {
+  const id='90071992547409939';
+  const f=studioFixture({view:'publish',title:'',publishText:'',cover:'/my-cover.jpg'});
+  f.setWork(Promise.resolve({ workId:id, title:'建房分享', script:'第一段\n第二段' }));
+  await f.page.loadApiWork(id);
+  assert.equal(f.calls.work,id);
+  assert.equal(f.calls.works,0);
+  assert.equal(f.page.data.title,'建房分享');
+  assert.equal(f.page.data.publishText,'第一段\n第二段');
+  assert.equal(f.page.data.cover,'/my-cover.jpg');
+});
+
+test('work detail cannot replace a typed or recovered publication draft or paint after changing identity', async () => {
+  const id='90071992547409938', detail={ workId:id, title:'作品标题', script:'作品原稿' };
+  const f=studioFixture({view:'publish',title:'',publishText:''});
+  let resolve;
+  f.setWork(new Promise(r=>{ resolve=r; }));
+  const first=f.page.loadApiWork(id);
+  f.page.inputPublishText({detail:{value:'人工确认的文案'}});
+  resolve(detail);
+  await first;
+  assert.equal(f.page.data.publishText,'人工确认的文案');
+
+  f.page.data.publishText='恢复的发稿正文';
+  f.setWork(Promise.resolve(detail));
+  await f.page.loadApiWork(id);
+  assert.equal(f.page.data.publishText,'恢复的发稿正文');
+  f.page.data.publishText='';
+  f.setWork(new Promise(r=>{ resolve=r; }));
+  const old=f.page.loadApiWork(id);
+  f.switchScope('new-post');
+  resolve(detail);
+  await old;
+  assert.equal(f.page.data.publishText,'');
+});
+
+test('opening a saved work for publication cannot inherit another work’s shared editor title', async () => {
+  const id='90071992547409940';
+  const f=studioFixture();
+  f.setEditorTitle('上一个作品的标题');
+  f.setWork(Promise.resolve({workId:id,title:'当前作品标题',script:'当前作品正文'}));
+  Object.assign(f.page,{restorePublicationPending(){},readLinkFlow(){},loadPublisherAccounts(){},refreshData(){}});
+  f.page.onLoad({view:'publish',work:id});
+  assert.equal(f.page.data.title,'');
+  await flush();
+  assert.equal(f.page.data.title,'当前作品标题');
+  assert.equal(f.page.data.publishText,'当前作品正文');
 });
