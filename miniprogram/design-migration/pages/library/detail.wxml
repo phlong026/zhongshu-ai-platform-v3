@@ -13,10 +13,10 @@
     <view wx:else class="image-state"><text>{{drawings[tab].status === 'loading' ? '图纸加载中…' : drawings[tab].status === 'error' ? '图纸加载失败' : '暂无该图纸'}}</text><button wx:if="{{drawings[tab].status === 'error'}}" size="mini" data-index="{{tab}}" bindtap="retryImage">重试加载</button></view>
     <view wx:if="{{tab === 0}}" class="design-copy"><text>设计说明</text><text>{{caseDetail.description || '该方案暂无设计说明。'}}</text></view>
   </view>
-  <view wx:if="{{!caseDetail.canDesign}}" class="design-unavailable">{{caseDetail.designUnavailableReason}}</view>
+  <view wx:if="{{!pickMode && !caseDetail.canDesign}}" class="design-unavailable">{{caseDetail.designUnavailableReason}}</view>
   <view class="detail-action">
-    <button class="v12-primary-button v12-primary-button--md" disabled="{{!caseDetail.canDesign}}" bindtap="useHouse">AI设计</button>
-    <button class="budget-action" bindtap="quickBudget">快速预算</button>
+    <button wx:if="{{pickMode}}" class="v12-primary-button v12-primary-button--md" bindtap="chooseReference">选用此户型</button>
+    <block wx:else><button class="v12-primary-button v12-primary-button--md" disabled="{{!caseDetail.canDesign}}" bindtap="useHouse">AI设计</button><button class="budget-action" bindtap="quickBudget">快速预算</button></block>
   </view>
   </block>
   <view wx:else class="image-state">案例加载中…</view>

@@ -96,6 +96,7 @@ Page({
    this.setData({contentSources:Array.isArray(rows)?rows:[]});
   }).catch(()=>{if(!this.stale(gen,sessionGen,postKey))this.setData({contentSources:[]});});
  },
+ openCustomerFlow(){if(this.data.platformMode&&this.data.customer)require('../../utils/page-navigation').open('/pages/customer-flow/index?customerId='+encodeURIComponent(this.id));},
  openContentSource(e){
   const id=String(e.currentTarget.dataset.publicationId||'');
   if(!/^\d+$/.test(id))return wx.showToast({title:'发布来源编号无效',icon:'none'});

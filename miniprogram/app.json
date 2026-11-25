@@ -140,6 +140,13 @@
       "pages": [
         "index","record"
       ]
+    },
+    {
+      "root": "pages/customer-flow",
+      "name": "customer-flow",
+      "pages": [
+        "index"
+      ]
     }
   ],
   "window": {

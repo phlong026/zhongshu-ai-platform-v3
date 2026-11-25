@@ -13,12 +13,16 @@ const coverImages = require('../../../utils/design-case-images');
 protectedPage({
   data: {
     cases: [], visibleCases: [], visibleCount: 0, caseCount: 0, cursor: null, hasMore: true, loading: false, loaded: false, error: '',
-    keyword: '', source: 0,
+    keyword: '', source: 0, pickMode: false,
     filters: { sourceType: 'COMPANY', styleCode: '', floorCount: null, faceWidth: '', depth: '' },
     styleOptions: [{ label: '全部', code: '' }], classificationError: '',
     floorOptions: [{ label: '全部', count: null }].concat(classifications.floors())
   },
-  onLoad() { this.loadClassifications(); this.loadPage(true); },
+  onLoad(options = {}) {
+    this._pickerSession = http.captureSession();
+    this.setData({ pickMode: options.pick === 'workflow' });
+    this.loadClassifications(); this.loadPage(true);
+  },
   loadClassifications() {
     const seq = this._classificationSeq = (this._classificationSeq || 0) + 1;
     const session = http.captureSession();
@@ -32,7 +36,13 @@ protectedPage({
         this.setData({ classificationError: '风格加载失败，点击重试' });
     });
   },
-  onShow() { if(this.data.cases.length) this.watchCovers(); },
+  onShow() {
+    if (this.data.pickMode && !http.isSameSession(this._pickerSession)) {
+      this._listSeq = (this._listSeq || 0) + 1;
+      this.setData({ cases: [], visibleCases: [], loading: false, error: '工作身份已变化，请返回客户流程重新选择' }); return;
+    }
+    if(this.data.cases.length) this.watchCovers();
+  },
   onUnload() { this.__caseImageObserver?.disconnect(); this._unloaded = true; this._listSeq = (this._listSeq || 0) + 1; },
   onReachBottom() { if (this.data.hasMore && !this.data.loading && !this.data.error) this.loadPage(false); },
   retry() { return this.loadPage(this._retryReset !== false); },
@@ -160,5 +170,21 @@ protectedPage({
     this.setData({ ['filters.' + key]: '', cases: [], cursor: null, hasMore: true });
     this.loadPage(true);
   },
-  openDetail(e) { openFeature('/design-migration/pages/library/detail?id=' + e.currentTarget.dataset.id); }
+  chooseReference(e) { this.finishSelection(e.currentTarget.dataset.id, true); },
+  finishSelection(id, goBack) {
+    if (!this.data.pickMode || this._unloaded || !http.isSameSession(this._pickerSession)) return;
+    const row = this.data.cases.find(item => String(item.id) === String(id));
+    const channel = this.getOpenerEventChannel && this.getOpenerEventChannel();
+    if (!row || !channel || typeof channel.emit !== 'function') return wx.showToast({ title: '请从客户流程选择户型', icon: 'none' });
+    channel.emit('workflowReference', { caseId: String(row.id), title: row.title });
+    if (goBack) wx.navigateBack();
+  },
+  openDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!this.data.cases.some(row => String(row.id) === String(id))) return;
+    const url = '/design-migration/pages/library/detail?id=' + encodeURIComponent(id);
+    if (!this.data.pickMode) return openFeature(url);
+    if (!http.isSameSession(this._pickerSession)) return;
+    wx.navigateTo({ url: url + '&pick=workflow', events: { workflowReference: value => this.finishSelection(value.caseId, false) } });
+  }
 });
