@@ -66,7 +66,7 @@ if(!studio.guard())return;this.__closed=false;this.__initialShow=true;this.actor
 const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
-this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
+this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: view==='publish'&&options.work?'':state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
 if(view==='library'&&options.select)this.materialPickerInit(options.select);
 if(view==='digital')this.restoreDigitalAttempt();
 if (view === 'result' && options.task) {
@@ -78,7 +78,7 @@ return;
 }
 if (view === 'publish') {
 const draft = options.work && state.publishDrafts ? state.publishDrafts[options.work] : null; // 发布表单草稿（本地暂存，非演示集合）
-if (draft) { this.setData(draft); this.__publicationDraftRestored=true; }
+if (draft) this.setData(draft);
 this.restorePublicationPending();
 this.__linkFlow = this.readLinkFlow(options.work || '');
 if (this.__linkFlow && this.__linkFlow.recordId) this.setData({linkRecordId:String(this.__linkFlow.recordId)});
@@ -735,16 +735,23 @@ async loadApiResult(taskId) {
  }catch(e){if(current()&&!e.silent)this.setData({resultError:P.degradeMessage(e)});}
  finally{if(current())this.setData({resultLoading:false});}
 },
-/** 在线作品回读：drafts.works 找标题/文案（best-effort，失败沿用当前表单值） */
+/** 本人作品正文只从详情读取；已填写或恢复的发布表单优先。 */
 loadApiWork(workId) {
-this.setData({ workId, publishOnline: true });
+this.setData({workId,publishOnline:true,workDetailLoading:true,workDetailFailed:false});
 const alive=http.requestGuard('publication-work'),scope=this.actorScope;
-contentApi.drafts.works().then(rows => {
-if(!alive()||this.__closed||scope!==studio.scope()||this.data.view!=='publish'||String(this.data.workId)!==String(workId))return;
-const work=P.rowsOf(rows).find(item=>item&&String(item.workId!=null?item.workId:item.id)===String(workId));
-if(work){const title=String(work.title||this.data.title||'').trim();const publishText=String(work.script||work.text||work.publishText||'').trim()||title;this.setData({title,publishText,cover:String(work.cover||work.image||this.data.cover||'/pages/studio/assets/studio-publication-cover.jpg')});}
-}).catch(() => {});
+const current=()=>alive()&&!this.__closed&&scope===studio.scope()&&this.data.view==='publish'&&String(this.data.workId)===String(workId);
+const titleEdit=this.__workTitleEdit,textEdit=this.__workTextEdit;
+return contentApi.drafts.work(workId).then(work => {
+if(!current())return;
+if(String(work?.workId)!==String(workId))throw Error('作品未读到');
+const next={};
+if(titleEdit===this.__workTitleEdit&&!this.data.title&&work.title)next.title=String(work.title).trim();
+if(textEdit===this.__workTextEdit&&!this.data.publishText&&work.script)next.publishText=String(work.script).trim();
+this.setData(next);
+}).catch(() => {if(current())this.setData({workDetailFailed:true});})
+.finally(() => {if(current())this.setData({workDetailLoading:false});});
 },
+retryApiWork(){if(this.data.workId&&!this.data.workDetailLoading)return this.loadApiWork(this.data.workId);},
 editResult() {
 const state = studio.read(); const task = this.data.activeTask;
 if (!task) { this.refreshData(); return; }
@@ -776,9 +783,9 @@ const rows=this.data.view==='records'?this.data.records:[this.data.detail];
 if(!(rows||[]).some(row=>row&&row.coverAssetId))return;
 return require('./publication-cover').hydrate(this,this.publicationEnvironment());
 },
-inputTitle(e) { this.setData({ title: e.detail.value }); },
-clearTitle() { this.setData({ title: '' }); },
-inputPublishText(e) { this.setData({ publishText: e.detail.value }); },
+inputTitle(e) { this.__workTitleEdit=(this.__workTitleEdit||0)+1;this.setData({ title: e.detail.value }); },
+clearTitle() { this.__workTitleEdit=(this.__workTitleEdit||0)+1;this.setData({ title: '' }); },
+inputPublishText(e) { this.__workTextEdit=(this.__workTextEdit||0)+1;this.setData({ publishText: e.detail.value }); },
 inputTags(e) { this.setData({ tags: e.detail.value }); },
 loadPublisherAccounts(){return require('./publication-accounts').load(this,this.publicationEnvironment());},
 selectPublisherAccount(e){return require('./publication-accounts').select(this,e.currentTarget.dataset.id);},
@@ -867,11 +874,14 @@ return this.submitLinkOnline({workId,url:this.data.publishedUrlInput.trim(),plat
 /** 创建发布记录 → verify → link；如填写客资，再按同一链接来源登记。 */
 async submitLinkOnline({workId,url,platform,publisherAccountId,lead}) {
 if(this.__linkSubmitting)return;
+let flow=(this.__linkFlow&&String(this.__linkFlow.workId||'')===String(workId))?this.__linkFlow:(this.readLinkFlow(workId)||{});
+const oldRecord=flow.recordId||this.data.linkRecordId;
+if(!oldRecord&&!flow.payload&&this.data.workDetailLoading&&!String(this.data.publishText||'').trim())
+ return wx.showToast({title:'正在读取作品正文，请稍候',icon:'none'});
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
 const alive=()=>!this.__closed&&sessionAlive()&&this.actorScope===scope&&scope===studio.scope()&&this.data.view==='publish';
 this.__linkSubmitting=true;
 this.setData({linkSubmitting:true,operationError:''});
-let flow=(this.__linkFlow&&String(this.__linkFlow.workId||'')===String(workId))?this.__linkFlow:(this.readLinkFlow(workId)||{});
 flow=Object.assign({},flow,{workId:String(workId)});
 flow.createKey=flow.createKey||this.contentKey('publication:'+workId);
 flow.verifyKey=flow.verifyKey||this.contentKey('verify:'+workId);
