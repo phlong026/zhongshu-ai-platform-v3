@@ -24,9 +24,9 @@ const titles={selection:'众墅甄选',product:'商品详情',procure:'采购需
 const Learning=require('../../utils/learning-catalog');
 const courses=Learning.courses,resources=Learning.resources;
 Page({
- data:{view:'learning',title:'学习中心',tab:'课程',category:'全部',categories:['全部','自媒体运营','招商','业务销售','设计','工程','财务绩效','AI应用'],messageTab:'全部',messageTabs:['全部','业务','学习','系统'],messageStatus:'',messageError:'',profileLoading:false,profileError:'',messageHasMore:false,messageBusy:false,messageMode:'ALL',messagePending:0,messageModule:'',messageModuleIndex:0,messageModules:[],messageKeyword:'',messageDetail:null,messagePartial:'',orderTab:'全部',orderTabs:['全部','待沟通','待确认','进行中','已完成'],feedbackTab:'提交反馈',feedbackType:'使用问题',keyword:'',form:{},error:'',checked:false,expanded:false,courseTab:'课程目录',modal:null,paymentReceipt:null,busy:false,loginMode:'account',loginPolicy:null,consentOpen:false,consentChecked:false,consentDocument:'',passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,loginBusy:false,matchBusy:false,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,defaultAccount:null,rememberDefault:true,passwordChangeRequired:false,pendingAccountLogin:null,wechatPhoneRequired:false,wechatPhoneGeneration:null,staffAccountDelivery:null,services:A.services,chapters:A.chapters,apiLeavers:[],apiReceivers:[],apiPendingRows:[],handoverPendingError:false,handoverSource:null,handoverItems:[],handoverRequirements:[],handoverReceivers:{},handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:'',handoverBusy:false,handoverResult:null,reassignHint:'',handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''},
+ data:{view:'learning',title:'学习中心',tab:'课程',category:'全部',categories:['全部','自媒体运营','招商','业务销售','设计','工程','财务绩效','AI应用'],messageTab:'全部',messageTabs:['全部','业务','学习','系统'],messageStatus:'',messageError:'',profileLoading:false,profileError:'',messageHasMore:false,messageBusy:false,messageMode:'ALL',messagePending:0,messageModule:'',messageModuleIndex:0,messageModules:[],messageKeyword:'',messageDetail:null,messagePartial:'',orderTab:'全部',orderTabs:['全部','待沟通','待确认','进行中','已完成'],feedbackTab:'提交反馈',feedbackType:'使用问题',keyword:'',form:{},error:'',checked:false,expanded:false,courseTab:'课程目录',modal:null,paymentReceipt:null,busy:false,loginMode:'account',loginPolicy:null,consentOpen:false,consentChecked:false,consentDocument:'',passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,loginBusy:false,defaultAccount:null,rememberDefault:true,passwordChangeRequired:false,pendingAccountLogin:null,wechatPhoneRequired:false,wechatPhoneGeneration:null,staffAccountDelivery:null,services:A.services,chapters:A.chapters,apiLeavers:[],apiReceivers:[],apiPendingRows:[],handoverPendingError:false,handoverSource:null,handoverItems:[],handoverRequirements:[],handoverReceivers:{},handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:'',handoverBusy:false,handoverResult:null,reassignHint:'',handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''},
  onLoad(options){if(http.token()&&['learning','course','resource'].includes(options.view)){const params=options.view==='course'&&options.id?'?id='+encodeURIComponent(options.id):options.tab==='资料'||options.view==='resource'?'?tab='+encodeURIComponent('资料'):'';wx.redirectTo({url:'/pages/account/training/index'+(options.entry==='academy'&&!params?'?entry=academy':params)});return;}this.options=options||{};// 展陈设计与众墅甄选目前只做展示：下单、订单、采购单类链接统一回到展示页
-  const showcase={request:'services',orders:'services',order:'services',plan:'services',delivery:'services',cancel:'services',procure:'selection',purchases:'selection',purchase:'selection'};const view=titles[showcase[options.view]||options.view]?showcase[options.view]||options.view:'learning';this.id=routeValue(options.id)||'';this.serviceId=routeValue(options.service)||'store';const preferred=view==='login'?AccountLogin.defaultAccount():null;this.setData({view,title:titles[view],tab:routeValue(options.tab||'课程'),category:routeValue(options.category||'全部'),statusHeight:(getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight||20,defaultAccount:preferred,selectedAccount:preferred,form:preferred?{accountQuery:preferred.loginName}:this.data.form});this.refresh(true);if(view==='login')this.loadLoginPolicy();},
+  const showcase={request:'services',orders:'services',order:'services',plan:'services',delivery:'services',cancel:'services',procure:'selection',purchases:'selection',purchase:'selection'};const view=titles[showcase[options.view]||options.view]?showcase[options.view]||options.view:'learning';this.id=routeValue(options.id)||'';this.serviceId=routeValue(options.service)||'store';const preferred=view==='login'?AccountLogin.defaultAccount():null;this.setData({view,title:titles[view],tab:routeValue(options.tab||'课程'),category:routeValue(options.category||'全部'),statusHeight:(getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight||20,defaultAccount:preferred,form:preferred?{accountQuery:preferred.loginName}:this.data.form});this.refresh(true);if(view==='login')this.loadLoginPolicy();},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
  onShow(){this.memberPageHidden=false;this.restoreHandoverOutcome();if(this.options)this.refresh(false);if(this.data.view==='login'&&http.token()&&!this.data.loginBusy)this.resumeLogin();},
  resumeLogin(){
@@ -75,7 +75,7 @@ Page({
  filter(){const s=this.data.state,kw=this.data.keyword||'',cat=this.data.category;this.setData({unread:http.token()?(this.apiUnread||0):this.data.view==='messages'?0:A.scoped(s,s.messages).filter(m=>!m.read).length,filteredProducts:Q.products.filter(x=>(cat==='全部'||x.category===cat)&&(x.name+x.spec).includes(kw)),filteredPurchases:(this.data.purchases||[]).filter(x=>(this.data.orderTab==='全部'||this.data.orderTab==='供货中'&&['供货中','待安排供货'].includes(x.status)||this.data.orderTab===x.status)&&(((x.project&&x.project.name||'关联项目')+(x.product&&x.product.name||'材料')).includes(kw))),filteredCourses:Learning.coursesFor(this.studyRole()).filter(x=>(cat==='全部'||x.category===cat)&&(x.name+x.category).includes(kw)),filteredResources:Learning.resourcesFor(this.studyRole()).filter(x=>(cat==='全部'||x.category===cat)&&(x.name+x.category).includes(kw)&&(!this.data.favoritesOnly||s.favorites.includes(x.id))),messages:this.data.view==='messages'?require('./message-center').rows(this,A.scoped(s,s.messages)):[],orders:A.visibleOrders(s).filter(x=>(this.data.orderTab==='全部'||x.status===this.data.orderTab)&&x.name.includes(kw)).map(x=>Object.assign({},x,{image:(A.services.find(y=>y.id===x.service)||A.services[0]).image})),filteredServices:A.services.filter(x=>x.name.includes(kw))});},
  go(e){const d=e.currentTarget.dataset;if(d.view==='procurement')return this.navigate('selection');this.navigate(d.view,d.id,d.service);},
  navigate(view,id='',service=''){if(!titles[view])return;const url='/pages/account/index?view='+view+(id?'&id='+encodeURIComponent(id):'')+(service?'&service='+encodeURIComponent(service):'')+(this.options.projectId?'&projectId='+encodeURIComponent(this.options.projectId):'');require('../../utils/page-navigation').open(url);},
-  input(e){const key=e.currentTarget.dataset.key,value=e.detail.value;const patch={['form.'+key]:value,error:''};if(key==='accountQuery'){this.cancelLoginFlow({clearSensitive:true});Object.assign(patch,{accountMatches:[],accountMatchesHasMore:false,selectedAccount:null});}this.setData(patch);if(key==='accountQuery')this.scheduleAccountMatch();if(this.data.view==='request')this.draft();},search(e){this.setData({keyword:e.detail.value.trim()});this.filter();},tab(e){this.setData({[e.currentTarget.dataset.key||'tab']:e.currentTarget.dataset.value,keyword:''});this.filter();},toggle(){this.setData({checked:!this.data.checked,error:''});},expand(){this.setData({expanded:!this.data.expanded});},fail,
+  input(e){const key=e.currentTarget.dataset.key,value=e.detail.value;const patch={['form.'+key]:value,error:''};if(key==='accountQuery')this.cancelLoginFlow({clearSensitive:true});this.setData(patch);if(this.data.view==='request')this.draft();},search(e){this.setData({keyword:e.detail.value.trim()});this.filter();},tab(e){this.setData({[e.currentTarget.dataset.key||'tab']:e.currentTarget.dataset.value,keyword:''});this.filter();},toggle(){this.setData({checked:!this.data.checked,error:''});},expand(){this.setData({expanded:!this.data.expanded});},fail,
  draft(){try{A.mutate(s=>{s.drafts[A.draftKey(s,this.serviceId)]=this.data.form;});}catch(e){this.fail('暂存失败，当前输入仍保留，请重试');}},
  // 微信官方头像填写能力（open-type=chooseAvatar）：已登录走上传+PUT 落库；未登录仅本机保存
  async onChooseAvatar(e){if(this.data.busy)return;const temp=e.detail&&e.detail.avatarUrl;if(!temp)return;
@@ -373,44 +373,43 @@ Page({
  togglePasswordVisibility(e){const keys={password:'passwordVisible',newPassword:'newPasswordVisible',confirmPassword:'confirmPasswordVisible'},key=keys[e.currentTarget.dataset.field];if(key)this.setData({[key]:!this.data[key]});},
  loginError(error,fallback){if(Number(error&&error.code)===1104000016){AccountLogin.clearConsent();this.loginConsent=null;this.setData({loginPolicy:null});}this.fail(error&&error.message||fallback);},
  passwordLoginError(error){if(Number(error&&error.code)===1104000016)return this.loginError(error,'请重新确认登录协议');this.setData({passwordLoginRecovery:true,error:'登录未完成，请核对输入或重试。'});},
- cancelLoginFlow(options){this.clearAccountMatchTimer();const opts=options||{};this.loginGeneration=(this.loginGeneration||0)+1;this.accountMatchSeq=(this.accountMatchSeq||0)+1;this.accountLoginSeq=(this.accountLoginSeq||0)+1;if(this.loginSessionGeneration&&!opts.keepSession){auth.logout();this.loginSessionGeneration=0;}this.pendingConsentAction='';const patch={passwordLoginRecovery:false,matchBusy:false,loginBusy:false,wechatPhoneRequired:false,wechatPhoneGeneration:null,consentOpen:false,consentChecked:false,consentDocument:''};if(opts.clearSensitive)Object.assign(patch,{passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,passwordChangeRequired:false,pendingAccountLogin:null,'form.password':'','form.newPassword':'','form.confirmPassword':''});this.setData(patch);return this.loginGeneration;},
+ cancelLoginFlow(options){const opts=options||{};this.loginGeneration=(this.loginGeneration||0)+1;this.accountLoginSeq=(this.accountLoginSeq||0)+1;if(this.loginSessionGeneration&&!opts.keepSession){auth.logout();this.loginSessionGeneration=0;}this.pendingConsentAction='';const patch={passwordLoginRecovery:false,loginBusy:false,wechatPhoneRequired:false,wechatPhoneGeneration:null,consentOpen:false,consentChecked:false,consentDocument:''};if(opts.clearSensitive)Object.assign(patch,{passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,passwordChangeRequired:false,pendingAccountLogin:null,'form.password':'','form.newPassword':'','form.confirmPassword':''});this.setData(patch);return this.loginGeneration;},
  loginFlowCurrent(generation){return generation===this.loginGeneration&&this.data.view==='login';},
  selectLoginMode(e){const mode=e.currentTarget.dataset.mode;if(mode===this.data.loginMode)return;this.cancelLoginFlow({clearSensitive:true});this.setData({loginMode:mode,error:''});},
- clearAccountMatchTimer(){if(this.accountMatchTimer!==undefined&&this.accountMatchTimer!==null){clearTimeout(this.accountMatchTimer);this.accountMatchTimer=null;}},
- scheduleAccountMatch(){
-  this.clearAccountMatchTimer();const query=(this.data.form.accountQuery||'').trim();
-  if(this.data.view!=='login'||this.data.loginMode!=='account'||query.length<2)return;
-  const generation=this.loginGeneration;
-  this.accountMatchTimer=setTimeout(()=>{
-   this.accountMatchTimer=null;
-   if(!this.loginFlowCurrent(generation)||this.data.loginMode!=='account'||(this.data.form.accountQuery||'').trim()!==query)return;
-   this.findAccounts();
-  },300);
+ toggleRememberDefault(){this.setData({rememberDefault:!this.data.rememberDefault});},
+ clearDefaultAccount(){
+  this.cancelLoginFlow({clearSensitive:true});auth.logout();AccountLogin.clearDefault();
+  const wasDefault=this.data.defaultAccount&&this.data.form.accountQuery===this.data.defaultAccount.loginName;
+  this.setData({defaultAccount:null,'form.accountQuery':wasDefault?'':this.data.form.accountQuery||''});
  },
- findAccounts(){
+ accountLogin(){
   if(this.data.loginBusy)return;
-  const query=(this.data.form.accountQuery||'').trim();
-  if(!query)return this.fail('请输入姓名、用户名或门店全名');
-  const generation=this.cancelLoginFlow({clearSensitive:true}),seq=this.accountMatchSeq;
-  this.setData({matchBusy:true,accountMatches:[],accountMatchesHasMore:false,selectedAccount:null,error:''});
-  auth.accountMatches(query).then(result=>{
-   if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq)return;
-   const items=(result&&result.items||[]).filter(Boolean),hasMore=!!(result&&result.hasMore);
-   const selected=items.length===1&&!hasMore?items[0]:null;
-   const patch={matchBusy:false,accountMatches:items,accountMatchesHasMore:hasMore,selectedAccount:selected,error:items.length?'':'未找到账号，请核对名称或联系管理员'};
-   if(selected&&selected.loginName)patch['form.accountQuery']=selected.loginName;
-   this.setData(patch);
+  const loginName=String(this.data.form.accountQuery||'').trim(),password=this.data.form.password||'';
+  if(!loginName)return this.fail('请输入管理员提供的完整账号');
+  if(!password)return this.fail('请输入密码');
+  if(!this.ensureLoginConsent('account'))return;
+  this.submitAccountLogin({loginName},password);
+ },
+ submitNewPassword(){if(this.data.loginBusy)return;const pending=this.data.pendingAccountLogin,next=this.data.form.newPassword||'',confirm=this.data.form.confirmPassword||'';if(!pending)return this.fail('登录状态已变化，请重新登录');if(!AccountLogin.validNewPassword(next))return this.fail('新密码须为6–64位');if(next!==confirm)return this.fail('两次输入的新密码不一致');if(!this.ensureLoginConsent('password-change'))return;this.submitAccountLogin(pending.account,pending.password,next);},
+ submitAccountLogin(account,password,newPassword){
+  const generation=this.cancelLoginFlow(),seq=this.accountLoginSeq;
+  this.setData({loginBusy:true,error:''});
+  const request=account.accountId?auth.accountLogin(account.accountId,password,newPassword,this.loginConsent)
+   :auth.accountLoginByName(account.loginName,password,newPassword,this.loginConsent);
+  request.then(result=>{
+   if(!this.loginFlowCurrent(generation)||seq!==this.accountLoginSeq)return;
+   const verified=result&&result.accountId&&result.loginName?{accountId:String(result.accountId),loginName:String(result.loginName)}:null;
+   if(result&&result.requirePasswordChange){
+    if(!verified){this.setData({loginBusy:false});this.passwordLoginError();return;}
+    this.setData({loginBusy:false,passwordChangeRequired:true,pendingAccountLogin:{account:verified,password},'form.newPassword':'','form.confirmPassword':''});return;
+   }
+   this.setData({passwordChangeRequired:false,pendingAccountLogin:null});
+   this.finishAccountLogin(result,generation,verified);
   }).catch(e=>{
-   if(!this.loginFlowCurrent(generation)||seq!==this.accountMatchSeq||e&&e.silent)return;
-   this.setData({matchBusy:false});this.fail(e.message||'账号查找失败，请重试');
+   if(!this.loginFlowCurrent(generation)||seq!==this.accountLoginSeq||e&&e.silent)return;
+   this.setData({loginBusy:false});this.passwordLoginError(e);
   });
  },
- selectAccount(e){const accountId=String(e.currentTarget.dataset.accountId),selected=(this.data.accountMatches||[]).find(item=>String(item.accountId)===accountId);if(!selected)return;this.cancelLoginFlow({clearSensitive:true});const patch={selectedAccount:selected,error:''};if(selected.loginName)patch['form.accountQuery']=selected.loginName;this.setData(patch);},
- toggleRememberDefault(){this.setData({rememberDefault:!this.data.rememberDefault});},
- clearDefaultAccount(){this.cancelLoginFlow({clearSensitive:true});auth.logout();AccountLogin.clearDefault();const selected=this.data.selectedAccount,wasDefault=this.data.defaultAccount&&selected&&String(this.data.defaultAccount.accountId)===String(selected.accountId);this.setData({defaultAccount:null,selectedAccount:wasDefault?null:selected,'form.accountQuery':wasDefault?'':this.data.form.accountQuery||''});},
- accountLogin(){if(this.data.loginBusy)return;const selected=this.data.selectedAccount,password=this.data.form.password||'';if(!selected)return this.fail('请先输入用户名并选择匹配账号');if(!password)return this.fail('请输入密码');if(!this.ensureLoginConsent('account'))return;this.submitAccountLogin(selected,password);},
- submitNewPassword(){const pending=this.data.pendingAccountLogin,next=this.data.form.newPassword||'',confirm=this.data.form.confirmPassword||'';if(!pending)return this.fail('登录状态已变化，请重新登录');if(!AccountLogin.validNewPassword(next))return this.fail('新密码须为6–64位');if(next!==confirm)return this.fail('两次输入的新密码不一致');if(!this.ensureLoginConsent('password-change'))return;this.submitAccountLogin(pending.account,pending.password,next);},
- submitAccountLogin(account,password,newPassword){const generation=this.cancelLoginFlow(),seq=this.accountLoginSeq,accountId=String(account.accountId);this.setData({loginBusy:true,error:''});auth.accountLogin(accountId,password,newPassword,this.loginConsent).then(result=>{if(!this.loginFlowCurrent(generation)||seq!==this.accountLoginSeq||!this.data.selectedAccount||String(this.data.selectedAccount.accountId)!==accountId)return;if(result&&result.requirePasswordChange){this.setData({loginBusy:false,passwordChangeRequired:true,pendingAccountLogin:{account,password},'form.newPassword':'','form.confirmPassword':''});return;}this.setData({passwordChangeRequired:false,pendingAccountLogin:null});this.finishAccountLogin(result,generation,account);}).catch(e=>{if(!this.loginFlowCurrent(generation)||seq!==this.accountLoginSeq||e&&e.silent)return;this.setData({loginBusy:false});this.passwordLoginError(e);});},
  wechatLogin(){return this.startWechatLogin();},
  onWechatPhoneNumber(e){
   if(this.data.view!=='login'||this.data.loginMode!=='wechat'||!this.data.wechatPhoneRequired||this.data.loginBusy)return;
