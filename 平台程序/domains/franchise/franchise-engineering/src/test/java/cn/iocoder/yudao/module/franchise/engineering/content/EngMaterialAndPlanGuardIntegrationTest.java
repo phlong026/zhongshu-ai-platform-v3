@@ -171,8 +171,6 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private static final AtomicLong IDS = new AtomicLong(950_000_000_000L + System.nanoTime() % 100_000_000L);
 
     @Resource
-    private EngProjectService projectService;
-    @Resource
     private cn.iocoder.yudao.module.platform.org.SystemDirectory managerDirectory;
     @Resource
     private EngMaterialService materialsService;
