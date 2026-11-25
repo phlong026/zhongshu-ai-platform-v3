@@ -60,6 +60,8 @@ public class SaleContractService {
     public record SignCommand(LocalDate signedDate, Long assetId) {
     }
 
+    public record EvidenceCommand(LocalDate signedDate, Long assetId, String reason, Long revision) { }
+
     /**
      * M06-T04 分笔核销命令：amountCents 为本笔金额（可小于期约定额；Σ分笔 ≤ 期额）。
      */
@@ -78,6 +80,8 @@ public class SaleContractService {
     private final SalesAccess access;
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort> evidence;
 
     public SaleContractService(SaleContractMapper contracts, SalePaymentStageMapper stages,
                                SaleStageReceiptMapper stageReceipts,
@@ -170,7 +174,9 @@ public class SaleContractService {
 
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO sign(PostSnapshot post, long contractId, SignCommand cmd, Long revision, String idempotencyKey) {
+        signKeyGuard(post, idempotencyKey);
         SaleContractDO contract = lockContract(post, contractId);
+        requireEvidenceScope(post, contract);
         // 指纹含 contractId+revision（S1-23：作废重签场景下同客户异合同的 sign/void 命令不得共享指纹）
         var input = baseInput("contract-sign", contract.getCustomerId(), cmd, contractId, revision);
         var replayed = commands.replayed(post, idempotencyKey, input);
@@ -178,24 +184,94 @@ public class SaleContractService {
             return contracts.selectById(replayed.get().getAggregateId());
         }
         if (!STATUS_WAIT_SIGN.equals(contract.getStatus())) {
-            // 已签/作废：幂等返回当前状态（异状态非错误）
-            commands.record(post, "fr-sale-contract", contract.getId(), contract.getRevision(),
-                    "sale-contract-sign", input, idempotencyKey);
-            return contract;
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,
+                    STATUS_SIGNED.equals(contract.getStatus()) ? "合同已签约，资料更正请使用签约凭证补录" : "已作废合同不能签约");
         }
         if (revision == null || !java.util.Objects.equals(revision, contract.getRevision())) { // Long 引用比较越界即恒真（评审基线强制清单 #12）
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
         }
-        if (cmd.signedDate() != null) contract.setSignedDate(cmd.signedDate());
-        if (cmd.assetId() != null) {
-            validateAsset(post, cmd.assetId());
-            contract.setAssetId(cmd.assetId());
-        }
+        LocalDate date = cmd == null || cmd.signedDate() == null ? contract.getSignedDate() : cmd.signedDate();
+        Long asset = cmd == null || cmd.assetId() == null ? contract.getAssetId() : cmd.assetId();
+        requireSignedEvidence(post, date, asset);
+        contract.setSignedDate(date).setAssetId(asset);
         contract.setStatus(STATUS_SIGNED);
         RevisionsUpdate(contract);
         commands.record(post, "fr-sale-contract", contract.getId(), contract.getRevision(),
                 "sale-contract-sign", input, idempotencyKey);
         return contract;
+    }
+
+    /** Restores real evidence on old SIGNED rows without replaying signing or rebuilding the payment plan. */
+    @Transactional(rollbackFor = Exception.class)
+    public SaleContractDO supplementEvidence(PostSnapshot post, long contractId, EvidenceCommand cmd, String key) {
+        signKeyGuard(post, key);
+        SaleContractDO contract = lockContract(post, contractId); requireEvidenceScope(post, contract);
+        if (cmd == null || cmd.reason() == null || cmd.reason().isBlank() || cmd.reason().trim().length() > 500)
+            throw evidenceInvalid("请填写凭证补录或更正原因（不超过500字）");
+        var normalized = new EvidenceCommand(cmd.signedDate(), cmd.assetId(), cmd.reason().trim(), cmd.revision());
+        var input = baseInput("contract-evidence", contract.getCustomerId(), normalized, contractId, cmd.revision());
+        if (commands.replayed(post, key, input).isPresent()) return contracts.selectById(contractId);
+        if (!STATUS_SIGNED.equals(contract.getStatus())) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409, "仅已签约合同可补录签约凭证");
+        if (cmd.revision() == null || !cmd.revision().equals(contract.getRevision()))
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
+        requireSignedEvidence(post, cmd.signedDate(), cmd.assetId());
+        Map<String, Object> previous = new LinkedHashMap<>();
+        previous.put("signedDate", contract.getSignedDate() == null ? null : contract.getSignedDate().toString());
+        previous.put("assetId", contract.getAssetId() == null ? null : contract.getAssetId().toString());
+        long priorRevision = contract.getRevision();
+        contract.setSignedDate(cmd.signedDate()).setAssetId(cmd.assetId()); RevisionsUpdate(contract);
+        jdbcTemplate.update("""
+                INSERT INTO fr_sale_contract_evidence_event(id,company_id,contract_id,revision,previous_revision,
+                    before_evidence,after_evidence,reason,actor_user_id,actor_post_id)
+                VALUES(?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),?,?,?)
+                """,IdWorker.getId(),post.orgId(),contractId,contract.getRevision(),priorRevision,
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(previous),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of("signedDate",cmd.signedDate().toString(),"assetId",cmd.assetId().toString())),
+                normalized.reason(),post.userId(),post.postId());
+        commands.record(post,"fr-sale-contract",contractId,contract.getRevision(),"sale-contract-evidence",input,key);
+        return contract;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AssetAccessPort.DownloadUrlView evidenceDownload(PostSnapshot post, long contractId, long assetId) {
+        SaleContractDO contract = lockContract(post, contractId); requireEvidenceScope(post, contract);
+        if (assetId <= 0 || !java.util.Objects.equals(contract.getAssetId(), assetId)) throw exception(REFERENCE_INVALID);
+        requireAcceptedEvidence(post, assetId);
+        long account = serviceAccounts.requireServiceAccount(post.orgId());
+        var ticket = assets.createContractDownloadUrl(new AssetAccessPort.Actor(post.orgId(), account, post.userId(), post.postId()), contractId, assetId);
+        commands.record(post,"fr-contract-evidence-read",contractId,IdWorker.getId(),"contract-evidence-download",
+                Map.of("contractId",contractId,"assetId",assetId),"contract-download:"+java.util.UUID.randomUUID());
+        return ticket;
+    }
+
+    private void requireSignedEvidence(PostSnapshot post, LocalDate date, Long asset) {
+        if (date == null || date.isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))) throw evidenceInvalid("请填写不晚于今天的实际签约日期");
+        if (asset == null || asset <= 0) throw evidenceInvalid("请上传已签合同凭证");
+        requireAcceptedEvidence(post, asset);
+    }
+    private void requireAcceptedEvidence(PostSnapshot post, long asset) {
+        validateAsset(post, asset);
+        var verifier = evidence == null ? null : evidence.getIfAvailable();
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        if (tenant == null || verifier == null || !java.util.Objects.equals(verifier.acceptedOwners(tenant, java.util.Set.of(asset),
+                java.util.Set.of("CONTRACT_ATTACHMENT")).get(asset), post.orgId()))
+            throw evidenceInvalid("合同附件未通过验收或已失效，请重新上传有效合同凭证");
+    }
+    private void requireEvidenceScope(PostSnapshot post, SaleContractDO contract) {
+        access.requireOrgCustomer(post, contract.getCustomerId());
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        if (tenant == null || !Boolean.TRUE.equals(jdbcTemplate.queryForObject("SELECT EXISTS(SELECT 1 FROM system_dept d JOIN pf_org_unit o ON o.dept_id=d.id"
+                + " JOIN fr_sale_contract c ON c.company_id=d.id AND NOT c.deleted"
+                + " WHERE d.id=? AND d.tenant_id=? AND d.status=0 AND d.deleted=0 AND o.kind='ORG' AND o.status='ACTIVE' AND c.id=?)", Boolean.class, post.orgId(), tenant, contract.getId())))
+            throw exception(REFERENCE_INVALID);
+    }
+    private void signKeyGuard(PostSnapshot post, String key) {
+        String normalized = commands.requireIdempotencyKey(key);
+        jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class,
+                FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),normalized));
+    }
+    private static RuntimeException evidenceInvalid(String message) {
+        return new cn.iocoder.yudao.framework.common.exception.ServiceException(400,message);
     }
 
     @Transactional(rollbackFor = Exception.class)

@@ -59,6 +59,10 @@ public class CustomerSchemeAdapter implements CustomerSchemePort {
         log.info("[requireAccessible][customer={} org={}]", customer.getId(), post.orgId());
     }
 
+    @Override public void requireDocumentReadable(PostSnapshot post, long customerId) {
+        customerService.requireReadable(post, customerId);
+    }
+
     @Override
     public CustomerSchemePort.CustomerBrief getCustomerBrief(PostSnapshot post, long customerId) {
         CustomerDO customer = customerService.requireAccessible(post, customerId);
