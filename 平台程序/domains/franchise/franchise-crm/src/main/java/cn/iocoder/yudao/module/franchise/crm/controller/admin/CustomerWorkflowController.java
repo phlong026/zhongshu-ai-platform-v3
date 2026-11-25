@@ -38,6 +38,13 @@ public class CustomerWorkflowController {
         return success(workflows.records(posts.require(), id, page.getPageNo(), page.getPageSize()));
     }
 
+    @PostMapping("/{id}/workflow/steps/{step}/assets/{assetId}/download-tickets")
+    @PreAuthorize("@post.has('franchise:customer:query')")
+    public CommonResult<cn.iocoder.yudao.module.franchise.api.AssetAccessPort.DownloadUrlView> download(
+            @PathVariable long id, @PathVariable String step, @PathVariable long assetId) {
+        return success(workflows.download(posts.require(), id, step, assetId));
+    }
+
     @PutMapping("/{id}/workflow/steps/{step}")
     @PreAuthorize("@post.has('franchise:customer:write')")
     public CommonResult<View> save(@PathVariable long id, @PathVariable String step, @RequestBody SaveCommand body,

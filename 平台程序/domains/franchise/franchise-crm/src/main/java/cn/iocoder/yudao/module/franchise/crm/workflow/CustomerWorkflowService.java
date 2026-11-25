@@ -40,12 +40,15 @@ public class CustomerWorkflowService {
     private final ObjectProvider<AssetAccessPort> assets;
     private final ObjectProvider<StoreServiceAccountPort> accounts;
     private final ObjectProvider<CustomerWorkflowReferencePort> references;
+    private final CustomerWorkflowAssetPolicy attachmentPolicy;
 
     public CustomerWorkflowService(CustomerService customers, CustomerMapper customerMapper, CustomerWorkflowReadService reads,
                                    JdbcTemplate jdbc, FranchiseCommands commands, ObjectProvider<AssetAccessPort> assets,
-                                   ObjectProvider<StoreServiceAccountPort> accounts, ObjectProvider<CustomerWorkflowReferencePort> references) {
+                                   ObjectProvider<StoreServiceAccountPort> accounts, ObjectProvider<CustomerWorkflowReferencePort> references,
+                                   CustomerWorkflowAssetPolicy attachmentPolicy) {
         this.customers = customers; this.customerMapper = customerMapper; this.reads = reads; this.jdbc = jdbc;
         this.commands = commands; this.assets = assets; this.accounts = accounts; this.references = references;
+        this.attachmentPolicy = attachmentPolicy;
     }
 
     public View get(PostSnapshot post, long customerId) { return reads.read(post, customers.requireReadable(post, customerId)); }
@@ -82,7 +85,7 @@ public class CustomerWorkflowService {
         var previous = reads.step(workflow.tenantId(), workflow.companyId(), workflow.id(), step);
         if (previous != null && "COMPLETED".equals(previous.status())) throw conflict("请先重开已完成步骤，再补充或更正资料");
         Map<String, Object> fields = referencedFields(post, step, input.fields());
-        validateAttachments(post, input.attachments());
+        validateAttachments(post, customerId, input.attachments());
         long stepRevision = previous == null ? 1 : previous.revision() + 1;
         jdbc.update("""
                 INSERT INTO fr_customer_workflow_step(workflow_id,tenant_id,company_id,step_code,status,revision,occurred_on,note,fields,attachments)
@@ -109,7 +112,7 @@ public class CustomerWorkflowService {
         List<String> errors = CustomerWorkflowRules.missing(step, draft.occurredOn(), draft.fields(), draft.attachments());
         if (!errors.isEmpty()) throw invalid(String.join("；", errors));
         referencedFields(post, step, draft.fields());
-        validateAttachments(post, draft.attachments());
+        validateAttachments(post, customerId, draft.attachments());
         jdbc.update("UPDATE fr_customer_workflow_step SET status='COMPLETED',revision=revision+1,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP"
                 + " WHERE tenant_id=? AND company_id=? AND workflow_id=? AND step_code=?", workflow.tenantId(), workflow.companyId(), workflow.id(), step.name());
         record(post, workflow, step, "COMPLETE", draft.occurredOn(), draft.note(), draft.fields(), draft.attachments(), fingerprint, key);
@@ -188,15 +191,32 @@ public class CustomerWorkflowService {
         return normalized;
     }
 
-    private void validateAttachments(PostSnapshot post, List<Attachment> attachments) {
+    private void validateAttachments(PostSnapshot post, long customerId, List<Attachment> attachments) {
         if (attachments.isEmpty()) return;
+        attachmentPolicy.requireAttachable(post, customerId, attachments);
         var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
         if (assetPort == null || accountPort == null) throw new ServiceException(503, "资料校验暂不可用，请稍后重试");
         var actor = new AssetAccessPort.Actor(post.orgId(), accountPort.requireServiceAccount(post.orgId()), post.userId(), post.postId());
         for (Attachment attachment : attachments) {
-            if (!assetPort.validateReference(actor, Long.parseLong(attachment.assetId()), Set.of("DESIGN_REFERENCE")))
+            if (!assetPort.validateReference(actor, Long.parseLong(attachment.assetId()), Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
                 throw invalid("附件不存在、未上传完成或无权引用");
         }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AssetAccessPort.DownloadUrlView download(PostSnapshot post, long customerId, String code, long assetId) {
+        Step step = manual(code);
+        CustomerDO customer = customers.requireReadable(post, customerId);
+        long tenant = CustomerWorkflowReadService.tenant(); reads.requireTenantCompany(tenant, customer.getCompanyId());
+        attachmentPolicy.requireReferenced(tenant, customer.getCompanyId(), customerId, step.name(), assetId);
+        var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
+        if (assetPort == null || accountPort == null) throw new ServiceException(503, "资料下载暂不可用");
+        var actor = new AssetAccessPort.Actor(post.orgId(), accountPort.requireServiceAccount(post.orgId()), post.userId(), post.postId());
+        if (!assetPort.validateReference(actor, assetId, Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE"))) throw invalid("资料已失效或无权查看");
+        var ticket = assetPort.createWorkflowDownloadUrl(actor, customerId, step.name(), assetId);
+        commands.record(post, "fr-workflow-asset-read", assetId, IdWorker.getId(), "workflow-asset-download",
+                Map.of("customerId", customerId, "stepCode", code, "assetId", assetId), "workflow-download:" + java.util.UUID.randomUUID());
+        return ticket;
     }
 
     private void record(PostSnapshot post, CustomerWorkflowReadService.WorkflowRow workflow, Step step, String action,

@@ -47,7 +47,8 @@ public class LocalAssetService implements AssetAccessPort {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Map<String, Long> MAX_BYTES = Map.of(
             "FIN_VOUCHER", 20L << 20, "ENG_DRAWING", 30L << 20, "ENG_SITE_PHOTO", 10L << 20,
-            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20, "DESIGN_DELIVERABLE", 20L << 20);
+            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20, "DESIGN_DELIVERABLE", 20L << 20,
+            "BUSINESS_DOCUMENT", 30L << 20);
     private final AssetSpool spool = new AssetSpool(java.nio.file.Path.of(System.getProperty("platform.asset.spool-dir",
             java.nio.file.Path.of(System.getProperty("user.home"),".zhongshu","asset-spool").toString())),
             Long.getLong("platform.asset.spool-max-bytes",384L << 20));
@@ -63,6 +64,12 @@ public class LocalAssetService implements AssetAccessPort {
     private final StoreServiceAccountPort accounts;
     private final CommissionDeliverableAccessPort deliverables;
     private java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> visibilityPolicies = java.util.List.of();
+    private cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort workflowScopes;
+
+    @Autowired(required = false)
+    public void setWorkflowScopes(cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort scopes) {
+        this.workflowScopes = scopes;
+    }
 
     @Autowired(required = false)
     public void setVisibilityPolicies(java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> policies) {
@@ -285,6 +292,28 @@ public class LocalAssetService implements AssetAccessPort {
     }
 
     @Override
+    public DownloadUrlView createWorkflowDownloadUrl(Actor actor, long customerId, String stepCode, long assetId) {
+        long tenant = authorize(actor);
+        requireWorkflowScope(customerId, stepCode, assetId);
+        requireWorkflowType(accepted(tenant, actor, assetId));
+        String token = token();
+        db("issue-workflow-download", assetId, () -> jdbc.update("INSERT INTO fr_asset_download_ticket"
+                        + " (token_hash,asset_id,tenant_id,org_id,user_id,post_id,expires_at,scope_customer_id,scope_workflow_step)"
+                        + " VALUES (?,?,?,?,?,?,?,?,?)", hash(token), assetId, tenant, actor.orgId(), actor.userId(), actor.postId(),
+                Timestamp.from(Instant.now().plusSeconds(DOWNLOAD_TTL)), customerId, stepCode));
+        return new DownloadUrlView("/admin-api/franchise/assets/" + assetId + "/content?token=" + token,
+                Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    private void requireWorkflowScope(long customerId, String step, long assetId) {
+        if (workflowScopes == null) throw exception(RESOURCE_FORBIDDEN);
+        workflowScopes.requireReadable(posts.require(), customerId, step, assetId);
+    }
+    private void requireWorkflowType(Asset asset) {
+        if (!java.util.Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE").contains(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+    }
+
+    @Override
     public DownloadUrlView createCommissionDownloadUrl(Actor actor, long commissionId, int dispatchSeq, Slot slot) {
         long tenant = authorize(actor);
         var ref = requireScope(commissionId, dispatchSeq, slot);
@@ -326,18 +355,21 @@ public class LocalAssetService implements AssetAccessPort {
     public DownloadContent readDownload(Actor actor, long id, String token) {
         long tenant = authorize(actor);
         if (token == null || token.length() != 64) throw exception(RESOURCE_FORBIDDEN);
-        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot"
+        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot,scope_customer_id,scope_workflow_step"
                         + " FROM fr_asset_download_ticket WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=?"
                         + " AND user_id=? AND post_id=? AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP",
                 hash(token), id, tenant, actor.orgId(), actor.userId(), actor.postId()));
         if (tickets.size() != 1) throw exception(RESOURCE_FORBIDDEN);
         var ticket = tickets.get(0);
         Long commissionId = ticket.get("scope_commission_id") instanceof Number n ? n.longValue() : null;
+        Long customerId = ticket.get("scope_customer_id") instanceof Number n ? n.longValue() : null;
+        String workflowStep = (String) ticket.get("scope_workflow_step");
         CommissionDeliverableAccessPort.DeliverableRef ref = null;
         Asset asset;
         if (commissionId == null) {
             asset = accepted(tenant, actor, id);
-            requireChannel(actor, asset.type());
+            if (customerId == null) requireChannel(actor, asset.type());
+            else { requireWorkflowScope(customerId, workflowStep, id); requireWorkflowType(asset); }
         } else {
             ref = requireScope(commissionId, ((Number) ticket.get("scope_dispatch_seq")).intValue(), Slot.valueOf((String) ticket.get("scope_slot")));
             if (ref.assetId() != id || ref.ownerOrgId() != ((Number) ticket.get("owner_org_id")).longValue())
@@ -349,7 +381,15 @@ public class LocalAssetService implements AssetAccessPort {
             byte[] bytes = input.readNBytes(Math.toIntExact(MAX_BYTES.get(asset.type())) + 1);
             if (bytes.length > MAX_BYTES.get(asset.type())) throw invalid("资产大小异常");
             authorize(actor);
-            if (ref != null) {
+            if (ref == null) {
+                // Customer ownership may change while storage I/O is in flight; the ticket is not an authorization cache.
+                Asset current = accepted(tenant, actor, id);
+                if (customerId == null) requireChannel(actor, current.type());
+                else { requireWorkflowScope(customerId, workflowStep, id); requireWorkflowType(current); }
+                if (!java.util.Objects.equals(asset.objectKey(), current.objectKey())) throw exception(RESOURCE_FORBIDDEN);
+                if ("BUSINESS_DOCUMENT".equals(current.type()) && (bytes.length != current.acceptedSize()
+                        || !hash(bytes).equals(current.acceptedSha()))) throw invalid("业务资料与已校验内容不一致");
+            } else {
                 var current = requireScope(ref.commissionId(), ref.dispatchSeq(), ref.slot());
                 if (!ref.equals(current)) throw exception(RESOURCE_FORBIDDEN);
                 scopedAsset(tenant, actor, current);
@@ -522,8 +562,12 @@ public class LocalAssetService implements AssetAccessPort {
                         rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
                         rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
                         rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
-        if (row != null && "CONTENT_ASSET".equals(row.type())) {
-            for (var policy : visibilityPolicies) policy.requireReadable(tenant, actor, id);
+        if (row != null) {
+            var policies = visibilityPolicies.stream().filter(policy -> policy.supports(row.type())).toList();
+            // Without the customer policy, a shared company service account must not expose private documents.
+            if ("BUSINESS_DOCUMENT".equals(row.type()) && policies.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
+            var resource = new cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort.Resource(id, row.type(), row.user());
+            for (var policy : policies) policy.requireReadable(tenant, actor, resource);
         }
         return row;
     }
@@ -539,7 +583,7 @@ public class LocalAssetService implements AssetAccessPort {
     private static boolean mimeAllowed(String type, String mime) {
         if (mime == null || type == null) return false;
         return switch (type) {
-            case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT", "DESIGN_DELIVERABLE" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
+            case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT", "DESIGN_DELIVERABLE", "BUSINESS_DOCUMENT" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
             case "ENG_SITE_PHOTO", "DESIGN_REFERENCE" -> Set.of("image/jpeg", "image/png").contains(mime);
             case "CONTENT_ASSET" -> ContentMediaNormalizer.supported(mime);
             default -> false;
