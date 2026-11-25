@@ -170,19 +170,24 @@ public class LeadService {
     }
 
     /** A publication source is accepted only when it resolves to a real, published record in this organization. */
-    private void validatePublicationSource(PostSnapshot post, String source) {
+    void validatePublicationSource(PostSnapshot post, String source) {
         final String prefix = "内容发布:";
         if (source == null || !source.startsWith(prefix)) return;
         String rawId = source.substring(prefix.length());
-        if (!rawId.matches("\\d{1,19}")) throw exception(LEAD_INPUT_INVALID);
+        if (!rawId.matches("\\d{1,19}")) throw invalidPublicationSource();
         final long publicationId;
         try { publicationId = Long.parseLong(rawId); }
-        catch (NumberFormatException ex) { throw exception(LEAD_INPUT_INVALID); }
+        catch (NumberFormatException ex) { throw invalidPublicationSource(); }
         Boolean published = jdbcTemplate.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM fr_content_publication "
                         + "WHERE company_id = ? AND id = ? AND status = 'published')",
                 Boolean.class, post.orgId(), publicationId);
-        if (!Boolean.TRUE.equals(published)) throw exception(LEAD_INPUT_INVALID);
+        if (!Boolean.TRUE.equals(published)) throw invalidPublicationSource();
+    }
+
+    private static cn.iocoder.yudao.framework.common.exception.ServiceException invalidPublicationSource() {
+        return new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                LEAD_INPUT_INVALID.getCode(), "所选视频未发布或不可用，请重新选择已发布的视频来源");
     }
 
     private static CaptureCommand normalize(CaptureCommand c) {
