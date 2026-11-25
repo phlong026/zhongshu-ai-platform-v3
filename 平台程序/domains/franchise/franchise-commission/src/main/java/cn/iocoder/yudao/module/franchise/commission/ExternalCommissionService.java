@@ -261,7 +261,7 @@ public class ExternalCommissionService {
     private boolean replay(PostSnapshot post, String key, Mutation input, String action, CommissionDO commission) {
         var replay = commands.replayed(post, key, input);
         if (replay.isEmpty()) return false;
-        if (commission == null || replay.get().getAggregateId() != commission.getId() || !action.equals(replay.get().getCommand()))
+        if (commission == null || !Objects.equals(replay.get().getAggregateId(), commission.getId()) || !action.equals(replay.get().getCommand()))
             throw exception(IDEMPOTENCY_KEY_REUSED);
         return true;
     }
