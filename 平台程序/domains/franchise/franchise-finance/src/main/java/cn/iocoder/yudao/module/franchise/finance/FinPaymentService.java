@@ -105,6 +105,36 @@ public class FinPaymentService {
         commands.record(post,"fin-payable",cmd.payableId(),revision,"engineering-payable-unpaid-update",cmd,idempotencyKey);
     }
 
+    public record EngineeringExpenseAmount(long payableId, long projectId, long expenseId, long totalCents) {}
+
+    /** 工程已锁原费用行；同一应付行锁保护金额与登记付款的互斥。 */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void syncUnpaidExpenseAmount(PostSnapshot post, String idempotencyKey, EngineeringExpenseAmount cmd) {
+        idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);
+        designLocks.command(post,idempotencyKey);
+        if (commands.replayed(post,idempotencyKey,cmd).isPresent()) return;
+        var payable = payableMapper.lockById(cmd.payableId());
+        String source = "engineering-expense:" + cmd.projectId() + ":" + cmd.expenseId();
+        boolean sourceMatches = Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_eng_expense e
+                WHERE e.company_id=? AND e.project_id=? AND e.id=? AND e.payable_id=? AND e.status='REGISTERED')
+            """, Boolean.class, post.orgId(), cmd.projectId(), cmd.expenseId(), cmd.payableId()));
+        if (payable == null || payable.getCompanyId()!=post.orgId()
+                || !java.util.Objects.equals(payable.getProjectId(),cmd.projectId())
+                || !"engineering_expense".equals(payable.getStage()) || !sourceMatches
+                || (payable.getSourceType()!=null && (!"engineering_expense".equals(payable.getSourceType())
+                    || !java.util.Objects.equals(payable.getSourceRef(),source))))
+            throw exception(PAYABLE_NOT_FOUND);
+        if (cmd.totalCents()<=0) throw exception(PAYMENT_EXCEED_PAYABLE);
+        // 已付沿用工程的成本修订路径，不改财务应付、付款或退款；退款净额变零不算从未付款。
+        if (paymentMapper.selectActiveByPayable(cmd.payableId()).stream().anyMatch(p->p.getCompanyId()==post.orgId())) return;
+        if (!"进行中".equals(payable.getStatus())) throw exception(PAYABLE_NOT_FOUND);
+        if (java.util.Objects.equals(payable.getTotalCents(),cmd.totalCents())) return;
+        payableMapper.updateById(new FinPayableDO().setId(cmd.payableId()).setTotalCents(cmd.totalCents()));
+        long rev=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,cmd.payableId());
+        commands.record(post,"fin-payable",cmd.payableId(),rev,"engineering-expense-unpaid-sync",cmd,idempotencyKey);
+    }
+
     @Transactional
     public long registerPayable(PostSnapshot post, String idempotencyKey, PayableCommand cmd) {
         idempotencyKey = commands.requireIdempotencyKey(idempotencyKey);

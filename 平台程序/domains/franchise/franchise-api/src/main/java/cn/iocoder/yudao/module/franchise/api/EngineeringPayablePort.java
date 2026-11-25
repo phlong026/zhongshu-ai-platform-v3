@@ -18,6 +18,12 @@ public interface EngineeringPayablePort {
         throw new UnsupportedOperationException("当前财务实现不支持未付款应付修订");
     }
 
+    /** 同一项目费用下仅同步尚无有效付款的应付金额。已有付款不改财务原单。 */
+    default void syncUnpaidExpenseAmount(PostSnapshot post, long projectId, long expenseId,
+                                         long payableId, long amountCents, String idempotencyKey) {
+        throw new UnsupportedOperationException("当前财务实现不支持工程费用应付修订");
+    }
+
     record PayableCommand(long sourceProjectId, String sourceRef, String supplier,
                           long amountCents, String basis) {
     }

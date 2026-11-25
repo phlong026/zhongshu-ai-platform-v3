@@ -50,6 +50,13 @@ class EngLaborExpenseIntegrationTest extends FranchisePgIntegrationTest {
                     return PAYABLES.computeIfAbsent(command.sourceRef(),
                             k -> new java.util.concurrent.atomic.AtomicLong(991000L + PAYABLES.size() + 1).get());
                 }
+
+                @Override
+                public void syncUnpaidExpenseAmount(PostSnapshot post, long projectId, long expenseId,
+                                                   long payableId, long amountCents, String idempotencyKey) {
+                    // 此隔离测试仅模拟已登记付款；无财务金额表，真实应付更新由集成用例验证。
+                    assertThat(PAYABLES.get("engineering-expense:" + projectId + ":" + expenseId)).isEqualTo(payableId);
+                }
             };
         }
 

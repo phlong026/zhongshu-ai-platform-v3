@@ -28,6 +28,13 @@ public class EngineeringPayableAdapter implements EngineeringPayablePort {
     }
 
     @Override
+    public void syncUnpaidExpenseAmount(PostSnapshot post, long projectId, long expenseId,
+                                        long payableId, long amountCents, String idempotencyKey) {
+        payments.syncUnpaidExpenseAmount(post, idempotencyKey,
+                new FinPaymentService.EngineeringExpenseAmount(payableId, projectId, expenseId, amountCents));
+    }
+
+    @Override
     public void updateUnpaid(PostSnapshot post,long payableId,PayableCommand cmd,String idempotencyKey) {
         payments.updateUnpaidEngineeringPayable(post,idempotencyKey,
                 new FinPaymentService.EngineeringPayableUpdateCommand(payableId,cmd.sourceProjectId(),

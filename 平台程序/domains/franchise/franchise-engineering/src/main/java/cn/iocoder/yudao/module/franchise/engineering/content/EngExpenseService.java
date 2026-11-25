@@ -92,7 +92,7 @@ public class EngExpenseService {
      */
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> terms(PostSnapshot post, long expenseId, TermsCommand cmd, String idempotencyKey) {
-        FrEngExpenseDO expense = expenses.selectById(expenseId);
+        FrEngExpenseDO expense = expenses.lockByCompany(post.orgId(), expenseId);
         if (expense == null || expense.getCompanyId() != post.orgId()
                 || FrEngExpenseDO.STATUS_CANCELLED.equals(expense.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "费用不存在或已取消");
@@ -128,7 +128,7 @@ public class EngExpenseService {
     /** 取消（0 成本调整路径）：已挂应付者拒绝（交财务在原付款事项处理——与材料已付款锁定同口径） */
     @Transactional(rollbackFor = Exception.class)
     public void cancel(PostSnapshot post, long expenseId, String reason, String idempotencyKey) {
-        FrEngExpenseDO expense = expenses.selectById(expenseId);
+        FrEngExpenseDO expense = expenses.lockByCompany(post.orgId(), expenseId);
         if (expense == null || expense.getCompanyId() != post.orgId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "费用不存在");
         }
@@ -156,12 +156,12 @@ public class EngExpenseService {
     /**
      * M09-T04/R1 P2-5：确认费用变更（金额修订）——独立于现金退回的成本调整路径
      * （费用 100 已付款、确认减项至 80：成本调为 80，已付现金不减——「退多付款不减正确费用」）。
-     * 已挂应付时金额修订不改应付总额（应付清偿按实际付款）；审计留痕新旧金额。
+     * 无有效付款时同步原应付金额；已有付款时不重写财务应付或付款。
      */
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> revise(PostSnapshot post, long expenseId, BigDecimal newAmount,
                                       String note, String idempotencyKey) {
-        FrEngExpenseDO expense = expenses.selectById(expenseId);
+        FrEngExpenseDO expense = expenses.lockByCompany(post.orgId(), expenseId);
         if (expense == null || expense.getCompanyId() != post.orgId()
                 || FrEngExpenseDO.STATUS_CANCELLED.equals(expense.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "费用不存在或已取消");
@@ -173,6 +173,10 @@ public class EngExpenseService {
         var replayed = commands.replayed(post, idempotencyKey, canonical);
         if (replayed.isPresent()) {
             return view(post, expense.getProjectId(), expenseId);
+        }
+        if (expense.getPayableId() != null) {
+            payables.syncUnpaidExpenseAmount(post, expense.getProjectId(), expenseId, expense.getPayableId(),
+                    newCents, "ex-pay:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(commands.requireIdempotencyKey(idempotencyKey)));
         }
         // record 与 replay 同 canonical（R2 P2：字段集不同致同键重试摘要不匹配）；旧金额入日志
         expenses.updateById(new FrEngExpenseDO().setId(expenseId).setAmountCents(newCents));
