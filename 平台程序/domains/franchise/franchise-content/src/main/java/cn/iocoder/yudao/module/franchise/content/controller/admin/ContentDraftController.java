@@ -51,13 +51,25 @@ public class ContentDraftController {
                 .toList());
     }
 
+    @GetMapping("/drafts/{id}")
+    @Operation(summary = "我的作品详情")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<Map<String, Object>> workDetail(@PathVariable("id") long id) {
+        PostSnapshot post = post();
+        FrContentDraftDO row = drafts.workOfAuthor(post.orgId(), post.userId(), id);
+        return success(Map.of(
+                "workId", row.getId().toString(),
+                "title", row.getTitle(),
+                "script", row.getScript() == null ? "" : row.getScript()));
+    }
+
     @PutMapping("/drafts/{id}/status")
     @Operation(summary = "作品状态（draft|saved）")
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> updateDraftStatus(@PathVariable("id") Long id,
                                                                @RequestBody Map<String, Object> body) {
         PostSnapshot post = post();
-        FrContentDraftDO row = drafts.updateWorkStatus(post.orgId(), id, String.valueOf(body.get("status")));
+        FrContentDraftDO row = drafts.updateWorkStatus(post.orgId(), post.userId(), id, String.valueOf(body.get("status")));
         return success(Map.of("id", row.getId(), "status", row.getStatus()));
     }
 

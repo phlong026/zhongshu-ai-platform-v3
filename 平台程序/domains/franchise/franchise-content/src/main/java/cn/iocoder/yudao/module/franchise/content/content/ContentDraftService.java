@@ -98,11 +98,19 @@ public class ContentDraftService {
                 .orderByDesc(FrContentDraftDO::getUpdateTime));
     }
 
-    public FrContentDraftDO updateWorkStatus(long companyId, long workId, String status) {
+    public FrContentDraftDO workOfAuthor(long companyId, long userId, long workId) {
+        FrContentDraftDO row = workOf(companyId, workId);
+        if (!java.util.Objects.equals(row.getAuthorUserId(), userId)) {
+            throw exception(WORK_INVALID);
+        }
+        return row;
+    }
+
+    public FrContentDraftDO updateWorkStatus(long companyId, long userId, long workId, String status) {
         if (!"draft".equals(status) && !"saved".equals(status)) {
             throw exception(INPUT_INVALID);
         }
-        FrContentDraftDO row = workOf(companyId, workId);
+        FrContentDraftDO row = workOfAuthor(companyId, userId, workId);
         row.setStatus(status);
         drafts.updateById(row);
         return row;
