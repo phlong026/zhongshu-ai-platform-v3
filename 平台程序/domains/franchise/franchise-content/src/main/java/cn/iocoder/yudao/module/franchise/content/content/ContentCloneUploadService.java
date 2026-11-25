@@ -126,7 +126,10 @@ public class ContentCloneUploadService {
         finally { IMPORT_SLOTS.release(); }
     }
 
-    private Map<String,Object> importOwnedAsset(PostSnapshot post, long persona, String kind, long assetId) {
+    private record VerifiedSource(String mime, AssetAccessPort.ContentMetadata meta, AssetAccessPort.ContentMedia media,
+                                  AssetAccessPort.Actor actor) { }
+
+    private VerifiedSource verifySource(PostSnapshot post, long persona, String kind, long assetId) {
         persona(post, persona);
         if (kind == null || !Set.of("AVATAR", "VOICE").contains(kind) || assetId <= 0) throw invalid("请选择人物视频或声音素材");
         if (assets == null || accounts == null) throw invalid("素材处理通道尚未配置");
@@ -146,35 +149,62 @@ public class ContentCloneUploadService {
             throw invalid("AVATAR".equals(kind) ? "人物视频需为5秒至30分钟" : "声音样本需为5秒至3分钟");
         if ("AVATAR".equals(kind) && (Math.min(source.width(), source.height()) < 360
                 || Math.max(source.width(), source.height()) > 4096)) throw invalid("人物视频分辨率需为360p至4K");
+        return new VerifiedSource(mime, meta, source, actor);
+    }
+
+    private Map<String,Object> importOwnedAsset(PostSnapshot post, long persona, String kind, long assetId) {
+        var verified = verifySource(post, persona, kind, assetId);
+        var meta = verified.meta();
         var existing = imports(post, persona, kind, assetId);
-        if (!existing.isEmpty() && "UPLOADED".equals(existing.get(0).get("status"))) return importedReceipt(existing.get(0));
-        long candidate = IdWorker.getId();
-        jdbc.update("""
-                INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,
-                  provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at,source_asset_id)
-                VALUES(?,?,?,?,?,?,?,?,?,?,'ISSUED',?,?) ON CONFLICT DO NOTHING
-                """, candidate, post.orgId(), persona, post.userId(), post.postId(), kind, "asset-import:" + candidate,
-                mime, meta.sizeBytes(), meta.sha256(), Timestamp.from(Instant.now().plusSeconds(900)), assetId);
+        if (existing.isEmpty()) {
+            long candidate = IdWorker.getId();
+            jdbc.update("""
+                    INSERT INTO fr_content_hifly_upload(id,company_id,persona_id,author_user_id,author_post_id,kind,
+                      provider_file_id,mime_type,size_bytes,declared_sha256,status,expires_at,source_asset_id)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,'ISSUED',?,?) ON CONFLICT DO NOTHING
+                    """, candidate, post.orgId(), persona, post.userId(), post.postId(), kind, "asset-import:" + candidate,
+                    verified.mime(), meta.sizeBytes(), meta.sha256(), Timestamp.from(Instant.now().plusSeconds(900)), assetId);
+        }
         var row = imports(post, persona, kind, assetId).get(0);
-        long id = ((Number) row.get("id")).longValue();
         if (!meta.sha256().equals(row.get("declared_sha256"))) throw invalid("素材内容已变化，请重新选择");
-        if ("UPLOADED".equals(row.get("status"))) return importedReceipt(row);
+        // Keep the current mini-program receipt shape: it has uploaded to our
+        // platform, not to the provider. ISSUED remains an untransferred intent.
+        return importedReceipt(row);
+    }
+
+    public Uploaded requireAuthorizedUpload(PostSnapshot post, long persona, long id, String kind, String consentVersion) {
+        ContentCloneService.requireConsent(consentVersion);
+        var row = checkedUpload(post, persona, id, kind);
+        if (row.get("source_asset_id") == null) return requireUploaded(post, persona, id, kind);
+        if (!IMPORT_SLOTS.tryAcquire()) throw retryable("素材处理繁忙，请稍后重试同一素材");
+        try {
+            long assetId = ((Number) row.get("source_asset_id")).longValue();
+            var source = verifySource(post, persona, kind, assetId);
+            if (!source.meta().sha256().equals(row.get("declared_sha256"))) throw invalid("素材内容已变化，请重新选择");
+            if (!"UPLOADED".equals(row.get("status"))) transferAuthorized(post, persona, id, kind, assetId, source);
+            return requireUploaded(post, persona, id, kind);
+        } finally { IMPORT_SLOTS.release(); }
+    }
+
+    private void transferAuthorized(PostSnapshot post, long persona, long id, String kind, long assetId, VerifiedSource source) {
         String lease = UUID.randomUUID().toString();
         if (jdbc.update("""
                 UPDATE fr_content_hifly_upload SET import_token=?,import_until=now()+interval '180 seconds'
                  WHERE id=? AND status='ISSUED' AND (import_until IS NULL OR import_until<now())
-                """, lease, id) != 1) throw retryable("素材正在确认上传，请稍后重试同一素材");
+                """, lease, id) != 1) {
+            if ("UPLOADED".equals(owned(post,id).get("status"))) return;
+            throw retryable("素材正在确认上传，请稍后重试同一素材");
+        }
         try {
             persona(post, persona);
             var grant = provider.uploadGrant("AVATAR".equals(kind) ? "mp4" : "mp3", new ProviderCallAudit(post.orgId(), id));
-            provider.uploadFile(grant, source.bytes());
+            provider.uploadFile(grant, source.media().bytes());
             // Recheck the live source and persona after IO; revoked access cannot publish a usable receipt.
-            persona(post, persona); assets.contentMetadata(actor, assetId);
+            persona(post, persona); assets.contentMetadata(source.actor(), assetId);
             if (jdbc.update("""
                     UPDATE fr_content_hifly_upload SET provider_file_id=?,status='UPLOADED',completed_at=now(),import_token=NULL,import_until=NULL
                      WHERE id=? AND status='ISSUED' AND import_token=?
                     """, grant.fileId(), id, lease) != 1) throw retryable("素材上传结果待确认，请重试同一素材");
-            return importedReceipt(imports(post, persona, kind, assetId).get(0));
         } catch (ContentProviderException unavailable) {
             throw retryable(unavailable.getMessage());
         } finally {
@@ -188,16 +218,21 @@ public class ContentCloneUploadService {
     }
     private static Map<String,Object> importedReceipt(Map<String,Object> row) {
         var result = new LinkedHashMap<>(receipt(((Number) row.get("id")).longValue()));
+        if (!"UPLOADED".equals(row.get("status"))) result.put("providerStatus", "NOT_SENT");
         result.put("assetId", row.get("source_asset_id").toString()); result.put("mimeType", row.get("mime_type"));
         result.put("sizeBytes", row.get("size_bytes")); return result;
     }
 
-    public Uploaded requireUploaded(PostSnapshot post,long persona,long id,String kind) {
+    private Map<String,Object> checkedUpload(PostSnapshot post,long persona,long id,String kind) {
         var row=owned(post,id);
         if (row.get("source_asset_id") != null && ((Number) row.get("author_post_id")).longValue() != post.postId())
             throw invalid("请使用发起上传的岗位");
         if(((Number)row.get("persona_id")).longValue()!=persona)throw invalid("请使用当前人物的素材");
         if(!kind.equals(row.get("kind")))throw invalid("AVATAR".equals(kind)?"请上传MP4或MOV人物视频":"请上传MP3、M4A或WAV声音样本");
+        return row;
+    }
+    public Uploaded requireUploaded(PostSnapshot post,long persona,long id,String kind) {
+        var row=checkedUpload(post,persona,id,kind);
         if(!"UPLOADED".equals(row.get("status")))throw invalid("素材尚未上传完成");
         media(kind,(String)row.get("mime_type"),((Number)row.get("size_bytes")).longValue(),(String)row.get("declared_sha256"));
         return new Uploaded(id,(String)row.get("provider_file_id"),(String)row.get("declared_sha256"));

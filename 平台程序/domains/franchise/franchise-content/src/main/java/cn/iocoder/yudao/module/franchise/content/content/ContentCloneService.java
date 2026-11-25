@@ -76,16 +76,20 @@ public class ContentCloneService {
     private CloneRow require(long company,long id) {
         return jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND id=?",mapper,company,id).stream().findFirst().orElseThrow(()->invalid("分身或声音不存在或无权使用"));
     }
+    public static void requireConsent(String consent) {
+        if(!CONSENT_VERSION.equals(consent))throw invalid("请在最新版小程序确认本人素材或已获授权，再提交飞影制作");
+    }
     public Map<String,Object> create(PostSnapshot post,long persona,String kind,String title,long source,String consent,String key,long credits) {
         subject(kind); personas.requireWritable(post,persona); requirePersona(post.orgId(),persona,true);
         String clean=title==null?"":title.trim();
         if(clean.isEmpty()||clean.length()>20||key==null||key.isBlank()||key.length()>100||credits<1)throw invalid("请填写20字内的名称，并确认制作价格");
-        if(!CONSENT_VERSION.equals(consent))throw invalid("请确认本人素材或已获授权，允许在本公司制作和使用分身、声音");
+        requireConsent(consent);
         String hash=hash(List.of(persona,kind,clean,source,consent,credits).toString());
         var replay=jdbc.query("SELECT * FROM fr_content_digital_clone WHERE company_id=? AND author_user_id=? AND idempotency_key=?",mapper,post.orgId(),post.userId(),key);
         if(!replay.isEmpty()) { if(!hash.equals(replay.get(0).hash()))throw invalid("请求参数已变化，请重新确认制作"); return view(replay.get(0)); }
         if(properties.getProvider()!=ContentProviderProperties.ProviderMode.REAL||!provider.configured())throw invalid("数字人制作服务尚未配置");
-        var uploaded=uploads.requireUploaded(post,persona,source,kind);
+        assertAccess(post,kind);
+        var uploaded=uploads.requireAuthorizedUpload(post,persona,source,kind,consent);
         long id=IdWorker.getId();
         boolean inserted=Boolean.TRUE.equals(tx.execute(status->{
             int count=jdbc.update("INSERT INTO fr_content_digital_clone(id,company_id,persona_id,author_user_id,author_post_id,kind,title,source_upload_id,source_sha256,consent_version,idempotency_key,request_hash,status,operation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'SUBMITTING',0) ON CONFLICT(company_id,author_user_id,idempotency_key) DO NOTHING",
