@@ -28,3 +28,44 @@ test('headquarters role does not gain a store project ledger shortcut',()=>{
 test('engineer payment shortcut stays within authorized project material progress',()=>{const h=harness('engineer');h.click();assert.deepEqual(h.urls,['/pages/build/record/index?id=9007199254740999&view=materials']);});
 test('cost shortcut preserves project and role permissions',()=>{for(const role of ['boss','finance','finance-lead','engineer']){const h=harness(role);h.click('costs');assert.deepEqual(h.urls,[role==='engineer'?'/pages/build/record/index?id=9007199254740999&view=settlement':'/pages/admin/finance-desk/index?view=project&id=9007199254740999']);}});
 test('loaded receipt records retain amounts and only finance roles expose financial vouchers and the current project ledger',async()=>{for(const role of ['boss','owner','finance','finance-lead','engineer','project-manager']){const h=harness(role);await h.page.refreshOnline();assert.equal(h.page.data.error,'');const row=h.page.data.collections[0],allowed=['boss','owner','finance','finance-lead'].includes(role);assert.equal(row.amountText,'¥ 100');assert.equal(row.canPreviewFile,allowed);assert.equal(row.url,allowed?'/pages/admin/finance-desk/index?view=project&id=9007199254740999':'');}});
+
+function managerHarness({eligible=true,candidates,send}={}) {
+ let session=0;
+ const calls=[], modals=[], module={exports:{}};
+ const http={currentPostId:()=> 'original',sessionGeneration:()=>session,sessionGuard:()=>{const captured=session;return ()=>captured===session;}};
+ const projects={managerCandidates:id=>{calls.push(['read',id]);return candidates?.()||Promise.resolve([{id:'9007199254741111',name:'张工（编号 1111）'},{id:'9007199254742222',name:'张工（编号 2222）'}]);},
+  changeManager:(...args)=>{calls.push(['send',...args]);return send?.(...args)||Promise.resolve({id:args[0]});}};
+ vm.runInNewContext(fs.readFileSync(path.join(root,'pages/build/record/manager-transfer.js'),'utf8'),{module,
+  wx:{showModal:o=>modals.push(o),showToast(){}},
+  require:n=>n.endsWith('/http')?http:n.endsWith('/engineering')?{projects}:{commandKey:()=> 'original-confirmed-command'}});
+ const page={...module.exports.handlers,__identity:'original:0',id:'9007199254740999',data:{view:'project',busy:false,canTransferManager:eligible},
+  setData(patch){Object.assign(this.data,patch);},refresh(){}};
+ const wxml=fs.readFileSync(path.join(root,'pages/build/record/index.wxml'),'utf8');
+ for(const handler of ['openManagerTransfer','pickManagerTransfer','confirmManagerTransfer','retryManagerTransfer'])assert(wxml.includes('="'+handler+'"'));
+ return {page,calls,modals,switchIdentity(){session++;module.exports.clear(page);}};
+}
+test('转交不默认选择同名工程师，取消不写入，确认按原长编号办理',async()=>{
+ const h=managerHarness();
+ await h.page.openManagerTransfer();
+ h.page.confirmManagerTransfer();assert.equal(h.modals.length,0);
+ h.page.pickManagerTransfer({detail:{value:'1'}});
+ h.page.confirmManagerTransfer();h.modals[0].success({confirm:false});
+ assert.equal(h.calls.length,1);
+ h.page.confirmManagerTransfer();h.modals[1].success({confirm:true});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(h.calls[1],['send','9007199254740999','9007199254742222','','original-confirmed-command']);
+ assert.equal(h.page.data.canTransferManager,false);
+});
+test('弱网保留同一次转交供核对，重试时不能改人或新发请求',async()=>{
+ let attempts=0;const h=managerHarness({send:async id=>{if(!attempts++)throw {code:-1};return {id};}});
+ await h.page.openManagerTransfer();h.page.pickManagerTransfer({detail:{value:'0'}});
+ h.page.confirmManagerTransfer();h.modals[0].success({confirm:true});await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.page.data.managerTransferPending,true);
+ h.page.pickManagerTransfer({detail:{value:'1'}});h.page.confirmManagerTransfer();assert.equal(h.modals.length,1);
+ await h.page.retryManagerTransfer();assert.deepEqual(h.calls[1],h.calls[2]);assert.equal(h.page.data.managerTransferPending,false);
+});
+test('换岗或非原负责人不提交转交',async()=>{
+ const denied=managerHarness({eligible:false});await denied.page.openManagerTransfer();assert.equal(denied.calls.length,0);
+ const stale=managerHarness();await stale.page.openManagerTransfer();stale.page.pickManagerTransfer({detail:{value:'0'}});
+ stale.page.confirmManagerTransfer();stale.switchIdentity();stale.modals[0].success({confirm:true});assert.equal(stale.calls.length,1);
+});

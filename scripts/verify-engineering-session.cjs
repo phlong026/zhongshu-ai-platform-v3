@@ -10,9 +10,13 @@ function fixture(file,P){
   const auth={currentApiPost:()=>({postId:post,orgId:post,roleCode:'engineer'})};
   const org={roles:{engineer:{}},has:()=>false,apiContext:p=>({role:p.roleCode}),navigation:()=>({tabs:[]})};
   const wx={showToast:x=>notices.push(x),switchTab:()=>{},navigateTo:()=>{}};
+  const transfer={exports:{}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/build/record/manager-transfer.js'),'utf8'),{
+    module:transfer,wx,require:n=>n.endsWith('/http')?http:n.endsWith('/engineering')?{projects:{}}:{}
+  });
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram',file),'utf8'),{
     Page:x=>{spec=x;},module:mod,wx,
-    require:name=>name==='../payment-plan'?{read:async()=>undefined,apply:()=>{}}:name.endsWith('/workspace-scope')?()=>String(post)+':'+gen:name.endsWith('/platform-engineering')?P:name.endsWith('/api/franchise/engineering')?{cameras:{list:async()=>[],playback:(...args)=>P.playback(...args)},progress:{handlers:async()=>[]}}:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
+    require:name=>name==='./manager-transfer'?transfer.exports:name==='../payment-plan'?{read:async()=>undefined,apply:()=>{}}:name.endsWith('/workspace-scope')?()=>String(post)+':'+gen:name.endsWith('/platform-engineering')?P:name.endsWith('/api/franchise/engineering')?{cameras:{list:async()=>[],playback:(...args)=>P.playback(...args)},progress:{handlers:async()=>[]}}:name.endsWith('/api/http')?http:name.endsWith('/api/auth')?auth:name.endsWith('/organization')?org:name.endsWith('/access')?{context:()=>({}),isBoss:()=>false}:name.endsWith('/view-container')?{makeFormHandlers:()=>({})}:name.endsWith('/account')?{localDate:()=> '2026-11-15'}:name.endsWith('/sample-files')?{release:()=>true}:{},
     getApp:()=>({globalData:{}}),Date,Math,Promise
   });
   spec=spec||mod.exports;
