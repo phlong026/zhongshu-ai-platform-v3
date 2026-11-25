@@ -42,14 +42,14 @@ public class FinProjectLedgerService {
         expected_stages AS (SELECT s.id,s.company_id,s.contract_id,s.stage,s.amount_cents,s.status,c.signed_date
           FROM project x JOIN fr_sale_contract c ON c.id=x.sale_contract_id AND c.company_id=x.company_id AND c.status='SIGNED' AND NOT c.deleted
           JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
-          WHERE NOT s.deleted AND s.amount_cents>0 AND s.stage IN('SIGN_AFTER','BASE_DONE','CAP_DONE','tail')),
+          WHERE NOT s.deleted AND s.amount_cents>0),
         """ + PAYABLES + """
         ,
         payments AS (SELECT m.*,p.source_ref ledger_source_ref FROM fr_fin_payment m JOIN project x ON m.company_id=x.company_id
           LEFT JOIN fr_fin_payable p ON p.id=m.payable_id AND p.company_id=x.company_id
-          WHERE m.status='已核实' AND (m.project_id=x.id OR m.payable_id IN(SELECT id FROM payables))),
+          WHERE m.status='已核实' AND NOT m.deleted AND (m.project_id=x.id OR m.payable_id IN(SELECT id FROM payables))),
         receipts AS (SELECT r.* FROM fr_fin_receipt r JOIN project x ON r.company_id=x.company_id
-          WHERE r.status IN('已登记','待登记') AND (r.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=x.company_id AND project_id=x.id) OR r.project_id=x.id
+          WHERE r.status IN('已登记','待登记') AND NOT r.deleted AND (r.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=x.company_id AND project_id=x.id) OR r.project_id=x.id
             OR EXISTS(SELECT 1 FROM fr_sale_stage_receipt s WHERE s.company_id=x.company_id AND s.contract_id=x.sale_contract_id AND s.receipt_id=r.id)
             OR EXISTS(SELECT 1 FROM fr_eng_collection c WHERE c.company_id=x.company_id AND c.project_id=x.id AND c.receipt_id=r.id))),
         ledger AS (
@@ -61,7 +61,7 @@ public class FinProjectLedgerService {
           UNION ALL SELECT f.id,CASE WHEN f.refund_direction='expense' AND f.funding_type='EMPLOYEE' THEN 'EMPLOYEE_REFUND' WHEN f.refund_direction='expense' THEN 'EXPENSE_REFUND' ELSE 'REFUND' END,f.date,f.amount_cents,
             CASE WHEN f.refund_direction='expense' THEN (SELECT ledger_source_ref FROM payments WHERE id=f.payment_id)
               ELSE (SELECT source_ref FROM receipts WHERE id=f.receipt_id) END,f.status
-            FROM fr_fin_refund f WHERE f.status='已核实' AND f.company_id=? AND
+            FROM fr_fin_refund f WHERE f.status='已核实' AND NOT f.deleted AND f.company_id=? AND
               (f.payment_id IN(SELECT id FROM payments) OR f.receipt_id IN(SELECT id FROM receipts WHERE status='已登记'))
         )
         """;
@@ -75,7 +75,7 @@ public class FinProjectLedgerService {
               COALESCE(sum(amount_cents) FILTER(WHERE type='REFUND'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='PAYMENT'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='EXPENSE_REFUND'),0),
-              COALESCE(sum(amount_cents) FILTER(WHERE type='PAYABLE' AND id NOT IN(SELECT id FROM payables WHERE source_type='reimbursement')),0) FROM ledger
+              COALESCE(sum(amount_cents) FILTER(WHERE type='PAYABLE' AND status<>'已作废' AND id NOT IN(SELECT id FROM payables WHERE source_type='reimbursement')),0) FROM ledger
             """,(rs,n)->new Summary(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),project,org,org);
         long total=jdbc.queryForObject(SCOPE+"SELECT count(*) FROM ledger",Long.class,project,org,org);
         var rows=jdbc.query(SCOPE+"SELECT * FROM ledger ORDER BY occurred_on DESC NULLS LAST,id DESC,type DESC LIMIT ? OFFSET ?",
