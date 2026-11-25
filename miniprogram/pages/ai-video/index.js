@@ -53,7 +53,7 @@ try{
     ||!['resolution','duration','ratio'].every(key=>input.parameters&&input.parameters[key]!=null))throw Error('原任务输入无法完整恢复');
   this.applyVideoForm(input);
   this.__originalTaskForm=JSON.parse(JSON.stringify(this.videoForm()));
-  // Authorize the original task before considering any local or cloud task-specific edits.
+  // 先授权原任务，再读取任务专属素材。
   await this.restoreRemoteDraft();
 }catch(error){if(this.videoAlive())this.setData({invalidMessage:'原任务输入读取失败：'+P.degradeMessage(error)+'。请重试或返回任务中心。'});}
 finally{if(this.videoAlive())this.setData({taskLoading:false});}
@@ -124,7 +124,7 @@ check();
 const upload=(path,source)=>{
   if(!path)throw Error('参考素材缺少可用文件，请移除后重新选择');
   this.__mediaUploads=this.__mediaUploads||new Map();
-  // The final draft may share an upload begun by generation; each caller checks its own page lifetime.
+  // 草稿可复用生成上传；调用方各自校验页面生命周期。
   const uploadAlive=()=>this.videoSessionValid();
   const key=JSON.stringify([path,source]);
   if(!this.__mediaUploads.has(key))this.__mediaUploads.set(key,media.upload(path,uploadAlive,source).then(id=>{if(!uploadAlive())throw Error('工作身份已变化');if(!assetId(id))throw Error('素材上传未确认，请重试');return assetId(id);}).catch(error=>{this.__mediaUploads.delete(key);throw error;}));
@@ -262,7 +262,7 @@ help() { wx.showModal({ title: '参考素材', content: '图片最多8张、视�
 optimize() {
 if (!this.data.description.trim()) { wx.showToast({ title: '请先填写画面描述', icon: 'none' }); return; }
 if (!http.token()) return wx.showToast({ title: '请先登录后再优化提示词', icon: 'none' }); // 无 token：提示登录
-// 提示词优化暂无在线通道：不再回落本地演示改写，如实提示
+// 提示词优化无在线通道，不回退演示。
 wx.showToast({ title: '提示词智能优化暂未开通，请手动调整画面描述', icon: 'none' });
 },
 async generate() {
@@ -290,11 +290,11 @@ if(retrying){
   const result=await new Promise(resolve=>wx.showModal({title:'按原内容重试',content:'如果原任务已创建，本次只恢复原任务；如果上次未提交成功，本次会按原内容创建任务并按当前规则计费。当前修改不参与本次重试。\n\n原文案：'+preview,confirmText:'确认重试',success:resolve,fail:()=>resolve({confirm:false})}));
   if(!result.confirm||!alive()||this.__videoSubmission!==submission||this.__draft?.conflicted())return;
 }
-// A replay resolves the frozen request before any new-form or material checks.
-// The server returns an existing task first, and authorizes assets if it must create one.
+// 重试先恢复冻结请求，再校验新表单。
+// 服务端先查原任务；新建时再授权素材。
 if(!retrying){
 const current=useOriginal?JSON.parse(JSON.stringify(originalForm)):this.videoForm();
-// Mode switches retain both drafts, but only the visible mode's media participates in this task.
+// 模式切换保留草稿，仅当前模式素材参与任务。
 const selected=current.mode==='frames'?{...current,references:[]}:{...current,firstFrame:'',lastFrame:'',firstFrameAssetId:'',lastFrameAssetId:''};
 const form=await this.prepareVideoMedia(selected);if(!alive())return;
 const mapped = form.parameters;
@@ -307,7 +307,7 @@ const description = form.description.trim();
 const inputs=form.mode==='reference'
   ? form.references.map(item=>({assetId:item.assetId,role:{image:'reference_image',video:'reference_video',audio:'reference_audio'}[item.type],name:item.name}))
   : [{assetId:form.firstFrameAssetId,role:'first_frame'},{assetId:form.lastFrameAssetId,role:'last_frame'}].filter(item=>item.assetId);
-// The generic CONTENT_ASSET gate supports both phone uploads and library media; all IDs stay subject to current access checks.
+// 上传与素材库共用 CONTENT_ASSET 门禁，始终校验当前访问权。
 for(const input of inputs){
   if(!input.role)throw Error('参考素材类型无效，请重新选择');
   if(input.assetId){
@@ -336,8 +336,7 @@ const nav = { url: '/pages/studio/index?view=tasks' };
 if (getCurrentPages().length >= 9) wx.redirectTo(nav); else wx.navigateTo(nav);
 }catch(error){if(alive()){
   const code=Number(error&&error.code);
-  // A definite first-attempt rejection allows correction. A later error cannot
-  // prove an uncertain original request was never accepted.
+  // 仅首次确定拒绝可修改；不确定请求不得改写原请求。
   if(!retrying&&submitted&&Number.isFinite(code)&&code>0&&code!==429&&(code<500||code>=600))this.__videoSubmission=null;
   this.setData({submissionPending:!!this.__videoSubmission});
   wx.showToast({ title: P.degradeMessage(error), icon: 'none' });

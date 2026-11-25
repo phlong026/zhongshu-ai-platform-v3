@@ -1,6 +1,6 @@
 const api = require('../api/franchise/content');
 
-// Older servers expose only resultState. A local save failure must never become a new paid generation.
+// 兼容旧服务：保存失败不得变成新的付费生成。
 function saveFailure(task) {
   return !!task && (task.saveRetryable === true || (task.resultState === 'FAILED'
     && (task.generationStatus === 'SUCCEEDED' || (!task.generationStatus && task.status === 'FAILED'))));
@@ -132,26 +132,15 @@ function rowsOf(rows) {
   return [];
 }
 
-// Task titles are fixed at submission time from the user's input, never from generated output.
 function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
-  const labels = { ai_video: 'AI视频', ai: 'AI视频', digital: '数字人口播', copy: '文案二创', remix: '文案二创', image: 'AI图片' };
-  const label = labels[kind] || 'AI创作';
-  const prefix = label + '｜';
-  const clean = value => String(value || '').replace(/^[#*\s【】《》]+|[#*\s]+$/g, '').trim();
-  const explicit = clean(title);
-  let topic = explicit || clean(sourceTitle) || String(description || text || '');
-  topic = clean(topic.split(/\r?\n/)[0]).replace(/\s+/g, ' ');
-  topic = topic.replace(/^(?:(?:请帮我|帮我|请)\s*)?(?:生成|制作|创作)(?:一个|一段|一条|一份)?\s*/, '');
-  topic = clean(topic);
-  if (topic.startsWith(prefix)) {
-    const normalizedTopic = topic.slice(prefix.length).trim();
-    const chars = Array.from(normalizedTopic);
-    return prefix + (chars.length > 24 ? chars.slice(0, 23).join('') + '…' : normalizedTopic || '未命名创作');
-  }
-  const points = Array.from(topic);
-  if (points.length > 24) topic = points.slice(0, 23).join('') + '…';
-  if (!topic) topic = '未命名创作';
-  return prefix + topic;
+  const labels={ai_video:'AI视频',ai:'AI视频',digital:'数字人口播',copy:'文案二创',remix:'文案二创',image:'AI图片'};
+  const prefix=(labels[kind]||'AI创作')+'｜';
+  let topic=String(title||sourceTitle||description||text||'').trim();
+  if(topic.startsWith(prefix))topic=topic.slice(prefix.length);
+  topic=topic.split(/\r?\n/)[0].replace(/\s+/g,' ').trim();
+  topic=topic.replace(/^(?:(?:请帮我|帮我|请)\s*)?(?:生成|制作|创作)(?:一个|一段|一条|一份)?\s*/,'').trim();
+  const chars=Array.from(topic);
+  return prefix+(chars.length>24?chars.slice(0,23).join('')+'…':topic||'未命名创作');
 }
 
 function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxConsecutiveErrors = 2 } = {}) {
@@ -180,7 +169,7 @@ function pollTask(taskId, { intervalMs = 2000, timeoutMs = 120000, onTick, maxCo
     };
     tick();
   });
-  // 立即落定（含在途请求场景，防止调用方 await 挂起）；重复 cancel/已落定后为 no-op
+  // 取消立即落定；重复取消无副作用。
   promise.cancel = () => { cancelled = true; rejectRef({ code: 0, cancelled: true, message: '轮询已取消' }); return promise; };
   return promise;
 }
