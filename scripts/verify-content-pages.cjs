@@ -62,6 +62,8 @@ assert.deepEqual(P.rowsOf({ items: 'no' }), []);
 assert.deepEqual(P.rowsOf({ total: 5 }), []);
 assert.equal(typeof P.makeTaskTitle, 'undefined');
 assert.equal(makeVideoTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }), makeTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }));
+assert.ok(Array.from(makeTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) })).length <= 33);
+assert.ok(Array.from(makeVideoTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) })).length <= 33);
 
 
 // ===== Task title contract =====
