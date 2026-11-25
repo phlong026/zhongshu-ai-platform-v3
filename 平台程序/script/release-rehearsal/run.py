@@ -294,6 +294,7 @@ run("javac","-encoding","UTF-8","-cp",str(libs/"*"),"-d",libs,probe)
 run("docker","run","--rm","--network","zhongshu-platform-b_private","--user",str(os.getuid())+":"+str(os.getgid()),
     "--volume",str(libs)+":/probe:ro","--volume",str(app_user_file)+":/fixture-pass:ro","--entrypoint","java",ref,
     "-cp","/probe/*:/probe","cn.iocoder.yudao.module.platform.wallet.orgpoint.WalletProbe",capture=False)
+record("simulatedPurchasesRejectedWithoutLedgerChanges",True)
 record("formalTaskCannotUseTestPoints",True)
 compose(newenv,"stop","api")
 ops(newenv,"rollback","--image",oldref,"--schema-compatible")
