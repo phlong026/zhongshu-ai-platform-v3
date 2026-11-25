@@ -45,7 +45,7 @@
     <view wx:for="{{item.stages}}" wx:for-item="stage" wx:key="stage" class="commission-stage">
       <view class="commission-stage-heading"><text>{{stage.label}}</text><text class="commission-state {{stage.reviewDue?'warning':''}}">{{stage.status}}</text></view>
       <view class="commission-stage-amount"><text>本期提成</text><text>{{stage.amountText}}</text></view>
-      <view class="commission-money-grid"><view><text class="commission-label">已付</text><text class="commission-money">{{stage.paidText}}</text></view><view><text class="commission-label">未付</text><text class="commission-money">{{stage.outstandingText}}</text></view></view>
+      <view class="commission-money-grid"><view><text class="commission-label">{{stage.paymentReturned?'净已付':'已付'}}</text><text class="commission-money">{{stage.paidText}}</text></view><view><text class="commission-label">{{stage.paymentReturned?'差额':'未付'}}</text><text class="commission-money">{{stage.outstandingText}}</text></view></view>
       <view class="commission-collection"><text>阶段应收 {{stage.requiredText}}</text><text>净实收 {{stage.receivedText}}</text></view>
       <text wx:if="{{stage.reason}}" class="commission-reason {{stage.reviewDue?'warning':''}}">{{stage.reason}}</text>
       <button wx:for="{{stage.evidenceIds}}" wx:for-item="fileId" wx:key="*this" class="owner-link" data-id="{{fileId}}" bindtap="openCommissionEvidence">查看核对凭据 {{index+1}}</button>

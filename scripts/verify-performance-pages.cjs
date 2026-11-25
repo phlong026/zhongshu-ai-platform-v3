@@ -114,6 +114,14 @@ ok('付清后退款：回款缺口、提成支付差额及核对前后入口', (
     && pending.diffText === '¥ 0' && done.status === '已付清 · 已核对' && !done.canReconcile
     && !finance.canPay && !finance.canRelease && !finance.canReconcile;
 })());
+ok('提成全额退回且客户回款不足：老板仍可核对，财务不能登记付款', (() => {
+  const stage={stage:'SIGN_AFTER',amountCents:10000,paidCents:0,grossPaidCents:10000,
+    appliedPaymentReturnCents:10000,outstandingCents:10000,eligible:false,payableId:1,reviewDue:true,status:'待人工核对'};
+  const view=role=>P.commissionRowView({stages:[stage]},role,'项目').stages[0];
+  return view('boss').canReconcile && view('boss').paymentReturned && view('boss').reason.includes('提成付款有退回')
+    && !view('finance').canPay && !view('finance').canReconcile;
+})());
+
 ok('commissionRowView：assigneeUserId 字符串保留（Codex P1-6）', (() => {
   // 后端 JSON 返回的 Long 是十进制字符串；用字符串模拟（JS number 字面量在本测试文件解析时就已丢精度）
   const v = P.commissionRowView({ policyId: 1, projectId: 7, totalCents: 1, assigneeUserId: '9223372036854775806',
