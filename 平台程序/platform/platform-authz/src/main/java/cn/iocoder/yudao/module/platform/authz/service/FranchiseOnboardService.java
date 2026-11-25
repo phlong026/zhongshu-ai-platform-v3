@@ -25,6 +25,7 @@ public class FranchiseOnboardService {
     @Resource private SystemDirectory directory;
     @Resource private OrgUnitMapper units;
     @Resource private JdbcTemplate jdbc;
+    @Resource private org.springframework.context.ApplicationEventPublisher events;
 
     public record Preview(String orgName, String loginName, List<String> aliases, String areaPinyin, String ownerPinyin) { }
     public record Result(long orgId, long adminUserId, long postId, boolean reusedOrg, boolean reusedUser,
@@ -135,6 +136,7 @@ public class FranchiseOnboardService {
                 rs -> rs.next() ? rs.getBoolean(1) : false, tenant, userId));
         List<String> aliases = jdbc.queryForList("SELECT alias FROM pf_franchise_account_alias WHERE tenant_id=? AND account_id=? ORDER BY alias",
                 String.class, tenant, accountId);
+        events.publishEvent(new cn.iocoder.yudao.module.platform.org.CompanyAccountRegistered(tenant, orgId));
         return new Result(orgId, userId, postId, reusedOrg, reusedUser, description.orgName(), login,
                 aliases, initial, requiresChange, accountId);
     }

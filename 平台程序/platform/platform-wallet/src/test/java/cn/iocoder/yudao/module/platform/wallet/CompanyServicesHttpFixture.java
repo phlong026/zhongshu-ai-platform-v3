@@ -53,7 +53,8 @@ final class CompanyServicesHttpFixture {
         var source=jdbc.getDataSource();
         var refunds=new RefundPaymentService(source,manager,scope,new PointAccountService(source),payment,new PaymentFactValidator());
         this.recovery=new WalletRecoveryJob(source,manager,payment,refunds,new WechatXPayProperties(),beans.getBeanProvider(PaymentPort.class));
-        this.hq=new PostSnapshot(peer.postId(),peer.userId(),peer.orgId(),"headquarters","boss",null,false,Set.of());
+        this.hq=new PostSnapshot(peer.postId(),peer.userId(),peer.orgId(),"headquarters","hq-admin",null,false,Set.of());
+        jdbc.execute("CREATE TABLE IF NOT EXISTS pf_org_profile (tenant_id bigint,org_id bigint,address varchar(300),PRIMARY KEY(tenant_id,org_id))");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('store','test','门店') ON CONFLICT DO NOTHING");
         seedStore(alpha,"品牌甲","余杭","甲一店"); seedStore(peer,"品牌甲","西湖","甲二店"); seedStore(beta,"品牌乙","余杭","乙一店");
         var directory=mock(SystemDirectory.class);
@@ -79,6 +80,8 @@ final class CompanyServicesHttpFixture {
             INSERT INTO pf_franchise_account(account_id,tenant_id,org_id,user_id,login_name,org_name,owner_name,brand,province,city,area,area_pinyin,owner_pinyin,created_by)
             VALUES(?,?,?,?,?,?,'示例',?,'浙江','杭州',?,'area','owner',1)
             """,UUID.randomUUID().toString(),tenant,p.orgId(),p.userId(),"b-"+p.orgId(),name,brand,district);
+        assertEquals(1, jdbc.update("UPDATE pf_franchise_directory SET public_name=? WHERE tenant_id=? AND org_id=?",
+                name,tenant,p.orgId()), "the store account must project exactly one directory entry");
     }
 
     void run(long planId,String runner) throws Exception {

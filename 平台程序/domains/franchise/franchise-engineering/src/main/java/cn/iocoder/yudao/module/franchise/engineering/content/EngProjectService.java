@@ -56,6 +56,8 @@ public class EngProjectService {
     private final StaffPostService staffPosts;
     private final JdbcTemplate jdbcTemplate;
     private final SystemDirectory systemDirectory;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.franchise.api.CommissionQueryPort commissionQuery;
 
     public EngProjectService(FrEngProjectMapper projects, FrEngDocumentMapper documents,
                              FrEngPlanVersionMapper planVersions, FrEngPlanNodeMapper planNodes,
@@ -212,12 +214,22 @@ public class EngProjectService {
                                     long managerUserId, String drawingVersion, String drawingFile,
                                     List<Map<String, String>> documentRows,
                                     Long saleContractId, String frozenSchemeVersion) {
+        List<FrEngProjectDO> existing = projects.selectByCommission(post.orgId(), commissionId);
+        Long linked = saleContractId == null ? null : contractProject(post.orgId(), saleContractId);
+        // Prepare/start already lock project then contract. Reuse must use that same order.
+        var lockedProjects=new java.util.TreeSet<Long>();
+        existing.forEach(p -> lockedProjects.add(p.getId()));
+        if (linked!=null) lockedProjects.add(linked);
+        lockedProjects.forEach(projects::lockById);
         if (saleContractId != null) {
             jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE company_id=? AND id=? FOR UPDATE",
                     Long.class, post.orgId(), saleContractId);
+            // A manual project may have been created while this transaction waited for its contract.
+            // Retry with that project first instead of taking a newly discovered project lock in reverse order.
+            Long freshLinked=contractProject(post.orgId(),saleContractId);
+            if (!java.util.Objects.equals(linked,freshLinked)) throw exception(
+                    cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
         }
-        List<FrEngProjectDO> existing = projects.selectByCommission(post.orgId(), commissionId);
-        Long linked = saleContractId == null ? null : contractProject(post.orgId(), saleContractId);
         if (linked != null && !existing.isEmpty() && !linked.equals(existing.get(0).getId())) {
             throw exception(ENGINEERING_INPUT_INVALID, "该委托与合同已关联不同工程，请核对移交档案");
         }
@@ -464,6 +476,13 @@ public class EngProjectService {
         view.put("floors", project.getFloors());
         view.put("sourceType", project.getSourceType());
         view.put("sourceCommissionId", project.getSourceCommissionId());
+        var handover = commissionQuery==null || project.getSourceCommissionId()==null ? null
+                : commissionQuery.findHandoverContext(post.orgId(),project.getSourceCommissionId());
+        boolean externalHandover=handover!=null && "EXTERNAL".equals(handover.mode());
+        view.put("handoverMode",handover==null?null:handover.mode());
+        view.put("externalHandoverVersion",externalHandover?handover.version():null);
+        view.put("canReadHandover",full && externalHandover);
+        view.put("handoverPaymentPlan",full && handover!=null?handover.paymentPlan():null);
         view.put("parentProjectId", project.getParentProjectId());
         view.put("managerUserId", project.getManagerUserId());
         String managerName = project.getManagerUserId() == null ? "" : systemDirectory.usersByIds(List.of(project.getManagerUserId())).stream()
@@ -483,10 +502,11 @@ public class EngProjectService {
             view.put("saleContractId", project.getSaleContractId());
             view.put("customerId", project.getCustomerId());
             view.put("contractVersion", project.getContractVersion());
+            view.put("paymentPlanVersion",project.getPaymentPlanVersion());
             view.put("contractDate", project.getContractDate());
             view.put("contractAssetId", project.getContractAssetId());
         }
-        view.put("documents", documents.selectByProject(post.orgId(), projectId).stream().map(d -> {
+        view.put("documents", externalHandover && !full ? List.of() : documents.selectByProject(post.orgId(), projectId).stream().map(d -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", d.getId());
             row.put("name", d.getName());

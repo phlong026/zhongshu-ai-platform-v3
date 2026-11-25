@@ -27,6 +27,17 @@ class FranchiseOnboardIntegrationTest extends PlatformPgIntegrationTest {
     @TestConfiguration
     static class Config {
         @Bean Directory directory() { return new Directory(); }
+        @Bean RegisteredCompanies registeredCompanies() { return new RegisteredCompanies(); }
+    }
+
+    static class RegisteredCompanies {
+        final java.util.List<cn.iocoder.yudao.module.platform.org.CompanyAccountRegistered> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        boolean fail;
+        @org.springframework.context.event.EventListener
+        public void registered(cn.iocoder.yudao.module.platform.org.CompanyAccountRegistered event) {
+            events.add(event);
+            if (fail) throw new IllegalStateException("公司额度开户失败");
+        }
     }
 
     static class Directory extends FakeSystemDirectoryForOnboard {
@@ -51,10 +62,13 @@ class FranchiseOnboardIntegrationTest extends PlatformPgIntegrationTest {
     @Resource private StaffAccountOnboardService staffAccounts;
     @Resource private Directory directory;
     @Resource private JdbcTemplate jdbc;
+    @Resource private RegisteredCompanies registeredCompanies;
     private static final java.util.concurrent.atomic.AtomicLong IDS = new java.util.concurrent.atomic.AtomicLong(100);
 
     @BeforeEach
     void setup() {
+        registeredCompanies.events.clear();
+        registeredCompanies.fail = false;
         TenantContextHolder.setTenantId(IDS.incrementAndGet());
         jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('store','test','加盟门店') ON CONFLICT DO NOTHING");
         jdbc.update("INSERT INTO pf_post_template(role_code, domain, org_types, line, lead) VALUES ('boss','test','store,t-store,t-hq,headquarters','management',FALSE) ON CONFLICT (role_code) DO UPDATE SET org_types='store,t-store,t-hq,headquarters'");
@@ -67,6 +81,28 @@ class FranchiseOnboardIntegrationTest extends PlatformPgIntegrationTest {
 
     private FranchiseOnboardService.Result open(String owner, String mobile) {
         return service.onboard("合家美宅", "江西省", "南昌市", "高新区", owner, mobile, null, null, "测试开通", 9L);
+    }
+
+    @Test
+    void successfulNewAndRepeatedRegistrationPublishCompanyPoolIdentity() {
+        var first = open("开户测试", "13800100901");
+        var repeated = open("开户测试", "13800100901");
+        var expected = new cn.iocoder.yudao.module.platform.org.CompanyAccountRegistered(
+                TenantContextHolder.getRequiredTenantId(), first.orgId());
+        assertThat(repeated.orgId()).isEqualTo(first.orgId());
+        assertThat(registeredCompanies.events).containsExactly(expected, expected);
+        assertThatThrownBy(() -> open("开户测试", "13800100902")).hasMessageContaining("已开通");
+        assertThat(registeredCompanies.events).hasSize(2);
+    }
+
+    @Test
+    void companyPoolFailureRollsBackTheActualRegistration() {
+        registeredCompanies.fail = true;
+        assertThatThrownBy(() -> open("回滚测试", "13800100903")).hasMessageContaining("公司额度开户失败");
+        long orgId = registeredCompanies.events.get(0).orgId();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_franchise_account WHERE org_id=?", Long.class, orgId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_staff_post WHERE org_id=?", Long.class, orgId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_org_unit WHERE org_id=?", Long.class, orgId)).isZero();
     }
 
     @Test

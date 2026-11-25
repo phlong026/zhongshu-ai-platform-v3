@@ -19,6 +19,15 @@ public interface SaleContractQueryPort {
      */
     StageAmounts findStageAmounts(PostSnapshot post, long customerId);
 
+    /** Formal receivables come only from a signed contract, never a draft entrustment. */
+    default PaymentPlan findPaymentPlan(PostSnapshot post, long customerId) { return null; }
+    default PaymentPlan findPaymentPlanById(PostSnapshot post, long contractId) { return null; }
+
+    record PaymentPlan(long contractId, long revision, int version, long totalCents, Long assetId,
+                       java.util.List<PaymentStage> stages) {}
+    record PaymentStage(long id, String key, String label, int sequence, long amountCents,
+                        Integer ratioBps, java.time.LocalDate dueDate, String trigger, Integer nodeIndex) {}
+
     /** 三期约定（分；baseDone/capDone 允许 0=未约定，Σ=合同总额） */
     record StageAmounts(long signAfterCents, long baseDoneCents, long capDoneCents) {
     }

@@ -30,6 +30,8 @@ public class SaleContractDO {
     private Long assetId;
     private String status;
     private Long revision;
+    private Integer paymentPlanVersion;
+    private String paymentPlanMode;
     private Long requirementId;
     private Long authorUserId;
     private OffsetDateTime createTime;

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort.Slot;
+import cn.iocoder.yudao.module.franchise.api.HeadquartersDocumentAccessPort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
@@ -47,7 +48,8 @@ public class LocalAssetService implements AssetAccessPort {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Map<String, Long> MAX_BYTES = Map.of(
             "FIN_VOUCHER", 20L << 20, "ENG_DRAWING", 30L << 20, "ENG_SITE_PHOTO", 10L << 20,
-            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20, "DESIGN_DELIVERABLE", 20L << 20);
+            "CONTRACT_ATTACHMENT", 20L << 20, "CONTENT_ASSET", 50L << 20, "DESIGN_REFERENCE", 20L << 20, "DESIGN_DELIVERABLE", 20L << 20,
+            "BUSINESS_DOCUMENT", 30L << 20);
     private final AssetSpool spool = new AssetSpool(java.nio.file.Path.of(System.getProperty("platform.asset.spool-dir",
             java.nio.file.Path.of(System.getProperty("user.home"),".zhongshu","asset-spool").toString())),
             Long.getLong("platform.asset.spool-max-bytes",384L << 20));
@@ -63,6 +65,25 @@ public class LocalAssetService implements AssetAccessPort {
     private final StoreServiceAccountPort accounts;
     private final CommissionDeliverableAccessPort deliverables;
     private java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> visibilityPolicies = java.util.List.of();
+    private cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort workflowScopes;
+    private HeadquartersDocumentAccessPort headquartersDocuments;
+
+    @Autowired(required = false)
+    public void setHeadquartersDocuments(HeadquartersDocumentAccessPort access) {
+        this.headquartersDocuments = access;
+    }
+
+    private cn.iocoder.yudao.module.franchise.api.ContractDocumentAccessPort contractScopes;
+
+    @Autowired(required = false)
+    public void setContractScopes(cn.iocoder.yudao.module.franchise.api.ContractDocumentAccessPort scopes) {
+        this.contractScopes = scopes;
+    }
+
+    @Autowired(required = false)
+    public void setWorkflowScopes(cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort scopes) {
+        this.workflowScopes = scopes;
+    }
 
     @Autowired(required = false)
     public void setVisibilityPolicies(java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> policies) {
@@ -279,9 +300,57 @@ public class LocalAssetService implements AssetAccessPort {
         long tenant = authorize(actor);
         Asset asset = accepted(tenant, actor, id);
         requireChannel(actor, asset.type());
+        requireContractAssetVisibility(asset);
         String token = issueDownload(tenant, actor, id);
         return new DownloadUrlView("/admin-api/franchise/assets/" + id + "/content?token=" + token,
                 Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    @Override
+    public DownloadUrlView createContractDownloadUrl(Actor actor, long contractId, long assetId) {
+        long tenant = authorize(actor);
+        Asset asset = accepted(tenant, actor, assetId);
+        requireContractScope(contractId, asset);
+        requireChannel(actor, asset.type());
+        String token = token();
+        db("issue-contract-download", assetId, () -> jdbc.update("INSERT INTO fr_asset_download_ticket"
+                        + " (token_hash,asset_id,tenant_id,org_id,user_id,post_id,expires_at,scope_contract_id)"
+                        + " VALUES (?,?,?,?,?,?,?,?)", hash(token), assetId, tenant, actor.orgId(), actor.userId(), actor.postId(),
+                Timestamp.from(Instant.now().plusSeconds(DOWNLOAD_TTL)), contractId));
+        return new DownloadUrlView("/admin-api/franchise/assets/" + assetId + "/content?token=" + token,
+                Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    private void requireContractScope(long contractId, Asset asset) {
+        if (contractScopes == null || !"CONTRACT_ATTACHMENT".equals(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+        contractScopes.requireReadable(posts.require(), contractId, asset.id());
+    }
+    private void requireContractAssetVisibility(Asset asset) {
+        if (!"CONTRACT_ATTACHMENT".equals(asset.type())) return;
+        if (contractScopes == null) throw exception(RESOURCE_FORBIDDEN);
+        contractScopes.requireAssetReadable(posts.require(), asset.id());
+    }
+
+    @Override
+    public DownloadUrlView createWorkflowDownloadUrl(Actor actor, long customerId, String stepCode, long assetId) {
+        long tenant = authorize(actor);
+        requireWorkflowScope(customerId, stepCode, assetId);
+        requireWorkflowType(accepted(tenant, actor, assetId));
+        String token = token();
+        db("issue-workflow-download", assetId, () -> jdbc.update("INSERT INTO fr_asset_download_ticket"
+                        + " (token_hash,asset_id,tenant_id,org_id,user_id,post_id,expires_at,scope_customer_id,scope_workflow_step)"
+                        + " VALUES (?,?,?,?,?,?,?,?,?)", hash(token), assetId, tenant, actor.orgId(), actor.userId(), actor.postId(),
+                Timestamp.from(Instant.now().plusSeconds(DOWNLOAD_TTL)), customerId, stepCode));
+        return new DownloadUrlView("/admin-api/franchise/assets/" + assetId + "/content?token=" + token,
+                Instant.now().plusSeconds(DOWNLOAD_TTL).toEpochMilli());
+    }
+
+    private void requireWorkflowScope(long customerId, String step, long assetId) {
+        if (workflowScopes == null) throw exception(RESOURCE_FORBIDDEN);
+        workflowScopes.requireReadable(posts.require(), customerId, step, assetId);
+    }
+    private void requireWorkflowType(Asset asset) {
+        if (!java.util.Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE").contains(asset.type())) throw exception(RESOURCE_FORBIDDEN);
     }
 
     @Override
@@ -317,8 +386,16 @@ public class LocalAssetService implements AssetAccessPort {
             throw exception(RESOURCE_FORBIDDEN);
         }
         var owner = new Actor(ref.ownerOrgId(), ownerAccount, consumer.userId(), consumer.postId());
-        Asset asset = accepted(tenant, owner, ref.assetId());
-        String type = ref.slot() == Slot.CONFIRMATION ? "CONTRACT_ATTACHMENT" : "DESIGN_DELIVERABLE";
+        Asset asset;
+        if (ref.slot().external()) {
+            // The customer may not be readable through CRM by the designated engineer. Only the persisted packet grant
+            // supplies this owner; generic BUSINESS_DOCUMENT reads still go through CustomerWorkflowAssetPolicy.
+            asset = loadOwned(tenant, ref.ownerOrgId(), ownerAccount, ref.assetId());
+            if (asset == null || !"ACCEPTED".equals(asset.status()) || asset.objectKey() == null
+                    || asset.acceptedSize() <= 0 || !isSha256(asset.acceptedSha())) throw exception(RESOURCE_FORBIDDEN);
+        } else asset = accepted(tenant, owner, ref.assetId());
+        String type = ref.slot().external() ? "BUSINESS_DOCUMENT"
+                : ref.slot() == Slot.CONFIRMATION ? "CONTRACT_ATTACHMENT" : "DESIGN_DELIVERABLE";
         if (!type.equals(asset.type())) throw exception(RESOURCE_FORBIDDEN);
         return asset;
     }
@@ -326,18 +403,21 @@ public class LocalAssetService implements AssetAccessPort {
     public DownloadContent readDownload(Actor actor, long id, String token) {
         long tenant = authorize(actor);
         if (token == null || token.length() != 64) throw exception(RESOURCE_FORBIDDEN);
-        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot"
+        var tickets = db("read-download-scope", id, () -> jdbc.queryForList("SELECT owner_org_id,scope_commission_id,scope_dispatch_seq,scope_slot,scope_customer_id,scope_workflow_step,scope_contract_id"
                         + " FROM fr_asset_download_ticket WHERE token_hash=? AND asset_id=? AND tenant_id=? AND org_id=?"
                         + " AND user_id=? AND post_id=? AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP",
                 hash(token), id, tenant, actor.orgId(), actor.userId(), actor.postId()));
         if (tickets.size() != 1) throw exception(RESOURCE_FORBIDDEN);
         var ticket = tickets.get(0);
         Long commissionId = ticket.get("scope_commission_id") instanceof Number n ? n.longValue() : null;
+        Long customerId = ticket.get("scope_customer_id") instanceof Number n ? n.longValue() : null;
+        Long contractId = ticket.get("scope_contract_id") instanceof Number n ? n.longValue() : null;
+        String workflowStep = (String) ticket.get("scope_workflow_step");
         CommissionDeliverableAccessPort.DeliverableRef ref = null;
         Asset asset;
         if (commissionId == null) {
             asset = accepted(tenant, actor, id);
-            requireChannel(actor, asset.type());
+            requireDownloadScope(actor, asset, customerId, workflowStep, contractId);
         } else {
             ref = requireScope(commissionId, ((Number) ticket.get("scope_dispatch_seq")).intValue(), Slot.valueOf((String) ticket.get("scope_slot")));
             if (ref.assetId() != id || ref.ownerOrgId() != ((Number) ticket.get("owner_org_id")).longValue())
@@ -349,16 +429,77 @@ public class LocalAssetService implements AssetAccessPort {
             byte[] bytes = input.readNBytes(Math.toIntExact(MAX_BYTES.get(asset.type())) + 1);
             if (bytes.length > MAX_BYTES.get(asset.type())) throw invalid("资产大小异常");
             authorize(actor);
-            if (ref != null) {
+            if (ref == null) {
+                // Customer ownership may change while storage I/O is in flight; the ticket is not an authorization cache.
+                Asset current = accepted(tenant, actor, id);
+                requireDownloadScope(actor, current, customerId, workflowStep, contractId);
+                if (!java.util.Objects.equals(asset.objectKey(), current.objectKey())) throw exception(RESOURCE_FORBIDDEN);
+                if (("BUSINESS_DOCUMENT".equals(current.type()) || "CONTRACT_ATTACHMENT".equals(current.type()))
+                        && (bytes.length != current.acceptedSize() || !hash(bytes).equals(current.acceptedSha())))
+                    throw invalid("资料与已校验内容不一致");
+            } else {
                 var current = requireScope(ref.commissionId(), ref.dispatchSeq(), ref.slot());
                 if (!ref.equals(current)) throw exception(RESOURCE_FORBIDDEN);
-                scopedAsset(tenant, actor, current);
+                Asset confirmed = scopedAsset(tenant, actor, current);
+                if (!java.util.Objects.equals(asset.objectKey(), confirmed.objectKey())) throw exception(RESOURCE_FORBIDDEN);
+                if (current.slot().external() && (bytes.length != confirmed.acceptedSize() || !hash(bytes).equals(confirmed.acceptedSha())))
+                    throw invalid("资料与已校验内容不一致");
             }
             return new DownloadContent(bytes, asset.contentMime());
         } catch (IOException | RuntimeException e) {
             if (e instanceof ServiceException serviceException) throw serviceException;
             log.warn("B asset download failed tenant={} org={} asset={} error={}", tenant, actor.orgId(), id, e.getClass().getSimpleName());
             throw invalid("下载暂不可用，请重新申请票据");
+        }
+    }
+
+    /** Does not issue a transferable URL, create a service account, or impersonate a store post. */
+    @Override
+    public ReferenceContent readHeadquartersDocument(HeadquartersDocumentAccessPort.Request request) {
+        if (headquartersDocuments == null) throw exception(RESOURCE_FORBIDDEN);
+        var scope = headquartersDocuments.requireReadable(request);
+        Asset asset = headquartersAsset(scope);
+        try (InputStream input = storage.getObject(asset.objectKey())) {
+            byte[] bytes = input.readNBytes(Math.toIntExact(MAX_BYTES.get(asset.type())) + 1);
+            if (bytes.length == 0 || bytes.length != asset.acceptedSize() || !hash(bytes).equals(asset.acceptedSha()))
+                throw invalid("资料内容与审核摘要不一致");
+            // Recheck after storage I/O: a revoked post, switched identity or removed reference cannot finish a download.
+            var currentScope = headquartersDocuments.requireReadable(request);
+            if (!scope.equals(currentScope)) throw exception(RESOURCE_FORBIDDEN);
+            Asset current = headquartersAsset(currentScope);
+            if (!asset.objectKey().equals(current.objectKey()) || current.acceptedSize() != bytes.length
+                    || !hash(bytes).equals(current.acceptedSha())) throw exception(RESOURCE_FORBIDDEN);
+            return new ReferenceContent(bytes, current.contentMime(), current.acceptedSha());
+        } catch (IOException | RuntimeException error) {
+            if (error instanceof ServiceException serviceException) throw serviceException;
+            log.warn("B HQ document read failed tenant={} org={} asset={} error={}",
+                    scope.tenantId(), scope.ownerOrgId(), scope.assetId(), error.getClass().getSimpleName());
+            throw invalid("资料读取失败，请重试");
+        }
+    }
+
+    private Asset headquartersAsset(HeadquartersDocumentAccessPort.Scope scope) {
+        var current = posts.require();
+        if (scope == null || scope.tenantId() != tenant() || scope.readerUserId() != current.userId()
+                || scope.readerPostId() != current.postId() || scope.headquartersOrgId() != current.orgId()
+                || !"headquarters".equals(current.orgType())
+                || !Set.of("hq-admin", "finance", "finance-lead").contains(current.roleCode())) throw exception(RESOURCE_FORBIDDEN);
+        long account = accounts.requireExistingServiceAccountForTask(scope.tenantId(), scope.ownerOrgId());
+        Asset asset = loadOwned(scope.tenantId(), scope.ownerOrgId(), account, scope.assetId());
+        if (asset == null || !"ACCEPTED".equals(asset.status()) || asset.objectKey() == null
+                || !scope.allowedTypes().contains(asset.type()) || !MAX_BYTES.containsKey(asset.type())
+                || "CONTENT_ASSET".equals(asset.type()) || asset.acceptedSize() <= 0
+                || asset.acceptedSize() > MAX_BYTES.get(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+        return asset;
+    }
+
+    private void requireDownloadScope(Actor actor, Asset asset, Long customerId, String workflowStep, Long contractId) {
+        if (contractId != null) {
+            requireChannel(actor, asset.type()); requireContractScope(contractId, asset);
+        } else if (customerId != null) {
+            requireWorkflowScope(customerId, workflowStep, asset.id()); requireWorkflowType(asset);
+        } else {
+            requireChannel(actor, asset.type()); requireContractAssetVisibility(asset);
         }
     }
 
@@ -516,16 +657,26 @@ public class LocalAssetService implements AssetAccessPort {
     }
 
     private Asset load(long tenant, Actor actor, long id) {
-        Asset row = db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
+        Asset row = loadOwned(tenant, actor.orgId(), actor.serviceAccountId(), id);
+        if (row != null) {
+            var policies = visibilityPolicies.stream().filter(policy -> policy.supports(row.type())).toList();
+            // Without the customer policy, a shared company service account must not expose private documents.
+            if ("BUSINESS_DOCUMENT".equals(row.type()) && policies.isEmpty()) throw exception(RESOURCE_FORBIDDEN);
+            var resource = new cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort.Resource(id, row.type(), row.user());
+            for (var policy : policies) policy.requireReadable(tenant, actor, resource);
+        }
+        return row;
+    }
+
+    /** Raw owner lookup stays private; ordinary reads or a freshly verified persisted business grant may use it. */
+    private Asset loadOwned(long tenant, long org, long account, long id) {
+        return db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
                         + " AND service_account_id=? AND deleted=FALSE", (rs, i) -> new Asset(rs.getLong("id"), rs.getLong("tenant_id"),
                         rs.getLong("org_id"), rs.getLong("service_account_id"), rs.getLong("creator_user_id"), rs.getLong("creator_post_id"),
                         rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
                         rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
-                        rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
-        if (row != null && "CONTENT_ASSET".equals(row.type())) {
-            for (var policy : visibilityPolicies) policy.requireReadable(tenant, actor, id);
-        }
-        return row;
+                        rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")),
+                id, tenant, org, account).stream().findFirst().orElse(null));
     }
 
     private <T> T db(String operation, long id, Supplier<T> action) {
@@ -539,7 +690,7 @@ public class LocalAssetService implements AssetAccessPort {
     private static boolean mimeAllowed(String type, String mime) {
         if (mime == null || type == null) return false;
         return switch (type) {
-            case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT", "DESIGN_DELIVERABLE" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
+            case "FIN_VOUCHER", "ENG_DRAWING", "CONTRACT_ATTACHMENT", "DESIGN_DELIVERABLE", "BUSINESS_DOCUMENT" -> Set.of("image/jpeg", "image/png", "application/pdf").contains(mime);
             case "ENG_SITE_PHOTO", "DESIGN_REFERENCE" -> Set.of("image/jpeg", "image/png").contains(mime);
             case "CONTENT_ASSET" -> ContentMediaNormalizer.supported(mime);
             default -> false;

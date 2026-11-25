@@ -1,0 +1,6 @@
+-- Internal customer evidence remains in B storage and uses the ordinary byte validation/ticket chain.
+ALTER TABLE fr_asset DROP CONSTRAINT IF EXISTS fr_asset_asset_type_check;
+ALTER TABLE fr_asset ADD CONSTRAINT fr_asset_asset_type_check CHECK (
+    asset_type IN ('FIN_VOUCHER','ENG_DRAWING','ENG_SITE_PHOTO','CONTRACT_ATTACHMENT','CONTENT_ASSET',
+                   'DESIGN_REFERENCE','DESIGN_DELIVERABLE','BUSINESS_DOCUMENT')
+);

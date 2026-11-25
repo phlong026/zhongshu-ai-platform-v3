@@ -24,6 +24,19 @@ class AccountPasswordRulesTest {
     }
 
     @Test
+    void exactAccountLoginAcceptsOneCharacterWithoutRelaxingSearchOrInputBounds() {
+        assertThat(AccountPasswordRules.normalizeLoginName(" A ")).isEqualTo("a");
+        assertThat(AccountPasswordRules.normalizeLoginName("7")).isEqualTo("7");
+        assertThat(AccountPasswordRules.normalizeLoginName(" Li-Zhong ")).isEqualTo("li-zhong");
+        assertThat(AccountPasswordRules.normalizeLoginName("a".repeat(100))).hasSize(100);
+        for (String value : new String[]{null, "", "   ", "a".repeat(101), "a_b", "a b", "a%", "a'"}) {
+            assertThat(AccountPasswordRules.normalizeLoginName(value)).as(value).isNull();
+        }
+        assertThat(AccountPasswordRules.normalizeQuery("a")).isNull();
+        assertThat(AccountPasswordRules.normalizeQuery("7")).isNull();
+    }
+
+    @Test
     void normalizesOnlySupportedAccountSearchCharacters() {
         assertThat(AccountPasswordRules.normalizeQuery("  JXNC-GaoXin-LiZhong  "))
                 .isEqualTo("jxnc-gaoxin-lizhong");

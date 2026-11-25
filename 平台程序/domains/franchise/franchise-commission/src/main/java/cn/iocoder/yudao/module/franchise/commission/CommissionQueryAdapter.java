@@ -21,6 +21,20 @@ public class CommissionQueryAdapter implements CommissionQueryPort {
     private CommissionSubmissionMapper submissionMapper;
     @Resource
     private CommissionMapper commissionMapper;
+    @Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Override public HandoverContext findHandoverContext(long companyId,long commissionId) {
+        return jdbc.query("""
+                SELECT h.source_mode,h.version,h.payment_plan_snapshot::text AS payment_plan
+                FROM fr_commission c JOIN fr_commission_handover h ON h.commission_id=c.id AND h.company_id=c.company_id
+                  AND h.version=c.handover_version
+                JOIN system_dept d ON d.id=c.company_id
+                WHERE c.id=? AND c.company_id=? AND d.tenant_id=? AND d.status=0 AND d.deleted=0 AND h.status='ACCEPTED'
+                """,(rs,n) -> new HandoverContext(rs.getString("source_mode"),rs.getInt("version"),
+                rs.getString("payment_plan")==null?null:cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                        rs.getString("payment_plan"),cn.iocoder.yudao.module.franchise.api.CustomerPaymentPlanDraftPort.Snapshot.class)),
+                commissionId,companyId,ExternalCommissionService.tenant()).stream().findFirst().orElse(null);
+    }
 
     @Override
     public java.util.Map<Long, String> customerDesignStatuses(long companyId, java.util.Collection<Long> customerIds) {
@@ -28,7 +42,8 @@ public class CommissionQueryAdapter implements CommissionQueryPort {
         java.util.Map<Long, String> statuses = new java.util.HashMap<>();
         for (CommissionDO row : commissionMapper.selectList(new LambdaQueryWrapperX<CommissionDO>()
                 .eq(CommissionDO::getCompanyId, companyId).in(CommissionDO::getCustomerId, customerIds))) {
-            if (row.getSubmissionVersion() != null && row.getSubmissionVersion() > 0 && row.getStatus() != null)
+            if (row.getStatus() != null && (row.getSubmissionVersion() != null && row.getSubmissionVersion() > 0
+                    || "EXTERNAL".equals(row.getWorkflowMode()) && row.getExternalRequestVersion() != null && row.getExternalRequestVersion() > 0))
                 statuses.put(row.getCustomerId(), row.getStatus());
         }
         return statuses;

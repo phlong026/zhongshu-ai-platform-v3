@@ -39,6 +39,7 @@ export interface DirectoryItem {
   sourceSheet: string | null
   sourceCell: string | null
   version: number
+  publicName?: string
 }
 
 export interface DirectoryInput {
@@ -98,6 +99,12 @@ export const createDirectoryRecord = (data: DirectoryInput): Promise<DirectoryIt
 
 export const updateDirectoryRecord = (id: string, data: DirectoryInput): Promise<DirectoryItem> =>
   request.put({ url: `${base}/${encodeURIComponent(id)}`, data })
+
+export const updateDirectoryMapDisplay = (
+  id: string,
+  data: { publicName: string; expectedVersion: number }
+): Promise<DirectoryItem> =>
+  request.put({ url: `${base}/${encodeURIComponent(id)}/map-display`, data })
 
 // request.post unwraps CommonResult.data; request.upload has a different response contract.
 function uploadDirectory(file: File, precheck: boolean): Promise<DirectoryImportResult> {

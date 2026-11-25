@@ -54,6 +54,7 @@ public class FrEngProjectDO {
     private Long firstCents;
     private Long contractAssetId;
     private Integer contractVersion;
+    private Integer paymentPlanVersion;
     private LocalDate contractDate;
     private String drawingVersion;
     private LocalDate actualStartAt;

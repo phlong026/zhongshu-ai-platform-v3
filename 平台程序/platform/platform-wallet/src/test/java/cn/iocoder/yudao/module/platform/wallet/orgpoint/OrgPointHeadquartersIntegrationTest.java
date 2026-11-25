@@ -63,34 +63,44 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         jdbc.update("INSERT INTO system_user_role(id,user_id,role_id,tenant_id) VALUES(?,?,?,?)",IdWorker.getId(),userId,role,TENANT);
     }
 
-    @Test void explicitSimulatedPackageCreditsOnceAndReportsSimulatedReceipts() throws Exception {
+    @Test void retiredSimulatedPackagesCannotCreateOrdersOrCreditsEvenWithOldConfiguration() {
         long plan=IdWorker.getId();
-        jdbc.update("INSERT INTO pf_recharge_plan(id,tenant_id,name,price_fen,base_points,bonus_points,status) VALUES (?,?,'体验套餐',990,100,20,'ACTIVE')",plan,TENANT);
+        jdbc.update("INSERT INTO pf_recharge_plan(id,tenant_id,name,price_fen,base_points,bonus_points,status) VALUES (?,?,'历史套餐',990,100,20,'ACTIVE')",plan,TENANT);
         points.configurePurchaseOrgs(Long.toString(store));
-        assertThat(points.simulatedPackages(TENANT,store)).anyMatch(p->p.id().equals(Long.toString(plan)));
-        assertThat(points.simulatedPackages(TENANT,store+1)).isEmpty();
-        var task=new cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand("package-check:"+plan,store,maker,null,"digital",300,"content_task",plan);
-        assertThatThrownBy(()->points.reserve(task)).isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,2,"changed-plan")).isInstanceOf(RuntimeException.class);
+        assertThat(points.simulatedPackages(TENANT,store)).isEmpty();
+        assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment"))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class).hasMessageContaining("模拟充值已停用");
         assertThat(points.findAccount(store).balance()).isZero();
-        var workers=java.util.concurrent.Executors.newFixedThreadPool(2);
-        try {
-            var start=new java.util.concurrent.CountDownLatch(1);
-            java.util.concurrent.Callable<String> pay=()->{start.await();return points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment").id();};
-            var a=workers.submit(pay);var b=workers.submit(pay);start.countDown();
-            assertThat(a.get(10,java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(b.get(10,java.util.concurrent.TimeUnit.SECONDS));
-        } finally { workers.shutdownNow(); }
-        assertThat(points.findAccount(store).balance()).isZero();
-        assertThat(jdbc.queryForObject("SELECT sum(test_points) FROM org_point_simulated_purchase WHERE org_id=?", Long.class, store)).isEqualTo(120L);
-        assertThat(service.companies(maker)).filteredOn(c->c.orgId()==store).extracting(c->c.simulatedReceiptFen()).containsExactly("990");
-        assertThat(service.ledger(maker,store,1,20)).filteredOn(l->"SIMULATED_PACKAGE".equals(l.type())).isEmpty();
-        points.configurePurchaseOrgs("");
-        assertThat(points.purchaseSimulated(TENANT,store,maker,51,plan,1,"same-payment").points()).isEqualTo(120);
-        assertThatThrownBy(()->points.purchaseSimulated(TENANT,store,maker,51,plan,1,"another-order")).isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(()->points.reserve(task)).isInstanceOf(RuntimeException.class);
-        points.adjustBalance(store,120,"formal-"+plan,"正式调增",maker);
-        points.reserve(task);
-        assertThat(points.findAccount(store).balance()).isEqualTo(105);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_simulated_purchase WHERE org_id=?",Long.class,store)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=?",Long.class,store)).isZero();
+    }
+
+    @Test void backfillOnlyCreatesZeroPoolAndKeepsExistingBalanceAndSuspension() {
+        makeSuperAdministrator(maker);
+        long target=org("store","存量公司");String key="backfill:"+target;
+        assertThat(points.findAccount(target)).isNull();
+        assertThat(service.provisionPool(maker,target,"已核对存量公司",key).balance()).isZero();
+        points.adjustBalance(target,15,"existing:"+target,"已存在真实额度",maker);
+        jdbc.update("UPDATE org_point_account SET status='SUSPENDED' WHERE org_id=?",target);
+        var replay=service.provisionPool(maker,target,"已核对存量公司",key);
+        assertThat(replay.balance()).isEqualTo(15);assertThat(replay.status()).isEqualTo("SUSPENDED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_pool_backfill WHERE org_id=?",Long.class,target)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE org_id=?",Long.class,target)).isEqualTo(1);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"不同内容",key)).hasMessageContaining("冲突");
+        assertThatThrownBy(()->service.provisionPool(checker,target,"没有超管权限",key+"-denied")).hasMessageContaining("权限范围");
+        jdbc.update("UPDATE system_dept SET tenant_id=? WHERE id=?",TENANT+1,target);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"已核对存量公司",key)).hasMessageContaining("权限范围");
+    }
+
+    @Test void backfillAndAuditRollbackTogetherAndNeverReenableDisabledOrganizations() {
+        makeSuperAdministrator(maker);long target=org("headquarters","存量总部");
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(tx->{
+            service.provisionPool(maker,target,"演练回滚","rollback:"+target);tx.setRollbackOnly();
+        });
+        assertThat(points.findAccount(target)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_pool_backfill WHERE org_id=?",Long.class,target)).isZero();
+        jdbc.update("UPDATE pf_org_unit SET status='DISABLED' WHERE dept_id=?",target);
+        assertThatThrownBy(()->service.provisionPool(maker,target,"停用公司","disabled:"+target)).hasMessageContaining("权限范围");
     }
 
     @Test void superAdministratorCreditsImmediatelyAndReplaysWithoutDoubleCredit() {

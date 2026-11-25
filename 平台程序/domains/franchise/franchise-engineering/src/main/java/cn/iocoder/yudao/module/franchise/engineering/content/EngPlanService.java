@@ -94,7 +94,12 @@ public class EngPlanService {
      * 有活跃统一合同时三期金额必须与合同一致（「每期金额按有效合同，不发明固定比例」）。
      */
     public record PrepareCommand(BigDecimal total, BigDecimal signAfter, BigDecimal baseDone, BigDecimal capDone,
-                                 Long contractAssetId, String note, String workers, List<NodeInput> nodes) {
+                                 Long contractAssetId, String note, String workers, List<NodeInput> nodes,
+                                 Integer paymentPlanVersion) {
+        public PrepareCommand(BigDecimal total,BigDecimal signAfter,BigDecimal baseDone,BigDecimal capDone,
+                              Long asset,String note,String workers,List<NodeInput> nodes) {
+            this(total,signAfter,baseDone,capDone,asset,note,workers,nodes,null);
+        }
     }
 
     public record NodeInput(int nodeIndex, String name, LocalDate startDate, LocalDate endDate) {
@@ -120,81 +125,89 @@ public class EngPlanService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> prepare(PostSnapshot post, long projectId, PrepareCommand cmd, String idempotencyKey) {
+        projectService.requireOwned(post, projectId, "prepare");
+        projectService.projects().lockById(projectId);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "prepare");
         var replayed = commands.replayed(post, idempotencyKey, preparePayload(cmd));
         if (replayed.isPresent()) {
+            if(replayed.get().getAggregateId()!=projectId) throw exception(IDEMPOTENCY_KEY_REUSED);
             return projectService.detail(post, projectId);
         }
         if (project.getActualStartAt() != null) {
             throw exception(ENGINEERING_INPUT_INVALID, "开工后的现场情况请在原施工记录补充");
         }
-        long total = EngGuard.requirePositiveCents(cmd.total());
-        // M07-T06：三期校验——Σ三期=总额；签约后>0；其余≥0（0=未约定）
-        long signAfter = cmd.signAfter() == null ? -1 : EngGuard.requirePositiveCents(cmd.signAfter());
-        long baseDone = cmd.baseDone() == null ? -1 : (cmd.baseDone().signum() >= 0
-                ? cmd.baseDone().movePointRight(2).longValueExact() : -1);
-        long capDone = cmd.capDone() == null ? -1 : (cmd.capDone().signum() >= 0
-                ? cmd.capDone().movePointRight(2).longValueExact() : -1);
-        if (signAfter < 0) {
-            throw exception(ENGINEERING_INPUT_INVALID, "签约后期金额必填且大于 0");
+        Long currentContractId = project.getCustomerId() == null ? null
+                : saleContracts.findActiveSignedId(post, project.getCustomerId());
+        if (project.getSaleContractId() != null && !java.util.Objects.equals(project.getSaleContractId(),currentContractId)) {
+            throw exception(ENGINEERING_INPUT_INVALID,"统一建房合同已变更或作废，请核对合同后再保存开工准备");
         }
-        if (baseDone < 0 || capDone < 0) {
-            throw exception(ENGINEERING_INPUT_INVALID, "基础完成后/封顶后金额须为不小于 0 的数字（未约定填 0）");
+        if (currentContractId != null) {
+            jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE id=? AND company_id=? FOR UPDATE",Long.class,currentContractId,post.orgId());
+            if (!java.util.Objects.equals(currentContractId,saleContracts.findActiveSignedId(post,project.getCustomerId())))
+                throw exception(ENGINEERING_INPUT_INVALID,"统一建房合同已变更，请刷新后重试");
+            boolean used=Boolean.TRUE.equals(jdbcTemplate.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_eng_project WHERE company_id=? AND sale_contract_id=? AND id<>?)",Boolean.class,post.orgId(),currentContractId,projectId));
+            if(used) throw exception(ENGINEERING_INPUT_INVALID,"销售合同已关联其他工程，请核对本次开工准备");
         }
-        if (signAfter + baseDone + capDone != total) {
-            throw exception(ENGINEERING_INPUT_INVALID, "三期金额之和必须等于合同总额");
+        var formal=currentContractId==null?null:saleContracts.findPaymentPlanById(post,currentContractId);
+        long total,signAfter,baseDone,capDone;
+        Long contractAssetId;
+        if(formal!=null) {
+            if(cmd.paymentPlanVersion()!=null && cmd.paymentPlanVersion()!=formal.version())
+                throw exception(ENGINEERING_INPUT_INVALID,"付款计划已更新，请刷新合同付款计划后重试");
+            total=formal.totalCents();
+            signAfter=formal.stages().stream().filter(s->EngPaymentDates.beforeStart(s.trigger(),s.key())).mapToLong(s->s.amountCents()).sum();
+            baseDone=formal.stages().stream().filter(s->"BASE_DONE".equals(s.key())).mapToLong(s->s.amountCents()).sum();
+            capDone=formal.stages().stream().filter(s->"CAP_DONE".equals(s.key())).mapToLong(s->s.amountCents()).sum();
+            contractAssetId=formal.assetId();
+            if(cmd.total()!=null && EngGuard.requirePositiveCents(cmd.total())!=total)
+                throw exception(ENGINEERING_INPUT_INVALID,"合同总额已更新，请使用正式合同付款计划");
+            if(cmd.signAfter()!=null && cmd.signAfter().movePointRight(2).longValueExact()!=signAfter
+                    || cmd.baseDone()!=null && cmd.baseDone().movePointRight(2).longValueExact()!=baseDone
+                    || cmd.capDone()!=null && cmd.capDone().movePointRight(2).longValueExact()!=capDone)
+                throw exception(ENGINEERING_INPUT_INVALID,"付款节点由正式合同继承，请刷新付款计划");
+            if(cmd.contractAssetId()!=null && !java.util.Objects.equals(cmd.contractAssetId(),contractAssetId))
+                throw exception(ENGINEERING_INPUT_INVALID,"请使用正式合同中的签约凭据");
+            var indices=planNodes.selectByProject(post.orgId(),projectId).stream().map(FrEngPlanNodeDO::getNodeIndex).collect(java.util.stream.Collectors.toSet());
+            if(formal.stages().stream().anyMatch(s->"NODE_COMPLETED".equals(s.trigger()) && !indices.contains(s.nodeIndex())))
+                throw exception(ENGINEERING_INPUT_INVALID,"付款计划引用了本工程不存在的施工节点，请由业务或财务更正合同约定");
+        } else {
+            // Historical manual projects retain their explicit agreement. Draft entrustments are never read here.
+            total=EngGuard.requirePositiveCents(cmd.total());
+            signAfter=cmd.signAfter()==null?-1:EngGuard.requirePositiveCents(cmd.signAfter());
+            baseDone=cmd.baseDone()==null?-1:cmd.baseDone().movePointRight(2).longValueExact();
+            capDone=cmd.capDone()==null?-1:cmd.capDone().movePointRight(2).longValueExact();
+            contractAssetId=cmd.contractAssetId();
+            if(signAfter<0) throw exception(ENGINEERING_INPUT_INVALID,"签约后期金额必填且大于 0");
+            if(baseDone<0 || capDone<0) throw exception(ENGINEERING_INPUT_INVALID,"基础完成后/封顶后金额须为不小于 0 的数字（未约定填 0）");
+            if(signAfter+baseDone+capDone!=total) throw exception(ENGINEERING_INPUT_INVALID,"三期金额之和必须等于合同总额");
+            var old=project.getCustomerId()==null?null:saleContracts.findStageAmounts(post,project.getCustomerId());
+            if(old!=null && (old.signAfterCents()!=signAfter || old.baseDoneCents()!=baseDone || old.capDoneCents()!=capDone))
+                throw exception(ENGINEERING_INPUT_INVALID,"三期金额须与统一建房合同约定一致，不得自行拆分");
         }
         if (StrUtil.isBlank(cmd.note()) || cmd.note().length() > 1000) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写开工准备记录");
         }
         // M07-T03/I04：合同凭据资产域侧校验（本组织+ACCEPTED+工程/合同类型）
-        requireValidAsset(post, cmd.contractAssetId(),
+        requireValidAsset(post, contractAssetId,
                 java.util.Set.of("ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT"), "开工合同");
-        // M07-T06：三期与统一合同对齐——**以工程档案已冻结的合同身份为准**（R1 P1-2：客户作废重签后
-        // 当前活跃合同可能变成 B，而工程已关联 A——按 customerId 查当前活跃会固化错误金额）。
-        // 首次固化：解析当前活跃合同并冻结到档案；再次 prepare：当前活跃 ≠ 已冻结 → 拒绝（重签须重新对账）。
-        // customerId NULL 的工程档案无从关联合同，跳过对齐（存量兼容）。
-        var contractStages = project.getCustomerId() == null ? null
-                : saleContracts.findStageAmounts(post, project.getCustomerId());
-        Long currentContractId = project.getCustomerId() == null ? null
-                : saleContracts.findActiveSignedId(post, project.getCustomerId());
-        if (project.getSaleContractId() == null && currentContractId != null) {
-            jdbcTemplate.queryForList("SELECT id FROM fr_sale_contract WHERE id=? AND company_id=? FOR UPDATE",
-                    Long.class, currentContractId, post.orgId());
-            boolean used = Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
-                    SELECT EXISTS(SELECT 1 FROM fr_eng_project WHERE company_id=? AND sale_contract_id=? AND id<>?)
-                    """, Boolean.class, post.orgId(),currentContractId,projectId));
-            if (used) throw exception(ENGINEERING_INPUT_INVALID,"销售合同已关联其他工程，请核对本次开工准备");
-        }
-        if (project.getSaleContractId() != null && currentContractId != null
-                && project.getSaleContractId().longValue() != currentContractId.longValue()) {
-            throw exception(ENGINEERING_INPUT_INVALID,
-                    "统一建房合同已变更（作废重签），请先重新核对三期约定再保存开工准备");
-        }
-        if (contractStages != null
-                && (contractStages.signAfterCents() != signAfter || contractStages.baseDoneCents() != baseDone
-                        || contractStages.capDoneCents() != capDone)) {
-            throw exception(ENGINEERING_INPUT_INVALID,
-                    "三期金额须与统一建房合同约定一致（签约后/基础完成后/封顶后），不得自行拆分");
-        }
         // 已有实际收款：沿用原合同金额和凭据（蓝本 :56）
         List<FrEngCollectionDO> received = collections.selectByProject(post.orgId(), projectId);
-        if (!received.isEmpty() && (project.getContractTotalCents() != null && project.getContractTotalCents() > 0)) {
+        if (formal==null && !received.isEmpty() && (project.getContractTotalCents() != null && project.getContractTotalCents() > 0)) {
             if (project.getContractTotalCents() != total || project.getFirstCents() != signAfter
                     // R1 P1：Long 与 Long 比较须 Objects.equals（雪花资产 ID 超缓存区间，引用比较恒不等——
                     // 已有收款分支会把合法保存误拒为「沿用原凭据」）
-                    || !java.util.Objects.equals(project.getContractAssetId(), cmd.contractAssetId())) {
+                    || !java.util.Objects.equals(project.getContractAssetId(), contractAssetId)) {
                 throw exception(ENGINEERING_INPUT_INVALID, "已有实际收款，沿用原合同金额和凭据");
             }
         }
         boolean changed = project.getContractTotalCents() == null || project.getContractTotalCents() == 0
                 || project.getContractTotalCents() != total || project.getFirstCents() != signAfter
-                || !java.util.Objects.equals(project.getContractAssetId(), cmd.contractAssetId());
+                || !java.util.Objects.equals(project.getContractAssetId(), contractAssetId);
         int nextVersion = (project.getContractVersion() == null ? 0 : project.getContractVersion()) + (changed ? 1 : 0);
         projectService.projects().updateById(new FrEngProjectDO().setId(projectId)
                 .setContractTotalCents(total).setFirstCents(signAfter) // 存量兼容列=签约后期约定
                 .setSaleContractId(currentContractId != null ? currentContractId : project.getSaleContractId())
-                .setContractAssetId(cmd.contractAssetId()).setContractVersion(nextVersion)
+                .setContractAssetId(contractAssetId).setContractVersion(nextVersion)
                 .setContractDate(LocalDate.now())
                 .setPreparedNote(cmd.note())
                 .setPreparedAt(java.time.OffsetDateTime.now()));
@@ -206,10 +219,18 @@ public class EngPlanService {
             jdbcTemplate.update("UPDATE fr_eng_project SET prepared_workers = CAST(? AS jsonb) "
                     + "WHERE id = ? AND company_id = ?", workersJson, projectId, post.orgId());
         }
+        if(formal!=null) {
+            jdbcTemplate.update("UPDATE fr_eng_project SET payment_plan_version=?,payment_plan_snapshot=CAST(? AS jsonb) WHERE id=? AND company_id=?",
+                    formal.version(),JsonUtils.toJsonString(formal),projectId,post.orgId());
+            for(var stage:formal.stages()) upsertTerm(post,projectId,stage.key(),stage.amountCents());
+            var retained=formal.stages().stream().map(s->s.key()).collect(java.util.stream.Collectors.toSet());
+            for(var term:collectionTerms.selectByProject(post.orgId(),projectId)) if(!retained.contains(term.getStage())) collectionTerms.deleteById(term.getId());
+        } else {
         // M07-T06 三期约定固化（0=未约定也建行；同额幂等；与销售统一合同三期对齐）
         upsertTerm(post, projectId, FrEngCollectionTermDO.STAGE_SIGN_AFTER, signAfter);
         upsertTerm(post, projectId, FrEngCollectionTermDO.STAGE_BASE_DONE, baseDone);
         upsertTerm(post, projectId, FrEngCollectionTermDO.STAGE_CAP_DONE, capDone);
+        }
         // 携带节点（prepare 也是改期入口之一：日期齐全校验+整体重建）
         if (cmd.nodes() != null && !cmd.nodes().isEmpty()) {
             saveNodeDates(post, project, cmd.nodes(), "prepare");
@@ -229,6 +250,9 @@ public class EngPlanService {
         m.put("capDone", cmd.capDone() == null ? null : cmd.capDone().toPlainString());
         m.put("contractAssetId", cmd.contractAssetId());
         m.put("note", cmd.note());
+        if(cmd.paymentPlanVersion()!=null) m.put("paymentPlanVersion",cmd.paymentPlanVersion());
+        if(cmd.workers()!=null) m.put("workers",cmd.workers());
+        if(cmd.nodes()!=null) m.put("nodes",cmd.nodes());
         return m;
     }
 
@@ -250,26 +274,50 @@ public class EngPlanService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> start(PostSnapshot post, long projectId,
                                      NodeRecordCommand cmd, String idempotencyKey) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?)",Object.class,
+                cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                        new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),idempotencyKey));
+        projectService.requireOwned(post,projectId,"start");
+        projectService.projects().lockById(projectId);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "start");
-        // 重放输入=落账输入（评审十三 P1-3）：统一 cmd 原始日期形状，杜绝 now() 归一后的哈希错位
-        Map<String, Object> payload = Map.of("date", cmd.date() == null ? "" : cmd.date().toString());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
-        if (replayed.isPresent()) {
+        if (cmd==null) throw exception(ENGINEERING_INPUT_INVALID,"请填写实际开工记录");
+        Map<String,Object> payload=new LinkedHashMap<>();
+        payload.put("projectId",projectId); payload.put("input",cmd);
+        var previous=commands.previous(post,idempotencyKey,"eng-start",projectId);
+        if (previous.isPresent()) {
+            if (!AGGREGATE.equals(previous.get().getAggregateType())) throw exception(IDEMPOTENCY_KEY_REUSED);
+            var recorded=JsonUtils.parseTree(previous.get().getPayload());
+            if (recorded.isObject() && recorded.size()==1 && recorded.has("date")) {
+                String submittedDate=cmd.date()==null?"":cmd.date().toString();
+                if (!submittedDate.equals(recorded.path("date").asText()) || cmd.fileAssetId()==null
+                        || cmd.fileAssetIds()!=null && !cmd.fileAssetIds().isEmpty()) throw exception(IDEMPOTENCY_KEY_REUSED);
+                boolean saved=Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                        SELECT EXISTS(SELECT 1 FROM fr_eng_site_record r JOIN fr_eng_plan_node n
+                          ON n.id=r.node_id AND n.company_id=r.company_id AND n.project_id=r.project_id
+                        WHERE r.company_id=? AND r.project_id=? AND n.milestone='START' AND r.completion AND r.result='PASS'
+                          AND r.occurred_at=? AND r.note=? AND r.file_asset_ids=CAST(? AS jsonb))
+                        """,Boolean.class,post.orgId(),projectId,project.getActualStartAt(),
+                        StrUtil.blankToDefault(cmd.note(),"正式开工"),JsonList.of(cmd.fileAssetId())));
+                if (!saved) throw exception(IDEMPOTENCY_KEY_REUSED);
+            } else commands.replayed(post,idempotencyKey,payload);
             return projectService.detail(post, projectId);
         }
+        if (cmd.date()==null || cmd.date().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))))
+            throw exception(ENGINEERING_INPUT_INVALID,"请填写已发生的实际开工日期");
+        if (cmd.note()!=null && cmd.note().length()>1000 || cmd.fileAssetIds()!=null && !cmd.fileAssetIds().isEmpty())
+            throw exception(ENGINEERING_INPUT_INVALID,"开工说明不超过1000字，请使用单份明确的开工凭据");
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         if (project.getActualStartAt() != null || project.getPreparedAt() == null
-                || nodes.isEmpty() || nodes.stream().anyMatch(n -> n.getStartDate() == null || n.getEndDate() == null)) {
+                || nodes.stream().filter(n -> "START".equals(n.getMilestone())).count()!=1
+                || nodes.stream().anyMatch(n -> n.getStartDate() == null || n.getEndDate() == null)) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先完成开工准备并填写全部节点计划日期");
         }
         requireStartGate(post, projectId);
         // M07-T03/I04：开工凭据资产域侧校验
         requireValidAsset(post, cmd.fileAssetId(),
                 java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "开工");
-        LocalDate startDate = cmd.date() == null ? LocalDate.now() : cmd.date();
-        if (startDate.isAfter(LocalDate.now())) {
-            throw exception(ENGINEERING_INPUT_INVALID, "开工日期不能晚于今天");
-        }
+        LocalDate startDate = cmd.date();
         projectService.projects().updateById(new FrEngProjectDO().setId(projectId)
                 .setActualStartAt(startDate));
         project.setActualStartAt(startDate); // 内存 DO 同步（recalcStatus 派生依赖）
@@ -294,13 +342,37 @@ public class EngPlanService {
     void requireStartGate(PostSnapshot post, long projectId) {
         // M07-T06/R1 P1-1：统一实收账读侧——签约后期累计经统一端口（fr_sale_stage_receipt 净口径），
         // 不再读工程留痕行（避免销售已收齐签约款而工程镜像缺失导致无法开工）
-        long expected = termAmount(post, projectId, FrEngCollectionTermDO.STAGE_SIGN_AFTER);
         Long contractId = resolveContractId(post, projectId);
-        long confirmed = contractId == null ? 0
-                : unifiedStages.stageCollectedCents(post, contractId, FrEngCollectionTermDO.STAGE_SIGN_AFTER);
-        if (confirmed < expected) {
-            throw exception(GATE_NOT_MET);
+        if(contractId!=null) {
+            var states=jdbcTemplate.queryForList("SELECT status FROM fr_sale_contract WHERE id=? AND company_id=? FOR UPDATE",String.class,contractId,post.orgId());
+            if(!states.isEmpty() && !"SIGNED".equals(states.get(0))) throw exception(ENGINEERING_INPUT_INVALID,"统一建房合同已失效，请核对合同后再开工");
+            var current=unifiedStages.stageBalances(post,contractId);
+            if(current!=null && !current.isEmpty()) {
+                var project=projectService.requireProject(post,projectId);
+                var formal=saleContracts.findPaymentPlanById(post,contractId);
+                if(formal!=null && !java.util.Objects.equals(project.getPaymentPlanVersion(),formal.version()))
+                    throw exception(ENGINEERING_INPUT_INVALID,"付款计划已更新，请先重新确认开工准备");
+                if(current.stream().filter(s->EngPaymentDates.beforeStart(s.trigger(),s.stage()))
+                        .anyMatch(s->s.collectedCents()<s.expectedCents())) throw exception(GATE_NOT_MET);
+                return;
+            }
         }
+        long expected=termAmount(post,projectId,FrEngCollectionTermDO.STAGE_SIGN_AFTER);
+        long confirmed=contractId==null?0:unifiedStages.stageCollectedCents(post,contractId,FrEngCollectionTermDO.STAGE_SIGN_AFTER);
+        if(confirmed<expected) throw exception(GATE_NOT_MET);
+    }
+
+    public Map<String,Object> paymentPlanView(PostSnapshot post,long projectId) {
+        var project=projectService.requireProject(post,projectId);
+        if(!EngProjectService.isFinanceOrAbove(post) && !java.util.Objects.equals(project.getManagerUserId(),post.userId())
+                && !java.util.Objects.equals(project.getAssignedEngineerUserId(),post.userId()))
+            throw exception(ENGINEERING_INPUT_INVALID,"无权查看该工程付款计划");
+        var current=project.getCustomerId()==null?null:saleContracts.findPaymentPlan(post,project.getCustomerId());
+        var result=new LinkedHashMap<String,Object>();
+        result.put("paymentPlan",current);result.put("preparedVersion",project.getPaymentPlanVersion());
+        result.put("contractChanged",project.getSaleContractId()!=null && (current==null || project.getSaleContractId()!=current.contractId()));
+        result.put("needsRefresh",current!=null && !java.util.Objects.equals(project.getPaymentPlanVersion(),current.version()));
+        return result;
     }
 
     long termAmount(PostSnapshot post, long projectId, String stage) {

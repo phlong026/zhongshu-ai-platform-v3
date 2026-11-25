@@ -36,6 +36,21 @@ public interface AssetAccessPort {
 
     record DownloadUrlView(String downloadUrl, Long expiresAt) { }
 
+    /** Direct bytes for an independently authorized HQ business reference; never accepts a storage URL or an owner org. */
+    default ReferenceContent readHeadquartersDocument(HeadquartersDocumentAccessPort.Request request) {
+        throw new IllegalArgumentException("总部资料读取未配置");
+    }
+
+    /** Current contract evidence; the ticket never caches customer or contract authorization. */
+    default DownloadUrlView createContractDownloadUrl(Actor actor, long contractId, long assetId) {
+        throw new IllegalArgumentException("合同凭证访问未配置");
+    }
+
+    /** Explicit customer/node evidence scope; never grants generic access to legacy design references. */
+    default DownloadUrlView createWorkflowDownloadUrl(Actor actor, long customerId, String stepCode, long assetId) {
+        throw new IllegalArgumentException("客户节点资料访问未配置");
+    }
+
     /** 独立 B 的委托成果范围票据；属主从不可变下发清单派生，禁止客户端指定。 */
     default DownloadUrlView createCommissionDownloadUrl(Actor actor, long commissionId, int dispatchSeq,
                                                        CommissionDeliverableAccessPort.Slot slot) {

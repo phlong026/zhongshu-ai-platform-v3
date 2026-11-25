@@ -137,25 +137,53 @@ public class SalesController {
     /** M06-T04：三期金额（签约后必填>0；基础完成后/封顶后≥0 可 0=未约定；Σ=totalCents） */
     public record ContractReq(Long customerId, Long totalCents, Long signAfterCents,
                               Long baseDoneCents, Long capDoneCents,
-                              LocalDate signedDate, Long assetId, Long requirementId) {
+                              LocalDate signedDate, Long assetId, Long requirementId,
+                              List<cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input> paymentStages) {
+        public ContractReq(Long customerId, Long totalCents, Long signAfterCents, Long baseDoneCents,
+                           Long capDoneCents, LocalDate signedDate, Long assetId, Long requirementId) {
+            this(customerId,totalCents,signAfterCents,baseDoneCents,capDoneCents,signedDate,assetId,requirementId,null);
+        }
     }
 
     @PostMapping("/contracts")
-    @Operation(summary = "创建合同（WAIT_SIGN，创建即生成两期计划，零尾款不生成 tail）")
+    @Operation(summary = "创建待签合同及自定义付款计划")
     @PreAuthorize("@post.has('franchise:sale:write')")
     public CommonResult<Map<String, Object>> createContract(@RequestBody ContractReq req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         requireIdem(idem);
-        if (req.totalCents() == null || req.signAfterCents() == null || req.customerId() == null
-                || req.baseDoneCents() == null || req.capDoneCents() == null) {
+        if (req.totalCents() == null || req.customerId() == null
+                || (req.paymentStages() == null && (req.signAfterCents() == null || req.baseDoneCents() == null || req.capDoneCents() == null))) {
             throw exception(new cn.iocoder.yudao.framework.common.exception.ErrorCode(400,
-                    "customerId/totalCents/三期金额 必填（签约后>0，其余期≥0，Σ=totalCents）"));
+                    "请填写客户、合同总额和付款节点"));
         }
         var created = contracts.create(post(), new SaleContractService.ContractCommand(
-                req.customerId(), req.totalCents(), req.signAfterCents(), req.baseDoneCents(), req.capDoneCents(),
-                req.signedDate(), req.assetId(), req.requirementId()), idem);
+                req.customerId(), req.totalCents(), req.signAfterCents()==null?0:req.signAfterCents(),
+                req.baseDoneCents()==null?0:req.baseDoneCents(), req.capDoneCents()==null?0:req.capDoneCents(),
+                req.signedDate(), req.assetId(), req.requirementId(),req.paymentStages()), idem);
         return success(Map.of("contractId", created.getId(), "status", created.getStatus(),
+                "paymentPlanVersion",created.getPaymentPlanVersion(),
                 "stages", contracts.stageSummary(post(), created.getId())));
+    }
+
+    @GetMapping("/contracts/{contractId}/payment-plan")
+    @PreAuthorize("@post.has('franchise:sale:query') or @post.has('franchise:fin:query')")
+    public CommonResult<?> paymentPlanDetail(@PathVariable long contractId) {
+        return success(contracts.paymentPlanDetail(post(),contractId));
+    }
+
+    @PostMapping("/contracts/{contractId}/payment-plan")
+    @Operation(summary = "按合同版本调整付款计划，已签约限公司负责人或财务")
+    @PreAuthorize("@post.has('franchise:sale:write') or @post.has('franchise:fin:register')")
+    public CommonResult<?> paymentPlan(@PathVariable long contractId,
+            @RequestHeader("Idempotency-Key") String key, @RequestBody SaleContractService.PaymentPlanCommand command) {
+        var contract=contracts.replacePaymentPlan(post(),contractId,command,key);
+        return success(Map.of("contract",contract,"stages",contracts.stageSummary(post(),contractId)));
+    }
+
+    @GetMapping("/contracts/{contractId}/payment-plan/versions")
+    @PreAuthorize("@post.has('franchise:sale:query') or @post.has('franchise:fin:query')")
+    public CommonResult<?> paymentPlanHistory(@PathVariable long contractId) {
+        return success(contracts.paymentPlanHistory(post(),contractId));
     }
 
     @GetMapping("/contracts")
@@ -189,7 +217,30 @@ public class SalesController {
         requireIdem(idem);
         var contract = contracts.sign(post(), contractId,
                 new SaleContractService.SignCommand(req.signedDate(), req.assetId()), req.revision(), idem);
-        return success(Map.of("contractId", contract.getId(), "status", contract.getStatus()));
+        return success(contractEvidenceResult(contract));
+    }
+
+    @PostMapping("/contracts/{contractId}/evidence")
+    @Operation(summary = "补录或更正已签合同凭证，保留变更原因及前后版本")
+    @PreAuthorize("@post.has('franchise:sale:write')")
+    public CommonResult<Map<String, Object>> supplementEvidence(@PathVariable long contractId,
+            @RequestBody SaleContractService.EvidenceCommand req, @RequestHeader("Idempotency-Key") String key) {
+        return success(contractEvidenceResult(contracts.supplementEvidence(post(), contractId, req, key)));
+    }
+
+    @PostMapping("/contracts/{contractId}/assets/{assetId}/download-tickets")
+    @PreAuthorize("@post.has('franchise:sale:query')")
+    public CommonResult<cn.iocoder.yudao.module.franchise.api.AssetAccessPort.DownloadUrlView> contractDownload(
+            @PathVariable long contractId, @PathVariable long assetId) {
+        return success(contracts.evidenceDownload(post(), contractId, assetId));
+    }
+
+    private static Map<String,Object> contractEvidenceResult(SaleContractDO contract) {
+        Map<String,Object> result = new java.util.LinkedHashMap<>();
+        result.put("contractId", contract.getId().toString()); result.put("status", contract.getStatus());
+        result.put("revision", contract.getRevision()); result.put("signedDate", contract.getSignedDate());
+        result.put("assetId", contract.getAssetId() == null ? null : contract.getAssetId().toString());
+        return result;
     }
 
     @PostMapping("/contracts/{contractId}/void")

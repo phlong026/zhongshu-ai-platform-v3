@@ -22,4 +22,15 @@ public class EngineeringProjectContextAdapter implements EngineeringProjectConte
         return new ProjectContext(project.getId(), project.getCompanyId(), project.getSourceCommissionId(),
                 project.getManagerUserId(), project.getAssignedEngineerUserId());
     }
+
+    @Override
+    public java.util.Set<Long> sourceCommissionsForActor(long companyId,long userId) {
+        return projects.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO>()
+                .eq(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO::getCompanyId,companyId)
+                .isNotNull(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO::getSourceCommissionId)
+                .and(q -> q.eq(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO::getManagerUserId,userId)
+                        .or().eq(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO::getAssignedEngineerUserId,userId)))
+                .stream().map(cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO::getSourceCommissionId)
+                .collect(java.util.stream.Collectors.toSet());
+    }
 }

@@ -6,4 +6,6 @@ public interface EngineeringProjectContextPort {
                           Long managerUserId, Long assignedEngineerUserId) { }
     /** Returns null before engineering creation. */
     ProjectContext findBySourceCommission(long companyId, long commissionId);
+    /** Current engineering ownership, used when historical packet recipients have since been transferred. */
+    default java.util.Set<Long> sourceCommissionsForActor(long companyId,long userId) { return java.util.Set.of(); }
 }

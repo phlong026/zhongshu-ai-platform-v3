@@ -43,11 +43,12 @@ public class EngFollowupService {
     private final FrEngPlanNodeMapper planNodes;
     private final FrEngMaterialMapper materials;
     private final FranchiseCommands commands;
+    private final org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort> paymentAccounts;
 
     public EngFollowupService(EngProjectService projectService, FrEngFollowupMapper followups,
                               FrEngCollectionTermMapper collectionTerms, FrEngCollectionMapper collections,
                               FrEngPlanNodeMapper planNodes, FrEngMaterialMapper materials,
-                              FranchiseCommands commands) {
+                              FranchiseCommands commands,org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort> paymentAccounts) {
         this.projectService = projectService;
         this.followups = followups;
         this.collectionTerms = collectionTerms;
@@ -55,6 +56,7 @@ public class EngFollowupService {
         this.planNodes = planNodes;
         this.materials = materials;
         this.commands = commands;
+        this.paymentAccounts=paymentAccounts;
     }
 
     public record DunningCommand(String stage, LocalDate promiseDate, String note) {
@@ -66,29 +68,36 @@ public class EngFollowupService {
     /** 催收回访（stage 维度；TOPPING 须封顶完成；本期有剩余才可催收） */
     @Transactional(rollbackFor = Exception.class)
     public List<Map<String, Object>> dunning(PostSnapshot post, long projectId, DunningCommand cmd, String idempotencyKey) {
-        FrEngProjectDO project = projectService.requireOwned(post, projectId, "dunning");
+        // Collection and starting work lock project -> contract. Take the same
+        // order and use the locked row, rather than a cached selectById result.
+        FrEngProjectDO project = projectService.projects().lockById(projectId);
+        if (project == null || project.getCompanyId() != post.orgId()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "工程不存在或无权查看");
+        }
+        EngGuard.requireActionAllowed(projectService.closureOf(post, projectId), "dunning");
+        EngGuard.requireOwner(project, post.userId());
         Map<String, Object> payload = dunningPayload(cmd);
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {
             return list(post, projectId);
         }
-        // 期次归一与 collect 同构：三枚举精确匹配；存量旧值 TOPPING 显式映射 CAP_DONE（M07-T02 v3 接线对称）；
-        // 其它未知值（含旧 START）按签约后处理（催收为留痕动作，不写资金账）
-        String stage = switch (cmd.stage() == null ? "" : cmd.stage()) {
-            case FrEngCollectionTermDO.STAGE_BASE_DONE -> FrEngCollectionTermDO.STAGE_BASE_DONE;
-            case FrEngCollectionTermDO.STAGE_CAP_DONE, FrEngCollectionTermDO.STAGE_TOPPING -> FrEngCollectionTermDO.STAGE_CAP_DONE;
-            default -> FrEngCollectionTermDO.STAGE_SIGN_AFTER;
-        };
-        if (FrEngCollectionTermDO.STAGE_CAP_DONE.equals(stage)
-                && !EngGuard.toppingDone(planNodes.selectByProject(post.orgId(), projectId))) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请先登记实际主体封顶");
+        String raw=cmd.stage()==null?"":cmd.stage().trim();
+        String stage="TOPPING".equals(raw)?"CAP_DONE":"START".equals(raw)?"SIGN_AFTER":raw;
+        var accounts=paymentAccounts.getIfAvailable();
+        Long contractId=project.getSaleContractId()!=null?project.getSaleContractId():project.getCustomerId()==null || accounts==null?null:accounts.activeContractId(post,project.getCustomerId());
+        cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance balance;
+        if(contractId!=null) {
+            if(accounts==null) throw exception(ENGINEERING_INPUT_INVALID,"合同收款服务暂不可用");
+            balance=accounts.stageBalances(post,contractId).stream().filter(s->stage.equals(s.stage())).findFirst()
+                    .orElseThrow(()->exception(ENGINEERING_INPUT_INVALID,"付款节点不存在，请刷新合同付款计划"));
+        } else {
+            long expected=collectionTerms.selectByProject(post.orgId(),projectId).stream().filter(t->stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents).findFirst()
+                    .orElseThrow(()->exception(ENGINEERING_INPUT_INVALID,"付款节点不存在，请刷新合同付款计划"));
+            long confirmed=collections.selectByProject(post.orgId(),projectId).stream().filter(c->stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
+            balance=new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance(stage,expected,confirmed);
         }
-        // M07-T06/R2 P1-3：BASE_DONE 催收与销售域对齐不设节点门禁（基础完成留痕随 M07-T04 承接）
-        long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
-                .filter(t -> stage.equals(t.getStage())).mapToLong(FrEngCollectionTermDO::getAmountCents)
-                .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及收款期次约定确认"));
-        long confirmed = collections.selectByProject(post.orgId(), projectId).stream()
-                .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
+        if(EngPaymentDates.waitingForWork(balance,planNodes.selectByProject(post.orgId(),projectId))) throw exception(ENGINEERING_INPUT_INVALID,"请先完成约定施工节点再登记催收");
+        long expected=balance.expectedCents(),confirmed=balance.collectedCents();
         if (expected - confirmed <= 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "本期款项已收齐，无需催收登记");
         }

@@ -19,6 +19,8 @@ public class CommissionDeliverableAccessAdapter implements CommissionDeliverable
     private final EngineeringProjectContextPort engineering;
     private final CommissionSimulatedPayments simulations;
     private final DesignFeeSettlementPort settlement;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private ExternalHandoverAccess externalHandovers;
     public CommissionDeliverableAccessAdapter(JdbcTemplate jdbc,CommissionMapper commissions,CommissionHandoverMapper handovers,
                                               CommissionAccess access,EngineeringProjectContextPort engineering,
                                               CommissionSimulatedPayments simulations, DesignFeeSettlementPort settlement) {
@@ -26,6 +28,10 @@ public class CommissionDeliverableAccessAdapter implements CommissionDeliverable
         this.settlement=settlement;
     }
     @Override public DeliverableRef requireReadable(PostSnapshot actor,long commissionId,int dispatchSeq,Slot slot) {
+        if (slot!=null && slot.external()) {
+            if (externalHandovers==null) throw exception(COMMISSION_FORBIDDEN);
+            return externalHandovers.requireReadable(actor,commissionId,dispatchSeq,slot);
+        }
         CommissionDO c=commissions.selectById(commissionId);
         if(c==null) throw exception(COMMISSION_NOT_FOUND);
         var manifests=jdbc.query("SELECT * FROM fr_commission_dispatch_manifest WHERE commission_id=? AND dispatch_seq=?",(rs,n)->new long[]{rs.getLong("design_org_id"),rs.getLong("result_asset_id"),rs.getLong("drawing_asset_id"),rs.getLong("review_asset_id"),rs.getInt("submission_version")},commissionId,dispatchSeq);

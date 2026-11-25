@@ -104,6 +104,21 @@ class WalletRefundRecoveryIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @Test
+    void externalCompanyRefundAfterSpendRetainsDebtAndNeverCreatesNegativeQuota() {
+        jdbc.update("UPDATE pf_recharge_order SET credit_target='COMPANY' WHERE id=?",orderId);
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,0)",IdWorker.getId(),wallet.orgId());
+        paidAndCredited();
+        jdbc.update("UPDATE org_point_account SET balance=11 WHERE org_id=?",wallet.orgId());
+        refunds.processRefundFact(tenant,wallet.id(),orderId,externalFact());
+        refunds.processRefundFact(tenant,wallet.id(),orderId,externalFact());
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?",Long.class,wallet.orgId())).isEqualTo(11);
+        assertThat(jdbc.queryForObject("SELECT status FROM org_point_account WHERE org_id=?",String.class,wallet.orgId())).isEqualTo("SUSPENDED");
+        assertThat(jdbc.queryForObject("SELECT point_state FROM pf_refund_order WHERE order_id=?",String.class,orderId)).isEqualTo("DEBT");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_payment_anomaly_audit WHERE order_id=? AND anomaly_type='REFUND_POINT_DEBT'",Long.class,orderId)).isOne();
+        balance(0,0);
+    }
+
+    @Test
     void insufficientPointsCauseZeroExternalRefundsAndNoPlaceholder() {
         paidAndCredited();
         tx.executeWithoutResult(status -> points.reserve(wallet, 1));

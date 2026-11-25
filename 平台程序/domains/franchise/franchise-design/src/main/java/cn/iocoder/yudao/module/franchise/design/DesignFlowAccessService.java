@@ -25,6 +25,7 @@ public class DesignFlowAccessService {
         this.access=access;this.remote=remote;this.cases=cases;this.references=references;this.assets=assets;this.points=points;
     }
     public OrgPointPort.PriceQuote quote(PostSnapshot post,String subject,int quantity) {
+        if(Set.of("ai_flat","ai_elevation").contains(subject)) DesignGenerationPolicy.rejectGeneration();
         if(remote==null)throw unavailable();
         if(!Set.of("ai_flat","ai_elevation","budget_estimate").contains(subject)
                 ||(!Set.of(1,2,4).contains(quantity))||("budget_estimate".equals(subject)&&quantity!=1))throw new IllegalArgumentException("Invalid design price query");
@@ -42,6 +43,8 @@ public class DesignFlowAccessService {
     }
     public Object invoke(PostSnapshot post,DesignFlowCall original) {
         var operation=original.operation();String path=original.path(),method=original.method();var q=original.query();
+        if(Set.of(DesignCapabilityContract.Operation.FLOW_FLAT_JOB, DesignCapabilityContract.Operation.FLOW_ELEVATION_JOB,
+                DesignCapabilityContract.Operation.FLOW_REVISION).contains(operation)) DesignGenerationPolicy.rejectGeneration();
         if(path.equals("/cases"))return access.listCases(post,new DesignServicePort.CaseQuery(q.get("styleCode"),integer(q,"floorCount",null),decimal(q,"faceWidth"),decimal(q,"depth"),q.get("keyword"),q.get("cursor"),integer(q,"limit",20),q.get("sourceType"),integer(q,"minArea",null),integer(q,"maxArea",null)));
         if(path.equals("/cases/styles"))return access.listCaseStyles(post);
         if(path.equals("/cases/generation-candidates") || path.endsWith("/generation-candidate") || path.equals("/cases/recommendation")) {

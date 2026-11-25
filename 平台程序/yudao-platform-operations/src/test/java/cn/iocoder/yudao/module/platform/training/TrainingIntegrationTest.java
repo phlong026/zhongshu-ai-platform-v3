@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.*;
 import static cn.iocoder.yudao.module.platform.training.TrainingModel.*;
 
-@TestPropertySource(properties={"platform.test.extra-flyway-locations=,classpath:db/migration/platform-wallet,classpath:db/migration/franchise","zhongshu.org-point.headquarters-tenant-id=1"})
+@TestPropertySource(properties={"platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet,classpath:db/migration/franchise-asset","zhongshu.org-point.headquarters-tenant-id=1"})
 @Import({TrainingIntegrationTest.Config.class,OperationsGuard.class,TrainingFiles.class,TrainingCatalog.class,TrainingLearning.class})
 class TrainingIntegrationTest extends PlatformPgIntegrationTest {
     private static final AtomicLong IDS=new AtomicLong(9731000);

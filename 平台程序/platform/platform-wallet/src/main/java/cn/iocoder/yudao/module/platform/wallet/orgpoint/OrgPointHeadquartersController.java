@@ -44,6 +44,13 @@ public class OrgPointHeadquartersController {
     }
 
     public record SubmitAdjustment(long delta, String reason, String requestKey) { }
+    public record ProvisionPool(String reason, String requestKey) { }
+
+    @PostMapping("/{orgId}/provision")
+    @PreAuthorize("@ss.hasRole('super_admin')")
+    public CommonResult<?> provision(@PathVariable long orgId,@RequestBody ProvisionPool body) {
+        return success(service.provisionPool(actor(),orgId,body.reason(),body.requestKey()));
+    }
     public record DirectCredit(BigDecimal credits,String reason,String requestKey) {
         public DirectCredit(long credits,String reason,String requestKey) { this(BigDecimal.valueOf(credits),reason,requestKey); }
     }

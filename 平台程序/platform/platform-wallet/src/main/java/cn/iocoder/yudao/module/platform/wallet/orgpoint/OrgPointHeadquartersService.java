@@ -42,6 +42,38 @@ public class OrgPointHeadquartersService {
                              long makerId, Long checkerId, String checkerComment, Long resultBalance) { }
     public record DirectCredit(String id, String beforeBalance, String afterBalance, String credits) { }
 
+    /** Explicit maintenance only: provision a missing pool with zero balance, never grant or reset points. */
+    public cn.iocoder.yudao.module.franchise.api.OrgPointPort.PoolSummary provisionPool(
+            long actorId, long orgId, String reason, String requestKey) {
+        requireText(reason,500); requireText(requestKey,100);
+        return required(() -> {
+            Scope scope=lockHeadquartersActor(actorId);
+            requireSuperAdministrator(actorId,scope.tenantId());
+            var target=jdbc.queryForList("""
+                    SELECT u.dept_id FROM pf_org_unit u JOIN system_dept d ON d.id=u.dept_id
+                    WHERE u.dept_id=? AND u.org_id=u.dept_id AND u.kind='ORG' AND u.status='ACTIVE'
+                      AND u.org_type IN ('store','headquarters') AND d.tenant_id=? AND d.status=0 AND d.deleted=0
+                    FOR SHARE OF u,d
+                    """,orgId,scope.tenantId());
+            if(target.size()!=1) throw forbidden();
+            jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,1100))",scope.tenantId()+":"+requestKey);
+            String hash=DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(actorId,orgId,reason.trim())));
+            var previous=jdbc.queryForList("SELECT request_hash FROM org_point_pool_backfill WHERE tenant_id=? AND request_key=?",scope.tenantId(),requestKey);
+            if(!previous.isEmpty()) {
+                if(!hash.equals(previous.get(0).get("request_hash"))) throw conflict();
+                return points.summary(orgId);
+            }
+            jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,1100))","pool:"+scope.tenantId()+":"+orgId);
+            boolean existed=points.findAccount(orgId)!=null;
+            var result=points.ensurePool(orgId);
+            jdbc.update("""
+                    INSERT INTO org_point_pool_backfill(id,tenant_id,org_id,actor_id,reason,request_key,request_hash,existed)
+                    VALUES(?,?,?,?,?,?,?,?)
+                    """,IdWorker.getId(),scope.tenantId(),orgId,actorId,reason.trim(),requestKey,hash,existed);
+            return result;
+        });
+    }
+
     /** 平台超管直接增加积分；明确授权开户、原子记账、同请求重放返回原回执。 */
     public DirectCredit creditDirectly(long actorId, long orgId, long credits, String reason, String requestKey) {
         requireText(reason,512);

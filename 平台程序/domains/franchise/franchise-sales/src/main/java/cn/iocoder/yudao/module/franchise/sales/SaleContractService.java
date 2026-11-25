@@ -54,11 +54,24 @@ public class SaleContractService {
      */
     public record ContractCommand(long customerId, long totalCents, long signAfterCents,
                                   long baseDoneCents, long capDoneCents,
-                                  LocalDate signedDate, Long assetId, Long requirementId) {
+                                  LocalDate signedDate, Long assetId, Long requirementId,
+                                  java.util.List<PaymentPlanRules.Input> paymentStages) {
+        public ContractCommand(long customerId, long totalCents, long signAfterCents, long baseDoneCents,
+                               long capDoneCents, LocalDate signedDate, Long assetId, Long requirementId) {
+            this(customerId, totalCents, signAfterCents, baseDoneCents, capDoneCents,
+                    signedDate, assetId, requirementId, null);
+        }
     }
+
+    public record PaymentPlanCommand(long totalCents, java.util.List<PaymentPlanRules.Input> stages,
+                                     Long revision, String reason) {}
+    private record LegacyContractCommand(long customerId,long totalCents,long signAfterCents,long baseDoneCents,
+                                         long capDoneCents,LocalDate signedDate,Long assetId,Long requirementId) {}
 
     public record SignCommand(LocalDate signedDate, Long assetId) {
     }
+
+    public record EvidenceCommand(LocalDate signedDate, Long assetId, String reason, Long revision) { }
 
     /**
      * M06-T04 分笔核销命令：amountCents 为本笔金额（可小于期约定额；Σ分笔 ≤ 期额）。
@@ -78,6 +91,8 @@ public class SaleContractService {
     private final SalesAccess access;
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort> evidence;
 
     public SaleContractService(SaleContractMapper contracts, SalePaymentStageMapper stages,
                                SaleStageReceiptMapper stageReceipts,
@@ -114,11 +129,16 @@ public class SaleContractService {
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO create(PostSnapshot post, ContractCommand cmd, String idempotencyKey) {
         access.requireOrgCustomer(post, cmd.customerId());
+        keyGuard(post, idempotencyKey);
+        var customPlan = cmd.paymentStages() == null ? null : PaymentPlanRules.normalize(cmd.totalCents(), cmd.paymentStages());
+        if (customPlan != null && customPlan.stream().anyMatch(s -> s.stageId() != null)) {
+            throw PaymentPlanRules.invalid("新合同付款节点不应指定已有编号");
+        }
         // M06-T04：三期金额校验——Σ三期=合同总额；签订后必须>0，其余期≥0（0=未约定，不发明固定比例）
-        if (cmd.totalCents() <= 0 || cmd.signAfterCents() <= 0
+        if (customPlan == null && (cmd.totalCents() <= 0 || cmd.signAfterCents() <= 0
                 || cmd.baseDoneCents() < 0 || cmd.capDoneCents() < 0
                 || cmd.signAfterCents() + cmd.baseDoneCents() + cmd.capDoneCents() != cmd.totalCents()
-                || cmd.totalCents() > SaleQuoteMath.MAX_AMOUNT) {
+                || cmd.totalCents() > SaleQuoteMath.MAX_AMOUNT)) {
             throw exception(CONTRACT_DUPLICATE); // 金额非法复用合同码段——由 AC 断言区分（金额校验独立见下）
         }
         requirements.requireOfCustomer(cmd.customerId(), cmd.requirementId());
@@ -126,7 +146,10 @@ public class SaleContractService {
         var input = baseInput("contract-create", cmd.customerId(), cmd);
         // 幂等重放先于有效合同检查（S1-21：原顺序「先查 006 再查重放」使响应丢失后的原键重试
         // 恒撞 CONTRACT_DUPLICATE，永远到不了重放分支）
-        var replayed = commands.replayed(post, idempotencyKey, input);
+        Object legacyInput = cmd.paymentStages()==null ? baseInput("contract-create",cmd.customerId(),
+                new LegacyContractCommand(cmd.customerId(),cmd.totalCents(),cmd.signAfterCents(),cmd.baseDoneCents(),
+                        cmd.capDoneCents(),cmd.signedDate(),cmd.assetId(),cmd.requirementId())) : null;
+        var replayed = commands.replayed(post, idempotencyKey, input, legacyInput);
         if (replayed.isPresent()) {
             return contracts.selectById(replayed.get().getAggregateId());
         }
@@ -136,12 +159,16 @@ public class SaleContractService {
         }
         SaleContractDO contract = new SaleContractDO()
                 .setCompanyId(post.orgId()).setCustomerId(cmd.customerId())
-                .setTotalCents(cmd.totalCents()).setFirstCents(cmd.signAfterCents()) // 存量兼容列=签订后期
+                .setTotalCents(cmd.totalCents()).setFirstCents(customPlan == null ? cmd.signAfterCents() : beforeStart(customPlan))
+                .setPaymentPlanVersion(1)
+                .setPaymentPlanMode(customPlan == null ? "LEGACY" : "CUSTOM")
                 .setSignedDate(cmd.signedDate()).setAssetId(cmd.assetId())
                 .setStatus(STATUS_WAIT_SIGN).setRequirementId(cmd.requirementId())
                 .setAuthorUserId(post.userId());
         contracts.insert(contract);
-        createStages(post, contract, cmd);
+        if (customPlan == null) createStages(post, contract, cmd);
+        else for (var stage : customPlan) insertPlanStage(contract, stage, 1);
+        snapshotPlan(post, contract.getId(), 1, 1, "合同付款计划登记");
         commands.record(post, "fr-sale-contract", contract.getId(), 1, "sale-contract-create", input, idempotencyKey);
         return contract;
     }
@@ -154,10 +181,153 @@ public class SaleContractService {
     }
 
     private void insertStage(SaleContractDO contract, String stage, long amountCents) {
+        int sequence = "SIGN_AFTER".equals(stage) ? 1 : "BASE_DONE".equals(stage) ? 2 : 3;
         stages.insert(new SalePaymentStageDO()
                 .setCompanyId(contract.getCompanyId()).setCustomerId(contract.getCustomerId())
                 .setContractId(contract.getId()).setStage(stage).setAmountCents(amountCents)
+                .setLabel(stageLabel(stage)).setSequence(sequence).setPlanVersion(1)
+                .setTriggerType("SIGN_AFTER".equals(stage) ? "BEFORE_START"
+                        : "BASE_DONE".equals(stage) ? "LEGACY_BASE_DONE" : "LEGACY_TOPPING")
                 .setStatus(STATUS_PENDING).setDeleted(false));
+    }
+
+    private static long beforeStart(java.util.List<PaymentPlanRules.Stage> plan) {
+        return plan.stream().filter(s -> "BEFORE_START".equals(s.trigger()) || "ON_SIGN".equals(s.trigger()))
+                .mapToLong(PaymentPlanRules.Stage::amountCents).sum();
+    }
+
+    private void insertPlanStage(SaleContractDO contract, PaymentPlanRules.Stage stage, int version) {
+        long id = IdWorker.getId();
+        stages.insert(new SalePaymentStageDO().setId(id).setCompanyId(contract.getCompanyId())
+                .setCustomerId(contract.getCustomerId()).setContractId(contract.getId()).setStage("STAGE_" + id)
+                .setLabel(stage.label()).setSequence(stage.sequence()).setAmountCents(stage.amountCents())
+                .setRatioBps(stage.ratioBps()).setDueDate(stage.dueDate()).setTriggerType(stage.trigger())
+                .setTriggerNodeIndex(stage.nodeIndex()).setAfterDelivery("ON_FINISH".equals(stage.trigger()))
+                .setPlanVersion(version).setStatus(STATUS_PENDING).setDeleted(false));
+    }
+
+    /** Keeps the stable stage ID/key. Receipts, declarations and refunds never move to a new node. */
+    @Transactional(rollbackFor = Exception.class)
+    public SaleContractDO replacePaymentPlan(PostSnapshot post, long contractId, PaymentPlanCommand cmd, String key) {
+        keyGuard(post, key);
+        requirePlanContract(post,contractId);
+        SaleContractDO contract = lockContract(post, contractId);
+        var input = baseInput("contract-payment-plan", contract.getCustomerId(), cmd, contractId, cmd.revision());
+        if (commands.replayed(post, key, input).isPresent()) return contracts.selectById(contractId);
+        if (cmd.revision() == null || !cmd.revision().equals(contract.getRevision())) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
+        }
+        if (STATUS_VOIDED.equals(contract.getStatus())) throw PaymentPlanRules.invalid("已作废合同不能变更付款计划");
+        if (STATUS_SIGNED.equals(contract.getStatus()) && !java.util.Set.of("boss", "finance", "finance-lead").contains(post.roleCode())) {
+            throw PaymentPlanRules.invalid("已签约付款计划由公司负责人或财务办理变更");
+        }
+        if (cmd.reason() == null || cmd.reason().isBlank() || cmd.reason().length() > 500) {
+            throw PaymentPlanRules.invalid("请填写付款计划调整原因（不超过 500 字）");
+        }
+        var plan = PaymentPlanRules.normalize(cmd.totalCents(), cmd.stages());
+        var old = stages.selectByContract(contractId).stream().filter(s -> !Boolean.TRUE.equals(s.getDeleted()))
+                .collect(java.util.stream.Collectors.toMap(SalePaymentStageDO::getId, java.util.function.Function.identity()));
+        var retained = new java.util.HashSet<Long>();
+        for (var row : plan) {
+            if (row.stageId() != null) {
+                var previous = old.get(row.stageId());
+                if (previous == null || previous.getCompanyId() != post.orgId()) throw exception(REFERENCE_INVALID);
+                if (row.trigger().startsWith("LEGACY_") && !("BASE_DONE".equals(previous.getStage()) && "LEGACY_BASE_DONE".equals(row.trigger()))
+                        && !("CAP_DONE".equals(previous.getStage()) && "LEGACY_TOPPING".equals(row.trigger()))) {
+                    throw PaymentPlanRules.invalid("历史到期条件只能保留在原合同节点");
+                }
+                if (row.amountCents() < stageCollectedInTx(row.stageId())) throw PaymentPlanRules.invalid("节点金额不能小于已确认净收款，请先处理退款");
+                retained.add(row.stageId());
+            }
+        }
+        for (var removed : old.values()) if (!retained.contains(removed.getId())) {
+            long references = jdbcTemplate.queryForObject("""
+                SELECT (SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?)
+                     + (SELECT count(*) FROM fr_sale_collection_declaration WHERE stage_id=?)
+                """, Long.class, removed.getId(), removed.getId());
+            if (references > 0) throw PaymentPlanRules.invalid("已有收款或到账登记的付款节点不能删除，请保留原节点编号");
+        }
+        int version = contract.getPaymentPlanVersion() + 1;
+        long revision = contract.getRevision() + 1;
+        LocalDate effectiveOn = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        for (var previous : old.values()) {
+            jdbcTemplate.update("""
+                INSERT INTO fr_sale_stage_before_change(company_id,stage_id,contract_revision,effective_on,amount_cents,due_date,deleted)
+                VALUES(?,?,?,?,?,?,false)
+                """,post.orgId(),previous.getId(),revision,effectiveOn,previous.getAmountCents(),previous.getDueDate());
+            if (!retained.contains(previous.getId())) {
+                jdbcTemplate.update("UPDATE fr_sale_payment_stage SET deleted=true,plan_version=? WHERE id=? AND company_id=?", version, previous.getId(),post.orgId());
+            }
+        }
+        for (var row : plan) {
+            if (row.stageId() == null) {
+                insertPlanStage(contract, row, version);
+                jdbcTemplate.update("""
+                    INSERT INTO fr_sale_stage_before_change(company_id,stage_id,contract_revision,effective_on,amount_cents,deleted)
+                    SELECT company_id,id,?,?,0,true FROM fr_sale_payment_stage
+                    WHERE contract_id=? AND company_id=? AND plan_version=? AND sequence=? AND NOT deleted
+                    """,revision,effectiveOn,contractId,post.orgId(),version,row.sequence());
+            } else {
+                long net = stageCollectedInTx(row.stageId());
+                jdbcTemplate.update("""
+                    UPDATE fr_sale_payment_stage SET label=?,sequence=?,amount_cents=?,ratio_bps=?,due_date=?,
+                      trigger_type=?,trigger_node_index=?,plan_version=?,status=?,after_delivery=?
+                    WHERE id=? AND company_id=? AND contract_id=? AND NOT deleted
+                    """,row.label(),row.sequence(),row.amountCents(),row.ratioBps(),row.dueDate(),row.trigger(),row.nodeIndex(),version,
+                        net >= row.amountCents() ? "SETTLED" : net > 0 ? "OPEN" : "PENDING","ON_FINISH".equals(row.trigger()),row.stageId(),post.orgId(),contractId);
+            }
+        }
+        contracts.updateById(new SaleContractDO().setId(contractId).setTotalCents(cmd.totalCents())
+                .setFirstCents(beforeStart(plan)).setPaymentPlanVersion(version).setPaymentPlanMode("CUSTOM").setRevision(revision));
+        snapshotPlan(post, contractId, version, revision, cmd.reason());
+        commands.record(post,"fr-sale-contract",contractId,revision,"sale-contract-payment-plan",input,key);
+        return contracts.selectById(contractId);
+    }
+
+    private void snapshotPlan(PostSnapshot post, long contractId, int version, long revision, String reason) {
+        jdbcTemplate.update("""
+            INSERT INTO fr_sale_payment_plan_version(contract_id,company_id,version,contract_revision,total_cents,stages,reason,actor_user_id)
+            SELECT c.id,c.company_id,?,?,c.total_cents,
+                COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.sequence,s.id) FROM fr_sale_payment_stage s
+                    WHERE s.contract_id=c.id AND s.company_id=c.company_id AND NOT s.deleted),'[]'::jsonb),?,?
+            FROM fr_sale_contract c WHERE c.id=? AND c.company_id=?
+            """,version,revision,reason,post.userId(),contractId,post.orgId());
+    }
+
+    public java.util.List<Map<String,Object>> paymentPlanHistory(PostSnapshot post, long contractId) {
+        requirePlanContract(post,contractId);
+        var rows = jdbcTemplate.queryForList("""
+            SELECT version,contract_revision,total_cents,stages::text AS stages,reason,actor_user_id,created_at
+            FROM fr_sale_payment_plan_version WHERE contract_id=? AND company_id=? ORDER BY version DESC
+            """,contractId,post.orgId());
+        rows.forEach(row -> row.put("stages",cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                String.valueOf(row.get("stages")),java.util.List.class)));
+        return rows;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String,Object> paymentPlanDetail(PostSnapshot post,long contractId) {
+        requirePlanContract(post,contractId);
+        var contract=lockContract(post,contractId);
+        var result=new LinkedHashMap<String,Object>();
+        result.put("contract",contract);
+        // Use the same lock as collection commands so terms and confirmed cash are consistent.
+        result.put("stages",stageSummary(post,contractId));
+        result.put("customerName",customerName(contract));
+        result.put("canEdit",STATUS_WAIT_SIGN.equals(contract.getStatus()) || STATUS_SIGNED.equals(contract.getStatus())
+                && java.util.Set.of("boss","finance","finance-lead").contains(post.roleCode()));
+        return result;
+    }
+
+    private SaleContractDO requirePlanContract(PostSnapshot post,long contractId) {
+        if (!"store".equals(post.orgType()) || !java.util.Set.of("boss","sales","sales-lead","finance","finance-lead").contains(post.roleCode())) {
+            throw exception(REFERENCE_INVALID);
+        }
+        var contract=contracts.selectById(contractId);
+        if(contract==null || contract.getCompanyId()!=post.orgId()) throw exception(REFERENCE_INVALID);
+        // Finance has a narrow contract read; it does not gain general CRM customer permissions.
+        if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode())) access.requireOrgCustomer(post,contract.getCustomerId());
+        return contract;
     }
 
     /** 合同列表（组织内协作：经 SalesAccess 校验客户组织一致） */
@@ -170,7 +340,9 @@ public class SaleContractService {
 
     @Transactional(rollbackFor = Exception.class)
     public SaleContractDO sign(PostSnapshot post, long contractId, SignCommand cmd, Long revision, String idempotencyKey) {
+        signKeyGuard(post, idempotencyKey);
         SaleContractDO contract = lockContract(post, contractId);
+        requireEvidenceScope(post, contract);
         // 指纹含 contractId+revision（S1-23：作废重签场景下同客户异合同的 sign/void 命令不得共享指纹）
         var input = baseInput("contract-sign", contract.getCustomerId(), cmd, contractId, revision);
         var replayed = commands.replayed(post, idempotencyKey, input);
@@ -178,24 +350,94 @@ public class SaleContractService {
             return contracts.selectById(replayed.get().getAggregateId());
         }
         if (!STATUS_WAIT_SIGN.equals(contract.getStatus())) {
-            // 已签/作废：幂等返回当前状态（异状态非错误）
-            commands.record(post, "fr-sale-contract", contract.getId(), contract.getRevision(),
-                    "sale-contract-sign", input, idempotencyKey);
-            return contract;
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,
+                    STATUS_SIGNED.equals(contract.getStatus()) ? "合同已签约，资料更正请使用签约凭证补录" : "已作废合同不能签约");
         }
         if (revision == null || !java.util.Objects.equals(revision, contract.getRevision())) { // Long 引用比较越界即恒真（评审基线强制清单 #12）
             throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
         }
-        if (cmd.signedDate() != null) contract.setSignedDate(cmd.signedDate());
-        if (cmd.assetId() != null) {
-            validateAsset(post, cmd.assetId());
-            contract.setAssetId(cmd.assetId());
-        }
+        LocalDate date = cmd == null || cmd.signedDate() == null ? contract.getSignedDate() : cmd.signedDate();
+        Long asset = cmd == null || cmd.assetId() == null ? contract.getAssetId() : cmd.assetId();
+        requireSignedEvidence(post, date, asset);
+        contract.setSignedDate(date).setAssetId(asset);
         contract.setStatus(STATUS_SIGNED);
         RevisionsUpdate(contract);
         commands.record(post, "fr-sale-contract", contract.getId(), contract.getRevision(),
                 "sale-contract-sign", input, idempotencyKey);
         return contract;
+    }
+
+    /** Restores real evidence on old SIGNED rows without replaying signing or rebuilding the payment plan. */
+    @Transactional(rollbackFor = Exception.class)
+    public SaleContractDO supplementEvidence(PostSnapshot post, long contractId, EvidenceCommand cmd, String key) {
+        signKeyGuard(post, key);
+        SaleContractDO contract = lockContract(post, contractId); requireEvidenceScope(post, contract);
+        if (cmd == null || cmd.reason() == null || cmd.reason().isBlank() || cmd.reason().trim().length() > 500)
+            throw evidenceInvalid("请填写凭证补录或更正原因（不超过500字）");
+        var normalized = new EvidenceCommand(cmd.signedDate(), cmd.assetId(), cmd.reason().trim(), cmd.revision());
+        var input = baseInput("contract-evidence", contract.getCustomerId(), normalized, contractId, cmd.revision());
+        if (commands.replayed(post, key, input).isPresent()) return contracts.selectById(contractId);
+        if (!STATUS_SIGNED.equals(contract.getStatus())) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409, "仅已签约合同可补录签约凭证");
+        if (cmd.revision() == null || !cmd.revision().equals(contract.getRevision()))
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
+        requireSignedEvidence(post, cmd.signedDate(), cmd.assetId());
+        Map<String, Object> previous = new LinkedHashMap<>();
+        previous.put("signedDate", contract.getSignedDate() == null ? null : contract.getSignedDate().toString());
+        previous.put("assetId", contract.getAssetId() == null ? null : contract.getAssetId().toString());
+        long priorRevision = contract.getRevision();
+        contract.setSignedDate(cmd.signedDate()).setAssetId(cmd.assetId()); RevisionsUpdate(contract);
+        jdbcTemplate.update("""
+                INSERT INTO fr_sale_contract_evidence_event(id,company_id,contract_id,revision,previous_revision,
+                    before_evidence,after_evidence,reason,actor_user_id,actor_post_id)
+                VALUES(?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),?,?,?)
+                """,IdWorker.getId(),post.orgId(),contractId,contract.getRevision(),priorRevision,
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(previous),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of("signedDate",cmd.signedDate().toString(),"assetId",cmd.assetId().toString())),
+                normalized.reason(),post.userId(),post.postId());
+        commands.record(post,"fr-sale-contract",contractId,contract.getRevision(),"sale-contract-evidence",input,key);
+        return contract;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AssetAccessPort.DownloadUrlView evidenceDownload(PostSnapshot post, long contractId, long assetId) {
+        SaleContractDO contract = lockContract(post, contractId); requireEvidenceScope(post, contract);
+        if (assetId <= 0 || !java.util.Objects.equals(contract.getAssetId(), assetId)) throw exception(REFERENCE_INVALID);
+        requireAcceptedEvidence(post, assetId);
+        long account = serviceAccounts.requireServiceAccount(post.orgId());
+        var ticket = assets.createContractDownloadUrl(new AssetAccessPort.Actor(post.orgId(), account, post.userId(), post.postId()), contractId, assetId);
+        commands.record(post,"fr-contract-evidence-read",contractId,IdWorker.getId(),"contract-evidence-download",
+                Map.of("contractId",contractId,"assetId",assetId),"contract-download:"+java.util.UUID.randomUUID());
+        return ticket;
+    }
+
+    private void requireSignedEvidence(PostSnapshot post, LocalDate date, Long asset) {
+        if (date == null || date.isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")))) throw evidenceInvalid("请填写不晚于今天的实际签约日期");
+        if (asset == null || asset <= 0) throw evidenceInvalid("请上传已签合同凭证");
+        requireAcceptedEvidence(post, asset);
+    }
+    private void requireAcceptedEvidence(PostSnapshot post, long asset) {
+        validateAsset(post, asset);
+        var verifier = evidence == null ? null : evidence.getIfAvailable();
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        if (tenant == null || verifier == null || !java.util.Objects.equals(verifier.acceptedOwners(tenant, java.util.Set.of(asset),
+                java.util.Set.of("CONTRACT_ATTACHMENT")).get(asset), post.orgId()))
+            throw evidenceInvalid("合同附件未通过验收或已失效，请重新上传有效合同凭证");
+    }
+    private void requireEvidenceScope(PostSnapshot post, SaleContractDO contract) {
+        access.requireOrgCustomer(post, contract.getCustomerId());
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        if (tenant == null || !Boolean.TRUE.equals(jdbcTemplate.queryForObject("SELECT EXISTS(SELECT 1 FROM system_dept d JOIN pf_org_unit o ON o.dept_id=d.id"
+                + " JOIN fr_sale_contract c ON c.company_id=d.id AND NOT c.deleted"
+                + " WHERE d.id=? AND d.tenant_id=? AND d.status=0 AND d.deleted=0 AND o.kind='ORG' AND o.status='ACTIVE' AND c.id=?)", Boolean.class, post.orgId(), tenant, contract.getId())))
+            throw exception(REFERENCE_INVALID);
+    }
+    private void signKeyGuard(PostSnapshot post, String key) {
+        String normalized = commands.requireIdempotencyKey(key);
+        jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class,
+                FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),normalized));
+    }
+    private static RuntimeException evidenceInvalid(String message) {
+        return new cn.iocoder.yudao.framework.common.exception.ServiceException(400,message);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -306,7 +548,7 @@ public class SaleContractService {
             var cmd2 = new BusinessReceiptPort.BusinessReceipt(
                     contract.getCustomerId(),
                     "sale:" + contract.getId() + ":" + stage.getStage() + ":" + IdWorker.getId(),
-                    customerName(contract) + "·" + stageLabel(stage.getStage()) + "回款",
+                    customerName(contract) + "·" + displayLabel(stage) + "回款",
                     cmd.amountCents(), cmd.method(), cmd.transactionNo(), effectiveDate,cmd.voucherFileId(),cmd.accountName());
             var saved = businessReceipts.registerBusinessReceipt(post, cmd2);
             // ⑧分笔关联 + 期状态推进（R2 P1：SETTLED 补收保持 SETTLED——存量行 paid_* 非空，
@@ -364,10 +606,10 @@ public class SaleContractService {
     public java.util.List<Map<String,Object>> financialStages(PostSnapshot post) {
         return jdbcTemplate.queryForList("""
             SELECT s.id::text,s.contract_id::text,c.customer_id::text,customer.name AS customer_name,
-              s.stage,s.amount_cents,s.due_date,s.after_delivery,
+              s.stage,s.label,s.sequence,s.trigger_type,s.trigger_node_index,s.plan_version,s.amount_cents,s.due_date,s.after_delivery,
               COALESCE((SELECT sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f WHERE f.receipt_id=r.id AND f.status='已核实'),0)) FROM fr_sale_stage_receipt x JOIN fr_fin_receipt r ON r.id=x.receipt_id AND r.company_id=x.company_id WHERE x.stage_id=s.id AND x.company_id=s.company_id AND r.status='已登记'),0) AS collected_cents
             FROM fr_sale_payment_stage s JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id LEFT JOIN fr_customer customer ON customer.id=c.customer_id AND customer.company_id=c.company_id
-            WHERE s.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND NOT s.deleted ORDER BY c.id,s.id
+            WHERE s.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND NOT s.deleted ORDER BY c.id,s.sequence,s.id
             """,post.orgId());
     }
     public record ContractChange(long signAfterCents,long baseDoneCents,long capDoneCents,long tailCents,LocalDate tailDueDate,String reason){}
@@ -377,14 +619,28 @@ public class SaleContractService {
             var input=Map.of("contractId",contractId,"change",cmd);
             if(commands.replayed(post,key,input).isPresent())return;
             var c=contracts.lockById(contractId);if(c==null || c.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);requireSIGNED(c);
-            if(cmd.reason()==null || cmd.reason().isBlank() || cmd.signAfterCents()<0 || cmd.baseDoneCents()<0 || cmd.capDoneCents()<0 || cmd.tailCents()<0)throw exception(STAGE_AMOUNT_INVALID);
-            long total=Math.addExact(Math.addExact(cmd.signAfterCents(),cmd.baseDoneCents()),Math.addExact(cmd.capDoneCents(),cmd.tailCents()));if(total<=0)throw exception(STAGE_AMOUNT_INVALID);
+            if (!"store".equals(post.orgType()) || !java.util.Set.of("boss","finance","finance-lead").contains(post.roleCode())) {
+                throw PaymentPlanRules.invalid("已签约付款计划由公司负责人或财务办理变更");
+            }
+            if ("CUSTOM".equals(c.getPaymentPlanMode())) {
+                throw PaymentPlanRules.invalid("请通过自定义付款计划办理变更，保留原节点编号");
+            }
+            if(cmd.reason()==null || cmd.reason().isBlank() || cmd.reason().length()>500 || cmd.signAfterCents()<0 || cmd.baseDoneCents()<0 || cmd.capDoneCents()<0 || cmd.tailCents()<0)throw exception(STAGE_AMOUNT_INVALID);
+            long total=Math.addExact(Math.addExact(cmd.signAfterCents(),cmd.baseDoneCents()),Math.addExact(cmd.capDoneCents(),cmd.tailCents()));if(total<=0 || total>SaleQuoteMath.MAX_AMOUNT)throw exception(STAGE_AMOUNT_INVALID);
             String[] names = {"SIGN_AFTER", "BASE_DONE", "CAP_DONE", "tail"};
             long[] values = {cmd.signAfterCents(), cmd.baseDoneCents(), cmd.capDoneCents(), cmd.tailCents()};
             LocalDate effectiveOn = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
             long contractRevision = c.getRevision() + 1;
+            int planVersion = c.getPaymentPlanVersion() + 1;
+            var previousStages=stages.selectByContract(contractId).stream().collect(java.util.stream.Collectors.toMap(
+                    SalePaymentStageDO::getStage,java.util.function.Function.identity()));
             for (int i = 0; i < names.length; i++) {
                 LocalDate dueDate = i == 3 ? cmd.tailDueDate() : null;
+                String trigger=i==0?"BEFORE_START":i==1?"LEGACY_BASE_DONE":i==2?"LEGACY_TOPPING":dueDate==null?"ON_FINISH":"DATE";
+                var previous=previousStages.get(names[i]);
+                long collected=previous==null?0:stageCollectedInTx(previous.getId());
+                if (values[i]<collected) throw PaymentPlanRules.invalid("节点金额不能小于已确认净收款，请先处理退款");
+                String nextStatus=collected>=values[i]?"SETTLED":collected>0?"OPEN":"PENDING";
                 // 保存本次生效前的期次。合同锁与收款、变更使用同一顺序。
                 jdbcTemplate.update("""
                     INSERT INTO fr_sale_stage_before_change
@@ -393,14 +649,17 @@ public class SaleContractService {
                     FROM fr_sale_payment_stage WHERE contract_id=? AND company_id=? AND stage=?
                     """,contractRevision,effectiveOn,contractId,post.orgId(),names[i]);
                 int updated = jdbcTemplate.update("""
-                    UPDATE fr_sale_payment_stage SET amount_cents=?,due_date=?,after_delivery=?,deleted=false
+                    UPDATE fr_sale_payment_stage SET amount_cents=?,due_date=?,after_delivery=?,deleted=false,
+                        status=?,trigger_type=?,trigger_node_index=NULL,sequence=?
                     WHERE contract_id=? AND company_id=? AND stage=?
-                    """,values[i],dueDate,i==3,contractId,post.orgId(),names[i]);
+                    """,values[i],dueDate,i==3,nextStatus,trigger,i+1,contractId,post.orgId(),names[i]);
                 if (updated == 0 && values[i] > 0) {
                     long stageId = IdWorker.getId();
                     stages.insert(new SalePaymentStageDO().setId(stageId).setCompanyId(post.orgId())
                             .setCustomerId(c.getCustomerId()).setContractId(contractId).setStage(names[i])
-                            .setAmountCents(values[i]).setStatus("PENDING").setDeleted(false));
+                            .setAmountCents(values[i]).setLabel(stageLabel(names[i])).setSequence(i+1).setPlanVersion(planVersion)
+                            .setTriggerType(trigger)
+                            .setStatus("PENDING").setDeleted(false));
                     if (i == 3) jdbcTemplate.update("UPDATE fr_sale_payment_stage SET after_delivery=true,due_date=? WHERE id=?", dueDate, stageId);
                     jdbcTemplate.update("""
                         INSERT INTO fr_sale_stage_before_change
@@ -409,12 +668,18 @@ public class SaleContractService {
                         """,post.orgId(),stageId,contractRevision,effectiveOn);
                 }
             }
-            contracts.updateById(new SaleContractDO().setId(contractId).setTotalCents(total).setFirstCents(cmd.signAfterCents()).setRevision(c.getRevision()+1));
+            jdbcTemplate.update("UPDATE fr_sale_payment_stage SET plan_version=? WHERE contract_id=? AND company_id=? AND NOT deleted",planVersion,contractId,post.orgId());
+            contracts.updateById(new SaleContractDO().setId(contractId).setTotalCents(total).setFirstCents(cmd.signAfterCents()).setRevision(c.getRevision()+1).setPaymentPlanVersion(planVersion));
+            snapshotPlan(post,contractId,planVersion,contractRevision,cmd.reason());
             long revision=jdbcTemplate.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='sale-contract' AND aggregate_id=?",Long.class,contractId);
             commands.record(post,"sale-contract",contractId,revision,"sale-contract-change",input,key);
         });
     }
-    private void keyGuard(PostSnapshot post,String key){commands.requireIdempotencyKey(key);jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(?,0))) s",Integer.class,post.orgId()+":"+key);}
+    private void keyGuard(PostSnapshot post,String key) {
+        String normalized=commands.requireIdempotencyKey(key);
+        long lock=FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),normalized);
+        jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s",Integer.class,lock);
+    }
     /** 前期已到账定金认领到一期；只新增关联，不再创建实收。 */
     public void allocateReceipt(PostSnapshot post,long stageId,long receiptId,String key){
         txTemplate.executeWithoutResult(status->{
@@ -422,6 +687,8 @@ public class SaleContractService {
             if(commands.replayed(post,key,input).isPresent())return;
             var peek=stages.selectById(stageId);if(peek==null||peek.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);
             var c=contracts.lockById(peek.getContractId());requireSIGNED(c);var stage=stages.lockById(stageId);
+            // Recheck after the contract lock: a concurrent plan replacement may retire this node.
+            if(stage==null||Boolean.TRUE.equals(stage.getDeleted()))throw exception(REFERENCE_INVALID);
             var rows=jdbcTemplate.queryForList("SELECT * FROM fr_fin_receipt WHERE id=? AND company_id=? FOR UPDATE",receiptId,post.orgId());
             if(rows.isEmpty())throw exception(REFERENCE_INVALID);var r=rows.get(0);
             if(!"manual".equals(r.get("source_type"))||!"已登记".equals(r.get("status"))||r.get("source_ref")!=null)throw exception(REFERENCE_INVALID);
@@ -479,6 +746,8 @@ public class SaleContractService {
     }
 
     public long stageCollected(PostSnapshot post, long stageId) {
+        var stage = stages.selectById(stageId);
+        if (stage == null || stage.getCompanyId() != post.orgId()) throw exception(REFERENCE_INVALID);
         return stageCollectedInTx(stageId);
     }
 
@@ -495,6 +764,7 @@ public class SaleContractService {
         lockContract(post, contractId);
         java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
         for (SalePaymentStageDO stage : stages.selectByContract(contractId)) {
+            if (Boolean.TRUE.equals(stage.getDeleted())) continue;
             // R2 P2-4：四列对账——gross 毛额（Σ全部分笔）/ refunded 退款（已核实）/ net 净额 / 剩余按净额
             Long grossQ = jdbcTemplate.queryForObject(
                     "SELECT COALESCE(SUM(r.amount_cents), 0) FROM fr_sale_stage_receipt r WHERE r.stage_id = ?",
@@ -511,7 +781,12 @@ public class SaleContractService {
             row.put("stageId", stage.getId());
             row.put("dueDate",stage.getDueDate());
             row.put("stage", stage.getStage());
-            row.put("label", stageLabel(stage.getStage()));
+            row.put("label", displayLabel(stage));
+            row.put("sequence", stage.getSequence());
+            row.put("ratioBps", stage.getRatioBps());
+            row.put("trigger", stage.getTriggerType());
+            row.put("nodeIndex", stage.getTriggerNodeIndex());
+            row.put("planVersion", stage.getPlanVersion());
             row.put("amountCents", stage.getAmountCents());
             row.put("collectedCents", collected);
             row.put("grossCents", gross);
@@ -533,6 +808,10 @@ public class SaleContractService {
             case SalePaymentStageDO.STAGE_TAIL -> "尾款";
             default -> stage;
         };
+    }
+
+    static String displayLabel(SalePaymentStageDO stage) {
+        return stage.getLabel() == null || stage.getLabel().isBlank() ? stageLabel(stage.getStage()) : stage.getLabel();
     }
 
     private long fingerprintOf(CollectCommand cmd) {

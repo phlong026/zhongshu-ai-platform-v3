@@ -105,6 +105,7 @@ public class HandoverService {
         if (commission == null || !access.canWrite(post, commission)) {
             throw exception(COMMISSION_NOT_FOUND);
         }
+        if (ExternalCommissionService.external(commission)) throw exception(COMMISSION_STATE_INVALID);
         if (!CommissionDO.STATUS_DISPATCHED.equals(commission.getStatus())
                 && !CommissionDO.STATUS_HANDOVER_RETURNED.equals(commission.getStatus())) {
             throw exception(COMMISSION_STATE_INVALID);
@@ -166,6 +167,7 @@ public class HandoverService {
         if (commission == null) {
             throw exception(COMMISSION_NOT_FOUND);
         }
+        if (ExternalCommissionService.external(commission)) throw exception(COMMISSION_STATE_INVALID);
         // 幂等重放前置（阶段 2）：重放不适用状态门——首次办理后状态已流转（如 ACCEPTED），
         // 同键重放应直接返回首次结果（AC3 重复回调幂等依赖此顺序）。
         if (replayed(post,idempotencyKey,command,commissionId,commandName)) {

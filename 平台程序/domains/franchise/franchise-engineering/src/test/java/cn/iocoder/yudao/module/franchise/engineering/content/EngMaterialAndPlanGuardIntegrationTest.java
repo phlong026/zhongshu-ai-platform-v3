@@ -94,6 +94,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         /** M07-T06：统一合同三期桩——CONTRACT_STAGES 非空返回约定（测试静态直控），null=无活跃合同 */
         static volatile cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.StageAmounts CONTRACT_STAGES;
 
+        static volatile cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan FORMAL_PLAN;
         static final AtomicLong ACTIVE_CONTRACT_ID = new AtomicLong(900L);
 
         @Bean
@@ -106,6 +107,11 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                     return ACTIVE_CONTRACT_ID.get();
                 }
 
+                @Override
+                public PaymentPlan findPaymentPlanById(PostSnapshot post,long contractId) {
+                    return FORMAL_PLAN!=null && FORMAL_PLAN.contractId()==contractId?FORMAL_PLAN:null;
+                }
+                @Override public PaymentPlan findPaymentPlan(PostSnapshot post,long customerId) { return FORMAL_PLAN; }
                 @Override
                 public cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.StageAmounts findStageAmounts(
                         PostSnapshot post, long customerId) {
@@ -136,6 +142,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                     return ACTIVE_CONTRACT_ID.get(); // 与 SaleContractQueryPort 桩同源（重签用例可变）
                 }
 
+                @Override
+                public java.util.List<StageBalance> stageBalances(PostSnapshot post,long contractId) {
+                    return FORMAL_PLAN==null?java.util.List.of():FORMAL_PLAN.stages().stream().map(s->new StageBalance(s.key(),s.amountCents(),STAGE_COLLECTED_MAP.getOrDefault(s.key(),0L),s.dueDate(),s.id(),0,s.label(),s.trigger(),s.nodeIndex(),FORMAL_PLAN.version())).toList();
+                }
                 @Override
                 public long stageCollectedCents(PostSnapshot post, long contractId, String stage) {
                     Long v = STAGE_COLLECTED_MAP.get(stage);
@@ -200,6 +210,8 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 + "asset_type VARCHAR(64) NOT NULL, accepted BOOLEAN NOT NULL, org_id BIGINT NOT NULL)");
         jdbc.update("DELETE FROM eng_test_asset WHERE org_id <> -1"); // 跨用例清理（R1 P3）
         Config.CONTRACT_STAGES = null; // 静态桩重置
+        Config.FORMAL_PLAN=null;
+        Config.ACTIVE_CONTRACT_ID.set(900L);
         Config.STAGE_COLLECTED_MAP.clear();
         Config.COLLECT_CALLS.clear();
         store = fixture.store();
@@ -212,6 +224,53 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         materialId = insertMaterial();
         supplyId = jdbc.queryForObject(
                 "SELECT id FROM fr_eng_supply WHERE material_id = ?", Long.class, materialId);
+    }
+
+    @Test
+    void formalPaymentPlanIsInheritedWithoutEngineeringReentryAndKeepsOneSnapshotOnRetry() {
+        long asset=insertAsset("CONTRACT_ATTACHMENT",true,store.orgId());
+        Config.FORMAL_PLAN=new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan(900,1,1,100000,asset,java.util.List.of(
+                paymentStage(101,"签约款",20000,"ON_SIGN",null),paymentStage(102,"开工款",30000,"BEFORE_START",null),
+                paymentStage(103,"节点款",50000,"NODE_COMPLETED",1)));
+        var cmd=new EngPlanService.PrepareCommand(null,null,null,null,null,"确认继承合同约定",null,null,1);
+        String key=idem();
+        var once=as(engineer,()->planService.prepare(engineer,projectId,cmd,key));
+        var twice=as(engineer,()->planService.prepare(engineer,projectId,cmd,key));
+        assertThat(twice.get("revision")).isEqualTo(once.get("revision"));
+        assertThat(jdbc.queryForList("SELECT stage FROM fr_eng_collection_term WHERE project_id=? ORDER BY stage",String.class,projectId))
+                .containsExactly("STAGE_101","STAGE_102","STAGE_103");
+        assertThat(jdbc.queryForMap("SELECT contract_total_cents,first_cents,payment_plan_version FROM fr_eng_project WHERE id=?",projectId))
+                .containsEntry("contract_total_cents",100000L).containsEntry("first_cents",50000L).containsEntry("payment_plan_version",1);
+        assertThat(jdbc.queryForObject("SELECT payment_plan_snapshot->>'contractId' FROM fr_eng_project WHERE id=?",String.class,projectId)).isEqualTo("900");
+        Config.STAGE_COLLECTED_MAP.put("STAGE_101",20000L);
+        Config.STAGE_COLLECTED_MAP.put("STAGE_102",29999L);
+        assertThatThrownBy(()->as(engineer,()->{planService.requireStartGate(engineer,projectId);return true;})).isInstanceOf(ServiceException.class);
+        Config.STAGE_COLLECTED_MAP.put("STAGE_102",30000L);
+        as(engineer,()->{planService.requireStartGate(engineer,projectId);return true;});
+        // Migration-era prepared projects have no frozen version: a current formal plan requires reconfirmation.
+        jdbc.update("UPDATE fr_eng_project SET payment_plan_version=NULL WHERE id=?",projectId);
+        assertThat(planService.paymentPlanView(engineer,projectId)).containsEntry("needsRefresh",true);
+        assertThatThrownBy(()->as(engineer,()->{planService.requireStartGate(engineer,projectId);return true;})).hasMessageContaining("重新确认开工准备");
+        as(engineer,()->planService.prepare(engineer,projectId,cmd,idem()));
+        as(engineer,()->{planService.requireStartGate(engineer,projectId);return true;});
+        Config.FORMAL_PLAN=new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan(900,2,2,100000,asset,Config.FORMAL_PLAN.stages());
+        assertThatThrownBy(()->as(engineer,()->{planService.requireStartGate(engineer,projectId);return true;})).hasMessageContaining("重新确认开工准备");
+        assertThatThrownBy(()->as(engineer,()->planService.prepare(engineer,projectId,cmd,idem()))).hasMessageContaining("付款计划已更新");
+    }
+
+    @Test
+    void aPlanReferencingAnotherConstructionNodeIsRejectedWithoutChangingPreparedData() {
+        long asset=insertAsset("CONTRACT_ATTACHMENT",true,store.orgId());
+        Config.FORMAL_PLAN=new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan(900,1,1,100000,asset,
+                java.util.List.of(paymentStage(101,"节点款",100000,"NODE_COMPLETED",99)));
+        assertThatThrownBy(()->as(engineer,()->planService.prepare(engineer,projectId,
+                new EngPlanService.PrepareCommand(null,null,null,null,null,"检查施工约定",null,null,1),idem()))).hasMessageContaining("不存在的施工节点");
+        assertThat(jdbc.queryForObject("SELECT payment_plan_version FROM fr_eng_project WHERE id=?",Integer.class,projectId)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_collection_term WHERE project_id=?",Long.class,projectId)).isZero();
+    }
+
+    private cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentStage paymentStage(long id,String label,long cents,String trigger,Integer index) {
+        return new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentStage(id,"STAGE_"+id,label,(int)id,cents,null,null,trigger,index);
     }
 
     @Test
@@ -306,7 +365,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
         // start 前置：节点日期齐备 + SIGN_AFTER 门禁（统一账读侧桩置累计 40800000=签约后期已收齐）
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         // R1 P1-1：SIGN_AFTER 门禁读统一账——桩置累计 40800000（签约后期已收齐）
@@ -411,7 +470,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
         // start 前置：节点计划日期齐备；SIGN_AFTER 门禁读统一账——桩置累计 40800000（R1 P1-1 读侧）
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         long fakeId = IDS.incrementAndGet();
@@ -477,7 +536,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     void nodeCompletionKeepsEveryAuthorizedPhotoAndReplaysTheExactEvidence() {
         long startAsset=insertAsset("ENG_DRAWING",true,store.orgId());
         as(engineer,()->planService.prepare(engineer,projectId,startCmd(startAsset),idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE,end_date=CURRENT_DATE+30 WHERE project_id=?",projectId);
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE,end_date=CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE+30 END WHERE project_id=?",projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER,40800000L);
         as(engineer,()->planService.start(engineer,projectId,
                 new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(),"实际开工",startAsset,true),idem()));
@@ -708,7 +767,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private CompletedInspection completedInspection() {
         long startAsset = insertAsset("ENG_DRAWING", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(startAsset), idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE-2,end_date=CURRENT_DATE+30 WHERE project_id=?", projectId);
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=CURRENT_DATE-2,end_date=CASE WHEN milestone='START' THEN CURRENT_DATE-2 ELSE CURRENT_DATE+30 END WHERE project_id=?", projectId);
         Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
         var date = java.time.LocalDate.now().minusDays(1);
         as(engineer, () -> planService.start(engineer, projectId,
@@ -834,7 +893,7 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 IDS.incrementAndGet(), projectId); // 交付全累计收款门禁走统一账读侧
         long validAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         as(engineer, () -> planService.prepare(engineer, projectId, startCmd(validAsset), idem()));
-        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CURRENT_DATE + 30 "
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date = CURRENT_DATE, end_date = CASE WHEN milestone='START' THEN CURRENT_DATE ELSE CURRENT_DATE + 30 END "
                 + "WHERE project_id = ?", projectId);
         long total = 40800000L + 18000000L + 9200000L;
         jdbc.update("UPDATE fr_eng_collection_term SET amount_cents = 40800000 WHERE project_id = ? AND stage = 'SIGN_AFTER'", projectId);
@@ -989,6 +1048,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     private long insertNode() {
+        // Existing projects receive the same index-0 START node in migration 950.
+        // Keep its real evidence separate from the material/inspection node below.
+        jdbc.update("INSERT INTO fr_eng_plan_node (id,company_id,project_id,node_index,name,status,milestone,create_time) "
+                + "VALUES (?,?,?,0,'正式开工','PENDING','START',now())", IDS.incrementAndGet(),store.orgId(),projectId);
         long id = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_eng_plan_node (id, company_id, project_id, node_index, name, status, create_time) "
                 + "VALUES (?, ?, ?, 1, '主体施工', 'PENDING', now())", id, store.orgId(), projectId);

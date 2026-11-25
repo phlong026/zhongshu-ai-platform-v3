@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.engineering.todo.EngTodoProvider;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
@@ -17,6 +18,7 @@ import cn.iocoder.yudao.module.platform.workflow.TodoItem;
 import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -41,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 3. 单次计数结构固化：fr_sale_stage_receipt 一笔 receipt 至多归一期（uk 结构直插反证）、
  *    期次读数不串（资格/门禁/待办同源一个 port）。
  */
-@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class,
+@Import({EngProjectService.class, EngMaterialService.class, EngPlanService.class, EngCollectionService.class, EngFollowupService.class,
         EngClosureService.class, EngExpenseService.class, EngTodoProvider.class,
         SaleContractService.class, SaleRequirementService.class,
         cn.iocoder.yudao.module.franchise.sales.SalesAccess.class, UnifiedStageAccountAdapter.class,
@@ -54,7 +56,17 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
         @Bean
         cn.iocoder.yudao.module.franchise.api.AssetAccessPort assetAccessPort() {
-            return untouchedStub(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            var port = org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.class);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9001L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("CONTRACT_ATTACHMENT")))).thenReturn(true);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
+            return port;
+        }
+
+        @Bean cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort evidence() {
+            return (tenant, ids, types) -> ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")
+                    ? java.util.Map.of(9001L, tenant) : java.util.Map.of();
         }
 
         @Bean
@@ -161,6 +173,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     private UnifiedStageAccountPort unifiedStages;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource private EngFollowupService followupService;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
 
     private Store store;
     private PostSnapshot engineer;
@@ -172,6 +186,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     @BeforeEach
     void setUpProjectWithRealContract() {
         store = fixture.store();
+        jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'工程合同测试',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id", store.orgId(), store.orgId());
+        TenantContextHolder.setTenantId(store.orgId());
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
         finance = fixture.post(engineer.orgId(), "finance", null);
         // 客户 + 真实合同（68 万：40/18/10）并签约
@@ -184,7 +200,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                         10_000_000L, null, null, null),
                 idem()));
         as(engineer, () -> contracts.sign(engineer, created.getId(),
-                new SaleContractService.SignCommand(LocalDate.now(), null),
+                new SaleContractService.SignCommand(LocalDate.now(), 9001L),
                 revisionOf(created.getId()), idem()));
         signStageId = stageRowOf(created.getId(), SIGN_AFTER);
         // 工程项目：挂同一客户 + 冻结统一合同 id；约定行（term）SIGN_AFTER 40 万
@@ -201,6 +217,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_eng_collection_term (id, company_id, project_id, stage, amount_cents) "
                 + "VALUES (?, ?, ?, ?, 40000000)", IDS.incrementAndGet(), store.orgId(), projectId, SIGN_AFTER);
     }
+
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void collectionSummaryFollowsContractChangesIncludingTail() {
@@ -280,6 +298,50 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         // 期次读数不串：SIGN_AFTER 含该笔、BASE_DONE 恒 0
         assertThat(unifiedStages.stageCollectedCents(engineer, contractsActiveId(), SIGN_AFTER)).isEqualTo(25_000_000L);
         assertThat(unifiedStages.stageCollectedCents(engineer, contractsActiveId(), "BASE_DONE")).isZero();
+    }
+
+    @Test
+    void dunningWaitsForTheProjectBeforeTakingTheContractLock() throws Exception {
+        long contractId = contractsActiveId();
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waitingPid = new java.util.concurrent.atomic.AtomicInteger();
+        var pending = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<java.util.List<java.util.Map<String,Object>>>>();
+        currentPost.use(engineer);
+        try {
+            new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+                jdbc.queryForObject("SELECT id FROM fr_eng_project WHERE id=? FOR UPDATE", Long.class, projectId);
+                int holdingPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                pending.set(pool.submit(() -> {
+                    TenantContextHolder.setTenantId(store.orgId());
+                    try {
+                        return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx -> {
+                            waitingPid.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                            return followupService.dunning(engineer, projectId,
+                                    new EngFollowupService.DunningCommand(SIGN_AFTER, LocalDate.now().plusDays(1), "并发催收"), idem());
+                        });
+                    } finally { TenantContextHolder.clear(); }
+                }));
+                boolean waiting = false;
+                for (int attempt = 0; attempt < 250; attempt++) {
+                    if (waitingPid.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                            "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, holdingPid, waitingPid.get()))) {
+                        waiting = true; break;
+                    }
+                    try { Thread.sleep(20); }
+                    catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
+                }
+                assertThat(waiting).as("催收正在等待本事务持有的工程锁").isTrue();
+                // With the old lock order the waiting dunning request already owns
+                // this contract lock; NOWAIT proves the inversion without hanging.
+                assertThat(jdbc.queryForObject("SELECT id FROM fr_sale_contract WHERE id=? FOR UPDATE NOWAIT", Long.class, contractId)).isEqualTo(contractId);
+                collectionService.register(finance, projectId,
+                        new EngCollectionService.CollectCommand(SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), LocalDate.now(), 9002L), idem());
+            });
+            assertThat(pending.get().get(10, java.util.concurrent.TimeUnit.SECONDS)).hasSize(1);
+            assertThat(unifiedStages.stageCollectedCents(engineer, contractId, SIGN_AFTER)).isEqualTo(10000);
+            assertThat(jdbc.queryForObject("SELECT revision FROM fr_eng_project WHERE id=?", Long.class, projectId)).isEqualTo(3);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_followup WHERE project_id=?", Long.class, projectId)).isEqualTo(1);
+        } finally { pool.shutdownNow(); currentPost.clear(); }
     }
 
     // ========== helpers ==========

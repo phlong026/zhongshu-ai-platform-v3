@@ -29,7 +29,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.*;
 
-@TestPropertySource(properties={"platform.test.extra-flyway-locations=,classpath:db/migration/platform-wallet,classpath:db/migration/franchise","zhongshu.org-point.headquarters-tenant-id=1","platform.legacy-design-bridge.enabled=false"})
+@TestPropertySource(properties={"platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet,classpath:db/migration/franchise-asset","zhongshu.org-point.headquarters-tenant-id=1","platform.legacy-design-bridge.enabled=false"})
 @Import({OperationsIntegrationTest.Config.class,OperationsGuard.class,OperationsAudit.class,OrganizationProfiles.class,OrganizationCapabilities.class,
  OrganizationCapabilityGate.class,OrganizationPointSummaryAspect.class,TaskOperationsQuery.class,TaskReconciliation.class,OrgDirectoryService.class,OrgServiceImpl.class,
  StaffPostServiceImpl.class,OrgPointService.class,OrgPointPriceService.class,ContentTaskStore.class})

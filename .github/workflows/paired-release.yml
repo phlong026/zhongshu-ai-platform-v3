@@ -4,8 +4,13 @@ on:
     branches: [backend-main]
   pull_request:
     branches: [backend-main]
+    types: [opened, synchronize, reopened, edited]
   workflow_call:
     inputs:
+      executor_sha:
+        description: Immutable executor source, identical to the caller's uses pin
+        required: true
+        type: string
       frontend_sha:
         description: Exact frontend commit selected by the caller
         required: true
@@ -15,6 +20,11 @@ on:
         required: false
         default: backend-main
         type: string
+      require_external_handover:
+        description: Require the real external handover test and frontend client
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       frontend_sha:
@@ -27,6 +37,11 @@ on:
         required: true
         default: backend-main
         type: string
+      require_external_handover:
+        description: Require the external handover chain (explicit SHA pairs always require it)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -40,19 +55,49 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      FRONTEND_REF: ${{ inputs.frontend_sha || 'main' }}
-      BACKEND_REF: ${{ inputs.backend_sha || github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_EXECUTOR_SHA: ${{ inputs.executor_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Validate the immutable executor source
+        run: |
+          python3 - <<'PYTHON'
+          import os, re
+          if not re.fullmatch(r'[0-9a-f]{40}', os.environ['EXPECTED_EXECUTOR_SHA']):
+              raise SystemExit('Executor source must be one full lowercase commit SHA')
+          PYTHON
+      # Preserve the parser from the reviewed workflow source before checking out
+      # a possibly older business backend. No PR body text is interpolated into run.
+      - name: Check out the fixed executor
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.EXPECTED_EXECUTOR_SHA }}
+          path: .pair-executor
+          persist-credentials: false
+      - name: Select pair inputs from event data
+        id: selection
+        env:
+          INPUT_EXECUTOR_SHA: ${{ inputs.executor_sha }}
+          INPUT_FRONTEND_SHA: ${{ inputs.frontend_sha }}
+          INPUT_BACKEND_SHA: ${{ inputs.backend_sha }}
+          INPUT_REQUIRE_EXTERNAL: ${{ inputs.require_external_handover && 'true' || 'false' }}
+        run: |
+          python3 -I .pair-executor/平台程序/script/release-rehearsal/test_select_pair.py
+          python3 -I .pair-executor/平台程序/script/release-rehearsal/test_freeze_pair.py
+          python3 -I .pair-executor/平台程序/script/release-rehearsal/select_pair.py select
+          mkdir -p "$RUNNER_TEMP/paired-executor-tools"
+          cp .pair-executor/平台程序/script/release-rehearsal/select_pair.py .pair-executor/平台程序/script/release-rehearsal/freeze_pair.py "$RUNNER_TEMP/paired-executor-tools/"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ${{ inputs.backend_sha || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ steps.selection.outputs.backend_ref }}
           fetch-depth: 0
           persist-credentials: false
       - name: Freeze the selected frontend and backend commits
-        run: |
-          test -f 平台程序/script/release-rehearsal/freeze_pair.py || { echo "::error::The selected backend predates the pairing scripts; choose a REL-01-or-newer backend or review its original run evidence."; exit 1; }
-          python3 -I 平台程序/script/release-rehearsal/test_freeze_pair.py
-          python3 -I 平台程序/script/release-rehearsal/freeze_pair.py
+        env:
+          FRONTEND_REF: ${{ steps.selection.outputs.frontend_ref }}
+          BACKEND_REF: ${{ steps.selection.outputs.backend_ref }}
+        run: python3 -I "$RUNNER_TEMP/paired-executor-tools/freeze_pair.py"
+      - name: Determine external handover coverage for the frozen pair
+        id: coverage
+        run: python3 -I "$RUNNER_TEMP/paired-executor-tools/select_pair.py" capabilities
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -92,19 +137,17 @@ jobs:
           mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test
           -Dtest=ContentMediaNormalizerTest,LocalAssetServiceTest
           -Dsurefire.failIfNoSpecifiedTests=false
+      - name: Verify external handover with the pinned mini program and real business services
+        if: steps.coverage.outputs.run_external == 'true'
+        run: |
+          mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test \
+            -Dtest=ExternalHandoverPgIntegrationTest#pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dfranchise.external-handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-external-handover.cjs"
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
       - name: Summarize accepted pair
-        run: |
-          python3 - <<'PYTHON'
-          import json, os
-          from pathlib import Path
-          evidence = json.loads((Path(os.environ['RUNNER_TEMP']) / 'delivery' / 'acceptance.json').read_text())
-          assert evidence['frontendCommit'] == os.environ['FRONTEND_REV']
-          assert evidence['backendCommit'] == os.environ['BACKEND_REV']
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('\n配对演练全部通过：上述两个提交的握手、不可变包、迁移恢复和回滚证据已生成。\n')
-          PYTHON
+        run: python3 -I "$RUNNER_TEMP/paired-executor-tools/select_pair.py" summarize
       - name: Diagnose fixture boot failure
         if: failure()
         shell: bash

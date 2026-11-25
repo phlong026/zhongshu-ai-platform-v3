@@ -15,7 +15,14 @@ class AssetTypeBEndSnapshotTest {
     void bEndTypesMatchDesignAssetTypePolicySnapshot() {
         // DESIGN_REFERENCE 在独立 B 中归 B 自有资产；不再走 A 的 C_END 素材入口。
         assertThat(AssetAccessService.B_END_TYPES).containsExactlyInAnyOrder(
-                "FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET", "DESIGN_REFERENCE", "DESIGN_DELIVERABLE");
+                "FIN_VOUCHER", "ENG_DRAWING", "ENG_SITE_PHOTO", "CONTRACT_ATTACHMENT", "CONTENT_ASSET", "DESIGN_REFERENCE", "DESIGN_DELIVERABLE", "BUSINESS_DOCUMENT");
+    }
+
+    @Test void businessDocumentsUseSalesAndManagementChannelOnly() {
+        for (String role : java.util.List.of("sales", "sales-lead", "boss", "owner"))
+            assertThat(AssetAccessService.channelAllowed("BUSINESS_DOCUMENT", role)).isTrue();
+        for (String role : java.util.List.of("engineer", "project-manager", "finance", "hq-admin", "hq-finance", "hq-design-admin"))
+            assertThat(AssetAccessService.channelAllowed("BUSINESS_DOCUMENT", role)).isFalse();
     }
 
     @Test
