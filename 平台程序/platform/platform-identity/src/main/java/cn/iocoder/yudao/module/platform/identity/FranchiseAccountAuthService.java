@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.platform.identity;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
@@ -85,10 +86,18 @@ public class FranchiseAccountAuthService {
     @Transactional(rollbackFor = Exception.class)
     public LoginResult loginByName(String loginName, String password, String newPassword) {
         long tenantId = TenantContextHolder.getRequiredTenantId();
-        String normalized = AccountPasswordRules.normalizeQuery(loginName);
+        String normalized = AccountPasswordRules.normalizeLoginName(loginName);
         List<AccountRow> rows = normalized == null ? List.of() : jdbc.query(ACTIVE_ACCOUNT_SELECT
                 + " WHERE a.tenant_id=? AND a.login_name=?", ACCOUNT_ROW_MAPPER, tenantId, normalized);
-        return authenticate(rows.isEmpty() ? null : rows.get(0), tenantId, password, newPassword);
+        try {
+            return authenticate(rows.isEmpty() ? null : rows.get(0), tenantId, password, newPassword);
+        } catch (ServiceException error) {
+            if (!Objects.equals(error.getCode(), ACCOUNT_LOGIN_LOCKED.getCode())) throw error;
+            // Public names must not reveal which accounts exist after repeated invalid passwords.
+            // Keep the actual Redis lock and match the password work used for absent accounts.
+            if (AccountPasswordRules.validBcryptInput(password)) STRONG_ENCODER.matches(password, DUMMY_PASSWORD_HASH);
+            throw exception(ACCOUNT_CREDENTIAL_INVALID);
+        }
     }
 
     private LoginResult authenticate(AccountRow account, long tenantId, String password, String newPassword) {

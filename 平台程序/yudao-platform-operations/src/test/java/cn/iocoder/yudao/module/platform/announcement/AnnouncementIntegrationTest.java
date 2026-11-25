@@ -54,7 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Real PostgreSQL/Flyway, real service guards, and real current-post header resolution. */
 @TestPropertySource(properties = {
-        "platform.test.extra-flyway-locations=,classpath:db/migration/platform-wallet,classpath:db/migration/franchise",
+        "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet,classpath:db/migration/franchise-asset",
         "zhongshu.org-point.headquarters-tenant-id=1"
 })
 @Import({AnnouncementIntegrationTest.Config.class, AnnouncementAccess.class, AnnouncementService.class})

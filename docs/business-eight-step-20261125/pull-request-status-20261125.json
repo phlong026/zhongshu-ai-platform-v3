@@ -1,0 +1,757 @@
+{
+  "repository": "phlong026/zhongshu-ai-platform-v3",
+  "observedDate": "2026-11-25",
+  "observedAtUTC": "2026-11-25T10:28:08.087Z",
+  "publicationAuthorization": "User explicitly confirmed public source and PR publication in this session.",
+  "pullRequests": [
+    {
+      "number": 119,
+      "title": "R19：公司注册时事务内建立内部额度池",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "6959ab81f773f8f2a6ce4bd265ce594baec185d7",
+      "branch": "task/r19-company-pool-registration-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/119",
+      "runs": [
+        {
+          "id": 45566308663,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45566308663"
+        },
+        {
+          "id": 45566308539,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45566308539"
+        }
+      ]
+    },
+    {
+      "number": 120,
+      "title": "R03：门店地图只共享公开名称与地址",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "96d040b51fe327af4febd04b25468ecd65a4264b",
+      "branch": "task/r03-public-map-backend-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/120",
+      "runs": [
+        {
+          "id": 45567117667,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45567117667"
+        },
+        {
+          "id": 45567117652,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45567117652"
+        }
+      ]
+    },
+    {
+      "number": 121,
+      "title": "R03：小程序地图隐私投影与总部角色范围",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "eed29dff4a970499b885c0eba013de7c16e73844",
+      "branch": "task/r03-map-privacy-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/121",
+      "runs": [
+        {
+          "id": 45567128583,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45567128583"
+        },
+        {
+          "id": 45567128486,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45567128486"
+        }
+      ]
+    },
+    {
+      "number": 122,
+      "title": "R04：停用匿名人员候选，改完整账号密码验证",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "b50965b2d72782750c9f0070857be8459f18cbba",
+      "branch": "task/r04-exact-account-login-20261125",
+      "base": "task/r03-public-map-backend-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/122",
+      "runs": [
+        {
+          "id": 45571943352,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45571943352"
+        }
+      ]
+    },
+    {
+      "number": 123,
+      "title": "R04：小程序完整账号登录与隐私状态清理",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "107326b7164b0681fc220519cb72006ed46ab7ff",
+      "branch": "task/r04-exact-account-login-mini-20261125",
+      "base": "task/r03-map-privacy-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/123",
+      "runs": [
+        {
+          "id": 45568178587,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45568178587"
+        }
+      ]
+    },
+    {
+      "number": 124,
+      "title": "R05：客户八步流程模型、命令与真实进度",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "32a1ed0ad36a206c685b569943abc1b3376b394e",
+      "branch": "task/r05-eight-step-backend-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/124",
+      "runs": [
+        {
+          "id": 45568192583,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45568192583"
+        },
+        {
+          "id": 45568192576,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45568192576"
+        }
+      ]
+    },
+    {
+      "number": 125,
+      "title": "R06：八步客户跟进页面与进度入口",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "63990c83f6356e771bd551889b3b2644ef96f55d",
+      "branch": "task/r06-eight-step-miniapp-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/125",
+      "runs": [
+        {
+          "id": 45592631607,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45592631607"
+        },
+        {
+          "id": 45592632057,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45592632057"
+        }
+      ]
+    },
+    {
+      "number": 127,
+      "title": "R07：外部业务资料上传、版本归属与受控下载",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "9071516e580d8ee218579536b6f14530f7fa4771",
+      "branch": "task/r07-workflow-assets-20261125",
+      "base": "task/r05-eight-step-backend-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/127",
+      "runs": [
+        {
+          "id": 45572344462,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45572344462"
+        }
+      ]
+    },
+    {
+      "number": 128,
+      "title": "R11：自定义付款节点、比例与历史计划版本",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "c92475469f607d0b165bc4327179e97d4f3c71f7",
+      "branch": "task/r11-flexible-payment-plan-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/128",
+      "runs": [
+        {
+          "id": 45571986907,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45571986907"
+        },
+        {
+          "id": 45571987039,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45571987039"
+        }
+      ]
+    },
+    {
+      "number": 132,
+      "title": "R11：任意付款计划页面与财务调整入口",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "8f458541025fe24b6c904ee869e1695406751bad",
+      "branch": "task/r11-payment-plan-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/132",
+      "runs": [
+        {
+          "id": 45595086939,
+          "name": "Paired frontend/backend verification",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45595086939"
+        },
+        {
+          "id": 45595086932,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45595086932"
+        }
+      ]
+    },
+    {
+      "number": 133,
+      "title": "R02：总部跨品牌只读工作台接口与受控导出附件",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "89fbaf78011817a46b4865350695273485eea0ba",
+      "branch": "task/r02-headquarters-read-20261125",
+      "base": "task/r07-workflow-assets-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/133",
+      "runs": [
+        {
+          "id": 45576001425,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45576001425"
+        }
+      ]
+    },
+    {
+      "number": 134,
+      "title": "R08：真实签约凭证、补录历史与合同附件权限",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "4a5626be8529ba5ba066f2d068d2719aa02ba479",
+      "branch": "task/r08-contract-evidence-20261125",
+      "base": "task/r07-workflow-assets-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/134",
+      "runs": [
+        {
+          "id": 45579419712,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45579419712"
+        }
+      ]
+    },
+    {
+      "number": 135,
+      "title": "R12：委托付款草案与工程正式计划继承",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "3ddcd464f6432de2bdebdd869a0387f426e99d68",
+      "branch": "task/r12-inherit-payment-plan-20261125",
+      "base": "task/r11-flexible-payment-plan-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/135",
+      "runs": [
+        {
+          "id": 45574842147,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45574842147"
+        }
+      ]
+    },
+    {
+      "number": 136,
+      "title": "R13：关闭实体设计费模拟付款，保留历史登记",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "de6fc9ca0eb2a07c99b01f45a7a0479ffe682dfc",
+      "branch": "task/r13-external-registration-backend-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/136",
+      "runs": [
+        {
+          "id": 45577676948,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45577676948"
+        },
+        {
+          "id": 45577676858,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45577676858"
+        }
+      ]
+    },
+    {
+      "number": 137,
+      "title": "R08：合同签约凭证与历史补录页面",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": false,
+      "head": "b4f090f049f5ef22f5f920c9c5c0cfc13dfeacaa",
+      "branch": "task/r08-contract-evidence-mini-20261125",
+      "base": "task/r11-payment-plan-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/137",
+      "runs": [
+        {
+          "id": 45575313196,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45575313196"
+        }
+      ]
+    },
+    {
+      "number": 139,
+      "title": "R13：实体费用改外部付款登记，关闭模拟收银界面",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "5c39bbc033c57302a615fc6937f8ed495a614373",
+      "branch": "task/r13-external-registration-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/139",
+      "runs": [
+        {
+          "id": 45575407314,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45575407314"
+        },
+        {
+          "id": 45575407230,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45575407230"
+        }
+      ]
+    },
+    {
+      "number": 141,
+      "title": "R16：关闭内部图纸生成，保留灵感与快速预算",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "2f846b2dfc0168f8292f232b08d559d7436640bd",
+      "branch": "task/r16-design-capabilities-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/141",
+      "runs": [
+        {
+          "id": 45576179582,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45576179582"
+        },
+        {
+          "id": 45576179577,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45576179577"
+        }
+      ]
+    },
+    {
+      "number": 142,
+      "title": "R20：公司额度真实充值与退款状态核对，停用模拟套餐",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "bc4c41ea6c4466b0cce1c4a58bbb58ab1fc0cf90",
+      "branch": "task/r20-company-virtual-payment-20261125",
+      "base": "task/r19-company-pool-registration-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/142",
+      "runs": [
+        {
+          "id": 45577775271,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45577775271"
+        }
+      ]
+    },
+    {
+      "number": 143,
+      "title": "R20：公司额度入口统一微信虚拟支付并展示退款状态",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "08005eebca380936a2835b580ce0a8502106503d",
+      "branch": "task/r20-company-virtual-payment-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/143",
+      "runs": [
+        {
+          "id": 45577849828,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45577849828"
+        },
+        {
+          "id": 45577849877,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45577849877"
+        }
+      ]
+    },
+    {
+      "number": 144,
+      "title": "R01：总部管理员与财务全品牌只读工作台",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "5a3b295e669ae507c42597d192fc9599eede87b6",
+      "branch": "task/r01-headquarters-workbench-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/144",
+      "runs": [
+        {
+          "id": 45578135462,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45578135462"
+        },
+        {
+          "id": 45578135802,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45578135802"
+        }
+      ]
+    },
+    {
+      "number": 145,
+      "title": "R16：收口内部设计生成入口，保留灵感库与快速预算",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "8257a84a9b4b229d9a6136ffa58eb3f9afc8300c",
+      "branch": "task/r16-design-capabilities-mini-20261125",
+      "base": "main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/145",
+      "runs": [
+        {
+          "id": 45579473437,
+          "name": "Paired frontend/backend verification",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45579473437"
+        },
+        {
+          "id": 45579473748,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45579473748"
+        }
+      ]
+    },
+    {
+      "number": 146,
+      "title": "R09：外部设计委托与成果版本，解除内部预算和设计行政前置",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "c828627d24e52ba087395638bc50ddf53dd0aff8",
+      "branch": "task/r09-external-entrust-20261125",
+      "base": "task/r09-dependencies-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/146",
+      "runs": [
+        {
+          "id": 45590383963,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45590383963"
+        }
+      ]
+    },
+    {
+      "number": 147,
+      "title": "R12：付款草案带入合同，工程继承正式付款计划",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "de6c1f666d2e84241662131ed03cf55db7936ecc",
+      "branch": "task/r12-plan-inheritance-mini-20261125",
+      "base": "task/r08-contract-evidence-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/147",
+      "runs": [
+        {
+          "id": 45579567030,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45579567030"
+        }
+      ]
+    },
+    {
+      "number": 149,
+      "title": "R21：明确名单的迁移盘点、测试公司关闭与恢复演练",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "b4538de6cb2a9eaf44defe2a48405cd366df51aa",
+      "branch": "task/r21-migration-rehearsal-20261125",
+      "base": "backend-main",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/149",
+      "runs": [
+        {
+          "id": 45590490136,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45590490136"
+        },
+        {
+          "id": 45590490107,
+          "name": "Paired release rehearsal",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45590490107"
+        }
+      ]
+    },
+    {
+      "number": 151,
+      "title": "R09：小程序外部设计委托、成果登记与版本历史",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "e67cdc0f40b03b82672dfbe033a17935543ca16a",
+      "branch": "task/r09-external-entrust-mini-20261125",
+      "base": "task/r13-external-registration-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/151",
+      "runs": [
+        {
+          "id": 45582211134,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45582211134"
+        }
+      ]
+    },
+    {
+      "number": 152,
+      "title": "R14：项目独立核算与不可变结算快照",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "636762fe318bae0800b838b7dbd06fa590cf1c60",
+      "branch": "task/r14-project-accounting-20261125",
+      "base": "task/r12-inherit-payment-plan-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/152",
+      "runs": [
+        {
+          "id": 45590438551,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45590438551"
+        }
+      ]
+    },
+    {
+      "number": 156,
+      "title": "R14：项目独立核算、盈亏口径和核算历史页面",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "11eca0fc8aacfdcf6d94e18c382bcf95662f2dd9",
+      "branch": "task/r14-project-accounting-mini-20261125",
+      "base": "task/r01-headquarters-workbench-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/156",
+      "runs": [
+        {
+          "id": 45592379546,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45592379546"
+        }
+      ]
+    },
+    {
+      "number": 157,
+      "title": "R15：业务与工程规则版本及人工薪酬核算端口",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "0fdd4b9a40109c6132adf9bea41bb488cbd71981",
+      "branch": "task/r15-payroll-ports-20261125",
+      "base": "task/r14-project-accounting-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/157",
+      "runs": [
+        {
+          "id": 45591616130,
+          "name": "Backend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45591616130"
+        }
+      ]
+    },
+    {
+      "number": 158,
+      "title": "R10：外部设计成果交接与工程接收闭环",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "mergeable": true,
+      "head": "a14814bf54eeab156ebef9970e59acc8a24e6250",
+      "branch": "task/r10-external-handover-20261125",
+      "base": "task/r10-dependencies-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/158",
+      "runs": [
+        {
+          "id": 45594964037,
+          "name": "Backend CI",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45594964037"
+        }
+      ]
+    },
+    {
+      "number": 159,
+      "title": "R10：外部成果上传、工程交接与接收页面",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "2c7c695df37e7a8d13b4d418753be39d9af9fefb",
+      "branch": "task/r10-external-handover-mini-20261125",
+      "base": "task/r09-external-entrust-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/159",
+      "runs": [
+        {
+          "id": 45592167025,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45592167025"
+        }
+      ]
+    },
+    {
+      "number": 160,
+      "title": "R15：业务与工程薪酬规则及人工核算工作台",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "mergeable": true,
+      "head": "bc4514bbf4278f32485fcddb175ed347e2588e64",
+      "branch": "task/r15-payroll-mini-20261125",
+      "base": "task/r14-project-accounting-mini-20261125",
+      "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/pull/160",
+      "runs": [
+        {
+          "id": 45592478322,
+          "name": "Frontend CI",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/phlong026/zhongshu-ai-platform-v3/actions/runs/45592478322"
+        }
+      ]
+    }
+  ]
+}

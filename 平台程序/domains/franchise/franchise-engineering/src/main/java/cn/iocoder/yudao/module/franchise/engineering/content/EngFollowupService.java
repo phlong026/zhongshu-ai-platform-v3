@@ -68,7 +68,14 @@ public class EngFollowupService {
     /** 催收回访（stage 维度；TOPPING 须封顶完成；本期有剩余才可催收） */
     @Transactional(rollbackFor = Exception.class)
     public List<Map<String, Object>> dunning(PostSnapshot post, long projectId, DunningCommand cmd, String idempotencyKey) {
-        FrEngProjectDO project = projectService.requireOwned(post, projectId, "dunning");
+        // Collection and starting work lock project -> contract. Take the same
+        // order and use the locked row, rather than a cached selectById result.
+        FrEngProjectDO project = projectService.projects().lockById(projectId);
+        if (project == null || project.getCompanyId() != post.orgId()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "工程不存在或无权查看");
+        }
+        EngGuard.requireActionAllowed(projectService.closureOf(post, projectId), "dunning");
+        EngGuard.requireOwner(project, post.userId());
         Map<String, Object> payload = dunningPayload(cmd);
         var replayed = commands.replayed(post, idempotencyKey, payload);
         if (replayed.isPresent()) {

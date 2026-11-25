@@ -80,7 +80,8 @@ final class CompanyServicesHttpFixture {
             INSERT INTO pf_franchise_account(account_id,tenant_id,org_id,user_id,login_name,org_name,owner_name,brand,province,city,area,area_pinyin,owner_pinyin,created_by)
             VALUES(?,?,?,?,?,?,'示例',?,'浙江','杭州',?,'area','owner',1)
             """,UUID.randomUUID().toString(),tenant,p.orgId(),p.userId(),"b-"+p.orgId(),name,brand,district);
-        jdbc.update("UPDATE pf_franchise_directory SET public_name=? WHERE tenant_id=? AND linked_org_id=?",name,tenant,p.orgId());
+        assertEquals(1, jdbc.update("UPDATE pf_franchise_directory SET public_name=? WHERE tenant_id=? AND org_id=?",
+                name,tenant,p.orgId()), "the store account must project exactly one directory entry");
     }
 
     void run(long planId,String runner) throws Exception {

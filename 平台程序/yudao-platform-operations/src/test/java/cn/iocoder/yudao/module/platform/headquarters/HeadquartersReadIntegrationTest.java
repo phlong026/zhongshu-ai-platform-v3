@@ -46,7 +46,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /** Real PostgreSQL ownership joins, workflow references, finance rows, exports and transaction boundaries. */
-@TestPropertySource(properties = {"platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet",
+@TestPropertySource(properties = {"platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet,classpath:db/migration/franchise-asset",
         "platform.legacy-design-bridge.enabled=false"})
 @Import({HeadquartersReadGuard.class, HeadquartersReadService.class, HeadquartersExportService.class,
         HeadquartersDocumentAccess.class, CustomerWorkflowReadService.class, CustomerWorkflowAssetPolicy.class,

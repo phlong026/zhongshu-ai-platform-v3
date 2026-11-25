@@ -687,6 +687,8 @@ public class SaleContractService {
             if(commands.replayed(post,key,input).isPresent())return;
             var peek=stages.selectById(stageId);if(peek==null||peek.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);
             var c=contracts.lockById(peek.getContractId());requireSIGNED(c);var stage=stages.lockById(stageId);
+            // Recheck after the contract lock: a concurrent plan replacement may retire this node.
+            if(stage==null||Boolean.TRUE.equals(stage.getDeleted()))throw exception(REFERENCE_INVALID);
             var rows=jdbcTemplate.queryForList("SELECT * FROM fr_fin_receipt WHERE id=? AND company_id=? FOR UPDATE",receiptId,post.orgId());
             if(rows.isEmpty())throw exception(REFERENCE_INVALID);var r=rows.get(0);
             if(!"manual".equals(r.get("source_type"))||!"已登记".equals(r.get("status"))||r.get("source_ref")!=null)throw exception(REFERENCE_INVALID);

@@ -80,6 +80,13 @@ public class EngProjectController {
         return success(projects.detail(post(), id));
     }
 
+    @GetMapping("/{id}/manager-candidates")
+    @Operation(summary = "原负责人查看可接手工程的在岗同事")
+    @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
+    public CommonResult<List<Map<String, Object>>> managerCandidates(@PathVariable long id) {
+        return success(projects.managerCandidates(post(), id));
+    }
+
     @PostMapping("/{id}/manager")
     @Operation(summary = "换负责人（在岗校验 010+CAS+审计；旧负责人立即失权）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")

@@ -393,6 +393,37 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
+    void completeAccountLoginHidesLockStateWhileKeepingSharedLockout() {
+        long user = IDS.incrementAndGet();
+        Account first = createAccount(tenantId, user, "exact-lock-first", 0, "ACTIVE", false);
+        createAccountForExistingUser(tenantId, user, "exact-lock-second", "锁定二店");
+        for (int attempt = 0; attempt < 6; attempt++) {
+            for (String login : List.of(attempt % 2 == 0 ? "exact-lock-first" : "exact-lock-second", "absent-login")) {
+                assertThatThrownBy(() -> service.loginByName(login, "wrong-password", null))
+                        .isInstanceOfSatisfying(ServiceException.class, error -> {
+                            assertThat(error.getCode()).isEqualTo(ACCOUNT_CREDENTIAL_INVALID.getCode());
+                            assertThat(error.getMessage()).isEqualTo(ACCOUNT_CREDENTIAL_INVALID.getMsg());
+                        });
+            }
+        }
+        String key = "platform:account-login:lock:" + tenantId + ":" + user;
+        assertThat(redis.hasKey(key)).isTrue();
+        assertThat(redis.getExpire(key)).isPositive();
+        for (String login : List.of("exact-lock-first", "exact-lock-second", "absent-login")) {
+            assertCode(() -> service.loginByName(login, "Initial2026Pwd!", "ChangedWhileLocked2026"),
+                    ACCOUNT_CREDENTIAL_INVALID.getCode());
+        }
+        verifyNoInteractions(tokenIssuer);
+        assertThat(BCRYPT.matches("Initial2026Pwd!", loadUser(user).getPassword())).isTrue();
+        // UUID clients retain their existing contract, and public error masking must not clear the lock.
+        assertCode(() -> service.login(first.accountId(), "Initial2026Pwd!", null), ACCOUNT_LOGIN_LOCKED.getCode());
+        assertThat(redis.hasKey(key)).isTrue();
+        redis.delete(key);
+        assertThat(service.loginByName("exact-lock-first", "Initial2026Pwd!", null).userId()).isEqualTo(user);
+        verify(tokenIssuer, times(1)).issue(user);
+    }
+
+    @Test
     void failureBudgetIsSharedAcrossAliasesButIndependentBetweenUsers() {
         long lockedUser = IDS.incrementAndGet();
         Account first = createAccount(tenantId, lockedUser, "hjmz-jxnc-gaoxin-lock", 0, "ACTIVE", false);
@@ -479,6 +510,30 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         var reused = staffAccountOnboardService.open(boss.orgId(), employee.userId(), "张三", "13900108881", "journey-sales", null, boss.adminUserId(), boss.postId());
         assertThat(reused.accountId()).isEqualTo(employee.accountId());assertThat(reused.initialPassword()).isNull();
         assertThat(loadUser(employee.userId()).getPassword()).isEqualTo(savedPassword);
+    }
+
+    @Test
+    void oneCharacterStaffAccountsCanUseTheCompleteNameForActivationAndLogin() {
+        var store = importStore("单字店", "13800107801");
+        List<String> names = List.of("A", "7");
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            var account = staffAccountOnboardService.open(store.boss().orgId(), null, name, "1390010780" + i,
+                    "journey-sales", store.teamId(), store.boss().adminUserId(), store.boss().postId());
+            assertThat(account.loginName()).isEqualTo(name.toLowerCase(java.util.Locale.ROOT)).hasSize(1);
+            assertThat(service.matches(name).items()).isEmpty();
+            var initial = service.loginByName(" " + name + " ", account.initialPassword(), null);
+            assertThat(initial.requirePasswordChange()).isTrue();
+            assertThat(initial.accountId()).isEqualTo(account.accountId());
+            assertThat(initial.token()).isNull();
+            var changed = service.loginByName(name, account.initialPassword(), "SingleStaff2026!");
+            assertThat(changed.requirePasswordChange()).isFalse();
+            assertThat(changed.userId()).isEqualTo(account.userId());
+            assertThat(changed.preferredPostId()).isEqualTo(account.postId());
+            assertThat(changed.token()).isNotNull();
+            assertThat(service.loginByName(account.loginName(), "SingleStaff2026!", null).userId()).isEqualTo(account.userId());
+            assertCode(() -> service.loginByName(name + "-missing", "SingleStaff2026!", null), ACCOUNT_CREDENTIAL_INVALID.getCode());
+        }
     }
 
     @Test
