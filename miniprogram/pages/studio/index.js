@@ -66,7 +66,7 @@ if(!studio.guard())return;this.__closed=false;this.__initialShow=true;this.actor
 const view = titles[options.view] ? options.view : 'remix';
 this.options = options;
 const state = studio.read();
-this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
+this.setData({ view, pageTitle: titles[view], original: state.original, script: state.script, scriptShort: state.script.split('\n').slice(0, 2).join('\n'), title: view==='publish'&&options.work?'':state.title, taskId: options.task || '', recordId: options.record || '', workId: options.work || '' });
 if(view==='library'&&options.select)this.materialPickerInit(options.select);
 if(view==='digital')this.restoreDigitalAttempt();
 if (view === 'result' && options.task) {

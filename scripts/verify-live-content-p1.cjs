@@ -78,7 +78,7 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   let dismissResult = Promise.resolve();
   let retrySaveResult = Promise.resolve();
   let alive = true;
-  let scope = 'post-42';
+  let scope = 'post-42', editorTitle = '';
   let generation = 1, token = 'fixture-token';
   let post = { postId: '42', orgId: '8', orgType: 'store', roleCode: 'sales' };
   const calls = { tasks: 0, works: 0, records: 0, dismiss: 0, retrySave: 0 }, sequences = {};
@@ -90,7 +90,7 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   };
   const studio = {
     title: '', accounts: [], guard() { return true; }, allowed() { return true; },
-    scope() { return scope; }, read() { return { title: '', original: '', script: '', rewriteHistory: [], publishDrafts: {} }; },
+    scope() { return scope; }, read() { return { title: editorTitle, original: '', script: '', rewriteHistory: [], publishDrafts: {} }; },
     imageFor(item) { return item.kind === 'ai' ? '/ai.jpg' : '/digital.jpg'; },
     kindLabel(kind) { return kind === 'ai' ? 'AI视频' : '数字人口播'; },
     formatTime(value) { return value ? '格式化:' + value : '时间未记录'; }
@@ -118,6 +118,7 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
     page, calls,
     setWorks(value) { worksResult = value; },
     setWork(value) { workResult = value; },
+    setEditorTitle(value) { editorTitle = value; },
     setRecords(value) { recordsResult = value; },
     setTasks(value) { tasksResult = value; },
     setDismiss(value) { dismissResult = value; },
@@ -636,4 +637,17 @@ test('work detail cannot replace a typed or recovered publication draft or paint
   resolve(detail);
   await old;
   assert.equal(f.page.data.publishText,'');
+});
+
+test('opening a saved work for publication cannot inherit another work’s shared editor title', async () => {
+  const id='90071992547409940';
+  const f=studioFixture();
+  f.setEditorTitle('上一个作品的标题');
+  f.setWork(Promise.resolve({workId:id,title:'当前作品标题',script:'当前作品正文'}));
+  Object.assign(f.page,{restorePublicationPending(){},readLinkFlow(){},loadPublisherAccounts(){},refreshData(){}});
+  f.page.onLoad({view:'publish',work:id});
+  assert.equal(f.page.data.title,'');
+  await flush();
+  assert.equal(f.page.data.title,'当前作品标题');
+  assert.equal(f.page.data.publishText,'当前作品正文');
 });
