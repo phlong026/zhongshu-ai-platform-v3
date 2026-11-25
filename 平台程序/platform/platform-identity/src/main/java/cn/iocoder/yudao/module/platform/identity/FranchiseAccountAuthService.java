@@ -86,7 +86,7 @@ public class FranchiseAccountAuthService {
     @Transactional(rollbackFor = Exception.class)
     public LoginResult loginByName(String loginName, String password, String newPassword) {
         long tenantId = TenantContextHolder.getRequiredTenantId();
-        String normalized = AccountPasswordRules.normalizeQuery(loginName);
+        String normalized = AccountPasswordRules.normalizeLoginName(loginName);
         List<AccountRow> rows = normalized == null ? List.of() : jdbc.query(ACTIVE_ACCOUNT_SELECT
                 + " WHERE a.tenant_id=? AND a.login_name=?", ACCOUNT_ROW_MAPPER, tenantId, normalized);
         try {

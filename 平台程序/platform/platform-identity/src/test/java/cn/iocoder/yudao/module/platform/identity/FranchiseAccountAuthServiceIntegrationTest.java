@@ -513,6 +513,30 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
+    void oneCharacterStaffAccountsCanUseTheCompleteNameForActivationAndLogin() {
+        var store = importStore("单字店", "13800107801");
+        List<String> names = List.of("A", "7");
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            var account = staffAccountOnboardService.open(store.boss().orgId(), null, name, "1390010780" + i,
+                    "journey-sales", store.teamId(), store.boss().adminUserId(), store.boss().postId());
+            assertThat(account.loginName()).isEqualTo(name.toLowerCase(java.util.Locale.ROOT)).hasSize(1);
+            assertThat(service.matches(name).items()).isEmpty();
+            var initial = service.loginByName(" " + name + " ", account.initialPassword(), null);
+            assertThat(initial.requirePasswordChange()).isTrue();
+            assertThat(initial.accountId()).isEqualTo(account.accountId());
+            assertThat(initial.token()).isNull();
+            var changed = service.loginByName(name, account.initialPassword(), "SingleStaff2026!");
+            assertThat(changed.requirePasswordChange()).isFalse();
+            assertThat(changed.userId()).isEqualTo(account.userId());
+            assertThat(changed.preferredPostId()).isEqualTo(account.postId());
+            assertThat(changed.token()).isNotNull();
+            assertThat(service.loginByName(account.loginName(), "SingleStaff2026!", null).userId()).isEqualTo(account.userId());
+            assertCode(() -> service.loginByName(name + "-missing", "SingleStaff2026!", null), ACCOUNT_CREDENTIAL_INVALID.getCode());
+        }
+    }
+
+    @Test
     void importAndSingleOpeningDeliverTheSameLoginChannelsAndInitialPasswordPolicy() {
         var store = importStore("批量店", "13800107001");
         long usersBefore = tenantUserCount();
