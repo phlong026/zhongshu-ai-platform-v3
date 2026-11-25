@@ -229,6 +229,7 @@ public class DesignAccessService {
     }
 
     public String notePolish(PostSnapshot post, String note, String line, String key) {
+        DesignGenerationPolicy.rejectGeneration();
         if (remote != null) return remote.call(post, Operation.NOTE_POLISH, key, new Note(note, line));
         return designService.notePolish(serviceAccount(post), note, line);
     }
@@ -240,6 +241,7 @@ public class DesignAccessService {
 
     public DesignServicePort.JobSubmitted createFlatJob(PostSnapshot post, long projectId,
                                                         DesignServicePort.FlatJobCreate cmd) {
+        DesignGenerationPolicy.rejectGeneration();
         if (remote != null) return remote.call(post, Operation.CREATE_FLAT_JOB, cmd.idempotencyKey(), new FlatJob(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
@@ -254,6 +256,7 @@ public class DesignAccessService {
 
     public DesignServicePort.JobSubmitted createElevationJob(PostSnapshot post, long projectId,
                                                              DesignServicePort.ElevationJobCreate cmd) {
+        DesignGenerationPolicy.rejectGeneration();
         if (remote != null) return remote.call(post, Operation.CREATE_ELEVATION_JOB, cmd.idempotencyKey(), new ElevationJob(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
@@ -318,6 +321,7 @@ public class DesignAccessService {
 
     public DesignServicePort.RevisionSubmitted createRevisionRequest(PostSnapshot post, long projectId,
                                                                      DesignServicePort.RevisionCreate cmd) {
+        DesignGenerationPolicy.rejectGeneration();
         if (remote != null) return remote.call(post, Operation.CREATE_REVISION_REQUEST, cmd.idempotencyKey(), new Revision(projectId, cmd));
         long accountId = serviceAccount(post);
         return txTemplate.execute(status -> {
