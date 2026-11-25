@@ -74,6 +74,22 @@ public class CustomerService {
     @jakarta.annotation.Resource
     private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.CommissionQueryPort> commissionQueries;
 
+    @jakarta.annotation.Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService> workflowQueries;
+
+    private void enrichWorkflowSummary(PostSnapshot post, List<CustomerDO> rows) {
+        if (rows.isEmpty() || workflowQueries == null
+                || cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId() == null) return;
+        var queries = workflowQueries.getIfAvailable();
+        if (queries == null) return;
+        // PageParam also supports bulk exports: keep a bounded batch rather than one request per customer.
+        for (int start = 0; start < rows.size(); start += 100) {
+            List<CustomerDO> batch = rows.subList(start, Math.min(start + 100, rows.size()));
+            var summaries = queries.summaries(post, batch);
+            batch.forEach(row -> row.setWorkflow(summaries.get(row.getId())));
+        }
+    }
+
     private void enrichDesignStatus(PostSnapshot post, List<CustomerDO> rows) {
         if (rows.isEmpty()) return;
         var commissionQuery = commissionQueries.getIfAvailable();
@@ -104,12 +120,14 @@ public class CustomerService {
     public Detail get(PostSnapshot post, long customerId) {
         CustomerDO customer = requireReadable(post, customerId);
         enrichDesignStatus(post, List.of(customer));
+        enrichWorkflowSummary(post, List.of(customer));
         return new Detail(customer, followMapper.selectByCustomer(customerId), schemeMapper.selectByCustomer(customerId));
     }
 
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword) {
         PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword);
         enrichDesignStatus(post, result.getList());
+        enrichWorkflowSummary(post, result.getList());
         return result;
     }
 
@@ -123,6 +141,7 @@ public class CustomerService {
                                        String status, Long ownerUserId, CustomerMapper.FollowFilter followFilter) {
         PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId, followFilter);
         enrichDesignStatus(post, result.getList());
+        enrichWorkflowSummary(post, result.getList());
         return result;
     }
 

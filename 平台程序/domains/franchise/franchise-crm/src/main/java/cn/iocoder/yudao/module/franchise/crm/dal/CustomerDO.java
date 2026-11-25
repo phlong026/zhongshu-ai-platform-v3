@@ -40,6 +40,8 @@ public class CustomerDO {
     private String status;
     @com.baomidou.mybatisplus.annotation.TableField(exist = false)
     private String designStatus;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary workflow;
     private Long originLeadId;
     private LocalDate nextVisitDate;
     private OffsetDateTime lastFollowAt;
