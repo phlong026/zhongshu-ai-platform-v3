@@ -32,7 +32,7 @@ function createPage(overrides = {}) {
   const saved = [], navigated = [], storage = new Map();
   const currentPost = overrides.currentPost || { postId: 'p1', orgId: 'store-1', orgType: 'store', roleCode: 'boss' };
   const auth = {
-    loginPolicy:async()=>({agreementVersion:'2026-11-15',privacyVersion:'2026-11-15'}), appId: () => 'app', login: async () => ({accessToken:'wechat-token',userId:7}), accountMatches: async () => ({ items: [] }), accountLogin: async () => ({accessToken:'account-token',userId:7}),
+    loginPolicy:async()=>({agreementVersion:'2026-11-15',privacyVersion:'2026-11-15'}), appId: () => 'app', login: async () => ({accessToken:'wechat-token',userId:7}), accountMatches: async () => ({ items: [] }), accountLoginByName: async loginName => ({accessToken:'account-token',userId:7,accountId:'verified-account',loginName}), accountLogin:async accountId=>({accessToken:'account-token',userId:7,accountId,loginName:'fixture'}),
     saveLogin: result => saved.push(result), myPosts: async () => [currentPost], savePosts() {}, postLoadGuard: () => () => true,
     currentApiPost: () => currentPost, apiPosts: () => [currentPost], bindWechat: async () => ({}), logout() {}, ...overrides.auth
   };
@@ -76,28 +76,27 @@ test('切换登录方式会取消迟到的微信登录并复位忙碌态', async
   assert.equal(env.page.data.loginBusy, false);
 });
 
-test('修改查询会取消迟到匹配并复位查询忙碌态', async () => {
-  const pending = deferred();
-  const env = createPage({ auth: { accountMatches: () => pending.promise } });
-  env.page.data.form.accountQuery = 'jxnc'; env.page.findAccounts();
-  env.page.input({ currentTarget: { dataset: { key: 'accountQuery' } }, detail: { value: 'lizhong' } });
-  pending.resolve({ items: [{ accountId: 'late' }] }); await flush();
-  assert.equal(env.page.data.matchBusy, false);
-  assert.equal(env.page.data.accountMatches.length, 0);
-  env.page.onHide();
+test('输入姓名、简称或完整账号均不触发匿名候选查询，也不自动补全', async () => {
+  let probes=0,logins=0,timers=0;
+  const env=createPage({setTimeout:()=>{timers++;},auth:{accountMatches:async()=>{probes++;return{items:[{accountId:'private',ownerName:'私有姓名'}]};},accountLoginByName:async()=>{logins++;}}});
+  for(const value of ['李','李丽','hjmz','hjmz-complete']) {
+    env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value}});await flush();
+    assert.equal(env.page.data.form.accountQuery,value);
+  }
+  assert.equal(probes,0);assert.equal(logins,0);assert.equal(timers,0);assert.equal(env.saved.length,0);
 });
 
-test('匹配结果被截断时要求缩小范围且不自动选择', async () => {
-  const env = createPage({ auth: { accountMatches: async () => ({ items: [{ accountId: 'a', loginName: 'a' }], hasMore: true }) } });
-  env.page.data.form.accountQuery = 'jxnc'; env.page.findAccounts(); await flush();
-  assert.equal(env.page.data.accountMatchesHasMore, true);
-  assert.equal(env.page.data.selectedAccount, null);
+test('账号和密码都必填，但不需要选择任何匿名候选', () => {
+  let calls=0;const env=createPage({auth:{accountLoginByName:async()=>{calls++;}}});
+  env.page.accountLogin();assert.match(env.page.data.error,/完整账号/);
+  env.page.data.form.accountQuery='complete-account';env.page.accountLogin();assert.match(env.page.data.error,/请输入密码/);
+  assert.equal(calls,0);
 });
 
 test('登录页onHide取消慢登录并清除密码', async () => {
   const pending = deferred();
-  const env = createPage({ auth: { accountLogin: () => pending.promise } });
-  env.page.data.selectedAccount = { accountId: 'a', loginName: 'a' }; env.page.data.form.password = 'pw';
+  const env = createPage({ auth: { accountLoginByName: () => pending.promise } });
+  env.page.data.form.accountQuery='a'; env.page.data.form.password = 'pw';
   env.page.accountLogin(); env.page.onHide();
   pending.resolve({ accessToken: 'late-token' }); await flush(); await flush();
   assert.equal(env.saved.length, 0);
@@ -105,23 +104,19 @@ test('登录页onHide取消慢登录并清除密码', async () => {
   assert.equal(env.page.data.form.password, '');
 });
 
-test('重新选择候选会取消迟到的账号密码登录', async () => {
-  const pending = deferred();
-  const env = createPage({ auth: { accountLogin: () => pending.promise } });
-  const first = { accountId: 'a', loginName: 'a' }, second = { accountId: 'b', loginName: 'b' };
-  env.page.data.accountMatches = [first, second]; env.page.data.selectedAccount = first; env.page.data.form.password = 'pw';
-  env.page.accountLogin();
-  env.page.selectAccount({ currentTarget: { dataset: { accountId: 'b' } } });
-  pending.resolve({ accessToken: 'late-account-token' }); await flush(); await flush();
-  assert.equal(env.saved.length, 0);
-  assert.equal(env.page.data.selectedAccount.accountId, 'b');
-  assert.equal(env.page.data.loginBusy, false);
+test('修改完整账号会取消迟到的账号密码登录并清除旧密码', async () => {
+  const pending=deferred(),env=createPage({auth:{accountLoginByName:()=>pending.promise}});
+  env.page.data.form={accountQuery:'first-account',password:'pw'};env.page.accountLogin();
+  env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value:'second-account'}});
+  pending.resolve({accessToken:'late-account-token',accountId:'old',loginName:'first-account'});await flush();await flush();
+  assert.equal(env.saved.length,0);assert.equal(env.navigated.length,0);assert.equal(env.page.data.loginBusy,false);
+  assert.equal(env.page.data.form.accountQuery,'second-account');assert.equal(env.page.data.form.password,'');
 });
 
 test('任职加载期间切换方式会清理临时平台会话并阻止跳转', async () => {
   const posts = deferred(); let loggedOut = 0;
-  const env = createPage({ auth: { accountLogin: async () => ({ accessToken: 'token' }), myPosts: () => posts.promise, logout: () => { loggedOut += 1; } } });
-  env.page.data.selectedAccount = { accountId: 'a', loginName: 'a' }; env.page.data.form.password = 'pw';
+  const env = createPage({ auth: { accountLoginByName: async () => ({ accessToken: 'token' }), myPosts: () => posts.promise, logout: () => { loggedOut += 1; } } });
+  env.page.data.form.accountQuery='a'; env.page.data.form.password = 'pw';
   env.page.accountLogin(); await flush();
   assert.equal(env.saved.length, 1);
   env.page.selectLoginMode({ currentTarget: { dataset: { mode: 'wechat' } } });
@@ -133,7 +128,7 @@ test('任职加载期间切换方式会清理临时平台会话并阻止跳转',
 
 test('清除默认账号会清掉待改密账号与全部密码', () => {
   const env = createPage();
-  Object.assign(env.page.data, { defaultAccount: { accountId: 'a' }, selectedAccount: { accountId: 'a' }, passwordChangeRequired: true, pendingAccountLogin: { password: 'old' } });
+  Object.assign(env.page.data, { defaultAccount: { accountId: 'a' }, passwordChangeRequired: true, pendingAccountLogin: { password: 'old' } });
   Object.assign(env.page.data.form, { password: 'old', newPassword: 'new1234567', confirmPassword: 'new1234567' });
   env.page.clearDefaultAccount();
   assert.equal(env.page.data.pendingAccountLogin, null);
@@ -146,7 +141,7 @@ test('清除默认账号会清掉待改密账号与全部密码', () => {
 test('平台账号没有任职时清会话并停留登录页', async () => {
   let loggedOut = 0, defaultSaves = 0;
   const env = createPage({ auth: { myPosts: async () => [], logout: () => { loggedOut += 1; } }, accountLoginUtils: { saveDefault: () => { defaultSaves += 1; } } });
-  env.page.data.selectedAccount = { accountId: 'a', loginName: 'a' }; env.page.data.form.password = 'pw';
+  env.page.data.form.accountQuery='a'; env.page.data.form.password = 'pw';
   env.page.accountLogin(); await flush(); await flush();
   assert.equal(loggedOut, 1);
   assert.equal(defaultSaves, 0);
@@ -158,7 +153,7 @@ for (const roleCode of ['boss','owner','journey-sales','engineering','finance'])
   const calls=[];let passwordCalls=0,bindCalls=0;
   const env=createPage({currentPost:{postId:'p1',orgId:'store-1',orgType:'store',roleCode},auth:{
     login:async options=>{calls.push(options);return options.phoneCode?{accessToken:'wx-token',userId:7}:{needPhone:true};},
-    accountLogin:async()=>{passwordCalls++;},bindWechat:async()=>{bindCalls++;}
+    accountLoginByName:async()=>{passwordCalls++;},bindWechat:async()=>{bindCalls++;}
   }});
   env.page.data.loginMode='wechat';env.page.wechatLogin();await flush();
   assert.equal(env.page.data.loginMode,'wechat');assert.equal(env.page.data.wechatPhoneRequired,true);
@@ -495,7 +490,7 @@ test('绑定后的微信登录凭据直接进入同一用户，不查账号、�
   let passwordCalls=0,bindCalls=0,matchCalls=0;
   const env=createPage({auth:{
     login:async()=>({accessToken:'wechat-token',userId:7,needPhone:'false',needBind:'false'}),
-    accountLogin:async()=>{passwordCalls++;},accountMatches:async()=>{matchCalls++;},bindWechat:async()=>{bindCalls++;}
+    accountLoginByName:async()=>{passwordCalls++;},accountMatches:async()=>{matchCalls++;},bindWechat:async()=>{bindCalls++;}
   }});
   env.page.data.loginMode='wechat';
   env.page.wechatLogin();await flush();await flush();
@@ -512,11 +507,11 @@ test('有效微信令牌优先于旧版绑定提示，避免已登录结果退�
 test('账号密码不调用微信绑定接口；首次微信手机号自动登录后下次直接登录同一用户', async () => {
  let bound=false,passwordCalls=0,bindCalls=0,phoneCalls=0;
  const env=createPage({auth:{
-  accountLogin:async()=>{passwordCalls++;return{accessToken:'password-token',userId:7};},
+  accountLoginByName:async()=>{passwordCalls++;return{accessToken:'password-token',userId:7};},
   bindWechat:async()=>{bindCalls++;},
   login:async options=>{if(options.phoneCode){phoneCalls++;bound=true;}return bound?{accessToken:'wechat-token',userId:7}:{needPhone:true};}
  }});
- env.page.data.selectedAccount={accountId:'a',loginName:'test'};env.page.data.form.password='123456';
+ env.page.data.form.accountQuery='test';env.page.data.form.password='123456';
  env.page.accountLogin();await flush();await flush();assert.equal(env.navigated.length,1);
  env.page.onHide();env.page.selectLoginMode({currentTarget:{dataset:{mode:'wechat'}}});
  env.page.wechatLogin();await flush();
@@ -565,10 +560,10 @@ test('微信未返回令牌不会保存残缺会话或回退密码登录', async
 for (const channel of ['account','wechat']) test(channel+' 未勾选先弹窗，同意后只恢复原登录通道',async()=>{
  let accepted=null,accountCalls=0,wechatCalls=0,received;
  const env=createPage({accountLoginUtils:{consent:()=>accepted,saveConsent:policy=>(accepted={accepted:true,agreementVersion:policy.agreementVersion,privacyVersion:policy.privacyVersion})},auth:{
-  accountLogin:async(id,password,next,consent)=>{accountCalls++;received=consent;return{accessToken:'account-token',userId:7};},
+  accountLoginByName:async(id,password,next,consent)=>{accountCalls++;received=consent;return{accessToken:'account-token',userId:7};},
   login:async options=>{wechatCalls++;received=options.consent;return{accessToken:'wechat-token',userId:7};}
  }});
- env.page.data.loginMode=channel;env.page.data.selectedAccount={accountId:'a',loginName:'lili'};env.page.data.form.password='123456';
+ env.page.data.loginMode=channel;env.page.data.form.accountQuery='lili';env.page.data.form.password='123456';
  env.page[channel==='account'?'accountLogin':'wechatLogin']();
  assert.equal(env.page.data.consentOpen,true);assert.equal(env.page.data.consentChecked,false);assert.equal(accountCalls+wechatCalls,0);
  env.page.confirmLoginConsent();assert.equal(accountCalls+wechatCalls,0);
@@ -579,7 +574,7 @@ for (const channel of ['account','wechat']) test(channel+' 未勾选先弹窗，
 });
 
 test('弹窗原地阅读协议、取消及切换通道不会误登录或清空当前密码',()=>{
- const env=createPage({accountLoginUtils:{consent:()=>null}});env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='123456';
+ const env=createPage({accountLoginUtils:{consent:()=>null}});env.page.data.form.accountQuery='fixture';env.page.data.form.password='123456';
  env.page.accountLogin();env.page.readLoginDocument({currentTarget:{dataset:{document:'policy'}}});
  assert.equal(env.page.data.consentDocument,'policy');assert.equal(env.page.data.form.password,'123456');assert.equal(env.page.data.consentChecked,false);
  env.page.backToConsent();env.page.closeLoginConsent();assert.equal(env.page.data.form.password,'123456');assert.equal(env.saved.length,0);
@@ -590,18 +585,18 @@ test('弹窗原地阅读协议、取消及切换通道不会误登录或清空�
 test('协议版本变化会再次要求勾选，旧同意不能沿用',()=>{
  const env=createPage({accountLoginUtils:{consent:()=>null}});
  env.page.loginConsent={accepted:true,agreementVersion:'old',privacyVersion:'old'};env.page.data.loginPolicy={agreementVersion:'new',privacyVersion:'new'};
- env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='123456';env.page.accountLogin();
+ env.page.data.form.accountQuery='fixture';env.page.data.form.password='123456';env.page.accountLogin();
  assert.equal(env.page.data.consentOpen,true);assert.equal(env.page.data.consentChecked,false);assert.equal(env.saved.length,0);
 });
 
 test('登录设置请求失败可重试，离页后的迟到设置不会触发登录',async()=>{
  let tries=0;
  const env=createPage({auth:{loginPolicy:async()=>{if(++tries===1)throw Error('网络异常');return{agreementVersion:'v2',privacyVersion:'v2'};}},accountLoginUtils:{consent:()=>null}});
- env.page.data.loginPolicy=null;env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='123456';
+ env.page.data.loginPolicy=null;env.page.data.form.accountQuery='fixture';env.page.data.form.password='123456';
  env.page.accountLogin();await flush();assert.equal(env.page.data.loginBusy,false);assert.match(env.page.data.error,/网络异常/);
  env.page.accountLogin();await flush();assert.equal(env.page.data.consentOpen,true);assert.equal(env.saved.length,0);
  const pending=deferred();const late=createPage({auth:{loginPolicy:()=>pending.promise},accountLoginUtils:{consent:()=>null}});
- late.page.data.loginPolicy=null;late.page.data.selectedAccount={accountId:'a'};late.page.data.form.password='123456';late.page.accountLogin();late.page.onHide();
+ late.page.data.loginPolicy=null;late.page.data.form.accountQuery='fixture';late.page.data.form.password='123456';late.page.accountLogin();late.page.onHide();
  pending.resolve({agreementVersion:'v2',privacyVersion:'v2'});await flush();assert.equal(late.page.data.consentOpen,false);assert.equal(late.saved.length,0);
 });
 
@@ -613,148 +608,84 @@ test('三个密码独立显示隐藏，离页后全部隐藏且密码清空',()=
  env.page.onHide();assert.equal(env.page.data.newPasswordVisible,false);assert.equal(env.page.data.confirmPasswordVisible,false);assert.equal(env.page.data.form.password,'');
 });
 
-test('搜索候选和默认账号主要展示姓名岗位及后端简短组织信息',()=>{
- const {render}=require('./role-page-runtime.cjs');const allText=nodes=>nodes.map(n=>(n.text||'')+allText(n.children)).join('');const env=createPage();
- const item={accountId:'a',loginName:'lili',orgName:'合家美宅-江西南昌-高新区合家美宅-裴火荣',ownerName:'裴火荣',personName:'李丽',roleName:'业务员',shortOrgName:'合家美宅 · 江西南昌高新区'};
- Object.assign(env.page.data,{accountMatches:[item,{...item,accountId:'b',loginName:'lili2'}],selectedAccount:item,defaultAccount:item});
+test('登录页面不渲染旧候选缓存中的人员、岗位和公司资料',()=>{
+ const {render}=require('./role-page-runtime.cjs'),allText=nodes=>nodes.map(n=>(n.text||'')+allText(n.children)).join('');
+ const env=createPage(),item={accountId:'a',loginName:'lili',orgName:'私有门店全名',ownerName:'私有老板',personName:'私有人员',roleName:'私有岗位',shortOrgName:'私有地区'};
+ Object.assign(env.page.data,{accountMatches:[item,{...item,accountId:'b'}],selectedAccount:item,defaultAccount:item});
  const text=allText(render(path.resolve(__dirname,'../miniprogram/pages/account/index.wxml'),env.page.data));
- assert.match(text,/李丽/);assert.match(text,/业务员/);assert.match(text,/合家美宅 · 江西南昌高新区/);assert.ok(!text.includes(item.orgName));
+ for(const value of ['私有门店全名','私有老板','私有人员','私有岗位','私有地区']) assert(!text.includes(value),value);
 });
 
-test('两种真实 API 封装均携带新版协议版本，账号标识与密码原样提交',async()=>{
+test('完整账号、已验证账号改密和微信 API 均携带协议版本且不请求匿名候选',async()=>{
  const calls=[],module={exports:{}};const http={post:async(url,data)=>{calls.push({url,data});return{};},get:async url=>{calls.push({url});return{};},onUnauthorized(){},onPostInvalid(){}};
  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../miniprogram/api/auth.js'),'utf8'),{module,require:()=>http,wx:{login:options=>options.success({code:'one-time-code'})}});
  const consent={accepted:true,agreementVersion:'2026-11-15',privacyVersion:'2026-11-15'};
  await module.exports.loginPolicy();await module.exports.accountLogin('account-id','lili123','123456',consent);await module.exports.login({appid:'app',consent});
+ await module.exports.accountLoginByName('  complete-account  ','secret-password',null,consent);
  assert.equal(calls[0].url,'/platform/auth/login-policy');assert.equal(calls[1].data.accountId,'account-id');assert.equal(calls[1].data.password,'lili123');assert.equal(calls[1].data.newPassword,'123456');
  for(const call of calls.slice(1)){assert.equal(call.data.loginVersion,2);assert.equal(call.data.consent,consent);}
  assert.equal(calls[2].data.loginCode,'one-time-code');
+ assert.equal(calls[3].url,'/platform/auth/account/login');assert.equal(calls[3].data.loginName,'complete-account');
+ assert.equal(calls[3].data.password,'secret-password');assert.equal(calls[3].data.accountId,undefined);
+ assert.equal(calls.filter(call=>call.url.includes('/matches')).length,0);
 });
 
 test('服务端要求重新同意时清除旧同意记录，下次重新拉取版本',async()=>{
- let cleared=0;const env=createPage({accountLoginUtils:{clearConsent:()=>cleared++},auth:{accountLogin:async()=>{throw{code:1104000016,message:'协议已更新'};}}});
- env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='123456';env.page.accountLogin();await flush();
+ let cleared=0;const env=createPage({accountLoginUtils:{clearConsent:()=>cleared++},auth:{accountLoginByName:async()=>{throw{code:1104000016,message:'协议已更新'};}}});
+ env.page.data.form.accountQuery='fixture';env.page.data.form.password='123456';env.page.accountLogin();await flush();
  assert.equal(cleared,1);assert.equal(env.page.data.loginPolicy,null);assert.equal(env.page.loginConsent,null);assert.equal(env.page.data.loginBusy,false);assert.equal(env.saved.length,0);
 });
 
-function matchingClock() {
- let now=0,serial=0;const timers=new Map();
- return {
-  setTimeout(fn,delay){const id=serial++;timers.set(id,{fn,at:now+delay});return id;},
-  clearTimeout(id){timers.delete(id);},
-  advance(ms){const target=now+ms;for(;;){const next=[...timers].filter(([,t])=>t.at<=target).sort((a,b)=>a[1].at-b[1].at)[0];if(!next)break;now=next[1].at;timers.delete(next[0]);next[1].fn();}now=target;}
- };
-}
 function typeAccount(env,value){env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value}});}
 
-test('登录页原样检索含空格和括号的店名，单字全名可按键盘搜索', async () => {
- const clock=matchingClock(),queries=[];
- const env=createPage({...clock,auth:{accountMatches:async query=>{
-  queries.push(query);return{items:[{accountId:'boss',loginName:'hjmz-qingsong'}]};
- }}});
- typeAccount(env,'青松 建房（南宁店）');clock.advance(300);await flush();
- assert.equal(env.page.data.selectedAccount.accountId,'boss');
- typeAccount(env,'青');env.page.findAccounts();await flush();
- assert.equal(env.page.data.selectedAccount.accountId,'boss');
- assert.deepEqual(queries,['青松 建房（南宁店）','青']);
+test('完整账号与密码一次提交，记住的账号只能来自验证后的响应',async()=>{
+ const calls=[],remembered=[],pending=deferred();
+ const env=createPage({auth:{accountLoginByName:(...args)=>{calls.push(args);return pending.promise;}},accountLoginUtils:{saveDefault:account=>remembered.push(account)}});
+ typeAccount(env,'  complete-account  ');env.page.data.form.password='correct-password';env.page.accountLogin();
+ assert.equal(calls.length,1);assert.equal(calls[0][0],'complete-account');assert.equal(calls[0][1],'correct-password');
+ assert.equal(remembered.length,0);assert.equal(env.saved.length,0);
+ pending.resolve({accessToken:'verified-token',userId:7,accountId:'verified-id',loginName:'complete-account',orgName:'不需缓存的公司',ownerName:'不需缓存的姓名'});
+ await flush();await flush();assert.equal(env.saved.length,1);
+ assert.deepEqual({...remembered[0]},{accountId:'verified-id',loginName:'complete-account'});
 });
 
-test('用户名连续输入仅在停顿后匹配最后一次输入，短查询不请求接口', async () => {
- const clock=matchingClock(),queries=[];const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:[]};}}});
- typeAccount(env,'p');clock.advance(500);assert.equal(queries.length,0);
- typeAccount(env,'pe');clock.advance(150);typeAccount(env,'peihuo');clock.advance(299);
- assert.equal(queries.length,0);typeAccount(env,'peihuorong');clock.advance(300);await flush();
- assert.deepEqual(queries,['peihuorong']);assert.equal(env.page.data.matchBusy,false);
+test('首次密码验证后仅用服务端已验证账号改密，成功前不保存会话或默认账号',async()=>{
+ const calls=[],remembered=[];
+ const env=createPage({auth:{
+  accountLoginByName:async(...args)=>{calls.push({channel:'name',args});return{requirePasswordChange:true,accountId:'verified-id',loginName:'complete-account'};},
+  accountLogin:async(...args)=>{calls.push({channel:'id',args});return{accessToken:'token',userId:7,accountId:'verified-id',loginName:'complete-account'};}
+ },accountLoginUtils:{saveDefault:account=>remembered.push(account)}});
+ typeAccount(env,'complete-account');env.page.data.form.password='initial-password';env.page.accountLogin();await flush();
+ assert.equal(env.saved.length,0);assert.equal(remembered.length,0);assert.equal(env.page.data.passwordChangeRequired,true);
+ env.page.data.form.newPassword='new-password';env.page.data.form.confirmPassword='new-password';env.page.submitNewPassword();await flush();await flush();
+ assert.equal(calls.length,2);assert.equal(calls[1].channel,'id');assert.equal(calls[1].args[0],'verified-id');
+ assert.equal(calls[1].args[1],'initial-password');assert.equal(calls[1].args[2],'new-password');assert.equal(env.saved.length,1);
+ assert.equal(remembered[0].accountId,'verified-id');
 });
 
-for(const account of [
- {accountId:'boss',loginName:'hjmz-jxnc-gaoxinquhejiameizhai',personName:'裴火荣',roleName:'老板',query:'裴火'},
- {accountId:'sales',loginName:'lili',personName:'李丽',roleName:'业务员',query:'li'}
-])test('部分用户名唯一匹配后补全完整用户名，不重复匹配或触发登录：'+account.roleName, async () => {
- const clock=matchingClock(),queries=[];let logins=0;
- const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:[account]};},accountLogin:async()=>{logins++;}}});
- typeAccount(env,account.query);clock.advance(300);await flush();
- assert.equal(env.page.data.selectedAccount.accountId,account.accountId);
- assert.equal(env.page.data.form.accountQuery,account.loginName);
- clock.advance(500);await flush();assert.deepEqual(queries,[account.query]);assert.equal(logins,0);
- assert.equal(env.saved.length,0);assert.equal(env.navigated.length,0);
+test('缺失已验证账号的改密响应不能接受，切换输入也会清除改密上下文',async()=>{
+ const env=createPage({auth:{accountLoginByName:async()=>({requirePasswordChange:true})}});
+ typeAccount(env,'complete-account');env.page.data.form.password='initial-password';env.page.accountLogin();await flush();
+ assert.equal(env.page.data.passwordChangeRequired,false);assert.equal(env.page.data.pendingAccountLogin,null);assert.equal(env.saved.length,0);
+ env.page.data.passwordChangeRequired=true;env.page.data.pendingAccountLogin={account:{accountId:'verified-id'},password:'old'};
+ env.page.data.form.newPassword='new';typeAccount(env,'new-account');
+ assert.equal(env.page.data.pendingAccountLogin,null);assert.equal(env.page.data.passwordChangeRequired,false);
+ assert.equal(env.page.data.form.password,'');assert.equal(env.page.data.form.newPassword,'');
 });
 
-test('用户名多个匹配由用户选择，未选择不能登录，选择后使用对应账号', async () => {
- const clock=matchingClock();let submitted;
- const env=createPage({...clock,auth:{accountMatches:async()=>({items:[{accountId:'a',loginName:'lili'},{accountId:'b',loginName:'lili2'}]}),accountLogin:async id=>{submitted=id;return{accessToken:'token',userId:7};}}});
- typeAccount(env,'li');clock.advance(300);await flush();
- assert.equal(env.page.data.accountMatches.length,2);assert.equal(env.page.data.selectedAccount,null);
- assert.equal(env.page.data.form.accountQuery,'li');
- env.page.data.form.password='123456';env.page.accountLogin();assert.equal(submitted,undefined);
- env.page.selectAccount({currentTarget:{dataset:{accountId:'b'}}});
- assert.equal(env.page.data.form.accountQuery,'lili2');assert.equal(env.page.data.form.password,'');
- env.page.data.form.password='123456';env.page.accountLogin();await flush();await flush();
- assert.equal(submitted,'b');assert.equal(env.saved.length,1);
+test('登录失败可直接重试，忙碌期间重复点击只提交一次',async()=>{
+ let calls=0;const pending=deferred(),env=createPage({auth:{accountLoginByName:()=>{calls++;return calls===1?pending.promise:Promise.resolve({accessToken:'retry-token',userId:7,accountId:'verified',loginName:'complete-account'});}}});
+ typeAccount(env,'complete-account');env.page.data.form.password='password';env.page.accountLogin();env.page.accountLogin();assert.equal(calls,1);
+ pending.reject({code:401,message:'内部账号状态'});await flush();assert.equal(env.page.data.loginBusy,false);assert(!env.page.data.error.includes('内部账号状态'));
+ env.page.accountLogin();await flush();await flush();assert.equal(calls,2);assert.equal(env.saved.length,1);
 });
 
-test('切换候选同步补全用户名，修改补全结果后清除原账号和密码并重新匹配', async () => {
- const clock=matchingClock(),queries=[];
- const accounts=[{accountId:'a',loginName:'lili'},{accountId:'b',loginName:'lili2'}];
- const env=createPage({...clock,auth:{accountMatches:async q=>{queries.push(q);return{items:accounts};}}});
- typeAccount(env,'li');clock.advance(300);await flush();
- env.page.selectAccount({currentTarget:{dataset:{accountId:'b'}}});
- assert.equal(env.page.data.form.accountQuery,'lili2');
- env.page.data.form.password='old-password';
- env.page.selectAccount({currentTarget:{dataset:{accountId:'a'}}});
- assert.equal(env.page.data.form.accountQuery,'lili');assert.equal(env.page.data.form.password,'');
- clock.advance(500);await flush();assert.deepEqual(queries,['li']);
- env.page.data.form.password='other-password';typeAccount(env,'lil');
- assert.equal(env.page.data.selectedAccount,null);assert.equal(env.page.data.form.password,'');
- assert.equal(env.page.data.accountMatches.length,0);assert.equal(env.page.data.form.accountQuery,'lil');
- clock.advance(300);await flush();assert.deepEqual(queries,['li','lil']);
- assert.equal(env.page.data.selectedAccount,null);assert.equal(env.page.data.form.accountQuery,'lil');
+test('清空完整账号取消登录上下文，之后不以旧默认账号继续提交',async()=>{
+ let calls=0;const env=createPage({auth:{accountLoginByName:async()=>{calls++;}}});
+ env.page.data.defaultAccount={accountId:'old-id',loginName:'old-account'};
+ typeAccount(env,'old-account');env.page.data.form.password='old-password';typeAccount(env,'');env.page.accountLogin();
+ assert.equal(calls,0);assert.equal(env.page.data.form.password,'');assert.match(env.page.data.error,/完整账号/);
 });
-
-test('旧用户名匹配响应晚于新响应时，不能覆盖新选择', async () => {
- const clock=matchingClock(),first=deferred(),second=deferred();
- const env=createPage({...clock,auth:{accountMatches:q=>q==='first'?first.promise:second.promise}});
- typeAccount(env,'first');clock.advance(300);typeAccount(env,'second');clock.advance(300);
- second.resolve({items:[{accountId:'second',loginName:'second-full'}]});await flush();
- first.resolve({items:[{accountId:'first',loginName:'first'}]});await flush();
- assert.equal(env.page.data.selectedAccount.accountId,'second');assert.equal(env.page.data.form.accountQuery,'second-full');
-});
-
-test('清空用户名取消待执行匹配，并清除候选、选择和旧密码', async () => {
- const clock=matchingClock();let requests=0;
- const env=createPage({...clock,auth:{accountMatches:async()=>{requests++;return{items:[]};}}});
- env.page.data.selectedAccount={accountId:'old'};env.page.data.form.password='old-password';
- typeAccount(env,'username');clock.advance(100);typeAccount(env,'');clock.advance(500);await flush();
- assert.equal(requests,0);assert.equal(env.page.data.selectedAccount,null);assert.equal(env.page.data.accountMatches.length,0);
- assert.equal(env.page.data.form.password,'');assert.equal(env.page.data.matchBusy,false);
-});
-
-test('切换微信、隐藏或关闭页面取消待执行匹配', async () => {
- for(const action of ['wechat','hide','unload']) {
-  const clock=matchingClock();let requests=0;
-  const env=createPage({...clock,auth:{accountMatches:async()=>{requests++;return{items:[]};}}});
-  typeAccount(env,'username');
-  if(action==='wechat')env.page.selectLoginMode({currentTarget:{dataset:{mode:'wechat'}}});
-  else if(action==='hide')env.page.onHide();else env.page.onUnload();
-  clock.advance(500);await flush();assert.equal(requests,0);
- }
-});
-
-test('键盘搜索立即匹配并取消待执行查询，不重复提交', async () => {
- const clock=matchingClock();let requests=0;
- const env=createPage({...clock,auth:{accountMatches:async()=>{requests++;return{items:[{accountId:'a',loginName:'a'}]};}}});
- typeAccount(env,'username');env.page.findAccounts();await flush();clock.advance(500);await flush();
- assert.equal(requests,1);assert.equal(env.page.data.selectedAccount.accountId,'a');
-});
-
-test('自动匹配失败可用键盘重试，恢复正常匹配和忙碌状态', async () => {
- const clock=matchingClock();let requests=0;
- const env=createPage({...clock,auth:{accountMatches:async()=>{if(++requests===1)throw{message:'查询暂时不可用'};return{items:[{accountId:'a',loginName:'a'}]};}}});
- typeAccount(env,'username');clock.advance(300);await flush();
- assert.equal(env.page.data.matchBusy,false);assert.match(env.page.data.error,/暂时不可用/);
- env.page.findAccounts();await flush();assert.equal(env.page.data.selectedAccount.accountId,'a');assert.equal(env.page.data.error,'');
-});
-
 
 test('登录页已有有效会话时直接恢复岗位，关闭重开无需再次输入密码', async () => {
   let restored = 0;
@@ -772,7 +703,7 @@ for (const remember of [true, false]) test('账号登录提交记住选择：' +
   let savedOptions;
   const env = createPage({ auth: { saveLogin(result, options) { savedOptions=options; } } });
   env.page.data.rememberDefault=remember;
-  env.page.data.selectedAccount={accountId:'remember-test',loginName:'fixture'};
+  env.page.data.form.accountQuery='fixture';
   env.page.data.form.password='fixture-password';
   env.page.accountLogin(); await flush(); await flush();
   assert.equal(savedOptions.remember, remember);
@@ -796,8 +727,8 @@ test('密码登录失败统一提供恢复说明，不透露账号存在、停�
  ];
  const messages=[];
  for(const error of errors){
-  const env=createPage({auth:{accountLogin:async()=>{throw error;}}});
-  const account={accountId:'same-account'};env.page.data.selectedAccount=account;
+  const env=createPage({auth:{accountLoginByName:async()=>{throw error;}}});
+  const account={loginName:'same-account'};env.page.data.form.accountQuery=account.loginName;
   env.page.submitAccountLogin(account,'old-initial-password');await flush();
   assert.equal(env.page.data.loginBusy,false);assert.equal(env.page.data.passwordLoginRecovery,true);
   assert.equal(env.saved.length,0);assert.equal(env.navigated.length,0);
@@ -811,8 +742,8 @@ test('密码登录失败统一提供恢复说明，不透露账号存在、停�
 });
 
 test('密码失败的微信入口切换已有通道并清除旧密码和恢复状态',async()=>{
- const env=createPage({auth:{accountLogin:async()=>{throw{code:1104000011,message:'账号或密码不正确'};}}});
- env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='old';env.page.accountLogin();await flush();
+ const env=createPage({auth:{accountLoginByName:async()=>{throw{code:1104000011,message:'账号或密码不正确'};}}});
+ env.page.data.form.accountQuery='fixture';env.page.data.form.password='old';env.page.accountLogin();await flush();
  const button=loginRender(env.page).find(n=>n.tag==='button'&&n.attrs?.['data-mode']==='wechat'&&nodeText(n)==='微信登录');
  assert.ok(button);
  env.page[button.attrs.bindtap]({currentTarget:{dataset:{mode:button.attrs['data-mode']}}});
@@ -822,8 +753,8 @@ test('密码失败的微信入口切换已有通道并清除旧密码和恢复�
 });
 
 test('切换账号后，旧密码请求的迟到失败不能恢复上一账号的提示',async()=>{
- const pending=deferred(),env=createPage({auth:{accountLogin:()=>pending.promise}});
- env.page.data.selectedAccount={accountId:'a'};env.page.data.form.password='old';env.page.accountLogin();
+ const pending=deferred(),env=createPage({auth:{accountLoginByName:()=>pending.promise}});
+ env.page.data.form.accountQuery='fixture';env.page.data.form.password='old';env.page.accountLogin();
  env.page.input({currentTarget:{dataset:{key:'accountQuery'}},detail:{value:'new-account'}});
  pending.reject({code:1104000011,message:'旧账号失败'});await flush();
  assert.equal(env.page.data.error,'');assert.equal(!!env.page.data.passwordLoginRecovery,false);

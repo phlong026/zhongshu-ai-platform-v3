@@ -39,7 +39,7 @@ test('accepted work remains resumable when the user has already left the design 
  h.page._candidateClosed=false;h.ok();await h.page.submitAttempt(h.spec);assert.equal(h.result().jobs,1);assert.equal(h.routes.length,1);
 });
 
-test('the commission sends simulation only after explicit opt-in with server authorization',()=>{
+test('retired simulation never enters a command even when an older server advertises it',()=>{
  let page;
  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/workflow/commission/index.js'),'utf8'),{
   Page:value=>{page=value;},
@@ -50,11 +50,11 @@ test('the commission sends simulation only after explicit opt-in with server aut
  const payload=()=>page.commandPayload.call(ctx,'commission-submit');
  assert.equal(payload().paymentMode,undefined);
  form.testPayment=true;
- assert.throws(payload,/模拟付款资格已变化/);
+ assert.throws(payload,/模拟付款已停用/);
  ctx.__context.feeOffer.simulationAllowed=true;
- assert.throws(payload,/模拟付款资格已变化/,'an older backend cannot authorize the versioned test mode');
+ assert.throws(payload,/模拟付款已停用/,'an older backend cannot authorize the versioned test mode');
  ctx.__context.feeOffer.simulationPaymentMode='TEST_SIMULATION';
- assert.equal(payload().paymentMode,'TEST_SIMULATION');
+ assert.throws(payload,/模拟付款已停用/);
  form.testPayment=false;
  assert.equal(payload().paymentMode,undefined);
 });
@@ -125,14 +125,14 @@ test('withdrawal invalidates consent and formal submission requires a new explic
  assert.equal(calls.length,1);
  assert.equal(calls[0][1].paymentMode,undefined);
 });
-test('server rejection during the capability race can only send an explicit test request',async()=>{
+test('stale simulation drafts require a fresh physical-fee confirmation before any request',async()=>{
  const calls=[];
  const {page,withdraw}=commissionPage(async (_,payload)=>{
    calls.push(payload.paymentMode);withdraw();throw {code:1111000022,message:'演练权限已撤回'};
  });
  await page.submit();
  await page.submit();
- assert.deepEqual(calls,['TEST_SIMULATION']);
+ assert.deepEqual(calls,[]);
  assert.equal(page.data.paymentChoiceRequired,true);
  assert.equal(page.data.form.checked,false);
 });

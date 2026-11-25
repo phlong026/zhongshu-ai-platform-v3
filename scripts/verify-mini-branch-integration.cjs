@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const { selectPair } = require('./resolve-paired-release.cjs');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -68,15 +68,16 @@ test('长文本布局由当前样式系统覆盖', () => {
 const pairedWorkflow = () => read('.github/workflows/paired-release.yml');
 function selectedPair(eventName, { frontend = '', backend = '', head = '', run = '1'.repeat(40) } = {}) {
   const source = pairedWorkflow();
-  const context = { inputs: { frontend_sha: frontend, backend_sha: backend },
-    github: { event_name: eventName, sha: run, event: { pull_request: { head: { sha: head } } } } };
-  const selected = key => {
-    const match = source.match(new RegExp('^      ' + key + ': \\$\\{\\{(.+)\\}\\}\\s*$', 'm'));
-    assert.ok(match, 'the reusable workflow must receive ' + key);
-    // The scalar expressions here use only string comparison and &&/||, shared with Actions.
-    return vm.runInNewContext(match[1], context);
-  };
-  return { frontend: selected('frontend_sha'), backend: selected('backend_sha') };
+  const caller = source.split('\n  verify-pair:\n')[1];
+  assert.ok(caller, 'the fixed reusable workflow must have a dedicated caller job');
+  assert.match(caller, /needs: resolve-pair/);
+  for (const key of ['frontend_sha', 'backend_sha']) {
+    assert.ok(source.includes(key + ': ${{ steps.pair.outputs.' + key + ' }}'), 'selector outputs must expose ' + key);
+    assert.ok(caller.includes(key + ': ${{ needs.resolve-pair.outputs.' + key + ' }}'), 'the caller must forward validated ' + key);
+  }
+  const selected = selectPair(eventName, { inputs: { frontend_sha: frontend, backend_sha: backend },
+    pull_request: { head: { sha: head } } }, run);
+  return { frontend: selected.frontend_sha, backend: selected.backend_sha };
 }
 
 test('默认分支手动演练提供可留空的前端完整版本输入', () => {
@@ -92,9 +93,9 @@ test('手动演练原样传递两个完整版本，前端留空时冻结本次�
   assert.deepEqual(selectedPair('workflow_dispatch', { frontend, backend, run }), { frontend, backend });
   assert.deepEqual(selectedPair('workflow_dispatch', { backend, run }), { frontend: run, backend });
   assert.deepEqual(selectedPair('workflow_dispatch', { run }), { frontend: run, backend: 'backend-main' });
-  // Invalid nonempty refs must reach the pinned backend validator unchanged, never select another revision.
+  // Invalid nonempty refs fail before the reusable job; they must never select another revision.
   for (const frontend of ['HEAD', 'deadbeef', '--upload-pack=bad', 'main\nBAD=1']) {
-    assert.equal(selectedPair('workflow_dispatch', { frontend, backend, run }).frontend, frontend);
+    assert.throws(() => selectedPair('workflow_dispatch', { frontend, backend, run }), /40-character lowercase commit/);
   }
 });
 
@@ -106,7 +107,11 @@ test('自动PR和push仍冻结各自提交，不接受手动前端版本覆盖',
 
 test('配对入口继续复用固定后端工作流与只读仓库权限', () => {
   const source = pairedWorkflow();
-  assert.match(source, /uses: phlong026\/zhongshu-ai-platform-v3\/\.github\/workflows\/paired-release\.yml@474fba410bbca5c97e2e0c9d2bb732709c609e2a/);
+  const executor = '6ac765aca82833dc22d5e82815b708a0928ec997';
+  assert.ok(source.includes('uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@' + executor));
+  assert.ok(source.includes('executor_sha: ' + executor));
   assert.match(source, /permissions:\n  contents: read/);
-  assert.doesNotMatch(source, /^\s+run:/m, 'reference validation must stay in the pinned reusable workflow');
+  assert.deepEqual([...source.matchAll(/^\s+run: (.+)$/gm)].map(match => match[1]), [
+    'node --test scripts/verify-paired-release-selector.cjs', 'node scripts/resolve-paired-release.cjs'
+  ], 'metadata is parsed from the event file without injecting PR text or refs into shell commands');
 });

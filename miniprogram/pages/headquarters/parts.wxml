@@ -1,0 +1,2 @@
+<template name="fields"><view wx:for="{{rows}}" wx:key="label" class="hq-field"><text class="hq-field-label">{{item.label}}</text><text class="hq-field-value" selectable>{{item.value}}</text></view></template>
+<template name="files"><button wx:for="{{files}}" wx:key="key" class="hq-file" data-key="{{item.key}}" bindtap="openFile" disabled="{{fileBusy}}"><text class="hq-file-icon">文件</text><text class="hq-file-label">{{item.label}}</text><text class="hq-arrow">›</text></button></template>

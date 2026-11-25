@@ -1,5 +1,7 @@
 const R=require('../../../utils/engineering-records'),X=require('../../../utils/access'),O=require('../../../utils/organization'),Files=require('../../../utils/sample-files'),SI=require('../schedule-import');
+const Payments=require('../payment-plan');
 const P=require('../../../utils/platform-engineering'); // 工程域纯函数+在线编排（阶段 2）
+const EH=require('../external-handover');
 const Nav=require('../../../utils/page-navigation');
 const ManagerTransfer=require('./manager-transfer');
 const {makeFormHandlers}=require('../../../utils/view-container');
@@ -10,10 +12,10 @@ Page({
  ...baseHandlers,
  ...ManagerTransfer.handlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
- input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
- data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register'},
- onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=['base','topping','tail'].includes(o.stage)?o.stage:'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
+ input(e){if(this.data.busy||this.data.paymentUncertain)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
+ data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',externalHandoverUrl:'',externalHandoverVersion:0},
+ onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'start');this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id)this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length&&(this.data.node?.status!=='已完成'||this.data.expanded.nodeEdit)?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -22,7 +24,7 @@ Page({
  togglePlanNode(e){const id=String(e.currentTarget.dataset.id);this.setData({planEditorId:this.data.planEditorId===id?'':id});},
  toggle(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:!this.data.form[key]});},
  lineInput(e){const d=e.currentTarget.dataset;this.setData({['form.lines['+d.index+'].'+d.key]:e.detail.value,error:''});},
- nodeInput(e){const d=e.currentTarget.dataset,patch={['form.nodes['+d.index+'].'+d.key]:e.detail.value,error:''};if(d.key==='start'&&this.data.form.nodes[d.index]?.milestone==='start')patch['form.nodes['+d.index+'].end']=e.detail.value;this.setData(patch);},
+ nodeInput(e){if(this.data.busy||this.data.paymentUncertain)return;const d=e.currentTarget.dataset,patch={['form.nodes['+d.index+'].'+d.key]:e.detail.value,error:''};if(d.key==='start'&&this.data.form.nodes[d.index]?.milestone==='start')patch['form.nodes['+d.index+'].end']=e.detail.value;this.setData(patch);},
  pickEngineer(e){const s=this.data.engineers[Number(e.detail.value)];if(s)this.setData({'form.engineerId':s.id,engineerIndex:Number(e.detail.value)});},
  pickNode(e){const nodeIndex=Number(e.detail.value),n=(this.data.materialNodes||this.data.p.plan.nodes)[nodeIndex];if(n)this.setData({'form.nodeId':n.id,nodeIndex});},
  pickTemplate(e){const i=Number(e.detail.value);if(this.data.templates[i])this.setData({templateIndex:i,selectedTemplateId:this.data.templates[i].id});},
@@ -56,9 +58,9 @@ Page({
  preview(e){const raw=e.currentTarget.dataset.file;if(raw&&raw.text&&!raw.assetId){this.setData({samplePreview:{name:raw.name||'项目资料',text:raw.text}});return;}if(raw&&raw.assetId)return this.previewAsset({currentTarget:{dataset:raw}});const f=Files.displayFile(raw);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else if(P.online())this.fail('资料尚未关联有效文件，请联系业务人员补充');else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
  async previewAsset(e){
-  const d=e.currentTarget.dataset,id=d.assetId;if(!id)return;
-  const http=require('../../../api/http'),sessionAlive=http.sessionGuard(),postId=http.currentPostId();
-  const alive=()=>!this.__previewClosed&&sessionAlive()&&String(http.currentPostId())===String(postId);
+  const d=e.currentTarget.dataset,id=d.assetId;if(d.externalHandover||d.externalVersion||(this.data.docs||[]).some(row=>row.file?.externalHandover&&row.file.assetId===id))return EH.preview(this,d);if(!id)return;
+  const http=require('../../../api/http'),sessionAlive=http.sessionGuard(),postId=http.currentPostId(),epoch=this.__accessEpoch||0;
+  const alive=()=>!this.__previewClosed&&sessionAlive()&&String(http.currentPostId())===String(postId)&&(this.__accessEpoch||0)===epoch;
   try{
    const t=d.commissionId&&d.dispatchSeq&&d.slot
     ?await http.post('/franchise/commissions/'+encodeURIComponent(d.commissionId)+'/dispatches/'+encodeURIComponent(d.dispatchSeq)+'/files/'+encodeURIComponent(d.slot)+'/download-tickets')
@@ -70,12 +72,15 @@ Page({
    wx.openDocument({filePath:file.tempFilePath,...(/application\/pdf/i.test(file.contentType)?{fileType:'pdf'}:{}),showMenu:true,fail:()=>{if(alive())this.fail('文档打开失败');}});
   }catch(err){if(alive())this.fail((err&&err.msg)||(err&&err.message)||'授权查看失败，请重试');}
  },
- onHide(){this.__inactive=true;this.__previewClosed=true;this.setData({playbackUrl:'',playingCameraId:''});},
- onUnload(){this.__disposed=true;this.__previewClosed=true;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;},
+ onHide(){this.__inactive=true;this.__previewClosed=true;this.__externalPreview=null;this.setData({playbackUrl:'',playingCameraId:''});},
+ onUnload(){this.__disposed=true;this.__previewClosed=true;this.__externalPreview=null;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;},
  closeSamplePreview(){this.setData({samplePreview:null});},
-  async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
-   const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId();
-   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);
+  async refreshOnline(reset){
+   if(this.data.paymentUncertain||this.__paymentPending)return;
+   const paymentRead=this.__paymentRead=(this.__paymentRead||0)+1; // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
+   const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
+   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post)&&paymentRead===this.__paymentRead&&(this.__accessEpoch||0)===epoch;
+   this.__externalPreview=null;
    try{
     // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
     const expensePull=this.data.view==='expenses'
@@ -84,7 +89,7 @@ Page({
     const api=require('../../../api/franchise/engineering');
     const cameraPull=['overview','cameras'].includes(view)?api.cameras.list(id).then(rows=>({rows})).catch(e=>({rows:[],error:P.errorText(e)})):Promise.resolve({rows:[]});
     const handlersPull=view==='delay'?api.progress.handlers(id):Promise.resolve([]);
-    const [bundle,cameraData,handlers]=await Promise.all([P.loadProject(this.id),cameraPull,handlersPull]);
+    const [bundle,cameraData,handlers,payment]=await Promise.all([P.loadProject(this.id),cameraPull,handlersPull,Payments.read(this.id,view)]);
     const expenses=expensePull?await expensePull:null;
     if(!alive())return;
     if(view==='material'&&this.homeSupply){
@@ -102,6 +107,10 @@ Page({
       financeRole:O.has(apiRole,'finance'),
       termsRole:apiPost?.orgType==='store'&&(O.has(apiRole,'finance')||['boss','owner'].includes(apiRole)),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
+    Payments.apply(data,bundle,payment,{view,reset:!this.initialized||reset});
+    this.__externalProject=bundle.detail?.handoverMode==='EXTERNAL';
+    if(this.__externalProject){await EH.bind(bundle.detail,data,alive);if(!alive())return;}
+    else{data.externalHandoverUrl='';data.externalHandoverVersion=0;}
     if(!this.initialized&&this.homeSupply){const selected=data.form?.supplyOptions?.find(s=>String(s.id)===String(this.homeSupply));if(selected){data.form.supplyId=selected.id;data.form.supplyLabel=selected.label;}}
     this.initialized=true;
     const ledgerRole=apiPost?.orgType==='store'&&['boss','owner','finance','finance-lead'].includes(apiRole);
@@ -120,14 +129,16 @@ Page({
       error:'',platEng:true,busy:false});
    }catch(e){if(!alive())return; // 失败显示错误态（不回落本地演示数据），平台错误以 toast 保留
     const msg=P.errorText(e&&e.data?e.data:e);
-    this.setData({p:null,error:msg});
+    if(this.__externalProject)EH.clear(this,msg);else this.setData({p:null,form:{},fields:[],actions:[],paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},error:msg});
     wx.showToast({title:msg,icon:'none'});
    }
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
-   if(this.data.busy||this.data.managerTransferPending)return;
-   const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId();
-   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);
+   if(this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
+   this.__paymentRead=(this.__paymentRead||0)+1;
+   const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
+   const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post)&&(this.__accessEpoch||0)===epoch;
    this.setData({busy:true,error:''});
    // 幂等键复合（Codex R1 P1-2/R2 P1/R3 P1/R4 P1）：按 action 显式选目标字段——节点系（含 material-plan）
    // 绑表单 nodeId、期次系绑 stage、对象系绑各自 ID；未列动作（交付/结算/归档等）一律项目级，不回落活动节点。
@@ -161,7 +172,9 @@ Page({
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}
    finally{if(alive())this.setData({busy:false});}
   },
-  perform(e){if(this.data.busy||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
+  retryPayment(){return Payments.retry(this);},
+  reloadPayment(){if(!this.data.busy&&!this.data.paymentUncertain)return this.refreshOnline(false);},
+  perform(e){if(this.data.busy||this.data.paymentUncertain||this.data.paymentConflict||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
   const action=e.currentTarget.dataset.action,f={...this.data.form};
    if(['node','site','node-correct','node-reopen'].includes(action))f.nodeId=this.data.node&&this.data.node.id;
    if(action==='material-terms')f.file=f.termsFile;
@@ -218,6 +231,7 @@ Page({
  cameraVideoError(){this.setData({playbackError:'画面暂时不可用，请核对摄像头网络或更新播放地址',playbackLoading:false});},
  cameraVideoReady(){this.setData({playbackError:'',playbackLoading:false});},
  reloadCameras(){this.refreshOnline(false);},
+ reloadProject(){this.__previewClosed=false;return this.refreshOnline(true);},
  home(){Nav.open('/pages/build/home/index');},back(){Nav.back();},
  fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });

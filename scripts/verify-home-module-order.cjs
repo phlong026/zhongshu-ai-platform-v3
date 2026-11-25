@@ -8,7 +8,7 @@ const hasClass = (node, name) => String(node.attrs?.class || '').split(/\s+/).in
 const text = node => (node.text || '') + node.children.map(text).join('');
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
 
-test('所有已开放岗位的实际首页固定为问候、岗位概览、待办，切岗使用本人姓名', async () => {
+test('门店首页保持问候概览待办，总部三岗位进入带品牌公司范围的只读工作台', async () => {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
   const organization = require('../miniprogram/utils/organization');
@@ -22,6 +22,7 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
     ['store', 'boss', 'owner-hello', 'home-six-item', 'owner-card'],
     ['store', 'owner', 'owner-hello', 'home-six-item', 'owner-card'],
     ['headquarters', 'boss', 'owner-hello', 'home-six-item', 'owner-card'],
+    ['headquarters', 'hq-admin'],
     ['headquarters', 'finance', 'fin-home-intro', 'fin-home-metric', 'fin-home-list'],
     ['headquarters', 'finance-lead', 'fin-home-intro', 'fin-home-metric', 'fin-home-list'],
     ['headquarters', 'hq-design-admin', 'admin-greeting', 'admin-metric', 'admin-section']
@@ -31,6 +32,11 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
     const url = new URL(options.url).pathname.replace('/admin-api', '');
     let data = [];
     if (url === '/platform/profile/mine') data = { nickname };
+    else if (url === '/platform/headquarters/context') {
+      const post=auth.currentApiPost();data={tenantId:'1',headquartersOrgId:post.orgId,postId:post.postId,roleCode:post.roleCode,readOnly:true,brands:[],companies:[]};
+    }
+    else if (url === '/platform/headquarters/summary') data={customers:0,projects:0,readOnly:true};
+    else if (url.startsWith('/platform/headquarters/finance/')) data={list:[],total:0,pageNo:1,pageSize:20,readOnly:true};
     else if (url === '/platform/todos') data = { items: [], failedDomains: [], actionableCount: 0 };
     else if (url === '/franchise/commissions' || url === '/franchise/crm/customers' || url.includes('design-fees')) data = { list: [], total: 0 };
     else if (url === '/franchise/performance/commission/rows') data = []; // Separate commission read returns a list.
@@ -40,14 +46,24 @@ test('所有已开放岗位的实际首页固定为问候、岗位概览、待�
   };
   for (const [orgType, roleCode, greetingClass, metricClass, todoClass] of cases) {
     nickname = orgType + '-' + roleCode;
-    const post = { postId: nickname, orgId: nickname, orgName: '公司名称不能充当姓名', orgType, roleCode };
-    auth.saveLogin({ accessToken: 'test-' + nickname }); auth.savePosts([post]); auth.switchPost(post.postId);
+    const post = { postId: nickname, userId:'701',tenantId:'1',orgId: nickname, orgName: '公司名称不能充当姓名', orgType, roleCode };
+    auth.saveLogin({ accessToken: 'test-' + nickname,userId:'701' }); auth.savePosts([post]); auth.switchPost(post.postId);
     const home = organization.navigation(organization.apiContext(post)).tabs[0];
     await runtime.callWxMethod(home.native ? 'switchTab' : 'reLaunch', { url: home.url });
     await flush();
     const page = getCurrentPages().at(-1);
     const file = path.resolve(__dirname, '../miniprogram', page.route + '.wxml');
     const nodes = flatten(render(file, page.data));
+    if(organization.headquartersReader(post)){
+      assert.equal(page.route,'pages/headquarters/index');assert.equal(page.data.ready,true);
+      assert.equal(page.data.section,roleCode==='hq-admin'?'overview':'finance');
+      const heading=nodes.find(n=>hasClass(n,'hq-heading-row')),scope=nodes.find(n=>hasClass(n,'hq-scope')),sections=nodes.find(n=>hasClass(n,'hq-tabs'));
+      assert.ok(heading&&scope&&sections,nickname+' headquarters scope controls');
+      assert.ok(text(heading).includes('全品牌 · 只读'));assert.ok(text(scope).includes('全部品牌')&&text(scope).includes('全部公司'));
+      assert.ok(nodes.indexOf(heading)<nodes.indexOf(scope)&&nodes.indexOf(scope)<nodes.indexOf(sections));
+      assert.equal(nodes.some(n=>n.tag==='todo-preview'),false,'read-only headquarters has no actionable business todos');
+      continue;
+    }
     const greeting = nodes.find(n => hasClass(n, greetingClass));
     assert.ok(greeting, nickname + ' greeting exists');
     assert.ok(text(greeting).includes(nickname), nickname + ' shows authenticated profile name');

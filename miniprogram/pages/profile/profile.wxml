@@ -21,7 +21,7 @@
     <button class="tile profile-menu" data-action="selection" bindtap="open"><image src="/assets/account-bag.jpg"/><text>众墅甄选</text><view class="chevron"/></button>
   </view>
   <view class="two-grid">
-    <button class="tile profile-menu" data-action="storeMap" bindtap="open"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>门店地图</text><view class="chevron"/></button>
+    <button wx:if="{{showStoreMap}}" class="tile profile-menu" data-action="storeMap" bindtap="open"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>门店地图</text><view class="chevron"/></button>
     <button wx:if="{{showStoreServices}}" class="tile profile-menu" data-action="academy" bindtap="open"><image src="/assets/book.png" mode="aspectFit"/><text>商学院</text><view class="chevron"/></button>
   </view>
 </view>

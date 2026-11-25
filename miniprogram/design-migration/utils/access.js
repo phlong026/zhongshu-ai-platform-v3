@@ -4,6 +4,11 @@ const design = require('../../utils/platform-design');
 function allowed(page) {
   const post = http.token() && auth.currentApiPost();
   if (post && design.pageMode(http.token(), post) === 'api') {
+    if(page.route==='design-migration/pages/ai-design/index'){
+      page.setData({accessReady:false});
+      if(!page.__retiredRedirect){page.__retiredRedirect=true;wx.redirectTo({url:'/design-migration/pages/library/index'});}
+      return false;
+    }
     page.setData({ accessReady: true }); return true;
   }
   page.setData({ accessReady: false });

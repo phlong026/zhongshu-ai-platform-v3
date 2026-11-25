@@ -11,19 +11,23 @@
     {
       "root": "pages/design",
       "name": "design-workflow",
-      "pages": [
-        "index"
-      ]
+      "pages": ["index"]
     },
     {
       "root": "pages/workflow",
       "name": "business-workflow",
       "pages": [
+        "payment-plan/index",
         "commission/index",
         "quote-export/index",
         "explore/index",
         "index"
       ]
+    },
+    {
+      "root": "pages/contract-documents",
+      "name": "contract-documents",
+      "pages": ["index"]
     },
     {
       "root": "pages/build",
@@ -62,6 +66,8 @@
         "profile/index",
         "detail/index",
         "finance-desk/index",
+        "accounting/index",
+        "payroll/index",
         "operations/index",
         "commission/index",
         "brief/index"
@@ -72,9 +78,7 @@
     {
       "root": "pages/growth",
       "name": "growth-workflow",
-      "pages": [
-        "index"
-      ]
+      "pages": ["index"]
     },
     {
       "root": "pages/studio",
@@ -88,16 +92,12 @@
     {
       "root": "pages/creation",
       "name": "creation-workflow",
-      "pages": [
-        "index"
-      ]
+      "pages": ["index"]
     },
     {
       "root": "pages/ai-video",
       "name": "ai-video-workflow",
-      "pages": [
-        "index"
-      ]
+      "pages": ["index"]
     },
     {
       "root": "pages/wallet",
@@ -138,8 +138,32 @@
       "root": "pages/home-metrics",
       "name": "home-metrics",
       "pages": [
-        "index","record"
+        "index",
+        "record"
       ]
+    },
+    {
+      "root": "pages/customer-flow",
+      "name": "customer-flow",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/headquarters",
+      "name": "headquarters-workspace",
+      "pages": [
+        "index",
+        "detail"
+      ]
+    },
+    {
+      "root": "pages/external-entrust",
+      "name": "external-entrust",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/external-handover",
+      "name": "external-handover",
+      "pages": ["index"]
     }
   ],
   "window": {

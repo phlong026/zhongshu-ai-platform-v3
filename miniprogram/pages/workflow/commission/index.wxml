@@ -54,13 +54,11 @@
     <view class="commission-row"><text class="commission-heading">设计服务费</text><text class="commission-amount">¥ {{pricingQuote.amountText}}</text></view>
     <text class="commission-muted">{{pricingQuote.area}}㎡ × ¥{{pricingQuote.rateText}}/㎡</text>
     <text class="commission-muted">{{pricingQuote.scope}} · {{pricingQuote.recipient}}</text>
-    <checkbox-group wx:if="{{simulationAllowed}}" data-key="testPayment" bindchange="check"><label class="commission-check"><checkbox value="yes" checked="{{form.testPayment}}" disabled="{{busy}}" color="#824019"/><text>使用模拟付款（测试演练）</text></label></checkbox-group>
    </view>
    <view wx:if="{{view==='submit'&&paymentChoiceRequired}}" class="commission-card">
-    <text class="commission-error" role="alert">模拟付款资格已变化。请重试演练，或选择正式委托后重新勾选确认。</text>
+    <text class="commission-error" role="alert">模拟付款已停用。请核对费用后重新确认委托，实际付款在外部完成。</text>
     <view class="commission-actions">
-     <button wx:if="{{!simulationAllowed}}" class="commission-secondary" disabled="{{busy||platformStatus==='loading'}}" bindtap="retryCommissionSimulation">重新检查演练资格</button>
-     <button class="commission-secondary" disabled="{{busy||platformStatus!=='ready'}}" bindtap="chooseFormalCommission">选择正式委托</button>
+     <button class="commission-secondary" disabled="{{busy||platformStatus!=='ready'}}" bindtap="chooseFormalCommission">核对费用并继续</button>
     </view>
    </view>
    <view wx:if="{{fields.length}}" class="commission-card">
@@ -81,6 +79,5 @@
   </block>
  </view>
  <view wx:if="{{preview}}" class="commission-mask" bindtap="closePreview"><view class="commission-card"><text class="commission-heading">{{preview.name}}</text><text class="commission-value">{{preview.text}}</text><button class="commission-primary" bindtap="closePreview">关闭预览</button></view></view>
-<include src="./simulated-cashier.wxml"/>
 </view>
 <custom-tab-bar wx:if="{{view==='admin'||view==='projects'}}" active-index="{{view==='projects'?20:19}}" nested="{{true}}"/>

@@ -74,14 +74,16 @@ function appId() {
   }
 }
 
-/** 按完整账号、地区/门店简写或老板姓名查找候选账号。 */
-function accountMatches(query) {
-  return http.post('/platform/auth/account/matches', { query: String(query || '').trim() });
-}
-
 /** 账号密码登录；初始密码场景携 newPassword 完成强制改密后才签发令牌。 */
 function accountLogin(accountId, password, newPassword, consent) {
   const payload = { accountId: String(accountId), password, consent, loginVersion: 2 };
+  if (newPassword) payload.newPassword = newPassword;
+  return http.post('/platform/auth/account/login', payload);
+}
+
+/** 完整账号与密码一起提交；验证成功后由服务端返回账号和任职。 */
+function accountLoginByName(loginName, password, newPassword, consent) {
+  const payload = { loginName:String(loginName || '').trim(), password, consent, loginVersion:2 };
   if (newPassword) payload.newPassword = newPassword;
   return http.post('/platform/auth/account/login', payload);
 }
@@ -173,7 +175,7 @@ function recoverPostInvalid(invalidPostId) {
 
 function loginPolicy() { return http.get('/platform/auth/login-policy'); }
 
-module.exports = { loginPolicy, login, saveLogin, restoreSession, myPosts, appId, accountMatches, accountLogin, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
+module.exports = { loginPolicy, login, saveLogin, restoreSession, myPosts, appId, accountLogin, accountLoginByName, sendSmsCode, smsLogin, savePosts, apiPosts, currentApiPost, switchPost, logout, recoverPostInvalid, postLoadGuard };
 
 // M02-T01/I02：账号失效统一引导——清会话后跳转登录页（account 页 onShow 因会话清空展示登录态）。
 // 自带 handle401 四组合处理的页面（customers/workflow 等，09 阶段1 契约：401→回 guest 渲染）豁免全局跳转，

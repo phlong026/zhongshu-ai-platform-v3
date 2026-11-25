@@ -11,10 +11,11 @@ const http = require('../../utils/request');
 protectedPage({
   data: {
     caseDetail: null, loading: true, tab: 0, favorite: false, favoriteLoading: false, favoriteSaving: false, favoriteError: false,
-    drawings: [], hero: { assetId: '', url: '', status: 'missing' }, detailError: false
+    drawings: [], hero: { assetId: '', url: '', status: 'missing' }, detailError: false, pickMode: false
   },
   onLoad(options) {
     this._token = http.captureSession ? http.captureSession() : http.getToken(); this._closed = false;
+    this.setData({ pickMode: options && options.pick === 'workflow' });
     const caseId = options && options.id;
     this._caseId = caseId;
     if (!caseId) {
@@ -147,15 +148,15 @@ protectedPage({
       if (self.current()) wx.showToast({ title: (err && (err.msg || err.message)) || '操作失败', icon: 'none' });
     }).then(function () { if (self.current()) self.setData({ favoriteSaving: false }); });
   },
-  useHouse() {
-    const detail=this.data.caseDetail;if(!this.current()||!detail)return;
-    if(!detail.canDesign){wx.showToast({title:detail.designUnavailableReason,icon:'none'});return;}
-    const app=getDesignApp();
-    app.globalData.refCase={caseId:detail.id,caseVersionId:detail.caseVersionId,dimensionBasis:detail.dimensionBasis,title:detail.title,coverUrl:this.data.drawings[0]&&this.data.drawings[0].url,...require('../../utils/case-entry').parameters(detail)};
-    app.globalData.caseDesignEntry={...app.globalData.refCase,styleCode:detail.styleCode};
-    app.globalData.aiLine=this.data.tab===0?'ELEVATION':'FLAT';
-    wx.navigateTo({url:'/design-migration/pages/ai-design/index?line='+app.globalData.aiLine});
+  chooseReference() {
+    const detail = this.data.caseDetail;
+    if (!this.data.pickMode || !this.current() || !detail) return;
+    const channel = this.getOpenerEventChannel && this.getOpenerEventChannel();
+    if (!channel || typeof channel.emit !== 'function') return wx.showToast({ title: '请从客户流程选择户型', icon: 'none' });
+    channel.emit('workflowReference', { caseId: String(detail.id), title: detail.title });
+    wx.navigateBack({ delta: 2 });
   },
+  useHouse() {wx.showToast({title:require('../../../utils/design-retirement').message,icon:'none'});},
   quickBudget() {
     const detail=this.data.caseDetail;if(!this.current()||!detail)return;
     getDesignApp().globalData.budgetCaseEntry={caseId:detail.id,caseVersionId:detail.caseVersionId,title:detail.title,values:require('../../utils/case-entry').parameters(detail)};

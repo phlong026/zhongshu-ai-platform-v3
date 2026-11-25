@@ -181,7 +181,7 @@ function pointCard(options={}){
  const root=path.resolve(__dirname,'../miniprogram'),cache=new Map(),requests=[],patches=[];
  const session={token:'token-1',generation:1,userId:'user-1',tenantId:'tenant-1',postId:'post-1',post:{userId:'user-1',tenantId:'tenant-1',postId:'post-1',orgId:'org-1',roleCode:'sales',orgType:'store',permissions:['points:read']}};
  const http={token:()=>session.token,sessionGeneration:()=>session.generation,currentUserId:()=>session.userId,tenantId:()=>session.tenantId,currentPostId:()=>session.postId,
-  get:url=>url.endsWith('/simulated-packages')?(options.packages?options.packages():Promise.resolve([{id:'plan-1'}])):new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
+  get:url=>url.endsWith('/recharge/catalog')?(options.packages?options.packages():Promise.resolve([{id:'plan-1'}])).then(plans=>({enabled:true,plans})):new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
  let definition;
  function load(file){
   file=path.resolve(root,file);if(!path.extname(file))file+='.js';if(cache.has(file))return cache.get(file).exports;
@@ -242,7 +242,7 @@ test('current point permission failures discard cached balances while late logou
  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.session.token='';h.session.generation++;h.respond(2,'999');await tick();
  assert.equal(h.card.data.visible,false);assert.equal(h.card.data.balanceText,'--');
 });
-test('a salesperson without simulated recharge permission keeps the readable company balances',async()=>{
+test('a salesperson without company recharge permission keeps the readable company balances',async()=>{
  let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});
  assert.equal(h.session.post.roleCode,'sales');assert(!h.session.post.permissions.includes('platform:wallet:recharge'));
  h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');

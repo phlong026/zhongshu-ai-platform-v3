@@ -14,10 +14,11 @@ function moduleAt(file, dependencies) {
  }});return module.exports;
 }
 function library({styles, listCases, download}={}) {
- let page, session='a', timerId=0;const downloads=[], timers=new Map();
+ let page, session='a', timerId=0;const downloads=[], timers=new Map(), selected=[], backs=[];
  const http={captureSession:()=>session,isSameSession:s=>s===session};
  const classifications={floors:()=>[{label:'一层',count:1},{label:'两层',count:2},{label:'三层',count:3},{label:'四层',count:4}],styles:styles||(()=>Promise.resolve([]))};
  vm.runInNewContext(fs.readFileSync(path.join(root,'pages/library/index.js'),'utf8'),{
+ wx:{navigateBack:()=>backs.push(true),showToast(){}},
  setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),require:p=>({
  '../../utils/navigation':{},'../../utils/context':{getApp:()=>({})},'../../utils/access':{protectedPage:p=>page=p},
  '../../utils/api':{listCases:listCases||(()=>Promise.resolve({list:[]}))},'../../utils/request':http,
@@ -26,7 +27,8 @@ function library({styles, listCases, download}={}) {
  '../../../utils/design-case-images':{FRESH_MS:300000,watch:(_page,_selector,rows,visit)=>rows.slice(0,3).forEach(visit)}
  }[p])});
  page.data=clone(page.data);page.setData=patch=>Object.assign(page.data,patch);
- return {page,downloads,changeSession:()=>session='b',runTimers(){const work=[...timers.values()];timers.clear();work.forEach(fn=>fn());}};
+ page.getOpenerEventChannel=()=>({emit:(name,value)=>selected.push({name,value:clone(value)})});
+ return {page,downloads,selected,backs,changeSession:()=>session='b',runTimers(){const work=[...timers.values()];timers.clear();work.forEach(fn=>fn());}};
 }
 test('分类来自原接口，保留顺序、自定义风格，去除重复代码；层数复用原1到4层',async()=>{
  let requests=0;
@@ -86,6 +88,31 @@ test('退出或切换工作身份后不发送尚未开始的搜索',()=>{
   h.page.onSearch({detail:{value:'新搜索'}});
   if(unload)h.page.onUnload();else h.changeSession();
   h.runTimers();assert.equal(calls,0);
+ }
+});
+test('八步选户型保留服务端先搜再分页，回传搜索结果中的真实案例而非原游标记录',async()=>{
+ const cases=Array.from({length:22},(_,i)=>({caseId:String(i+1),title:i>=10?'山居 '+(i+1):'常规 '+(i+1)})),calls=[];
+ const h=library({listCases:async params=>{
+  calls.push({...params});const start=Number(params.cursor||0),matches=cases.filter(row=>!params.keyword||row.title.includes(params.keyword));
+  return {list:matches.slice(start,start+params.limit),nextCursor:start+params.limit<matches.length?String(start+params.limit):null};
+ }});
+ h.page.onLoad({pick:'workflow'});await flush();assert.equal(h.page.data.pickMode,true);
+ h.page.onSearch({detail:{value:'山居'}});h.page.chooseReference({currentTarget:{dataset:{id:'1'}}});
+ assert.deepEqual(h.selected,[]);h.runTimers();await flush();
+ h.page.onReachBottom();await flush();assert.equal(calls.at(-1).keyword,'山居');assert.equal(calls.at(-1).cursor,'10');
+ h.page.chooseReference({currentTarget:{dataset:{id:'21'}}});
+ assert.deepEqual(h.selected,[{name:'workflowReference',value:{caseId:'21',title:'山居 21'}}]);assert.equal(h.backs.length,1);
+});
+test('八步选择中切岗同时废弃搜索计时器与迟到分页，不回传旧身份案例',async()=>{
+ for(const started of [false,true]){
+  const pending=deferred();let calls=0;const h=library({listCases:()=>++calls===1?Promise.resolve({list:[{caseId:'1',title:'原案例'}]}):pending.promise});
+  h.page.onLoad({pick:'workflow'});await flush();h.page.onSearch({detail:{value:'新的搜索'}});
+  if(started){h.runTimers();await flush();}
+  h.changeSession();h.page.onShow();h.runTimers();
+  pending.resolve({list:[{caseId:'99',title:'迟到案例'}],nextCursor:'99'});await flush();
+  h.page.chooseReference({currentTarget:{dataset:{id:'99'}}});
+  assert.equal(calls,started?2:1);assert.equal(h.page.data.cases.length,0);assert.equal(h.page.data.visibleCount,0);
+  assert.match(h.page.data.error,/工作身份已变化/);assert.deepEqual(h.selected,[]);assert.equal(h.backs.length,0);
  }
 });
 test('分类接口格式错误显式失败，不改回硬编码分类',async()=>{

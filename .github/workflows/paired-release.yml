@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
       frontend_sha:
@@ -17,14 +18,46 @@ on:
         required: true
         default: backend-main
         type: string
+      require_external_handover:
+        description: Require the complete external handover flow; explicit backend commits always require it
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
+concurrency:
+  group: frontend-paired-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  resolve-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      frontend_sha: ${{ steps.pair.outputs.frontend_sha }}
+      backend_sha: ${{ steps.pair.outputs.backend_sha }}
+      require_external_handover: ${{ steps.pair.outputs.require_external_handover }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Verify metadata selection
+        run: node --test scripts/verify-paired-release-selector.cjs
+      - name: Select the exact pair from validated event metadata
+        id: pair
+        run: node scripts/resolve-paired-release.cjs
   verify-pair:
-    # Update this pinned workflow only after the corresponding backend workflow is merged.
-    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@474fba410bbca5c97e2e0c9d2bb732709c609e2a
+    needs: resolve-pair
+    # Executor source is immutable and independent of the selected business backend.
+    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@6ac765aca82833dc22d5e82815b708a0928ec997
     with:
-      frontend_sha: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_sha || github.event.pull_request.head.sha || github.sha }}
-      backend_sha: ${{ inputs.backend_sha || 'backend-main' }}
+      executor_sha: 6ac765aca82833dc22d5e82815b708a0928ec997
+      frontend_sha: ${{ needs.resolve-pair.outputs.frontend_sha }}
+      backend_sha: ${{ needs.resolve-pair.outputs.backend_sha }}
+      require_external_handover: ${{ needs.resolve-pair.outputs.require_external_handover == 'true' }}

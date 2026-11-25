@@ -309,6 +309,8 @@ page {
 .case-card {
   overflow: hidden;
 }
+.reference-action { margin: 0 16rpx 20rpx; color: #7b5532; background: #f4f0e9; font-size: 26rpx; line-height: 68rpx; border-radius: 12rpx; }
+.reference-action::after { border: 0; }
 
 .image-wrap {
   position: relative;

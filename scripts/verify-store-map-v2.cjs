@@ -16,7 +16,7 @@ const brands = [{id:'a',name:'测试甲',color:'#965528'},{id:'b',name:'测试�
 const record = (id,brandId='a',codes=['420115'],type='FRANCHISE') => ({ id, name:'验收记录'+id, brandId, brandName:brands.find(b=>b.id===brandId).name, brandColor:brands.find(b=>b.id===brandId).color, recordType:type, originalRegionText:codes.join('、'), matchStatus:'RESOLVED', regionCodes:codes, provinceCode:'420000', cityCode:'420100', linkedOrgId:'' });
 const fixture = (extra=[]) => {
   const records=[record('one','a',['420115','420116']),record('two','b'),record('coverage','b',['420115'],'COVERAGE'),...extra];
-  return {schemaVersion:2,scope:'all',brandId:'',brandName:'',brands,records,points:records.flatMap(r=>r.regionCodes.map(code=>{
+  return {schemaVersion:2,publicProjectionVersion:1,scope:'all',brandId:'',brandName:'',brands,records,points:records.flatMap(r=>r.regionCodes.map(code=>{
     const region=regions.find(n=>n.code===code);
     return region?.level==='district'?{id:r.id+':'+code,recordId:r.id,regionCode:code,longitude:region.longitude,latitude:region.latitude,locationPrecision:'district'}:null;
   }).filter(Boolean))};
@@ -24,9 +24,11 @@ const fixture = (extra=[]) => {
 const hq={orgType:'headquarters',roleCode:'finance'};
 const county={province:'420000',city:'420100',district:'420115'};
 
-test('所有总部有效岗位接收全品牌快照；加盟商拒绝跨品牌记录、点位和品牌目录',()=>{
+test('仅总部管理员与财务接收全品牌快照；加盟商拒绝跨品牌记录、点位和品牌目录',()=>{
   const source=fixture();
   assert.equal(readSnapshot(source,hq).admin,true);
+  for (const roleCode of ['hq-admin','finance','finance-lead']) assert.equal(readSnapshot(source,{orgType:'headquarters',roleCode}).admin,true);
+  for (const roleCode of ['boss','sales','design-admin','operations','']) assert.throws(()=>readSnapshot(source,{orgType:'headquarters',roleCode}));
   assert.throws(()=>readSnapshot(source,{orgType:'store',brandId:'a'}));
   const own={...source,scope:'brand',brandId:'a',brandName:'测试甲',brands:[brands[0]],records:[source.records[0]],points:source.points.filter(p=>p.recordId==='one')};
   assert.equal(readSnapshot(own,{orgType:'store',brandId:'a'}).records.length,1);
@@ -43,6 +45,32 @@ test('多县同加盟商只算一家，覆盖记录只算条，覆盖县按行�
   assert.equal(view.summary.coverageRecordCount,1);
   assert.equal(view.summary.districtCount,2);
   assert.equal(view.rows.length,3);
+});
+
+test('地图白名单丢弃人员、账号、业务关联与原始导入文本，只保留公开地址',()=>{
+  const source=fixture();
+  Object.assign(source.records[0],{publicAddress:'江夏大道 18 号',ownerName:'保密姓名',phone:'13800138000',
+    contactName:'保密联系人',loginName:'private-login',linkedOrgId:'private-org',originalRegionText:'保密导入原文',customerCount:99});
+  Object.assign(source.points[0],{ownerName:'保密姓名',linkedOrgId:'private-org'});
+  const snapshot=readSnapshot(source,hq),view=mapView(snapshot,{keyword:'江夏大道'},readRegions(regions));
+  assert.equal(view.rows.length,1);assert.equal(view.rows[0].id,'one');
+  assert.equal(view.rows[0].publicAddress,'江夏大道 18 号');
+  const json=JSON.stringify({snapshot,view});
+  for (const value of ['保密姓名','13800138000','保密联系人','private-login','private-org','保密导入原文',
+    'ownerName','phone','contactName','loginName','linkedOrgId','originalRegionText','customerCount']) assert(!json.includes(value),value);
+  assert.equal(mapView(snapshot,{keyword:'保密导入原文'},readRegions(regions)).rows.length,0);
+});
+
+test('旧 V2 无隐私标记时不显示或搜索 name 内老板姓名，使用标准行政区回退',()=>{
+  const source=fixture();delete source.publicProjectionVersion;
+  Object.assign(source.records[0],{name:'老板姓名张三 13800138000',publicAddress:'未知旧字段私有地址',originalRegionText:'私有原始区域'});
+  const snapshot=readSnapshot(source,hq),catalog=readRegions(regions),view=mapView(snapshot,county,catalog);
+  assert.match(view.rows[0].name,/测试甲 · 湖北省 · 武汉市 · 江夏区/);
+  assert.match(view.rows[0].name,/门店$/);
+  for (const value of ['老板姓名','13800138000','未知旧字段私有地址','私有原始区域']) {
+    assert(!JSON.stringify({snapshot,view}).includes(value));
+    assert.equal(mapView(snapshot,{keyword:value},catalog).rows.length,0);
+  }
 });
 
 test('同县所有品牌和覆盖记录保留、同坐标合并不移动中心，零家品牌仍可见',()=>{
@@ -82,7 +110,8 @@ test('明确上级但县待确认的记录不能变成假县落点或空白招�
   assert.equal(view.summary.franchiseCount,0);
   assert.equal(view.summary.pendingCount,1);
   assert.equal(view.markers.length,0);
-  assert.equal(view.rows[0].originalRegionText,'武汉片区');
+  assert.equal(view.rows[0].originalRegionText,undefined);
+  assert.equal(view.rows[0].regionText,'湖北省 · 武汉市');
   const direct=readRegions([...regions,{code:'429004',name:'仙桃市',level:'district',parentCode:'420000',provinceCode:'420000',provinceName:'湖北省',cityCode:'',districtCode:'429004',districtName:'仙桃市'}]);
   const outside=mapView(readSnapshot(fixture([uncertain]),hq),{province:'420000',district:'429004'},direct);
   assert.equal(outside.summary.status,'empty','明确武汉市的待确认资料不扩张到同省直辖县');
@@ -112,7 +141,7 @@ test('行政区统计不随视野改变；视野统计按真实点去重并区�
   assert.equal(mapView(snapshot,county,catalog,'viewport').summary.status,'loading');
 });
 
-test('无效坐标不会制造落点，资料原文仍保留；V2不回落旧stores虚构数据',()=>{
+test('无效坐标不会制造落点；V2不回落旧stores虚构数据',()=>{
   const source=fixture();source.points=source.points.map(p=>({...p,latitude:999}));source.stores=[{id:'not-used',brandId:'a'}];
   const view=mapView(readSnapshot(source,hq),county,readRegions(regions));
   assert.equal(view.markers.length,0);
@@ -156,6 +185,17 @@ async function openMap({manual=false,source=fixture()}={}) {
   const nativeMap=await (await runtime.currentPage()).$('map');if(nativeMap)await nativeMap.trigger('updated',{});
   return {runtime,auth,page:getCurrentPages().at(-1),network,viewports,fits};
 }
+
+test('真实地图页面展示公开地址，Page 数据与搜索不保留原始联系人资料',async()=>{
+  const source=fixture();
+  Object.assign(source.records[0],{publicAddress:'公开门店大道 18 号',ownerName:'隐藏老板',phone:'13900139000',originalRegionText:'隐藏老板 13900139000'});
+  const {page,runtime}=await openMap({source});
+  const screen=await runtime.currentPage();
+  assert.match(await (await screen.$('.stores')).text(),/门店地址：公开门店大道 18 号/);
+  assert(!JSON.stringify(page.data).includes('隐藏老板'));assert(!JSON.stringify(page.snapshot).includes('13900139000'));
+  page.searchInput({detail:{value:'公开门店大道'}});page.searchName();assert.equal(page.data.rows.length,1);
+  page.searchInput({detail:{value:'隐藏老板'}});page.searchName();assert.equal(page.data.rows.length,0);
+});
 
 test('真实Page地区优先搜索和品牌切换保留区县；setData不包含全国目录；图钉名单可恢复',async()=>{
   const {page,runtime}=await openMap();
