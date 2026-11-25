@@ -3,6 +3,7 @@ const M = require('./model');
 const S = require('./session');
 const Files = require('./files');
 const navigation = require('../../utils/page-navigation');
+const { routeValue } = require('../../utils/view-container');
 const empty = () => ({ ready: false, loading: false, error: '', detail: null, ledger: null, companyName: '', history: [], historyOpen: false,
   historyPage: 0, historyTotal: 0, historyMore: false, historyLoading: false, historyError: '', documents: [], documentsPage: 0, documentsMore: false,
   documentsLoading: false, documentsError: '', siteRecords: [], sitePage: 0, siteMore: false, siteLoading: false, siteError: '', expanded: '', fileBusy: false, fileError: '' });
@@ -35,7 +36,7 @@ Page({
       if (kind === 'ledger') {
         const company = catalog.companies.find(row => row.id === recordId);
         if (!company) throw { code: 403, message: '公司不属于当前可读范围' };
-        const scope = api.bookScope(this.options.scope), result = await api.ledger(recordId, scope);
+        const scope = api.bookScope(routeValue(this.options.scope)), result = await api.ledger(recordId, scope);
         if (!S.alive(this, ticket)) return;
         this.setData({ ledger: M.ledger(result), companyName: company.name, ledgerTitle: scope === 'company' ? '公司日常账' : scope.startsWith('project:') ? '项目账本' : '前期账本', ready: true, loading: false });
       } else {

@@ -213,6 +213,23 @@ test('公司账本选择不套用总部公司，项目账本明确提示 500 条
   assert.equal(foreign.data.ready, false); assert.equal(env.reads().some(item => item.route.includes('/companies/999/ledger')), false);
 });
 
+test('总部账本接受原生onLoad的编码scope，只解码一次且拒绝无效范围', async () => {
+  const env = await setup(), page = await env.open(DETAIL + '?kind=ledger&companyId=31&scope=company');
+  for (const [raw, expected] of [['project%3A' + LONG, 'project:' + LONG], ['book%3A88', 'book:88'], ['project:77', 'project:77'], ['company', 'company']]) {
+    page.onHide(); env.requests.length = 0;
+    // Pass native route options directly: URLSearchParams in the shared runtime decodes these prematurely.
+    page.onLoad({ kind: 'ledger', companyId: '31', scope: raw }); await page.onShow(); await flush();
+    assert.equal(page.data.ready, true, raw);
+    assert.equal(env.reads().find(item => item.route.endsWith('/ledger')).request.data.scope, expected);
+  }
+  for (const raw of ['project%253A77', 'project%3A0', 'project%3Anot-id', '%E0%A4%A']) {
+    page.onHide(); env.requests.length = 0;
+    page.onLoad({ kind: 'ledger', companyId: '31', scope: raw }); await page.onShow(); await flush();
+    assert.equal(page.data.ready, false, raw); assert.match(page.data.error, /账本范围无效/);
+    assert.equal(env.reads().some(item => item.route.endsWith('/ledger')), false);
+  }
+});
+
 test('财务原单与凭证保持准确的字符串 ID 和类别', async () => {
   const env = await setup();
   env.handler = route => route === PREFIX + '/finance/payments/' + LONG ? row(LONG, { readOnly: true, assetId: '88', payableId: '99', status: '已核实' }) : undefined;
