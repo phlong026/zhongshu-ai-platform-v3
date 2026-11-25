@@ -171,6 +171,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private static final AtomicLong IDS = new AtomicLong(950_000_000_000L + System.nanoTime() % 100_000_000L);
 
     @Resource
+    private EngProjectService projectService;
+    @Resource
+    private cn.iocoder.yudao.module.platform.org.SystemDirectory managerDirectory;
+    @Resource
     private EngMaterialService materialsService;
     @Resource
     private EngPlanService planService;
@@ -210,6 +214,38 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         materialId = insertMaterial();
         supplyId = jdbc.queryForObject(
                 "SELECT id FROM fr_eng_supply WHERE material_id = ?", Long.class, materialId);
+    }
+
+    @Test
+    void originalManagerCanSelectAnActiveColleagueAndRecoverTheExactTransfer() {
+        PostSnapshot next = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        PostSnapshot inactive = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        Store otherStore = fixture.store();
+        PostSnapshot outsider = fixture.post(otherStore.orgId(), "engineer", otherStore.engineeringTeam());
+        managerDirectory.setUserActive(inactive.userId(), false);
+        long oldRevision = jdbc.queryForObject("SELECT revision FROM fr_eng_project WHERE id=?", Long.class, projectId);
+        var candidates = as(engineer, () -> projectService.managerCandidates(engineer, projectId));
+        assertThat(candidates).extracting(row -> row.get("id")).containsExactly(Long.toString(next.userId()));
+        assertThatThrownBy(() -> as(next, () -> projectService.managerCandidates(next, projectId)))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(outsider, () -> projectService.managerCandidates(outsider, projectId)))
+                .isInstanceOf(ServiceException.class);
+        var unavailable = new EngProjectService.ManagerCommand(inactive.userId(), "");
+        assertThatThrownBy(() -> as(engineer, () -> projectService.changeManager(engineer, projectId, unavailable, idem())))
+                .isInstanceOf(ServiceException.class);
+
+        String key = idem();
+        var command = new EngProjectService.ManagerCommand(next.userId(), "施工交接");
+        as(engineer, () -> projectService.changeManager(engineer, projectId, command, key));
+        as(engineer, () -> projectService.changeManager(engineer, projectId, command, key));
+        assertThat(jdbc.queryForObject("SELECT manager_user_id FROM fr_eng_project WHERE id=?", Long.class, projectId))
+                .isEqualTo(next.userId());
+        assertThat(jdbc.queryForObject("SELECT revision FROM fr_eng_project WHERE id=?", Long.class, projectId))
+                .isEqualTo(oldRevision + 1);
+        assertThatThrownBy(() -> as(engineer, () -> projectService.changeManager(engineer, projectId,
+                new EngProjectService.ManagerCommand(next.userId(), "别的转交说明"), key))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(engineer, () -> projectService.changeManager(engineer, projectId, command, idem())))
+                .isInstanceOf(ServiceException.class);
     }
 
     // ========== M07-T01：材料幂等 ==========
