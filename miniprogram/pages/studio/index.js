@@ -162,7 +162,7 @@ return this.loadList('tasks',()=>contentApi.tasks.page(),rows=>{
 const previous=new Map((this.data.tasks||[]).map(task=>[task.id,task]));
 const mapped=P.rowsOf(rows).map(task=>this.mapApiTask(task)).filter(Boolean);
 const tasks=mapped.filter(task=>filter===0||(filter===1&&task.status==='generating')||(filter===2&&task.status==='completed')||(filter===3&&task.status!=='generating'&&task.status!=='completed')).map(task=>{
-const shown=previous.get(task.id);return shown?Object.assign(task,{swiped:!!shown.swiped,dismissing:!!shown.dismissing}):task;
+const shown=previous.get(task.id);return shown?Object.assign(task,{swiped:task.canDismiss&&!!shown.swiped,dismissing:!!shown.dismissing}):task;
 });
 return {tasks,taskCount:tasks.length};
 });
@@ -217,7 +217,8 @@ const text = String((task.result && (task.result.text || task.result.script)) ||
 return {
 id: String(task.id), apiTask: true, kind, ...result,
 title: text ? text.split('\n')[0].slice(0, 28) : (String(task.title || '').trim() || studio.kindLabel(kind) + '任务'),
-status: view, saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
+status: view, canDismiss: task.canDismiss !== false && !P.saveFailure(task)
+  && ['SUCCEEDED','FAILED','CANCELLED'].includes(task.status), saveRetryable:P.saveFailure(task), statusText:task.statusText||'', stageLabel:P.saveFailure(task)?'生成完成，保存失败':TaskDisplay.stage(task.status), saved: false,
 script: text, failedReason: String(task.failedReason || ''), resultUrl: result.resultUrl,
 configuration: {}, image: TaskDisplay.icon(task.kind), kindLabel: result.kindLabel
 };
@@ -597,7 +598,7 @@ this.go('result', '&task=' + encodeURIComponent(id));
 onTaskTouchStart(e) {
 const id=String(e.currentTarget.dataset.id||'');
 const point=e.touches&&e.touches[0];
-if(!id||!point)return;
+if(!id||!point||!(this.data.tasks||[]).some(row=>row.id===id&&row.canDismiss))return;
 this.__taskTouch={id,x:point.clientX,y:point.clientY,dx:0,dy:0};
 },
 onTaskTouchMove(e) {
@@ -605,7 +606,7 @@ const touch=this.__taskTouch,point=e.touches&&e.touches[0];
 if(!touch||!point)return;
 touch.dx=point.clientX-touch.x;touch.dy=point.clientY-touch.y;
 if(Math.abs(touch.dx)>12&&Math.abs(touch.dx)>Math.abs(touch.dy)) {
- const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id&&touch.dx<-28}));
+ const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id&&row.canDismiss&&touch.dx<-28}));
  this.setData({tasks});
 }
 },
@@ -613,19 +614,22 @@ onTaskTouchEnd() {
 const touch=this.__taskTouch;this.__taskTouch=null;
 if(!touch)return;
 const open=touch.dx<-48&&Math.abs(touch.dx)>Math.abs(touch.dy);
-const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id?open:false}));
+const tasks=(this.data.tasks||[]).map(row=>({...row,swiped:row.id===touch.id&&row.canDismiss?open:false}));
 this.setData({tasks});
 },
-onTaskLongPress(e) {
-const id=String(e.currentTarget.dataset.id||'');
-if(!id)return;
-wx.showModal({title:'移除任务',content:'仅从你的任务中心移除，不会删除云端任务、已保存作品或客资记录。确定继续？',confirmText:'移除',confirmColor:'#a33b2b',success:res=>{if(res.confirm)this.dismissTask(id);}});
+onTaskLongPress(e) { this.dismissTaskTap(e); },
+dismissTaskTap(e) {
+ const id=String(e.currentTarget.dataset.id||'');
+ const shown=(this.data.tasks||[]).find(row=>row.id===id);
+ if(!shown?.canDismiss||this.__dismissingTask||this.data.view!=='tasks')return;
+ const current=http.requestGuard('studio-task-dismiss-confirm'),scope=studio.scope(),identity=listIdentity();
+ wx.showModal({title:'移除任务',content:'仅从你的任务中心移除，不会删除云端任务、已保存作品或客资记录。确定继续？',confirmText:'移除',confirmColor:'#a33b2b',
+   success:res=>{if(res.confirm&&current()&&!this.__closed&&scope===studio.scope()&&identity===listIdentity())this.dismissTask(id);}});
 },
-dismissTaskTap(e) { const id=String(e.currentTarget.dataset.id||'');if(id)this.dismissTask(id); },
 async dismissTask(id) {
- if(this.__dismissingTask)return;
+ if(this.__dismissingTask||this.__closed||this.data.view!=='tasks')return;
  const shown=(this.data.tasks||[]).find(row=>String(row.id)===String(id));
- if(!shown)return;
+ if(!shown?.canDismiss)return;
  const alive=http.requestGuard('studio-task-dismiss'),scope=this.actorScope,identity=listIdentity(),attempt={};
  const current=()=>alive()&&!this.__closed&&this.__dismissingTask===attempt&&scope===studio.scope()&&identity===listIdentity()&&this.data.view==='tasks';
  this.__dismissingTask=attempt;

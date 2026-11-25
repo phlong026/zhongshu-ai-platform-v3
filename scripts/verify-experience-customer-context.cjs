@@ -15,7 +15,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function loadPage(platformCrm = CRM) {
+function loadPage(platformCrm = CRM, navigations = []) {
   let definition;
   const source = fs.readFileSync(path.join(ROOT, 'miniprogram/pages/workflow/index.js'), 'utf8');
   vm.runInNewContext(source, {
@@ -25,6 +25,7 @@ function loadPage(platformCrm = CRM) {
       if (id === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
       if (id === '../../utils/platform-crm') return platformCrm;
       if (id === '../../api/http') return { token: () => 'token' };
+      if (id === '../../utils/page-navigation') return { open: url => navigations.push(url) };
       if (id === './views') return { titles: {} };
       throw new Error('unexpected require: ' + id);
     },
@@ -70,7 +71,8 @@ test('sales collection resubmits the returned method and edited account and star
 
 function harness(options = {}) {
   const platformCrm = options.platformCrm || CRM;
-  const definition = loadPage(platformCrm);
+  const navigations = [];
+  const definition = loadPage(platformCrm, navigations);
   let sessionGeneration = 1;
   const detailCalls = [];
   const requirementListCalls = [];
@@ -146,7 +148,7 @@ function harness(options = {}) {
     }
   });
   return {
-    page, detailCalls, requirementListCalls, requirementCreates, quoteCreates, contractCreates,
+    page, detailCalls, requirementListCalls, requirementCreates, quoteCreates, contractCreates, navigations,
     currentSessionGeneration: () => sessionGeneration,
     switchPost() { sessionGeneration += 1; page.__postKey = 'post-2'; page.__post = { postId: 'post-2', roleCode: 'sales' }; }
   };
@@ -420,4 +422,35 @@ test('quote requires footprint and building area before compilation or API write
   assert.match(h.page.data.error, /建筑面积/);
   assert.equal(compiled, 0);
   assert.equal(h.quoteCreates.length, 0);
+});
+
+test('new contract routes without choosing an estimate; only the explicit quote action supplies its ID', () => {
+  const h = harness(), page = h.page;
+  page.setData({ view: 'contract', requirementsStatus: 'ready', salesQuotes: [
+    { id: '22', totalText: '520000.00', date: '2026-11-25' },
+    { id: '21', totalText: '480000.00', date: '2026-11-24' }
+  ] });
+  page.openContractForm();
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9');
+  assert.equal(page.data.contractForm, undefined, '金额仅在独立付款编辑器录入，入口不创建默认表单');
+  assert.equal(h.contractCreates.length, 0);
+  page.useContractQuote({ currentTarget: { dataset: { quoteId: '21' } } });
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9&quoteId=21');
+  assert.equal(h.navigations.length, 2);
+  page.useContractQuote({ currentTarget: { dataset: { quoteId: 'unknown' } } });
+  assert.equal(h.navigations.length, 2); assert.equal(h.contractCreates.length, 0);
+  for (const blocked of [{ busy: true }, { contractsHasActive: true }]) {
+    page.setData({ busy: false, contractsHasActive: false, ...blocked });
+    page.openContractForm(); page.useContractQuote({ currentTarget: { dataset: { quoteId: '21' } } });
+    assert.equal(h.navigations.length, 2);
+  }
+});
+
+test('a contract with no quote opens the same editor for explicit manual totals and installments', () => {
+  const h = harness(), page = h.page;
+  page.setData({ view: 'contract', requirementsStatus: 'ready', salesQuotes: [] });
+  page.openContractForm();
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9');
+  assert.equal(h.contractCreates.length, 0);
+  // The editor behavior and exact manual payload are exercised by verify-payment-plan-page.cjs.
 });

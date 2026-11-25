@@ -11,11 +11,12 @@ const revoked = error => error?.postInvalid || [401, 403, 404, 1110000000, 11100
 
 Page({
   data: { loading: false, refreshing: false, ready: false, context: null, customerName: '', form: null, summary: null,
-    editing: false, creating: false, dirty: false, busy: false, uncertain: false, conflict: false, error: '',
+    editing: false, creating: false, quoteSource: '', dirty: false, busy: false, uncertain: false, conflict: false, error: '',
     triggers: model.TRIGGERS, today: '', showHistory: false, history: [], historyLoading: false, historyError: '', selectedVersion: null },
   onLoad(options = {}) {
     this.contractId = model.id(options.contractId); this.customerId = model.id(options.customerId);
-    this._invalid = !!options.contractId && !this.contractId;
+    this.quoteId = model.id(options.quoteId);
+    this._invalid = !!options.contractId && !this.contractId || !!options.quoteId && !this.quoteId || this.quoteId && this.contractId;
     this._openHistory = options.history === '1'; this._rowNo = 1;
     this.setData({ today: require('../../../utils/finance-date').day(Date.now()) });
   },
@@ -30,7 +31,7 @@ Page({
   clear(error = '') {
     this._read = null; this._historyRead = null; this._pending = null;
     this.setData({ ready: false, loading: false, refreshing: false, context: null, customerName: '', form: null, summary: null,
-      editing: false, creating: false, dirty: false, busy: false, uncertain: false, conflict: false, error,
+      editing: false, creating: false, quoteSource: '', dirty: false, busy: false, uncertain: false, conflict: false, error,
       showHistory: false, history: [], historyLoading: false, historyError: '', selectedVersion: null });
   },
   async load(options = {}) {
@@ -66,10 +67,17 @@ Page({
           this.contractId = model.id(active.contract.id); return this.load({ replace: true });
         }
         const latest = result.requirements[0]; this.requirementId = latest ? model.id(latest.id) : '';
-        const quote = result.quotes[0], keep = !options.replace && this.data.dirty;
+        const quote = this.quoteId ? result.quotes.find(row => model.id(row.id) === this.quoteId) : null;
+        if (this.quoteId && (!quote || !model.money(quote.totalCents) || Number(quote.totalCents) <= 0
+          || quote.customerId != null && model.id(quote.customerId) !== this.customerId)) {
+          this.setData({ conflict: true });
+          throw Error('所选报价已不可用，请返回客户页面重新选择或手动填写合同');
+        }
+        const keep = !options.replace && this.data.dirty;
         const form = keep ? this.data.form : model.initial(quote?.totalCents);
         this.setData({ ready: true, loading: false, refreshing: false, context: null, customerName: String(quote?.customerName || ''),
-          creating: true, editing: true, form, summary: model.preview(form), dirty: keep, conflict: false });
+          creating: true, quoteSource: keep ? this.data.quoteSource : quote ? '所选报价 ¥' + model.money(quote.totalCents) : '',
+          editing: true, form, summary: model.preview(form), dirty: keep, conflict: false });
       }
       if ((this._openHistory || this.data.showHistory) && this.contractId) { this._openHistory = false; this.setData({ showHistory: true }); this.loadHistory(); }
     } catch (error) {

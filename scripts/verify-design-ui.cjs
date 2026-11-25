@@ -14,10 +14,11 @@ function moduleAt(file, dependencies) {
  }});return module.exports;
 }
 function library({styles, listCases, download}={}) {
- let page, session='a';const downloads=[];
+ let page, session='a', timerId=0;const downloads=[], timers=new Map();
  const http={captureSession:()=>session,isSameSession:s=>s===session};
  const classifications={floors:()=>[{label:'一层',count:1},{label:'两层',count:2},{label:'三层',count:3},{label:'四层',count:4}],styles:styles||(()=>Promise.resolve([]))};
- vm.runInNewContext(fs.readFileSync(path.join(root,'pages/library/index.js'),'utf8'),{require:p=>({
+ vm.runInNewContext(fs.readFileSync(path.join(root,'pages/library/index.js'),'utf8'),{
+ setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),require:p=>({
  '../../utils/navigation':{},'../../utils/context':{getApp:()=>({})},'../../utils/access':{protectedPage:p=>page=p},
  '../../utils/api':{listCases:listCases||(()=>Promise.resolve({list:[]}))},'../../utils/request':http,
  '../../utils/assets':{fetchCaseAssetDataUrl:(id,asset)=>{downloads.push([id,asset]);return download?download(id,asset):Promise.resolve('https://image.test/'+asset)}},
@@ -25,7 +26,7 @@ function library({styles, listCases, download}={}) {
  '../../../utils/design-case-images':{FRESH_MS:300000,watch:(_page,_selector,rows,visit)=>rows.slice(0,3).forEach(visit)}
  }[p])});
  page.data=clone(page.data);page.setData=patch=>Object.assign(page.data,patch);
- return {page,downloads,changeSession:()=>session='b'};
+ return {page,downloads,changeSession:()=>session='b',runTimers(){const work=[...timers.values()];timers.clear();work.forEach(fn=>fn());}};
 }
 test('分类来自原接口，保留顺序、自定义风格，去除重复代码；层数复用原1到4层',async()=>{
  let requests=0;
@@ -47,6 +48,45 @@ test('可见封面独立加载；筛选变更后迟到响应不回填，失败�
  fail=true;await h.page.retryCover({currentTarget:{dataset:{id:'1'}}});
  // Invalidate an already-started image before simulating the component's load failure.
  h.page.imageError({currentTarget:{dataset:{id:'1'}}});await h.page.retryCover({currentTarget:{dataset:{id:'1'}}});await flush();assert.equal(h.page.data.cases[0].imageError,true);
+});
+test('库内检索在分页前执行，可直接找到第11个案例且翻页保持同一关键词',async()=>{
+ const cases=Array.from({length:22},(_,i)=>({caseId:String(i+1),title:i>=10?'山居 '+(i+1):'常规 '+(i+1)}));
+ const calls=[];const h=library({listCases:async params=>{
+  calls.push({...params});const start=Number(params.cursor||0), matches=cases.filter(row=>!params.keyword||row.title.includes(params.keyword)||row.caseId===params.keyword);
+  return {list:matches.slice(start,start+params.limit),nextCursor:start+params.limit<matches.length?String(start+params.limit):null};
+ }});
+ await h.page.loadPage(true);assert.equal(h.page.data.cases.at(-1).id,'10');
+ const input=value=>h.page.onSearch({detail:{value}});
+ input('山');input(' 山居 ');assert.equal(calls.length,1);assert.equal(h.page.data.hasMore,true);assert.equal(h.page.data.caseCount,0);
+ h.page.onReachBottom();h.runTimers();await flush();
+ assert.equal(calls.length,2);assert.equal(calls[1].keyword,'山居');assert.equal(calls[1].cursor,null);assert.equal(calls[1].sourceType,'COMPANY');assert.equal(h.page.data.visibleCases[0].id,'11');
+ h.page.onReachBottom();await flush();assert.equal(calls[2].keyword,'山居');assert.equal(calls[2].cursor,'10');assert.equal(h.page.data.visibleCount,12);
+ input('11');h.runTimers();await flush();assert.deepEqual(clone(h.page.data.visibleCases.map(row=>row.id)),['11']);
+ input('');h.runTimers();await flush();assert.equal(calls.at(-1).keyword,undefined);assert.equal(calls.at(-1).cursor,null);assert.equal(h.page.data.cases.at(-1).id,'10');
+});
+test('旧查询迟到不覆盖，切换来源立即检索、失败可用同一关键词重试',async()=>{
+ const old=deferred(),calls=[];const h=library({listCases:params=>{
+  calls.push({...params});
+  if(calls.length===1)return old.promise;
+  if(calls.length===2)return Promise.reject(Error('weak network'));
+  return Promise.resolve({list:[{caseId:'103',title:'新搜索'}]});
+ }});
+ const original=h.page.loadPage(true);
+ h.page.onSearch({detail:{value:'新搜索'}});
+ old.resolve({list:[{caseId:'99',title:'旧搜索'}],nextCursor:'99'});await original;
+ assert.equal(h.page.data.visibleCount,0);assert.equal(h.page.data.cursor,null);
+ h.page.selectSource({currentTarget:{dataset:{index:1}}});h.runTimers();await flush();
+ assert.equal(calls.length,2);assert.equal(h.page.data.error,'weak network');
+ await h.page.retry();
+ assert.equal(calls[2].keyword,'新搜索');assert.equal(calls[2].sourceType,'AI');assert.equal(calls[2].cursor,null);assert.equal(h.page.data.cases[0].id,'103');
+});
+test('退出或切换工作身份后不发送尚未开始的搜索',()=>{
+ for(const unload of [true,false]){
+  let calls=0;const h=library({listCases:async()=>{calls++;return {list:[]};}});
+  h.page.onSearch({detail:{value:'新搜索'}});
+  if(unload)h.page.onUnload();else h.changeSession();
+  h.runTimers();assert.equal(calls,0);
+ }
 });
 test('分类接口格式错误显式失败，不改回硬编码分类',async()=>{
  const c=moduleAt('utils/case-classifications.js',{'../../api/franchise/design':{cases:{styles:async()=>({unexpected:true})}},'./design-inputs':{FLOOR_OPTIONS:[]}});await assert.rejects(c.styles(),/风格分类/);
