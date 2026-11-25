@@ -191,8 +191,9 @@ const enabledRoles = [
   ['store', 'finance', '/pages/admin/finance-desk/index'],
   ['store', 'finance-lead', '/pages/admin/finance-desk/index'],
   ['headquarters', 'hq-design-admin', '/pages/workflow/commission/index?view=admin'],
-  ['headquarters', 'finance', '/pages/admin/finance-desk/index'],
-  ['headquarters', 'finance-lead', '/pages/admin/finance-desk/index'],
+  ['headquarters', 'hq-admin', '/pages/headquarters/index?section=overview'],
+  ['headquarters', 'finance', '/pages/headquarters/index?section=finance'],
+  ['headquarters', 'finance-lead', '/pages/headquarters/index?section=finance'],
   ['headquarters', 'boss', '/pages/admin/home/index']
 ];
 for (const [orgType, roleCode, url] of enabledRoles) {

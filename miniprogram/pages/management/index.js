@@ -10,6 +10,7 @@ require('../../utils/sales-native-tab').register('customers', {
     const apiPost = (() => { try { const http = require('../../api/http'); return http.token() ? require('../../api/auth').currentApiPost() : null; } catch (e) { return null; } })();
     // 真机白屏修复（2026-11-09）：本页是 tabBar 页——redirectTo 会移除 tab 页并销毁自定义
     // tabBar 实例，真机 runtime 渲染层竞态致新页白屏（模拟器不复现）。登录后换根场景统一 reLaunch。
+    if (require('../../utils/organization').headquartersReader(apiPost)) return wx.reLaunch({ url: '/pages/headquarters/index?section=' + (apiPost.roleCode === 'hq-admin' ? 'overview' : 'finance') });
     if (apiPost && ['boss', 'owner'].includes(apiPost.roleCode)) return wx.reLaunch({ url: '/pages/admin/home/index' });
     if (apiPost && ['finance', 'finance-lead'].includes(apiPost.roleCode)) return wx.reLaunch({ url: '/pages/admin/finance-desk/index' });
     if (apiPost && apiPost.roleCode === 'hq-design-admin') return wx.reLaunch({ url: '/pages/workflow/commission/index?view=admin' });

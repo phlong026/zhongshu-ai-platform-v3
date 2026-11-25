@@ -1,0 +1,56 @@
+<view class="hq-page zs-theme">
+  <brand-header branded divider title="总部工作台"/>
+  <view class="hq-content hq-with-nav">
+    <view wx:if="{{!ready}}" class="hq-card hq-empty">
+      <text class="hq-heading">{{loading?'正在核验总部工作身份':'总部全品牌只读工作台'}}</text>
+      <text wx:if="{{error}}" class="hq-error">{{error}}</text>
+      <button wx:if="{{!loading}}" class="hq-primary" bindtap="reload">重新加载</button>
+      <button wx:if="{{!loading}}" class="hq-text-button" bindtap="identity">切换工作身份</button>
+    </view>
+    <block wx:if="{{ready}}">
+      <view class="hq-heading-row"><view><text class="hq-eyebrow">{{orgName}}</text><text class="hq-heading">{{roleName}}</text></view><text class="hq-badge">全品牌 · 只读</text></view>
+      <view class="hq-card hq-scope">
+        <picker class="hq-scope-picker" range="{{brands}}" range-key="name" value="{{brandIndex}}" bindchange="selectBrand"><text class="hq-meta">品牌范围</text><view class="hq-select-value">{{brandName}} <text>⌄</text></view></picker>
+        <picker class="hq-scope-picker" range="{{companyChoices}}" range-key="name" value="{{companyIndex}}" bindchange="selectCompany"><text class="hq-meta">公司范围</text><view class="hq-select-value">{{companyName}} <text>⌄</text></view></picker>
+      </view>
+      <view class="hq-tabs"><button wx:for="{{sections}}" wx:key="key" class="hq-tab {{section===item.key?'is-active':''}}" data-section="{{item.key}}" bindtap="selectSection">{{item.label}}</button></view>
+      <view wx:if="{{section==='finance'}}" class="hq-subtabs"><button wx:for="{{financeKinds}}" wx:key="key" class="hq-subtab {{financeKind===item.key?'is-active':''}}" data-kind="{{item.key}}" bindtap="selectFinance">{{item.label}}</button></view>
+      <view wx:if="{{section!=='overview'&&(section!=='books'||companyIndex>0)}}" class="hq-card hq-filters">
+        <view class="hq-search"><input value="{{keyword}}" data-field="keyword" bindinput="input" bindconfirm="applyFilters" maxlength="100" confirm-type="search" placeholder="{{section==='books'?'搜索账本名称':'搜索姓名、名称或联系方式'}}"/><button class="hq-small-primary" bindtap="applyFilters">查询</button></view>
+        <block wx:if="{{section!=='books'}}">
+          <input class="hq-input" value="{{status}}" data-field="status" bindinput="input" maxlength="40" placeholder="按状态精确筛选（可选）"/>
+          <view class="hq-date-row"><picker mode="date" value="{{dateFrom}}" data-field="dateFrom" bindchange="input"><view>{{dateFrom||'开始日期'}} ⌄</view></picker><text>至</text><picker mode="date" value="{{dateTo}}" data-field="dateTo" bindchange="input"><view>{{dateTo||'结束日期'}} ⌄</view></picker></view>
+          <text class="hq-meta">{{section==='customers'||section==='projects'?'日期按记录创建日期筛选':'日期按财务业务日期筛选'}}</text>
+        </block>
+        <button wx:if="{{keyword||status||dateFrom||dateTo}}" class="hq-text-button" bindtap="clearFilters">清除查询条件</button>
+      </view>
+      <view wx:if="{{error}}" class="hq-card"><text class="hq-error">{{error}}</text><button class="hq-text-button" bindtap="retry">重试本次查询</button></view>
+      <text wx:if="{{loading}}" class="hq-loading">正在读取当前范围的数据…</text>
+      <block wx:if="{{section==='overview'}}">
+        <view wx:if="{{summary}}" class="hq-metrics"><button class="hq-card hq-metric" data-section="customers" bindtap="selectSection"><text class="hq-meta">客户总数</text><text class="hq-number">{{summary.customers}}</text><text class="hq-link">查看八步进度 ›</text></button><button class="hq-card hq-metric" data-section="projects" bindtap="selectSection"><text class="hq-meta">工程总数</text><text class="hq-number">{{summary.projects}}</text><text class="hq-link">查看工程与资料 ›</text></button></view>
+        <button class="hq-card hq-entry" data-section="books" bindtap="selectSection"><view><text class="hq-title">公司与项目账本</text><text class="hq-meta">查看收支、应付和退款明细</text></view><text class="hq-arrow">›</text></button>
+        <button class="hq-card hq-entry" data-section="finance" bindtap="selectSection"><view><text class="hq-title">财务原始记录</text><text class="hq-meta">按公司查询收款、应付、付款和退款</text></view><text class="hq-arrow">›</text></button>
+        <text class="hq-footnote">数据范围限当前总部所属租户。品牌归属待核对的公司，可在“全部品牌”中查看。</text>
+      </block>
+      <block wx:elif="{{section==='books'}}">
+        <block wx:if="{{companyIndex===0}}"><text class="hq-section-caption">选择公司，查看其公司账、项目账和前期账本</text><button wx:for="{{companies}}" wx:key="id" class="hq-card hq-entry" data-index="{{index}}" bindtap="chooseBookCompany"><view><text class="hq-title">{{item.name}}</text><text class="hq-meta">{{item.brandName}}</text></view><text class="hq-arrow">›</text></button><text wx:if="{{!companies.length&&!loading}}" class="hq-empty">当前品牌下暂无可查看的公司</text></block>
+        <block wx:else><button wx:for="{{books}}" wx:key="scope" class="hq-card hq-entry" data-index="{{index}}" bindtap="openBook"><view><text class="hq-title">{{item.name}}</text><text class="hq-meta">{{item.type}} · {{item.status}}</text></view><text class="hq-arrow">›</text></button><text wx:if="{{!books.length&&!loading&&!error}}" class="hq-empty">当前公司暂无匹配的账本</text></block>
+      </block>
+      <block wx:else>
+        <view class="hq-results-heading"><text class="hq-meta">共 {{total}} 条 · 已显示 {{rows.length}} 条</text><text class="hq-meta">只读查询</text></view>
+        <button wx:for="{{rows}}" wx:key="id" class="hq-card hq-record" data-index="{{index}}" bindtap="openRow">
+          <view class="hq-record-top"><text class="hq-title">{{item.name}}</text><text class="hq-status">{{item.status}}</text></view>
+          <text class="hq-company">{{item.brandName}} · {{item.companyName}}</text>
+          <text wx:if="{{item.amount}}" class="hq-amount">{{item.amount}}</text>
+          <text wx:for="{{item.lines}}" wx:for-item="line" wx:key="*this" class="hq-meta">{{line}}</text>
+          <view wx:if="{{section==='customers'}}" class="hq-progress"><view class="hq-progress-caption"><text>{{item.step}}</text><text>{{item.progress===null?'暂无进度':item.progress+'%'}}</text></view><view wx:if="{{item.progress!==null}}" class="hq-progress-track"><view style="width:{{item.progress}}%"></view></view></view>
+          <text class="hq-open-hint">查看详情 ›</text>
+        </button>
+        <text wx:if="{{!rows.length&&!loading&&!error}}" class="hq-empty">当前范围暂无匹配记录</text>
+        <button wx:if="{{hasMore}}" class="hq-outline hq-more" disabled="{{loading}}" loading="{{loading}}" bindtap="more">加载更多</button>
+        <view class="hq-card hq-export"><text class="hq-title">导出查询记录</text><text class="hq-meta">按已查询的品牌、公司和条件生成 CSV，最多 50,000 条。每次导出均记录操作日志。</text><button class="hq-outline" disabled="{{loading||fileBusy||!!error}}" loading="{{fileBusy}}" bindtap="exportRows">生成当前筛选的导出文件</button><button wx:if="{{exportReady}}" class="hq-primary" disabled="{{fileBusy}}" bindtap="shareExport">保存 / 发送导出文件</button><text wx:if="{{exportError}}" class="hq-error">{{exportError}}</text></view>
+      </block>
+    </block>
+  </view>
+  <workspace-nav nested active-index="{{activeIndex}}"/>
+</view>

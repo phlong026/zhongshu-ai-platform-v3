@@ -223,20 +223,24 @@ test('后台异常返回草稿或不匹配详情ID时拒绝展示，不回退演
   }
 });
 
-test('新增总部管理员可在真实身份选择器启用并直达我的，登录落地不触发旧设计和业务查询', async () => {
+test('总部管理员从真实身份选择器直达只读总部工作台，公司公告仍放在我的', async () => {
   const env = await setup('hq-admin', 'headquarters');
+  env.handler = url => url === '/platform/headquarters/context' ? { tenantId: '1', headquartersOrgId: env.post.orgId,
+    postId: env.post.postId, roleCode: env.post.roleCode, readOnly: true, brands: [], companies: [] }
+    : url === '/platform/headquarters/summary' ? { customers: 0, projects: 0, readOnly: true } : undefined;
   const identity = await env.open('/pages/account/index?view=identity', 'reLaunch');
   const option = identity.apiPostOptions().find(item => item.postId === env.post.postId);
   assert.equal(option.name, '总部管理员'); assert.equal(option.enabled, true);
   identity.selectApiPost({ currentTarget: { dataset: { postId: env.post.postId } } }); await flush();
   let page = getCurrentPages().at(-1);
-  assert.equal(page.route, 'pages/profile/index'); assert.equal(page.data.role, '总部管理员');
+  assert.equal(page.route, 'pages/headquarters/index'); assert.equal(page.data.roleName, '总部管理员');
   const workbench = require('../miniprogram/utils/workbench-nav')();
-  assert.deepEqual(workbench.tabs.map(tab => tab.key), ['profile']);
+  assert.deepEqual(workbench.tabs.map(tab => tab.key), ['headquarters-home', 'headquarters-books', 'profile']);
   assert.equal(workbench.canBusiness, false); assert.equal(workbench.canEngineering, false); assert.equal(workbench.canManagement, false);
   identity.goAfterLogin(); await flush();
-  page = getCurrentPages().at(-1); assert.equal(page.route, 'pages/profile/index');
+  page = getCurrentPages().at(-1); assert.equal(page.route, 'pages/headquarters/index');
   assert.equal(env.requests.some(item => /\/franchise\/(customers|commissions|design)/.test(item.url)), false);
+  await env.open('/pages/profile/index', 'switchTab');
   assert.ok(await (await env.runtime.currentPage()).$('button[data-action="announcements"]'));
 });
 
@@ -273,7 +277,7 @@ test('登录return白名单拒绝外链、其他模块、路径穿越、无效ID
     const generation = login.cancelLoginFlow({ clearSensitive: true });
     login.finishAccountLogin({ accessToken: 'login-result-token', userId: '701', preferredPostId: env.post.postId }, generation);
     await flush();
-    assert.equal(getCurrentPages().at(-1).route, 'pages/profile/index', destination);
+    assert.equal(getCurrentPages().at(-1).route, 'pages/headquarters/index', destination);
     assert.equal(env.reads().length, 0);
   }
 });

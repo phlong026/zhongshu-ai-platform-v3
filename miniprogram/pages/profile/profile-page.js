@@ -55,6 +55,7 @@ function managementEntries(a) {
 function entries(a) {
   if (!a.active) return [];
   if (a.api) {
+    if (O.headquartersReader(a)) return [{ text: '总部全品牌工作台', url: '/pages/headquarters/index?section=' + (a.role === 'hq-admin' ? 'overview' : 'finance') }, { text: '公司与项目账本', url: '/pages/headquarters/index?section=books' }];
     if (require('../../utils/access').isBoss(a)) return [{ text: '团队绩效', url: '/pages/admin/tasks/index?view=team' }];
     if (a.role === 'sales-lead') return [{ text: '客户与责任转交', url: '/pages/customers/index' }];
     if (a.role === 'project-manager') return [{ text: '工程项目', url: '/pages/build/projects/index' }];

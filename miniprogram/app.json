@@ -140,6 +140,14 @@
       "pages": [
         "index","record"
       ]
+    },
+    {
+      "root": "pages/headquarters",
+      "name": "headquarters-workspace",
+      "pages": [
+        "index",
+        "detail"
+      ]
     }
   ],
   "window": {
