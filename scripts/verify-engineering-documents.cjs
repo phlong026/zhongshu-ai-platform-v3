@@ -28,3 +28,11 @@ test('engineering contract is a real asset document; missing legacy bytes do not
   assert.equal(view.manager,'张工程');
   assert.equal(view.documents.find(d=>d.name==='旧资料').file.path,undefined);
 });
+
+test('工程交付和归档只将登记人员显示为接收人，不把交付附件视为已签收',()=>{
+  const view=require('node:fs').readFileSync(require('node:path').join(__dirname,'../miniprogram/pages/build/record/index.wxml'),'utf8');
+  assert.equal((view.match(/接收人：\{\{p\.delivery\.recipient\}\}/g)||[]).length,2);
+  assert.doesNotMatch(view,/业主签收：\{\{p\.delivery\.recipient\}\}/);
+  assert.match(view,/\{\{p\.delivery\.ownerAssetId&&p\.delivery\.ownerAssetId!==p\.delivery\.fileAssetId\}\}[^>]*>查看业主签收凭据/);
+  assert.match(view,/\{\{p\.delivery\.fileAssetId\}\}[^>]*data-asset-id="\{\{p\.delivery\.fileAssetId\}\}"[^>]*>查看交付凭据/);
+});
