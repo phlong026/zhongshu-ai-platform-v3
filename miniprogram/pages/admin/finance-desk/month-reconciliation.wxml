@@ -3,7 +3,11 @@
  <block wx:if="{{monthClosing.currentRows.length}}">
   <view wx:for="{{monthClosing.currentRows}}" wx:key="label" class="book-info-row"><text>{{item.label}}<text wx:if="{{item.count!==undefined}}"> · {{item.count}}笔</text></text><text>¥{{item.value}}</text></view>
   <text class="fin-note">员工垫付单列，实际报销计入公司实付。</text>
-  <text wx:if="{{reconciliation.abnormalCount}}" class="journey-note">{{reconciliation.abnormalCount}}笔资金待关联，请核对原始记录。</text>
+  <text wx:if="{{financeRefreshing||reconciliation.status==='loading'}}" class="fin-muted">待关联资金正在核对…</text>
+  <view wx:elif="{{reconciliation.status!=='ready'||reconciliation.month!==monthClosing.period||reconciliation.message}}" class="journey-note">
+   <text>待关联资金还没核对。</text><button class="fin-text" bindtap="retryPlatformFinance">重新核对</button>
+  </view>
+  <text wx:elif="{{reconciliation.abnormalCount}}" class="journey-note">全公司还有 {{reconciliation.abnormalCount}} 笔资金待关联，请核对原始记录。</text>
  </block>
  <text wx:elif="{{monthClosing.status==='loading'}}" class="fin-muted">正在读取对账数据…</text>
  <view wx:else><text class="journey-error">{{monthClosing.message||'对账数据暂时无法加载'}}</text><button class="fin-text" bindtap="retryMonthClosing">重新读取</button></view>
@@ -16,6 +20,6 @@
  <text wx:elif="{{monthClosing.needsReview}}" class="journey-note">账有变化，待复核。以上仍为上次确认金额。</text>
 </view>
 <view class="fin-card">
- <button class="fin-primary" bindtap="reconcileBook" loading="{{busy}}" disabled="{{monthClosing.status!=='ready'||busy||(monthClosing.confirmed&&!monthClosing.needsReview)}}">{{monthClosing.confirmed?(monthClosing.needsReview?'复核最新流水并留痕':'本月已核对'):'完成对账并留痕'}}</button>
+ <button class="fin-primary" bindtap="reconcileBook" loading="{{busy}}" disabled="{{monthClosing.status!=='ready'||busy||(monthClosing.confirmed&&!monthClosing.needsReview)}}">{{monthClosing.confirmed?(monthClosing.needsReview?'复核已入账收支':'已入账收支已确认'):'仅确认已入账收支'}}</button>
  <button class="fin-text" bindtap="copyFrLink">在电脑端核对</button>
 </view>

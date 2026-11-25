@@ -182,3 +182,22 @@ test('returning after hide starts a new month read and rejects an older denial',
  h.state.read=()=>next.promise;const second=h.page.loadMonthClosing();await tick();assert.equal(h.calls.reads.length,3);
  next.resolve({period:'2026-11',current:facts({sourceSignature:'new'}),confirmed:null});await second;old.reject({statusCode:403});await first;assert.equal(h.page.data.monthClosing.current.sourceSignature,'new');
 });
+
+test('month closing never treats an unread or mismatched pending-funds count as confirmed',async()=>{
+ const h=harness();await h.page.loadMonthClosing();
+ const template=path.join(__dirname,'../miniprogram/pages/admin/finance-desk/month-reconciliation.wxml');
+ const display=(reconciliation,financeRefreshing=false)=>text(render(template,{...h.page.data,reconciliation,financeRefreshing}));
+ const stale={status:'ready',month:'2026-10',abnormalCount:5};
+ const loading=display(stale,true);
+ assert(!loading.includes('5笔资金待关联'));
+ assert(loading.includes('待关联资金正在核对'));
+ assert(loading.includes('仅确认已入账收支'));
+ const failed=display({status:'ready',month:'2026-11',abnormalCount:5,message:'读取失败'});
+ assert(!failed.includes('5笔资金待关联'));
+ assert(failed.includes('待关联资金还没核对'));
+ const ready=display({status:'ready',month:'2026-11',abnormalCount:2});
+ assert(ready.includes('全公司还有 2 笔资金待关联'));
+ assert(!ready.includes('还没核对'));
+ const zero=display({status:'ready',month:'2026-11',abnormalCount:0});
+ assert(!zero.includes('还没核对'));
+});
