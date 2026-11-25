@@ -32,14 +32,14 @@
 | #168 | 已合并至 main | merge SHA `5aee021fab34e7f653d63d448909661e0aa470d4` |
 | #84 | 已合并至 main | 按 V1.1 转为业务回归，不重复开发 |
 
-以上 SHA 是本次执行基线快照；每个新 PR、配对验收及发布候选均须重新读取完整 SHA。
+以上 SHA 是本次执行基线快照；每个新 PR、配对验收及发布候选均须重新读取完整 SHA。开放 PR 数量 0 是创建本执行日志 PR #175 之前的快照；#175 为本日志自身的文档 PR，不属于 V1.1 业务整改开放项。
 
 ### 2.2 CI 与配对状态
 
 | 分支 | 工作流 | SHA | 本次核查结果 |
 |---|---|---|---|
 | main | Frontend CI | `6543e180013cfd803eabb535e2f9883e700f7f55` | success |
-| main | Paired frontend/backend verification | `6543e180013cfd803eabb535e2f9883e700f7f55` | 本次读取时 in_progress，须继续监控 |
+| main | Paired frontend/backend verification | `6543e180013cfd803eabb535e2f9883e700f7f55` | success（run 45631391774） |
 | backend-main | Backend CI | `27afed9127f06d2625d8b47af568edf3bccc40d5` | success |
 | backend-main | Paired release rehearsal | `27afed9127f06d2625d8b47af568edf3bccc40d5` | success |
 
