@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort.Slot;
+import cn.iocoder.yudao.module.franchise.api.HeadquartersDocumentAccessPort;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.h2.jdbcx.JdbcDataSource;
@@ -442,6 +443,75 @@ class LocalAssetServiceTest {
 
     private static String tokenOf(String url) { return url.substring(url.indexOf("token=") + 6); }
 
+    @Test
+    void headquartersGetsOnlyReferencedAcceptedBytesWithoutCreatingAnExternalUrlOrStoreIdentity() throws Exception {
+        long id = pending(PDF); service.completeUpload(ACTOR, id);
+        var scope = headquartersScope(id);
+        service.setHeadquartersDocuments(request -> scope);
+        storage.externalDownloads = true;
+        var result = service.readHeadquartersDocument(headquartersRequest(id));
+        assertThat(result.bytes()).isEqualTo(PDF);
+        assertThat(result.sha256()).isEqualTo(sha(PDF));
+        assertThat(result.mimeType()).isEqualTo("application/pdf");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_asset_download_ticket", Integer.class)).isZero();
+        assertThat(current.orgId()).isEqualTo(99);
+        assertThatThrownBy(() -> service.createDownloadUrl(new Actor(99, 888, 98, 97), id)).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void headquartersBytesRejectWrongTenantOwnerTypeUnacceptedStateAndInactiveMapping() throws Exception {
+        long id = pending(PDF); service.completeUpload(ACTOR, id);
+        var scope = headquartersScope(id);
+        service.setHeadquartersDocuments(request -> new HeadquartersDocumentAccessPort.Scope(2, 98, 97, 99, 33, id, Set.of("FIN_VOUCHER")));
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        service.setHeadquartersDocuments(request -> new HeadquartersDocumentAccessPort.Scope(1, 98, 97, 99, 34, id, Set.of("FIN_VOUCHER")));
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        service.setHeadquartersDocuments(request -> new HeadquartersDocumentAccessPort.Scope(1, 98, 97, 99, 33, id, Set.of("CONTRACT_ATTACHMENT")));
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        service.setHeadquartersDocuments(request -> scope);
+        ownerMappingActive = false;
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        ownerMappingActive = true;
+        jdbc.update("UPDATE fr_asset SET upload_status='PENDING' WHERE id=?", id);
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void headquartersDownloadRechecksPostReferenceAndDeletionAfterStorageRead() throws Exception {
+        long id = pending(PDF); service.completeUpload(ACTOR, id);
+        var scope = headquartersScope(id);
+        service.setHeadquartersDocuments(request -> scope);
+        storage.onGet = () -> current = POST;
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        headquartersScope(id);
+        storage.onGet = () -> service.setHeadquartersDocuments(request -> { throw new IllegalArgumentException("reference revoked"); });
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        service.setHeadquartersDocuments(request -> scope);
+        storage.onGet = () -> jdbc.update("UPDATE fr_asset SET deleted=TRUE WHERE id=?", id);
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void headquartersDownloadChecksTheAcceptedDigestAndDoesNotAllowStoreOrDesignRoles() throws Exception {
+        long id = pending(PDF); service.completeUpload(ACTOR, id);
+        var scope = headquartersScope(id);
+        service.setHeadquartersDocuments(request -> scope);
+        jdbc.update("UPDATE fr_asset SET accepted_sha256=? WHERE id=?", "0".repeat(64), id);
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).hasMessageContaining("审核摘要不一致");
+        current = new PostSnapshot(97, 98, 99, "headquarters", "hq-design-admin", null, false, Set.of());
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+        current = new PostSnapshot(97, 98, 99, "store", "finance", null, false, Set.of());
+        assertThatThrownBy(() -> service.readHeadquartersDocument(headquartersRequest(id))).isInstanceOf(RuntimeException.class);
+    }
+
+    private HeadquartersDocumentAccessPort.Scope headquartersScope(long id) {
+        current = new PostSnapshot(97, 98, 99, "headquarters", "finance", null, false, Set.of());
+        return new HeadquartersDocumentAccessPort.Scope(1, 98, 97, 99, 33, id, Set.of("FIN_VOUCHER"));
+    }
+    private static HeadquartersDocumentAccessPort.Request headquartersRequest(long asset) {
+        return new HeadquartersDocumentAccessPort.Request(HeadquartersDocumentAccessPort.Resource.RECEIPT, 800, "VOUCHER", asset);
+    }
+
     private static String sha(byte[] value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
     }
@@ -458,13 +528,14 @@ class LocalAssetServiceTest {
         boolean fail;
         boolean externalDownloads;
         Runnable onPut;
+        Runnable onGet;
         public String presignUploadUrl(String key, long ttl) { return "local://" + key; }
         public String presignDownloadUrl(String key, long ttl) { return (externalDownloads ? "https://storage.invalid/" : "local://") + key; }
         public boolean existsWithSize(String key, long size) {
             if (fail) throw new IllegalStateException("storage unavailable");
             return values.containsKey(key) && values.get(key).length == size;
         }
-        public InputStream getObject(String key) { return new ByteArrayInputStream(values.get(key)); }
+        public InputStream getObject(String key) { if (onGet != null) onGet.run(); return new ByteArrayInputStream(values.get(key)); }
         public void putObject(String key, java.nio.file.Path file) {
             try { putObject(key, java.nio.file.Files.readAllBytes(file)); }
             catch (java.io.IOException ex) { throw new java.io.UncheckedIOException(ex); }
