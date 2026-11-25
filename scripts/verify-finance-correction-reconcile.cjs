@@ -38,7 +38,10 @@ function fakePage(data) {
   };
   const calls = { voids: [], refunds: [], expense: [], recon: [] };
   const api = {
-    voidRefund(id, reason, idem) { calls.voids.push({ id, reason, idem }); return Promise.resolve({}); },
+    voidRefund(id, reason, idem) {
+      calls.voids.push({ id, reason, idem }); return page.voidResult ? page.voidResult() : Promise.resolve({});
+    },
+    refunds() { return page.readRefunds(); },
     registerRefund(body, idem) { calls.refunds.push({ body, idem }); return Promise.resolve({refundId:'new-refund'}); },
     registerExpenseRefund(body, idem) { calls.expense.push({ body, idem }); return Promise.resolve({refundId:'new-expense-refund'}); },
     idemKey: type => 'idem-' + type
@@ -119,6 +122,64 @@ async function main() {
     assert.ok(page.data.registerError.includes('仅已核实'), '拒绝文案');
   }
 
+  // 弱网：作废已落账、回执丢失；重新打开后，直接从同一原单续办。
+  {
+    const id = '998765432109876543';
+    const row = { id, refundDirection: 'client', receiptId: '998765432109876544',
+      amountCents: 12000, date: [2026, 11, 4], status: '已核实' };
+    const previous = fakePage({});
+    previous.page._refundRows = [row];
+    previous.page.voidResult = () => Promise.reject(new Error('断网'));
+    previous.page.openCorrection({ currentTarget: { dataset: { id: 'f-' + id } } });
+    modalQueue.pop().success({ confirm: true });
+    await settle();
+    assert.equal(previous.calls.voids.length, 1);
+    assert.equal(previous.page.loadPlatformFinanceCalls, 1, '回执不确定时回读台账');
+    assert.equal(previous.page.data.registerType, undefined);
+
+    const { page, calls } = fakePage({ view: 'desk' });
+    const archived = { ...row, status: '已作废', voidReason: '更正重登', replacedById: null };
+    page._refundRows = [archived, { ...archived, id: 'other', voidReason: '撤销误录' },
+      { ...archived, id: 'old', replacedById: 'new' }, { ...archived, id: 'missing', receiptId: null }];
+    const click = { currentTarget: { dataset: { id } } };
+    page.readRefunds = async () => page._refundRows;
+    assert.deepEqual(page.pendingRefundCorrections(page._refundRows, 'finance-lead').map(r => r.id), [id]);
+    assert.deepEqual(page.pendingRefundCorrections(page._refundRows, 'finance'), []);
+    assert.equal(PF.ledgerRows([], [], page._refundRows, '').allCount, 0, '待重登不进入有效流水');
+    await page.resumeRefundCorrection(click);
+    assert.equal(page.data.view, 'flows');
+    assert.equal(page.data.registerType, 'refund');
+    assert.equal(page.data.registerForm.receiptId, row.receiptId);
+    await page.submitRegister();
+    await settle();
+    assert.equal(calls.voids.length, 0, '续办不再次作废');
+    assert.equal(calls.refunds[0].body.replacesId, id);
+  }
+  {
+    const row = { id: '744', refundDirection: 'expense', paymentId: '804',
+      status: '已作废', voidReason: '更正重登' };
+    const click = { currentTarget: { dataset: { id: row.id } } };
+    const { page, calls } = fakePage({ refundVoidable: false });
+    page._refundRows = [row];
+    await page.resumeRefundCorrection(click); // 未授权的岗位不发送网络请求
+    page.data.refundVoidable = true;
+    page.readRefunds = async () => [{ ...row, replacedById: 'done' }];
+    await page.resumeRefundCorrection(click);
+    assert.equal(page.data.registerType, undefined, '另一财务已完成，不再打开表单');
+    let give;
+    page.readRefunds = () => new Promise(resolve => { give = resolve; });
+    const pending = page.resumeRefundCorrection(click);
+    page.wbGeneration = 1;
+    give([row]);
+    await pending;
+    assert.equal(page.data.registerType, undefined, '旧岗位回执不能打开更正');
+    page.readRefunds = async () => [row];
+    await page.resumeRefundCorrection(click);
+    assert.equal(page.data.registerType, 'expense-refund');
+    assert.equal(page.data.registerForm.paymentId, row.paymentId);
+    assert.equal(calls.voids.length, 0);
+  }
+
   // A5：client refund openRegister 预填今日（批次#34 修复历史占位误导）
   {
     const page = { data: {}, setData(patch) { Object.assign(this.data, patch); } };
@@ -170,7 +231,7 @@ async function main() {
   assert.ok(actions.includes("type === 'expense-refund' || type === 'refund'"), '退款/支出退回统一预填今日');
   assert.ok(actions.includes('replacesId: form.replacesId ? String(form.replacesId) : undefined'),
     '两分支 replacesId 雪花串透传');
-  assert.ok(actions.includes("financeApi.voidRefund(refundId, '更正重登'"), '作废原因固定留痕');
+  assert.ok(actions.includes("financeApi.voidRefund(refundId, correctionReason"), '作废原因固定留痕');
   assert.ok(actions.includes('if (this.data.busy || this.data.registerBusy) return;'), 'R1 P2-1 更正入口双向互斥');
   assert.ok(actions.includes('if (this.data.registerBusy || this.data.busy) return;'), 'R1 P2-1 提交入口双向互斥');
   assert.ok(actions.includes('seq === this._registerSeq') && actions.includes('if (!alive()) return;'), 'R1 P2-1 成功回调代次校验');
@@ -197,7 +258,7 @@ async function main() {
   assert.equal(PT.typeLabelOf('fr-fin:abnormal-link:1', true), '异常资金待关联', 'LABELS abnormal-link');
   assert.equal(PT.typeLabelOf('fr-fin:bank-confirm:2', true), '到账待确认', 'LABELS bank-confirm');
 
-  console.log('verify-finance-correction-reconcile: 行为层 30 断言 + 静态层 20 断言 全部 PASS');
+  console.log('verify-finance-correction-reconcile: 更正链、跨页恢复与对账接线全部 PASS');
 }
 
 main().catch(e => { console.error(e && e.message); process.exit(1); });

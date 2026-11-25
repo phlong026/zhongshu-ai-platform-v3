@@ -13,6 +13,7 @@
  <brand-header id="finance-page-header" wx:else branded fixed divider account-font title="{{title||'财务工作台'}}"/>
  <view class="fin-content">
  <block wx:if="{{ready}}">
+ <template wx:if="{{refundVoidable&&!registerType&&!wbForm&&!bookEntryDetail&&!journeyResult&&!journeyDeclaration&&!designReceiptForm}}" is="refundCorrectionQueue" data="{{items:platformFinance.refundCorrections}}"/>
  <block wx:if="{{journeyEnabled&&!designReceiptForm}}"><include src="./journey.wxml"/></block><block wx:else>
   <template wx:if="{{platformApiMode&&!projectLedgerReadOnly}}" is="workbench" data="{{view,registerType,bookScope,canLinkBook,bookLoading,bookError,bookSummary,bookEntries,bookResult,bookEmployeeRows,bookName,bookNet,bookCost,bookAccounting,bookAccountingUrl,bookFlowTab,bookEntryDetail,bookCollectionUrl,bookMaterialsUrl,bookExpensesUrl,workbenchError,reimbursementRows,wbForm,wbBusy,wbError,workbenchBooks,collectionDeclarations,financialStages,allocationReceipts,workbenchStaff}}"/>
   <template wx:if="{{platformApiMode&&view==='projects'&&!wbForm}}" is="projectBooks" data="{{keyword,bookListTab,financeProjects,financeProjectLoading,financeProjectError}}"/>
