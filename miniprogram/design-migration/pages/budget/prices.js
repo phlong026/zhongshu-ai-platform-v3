@@ -8,9 +8,19 @@ const http = require('../../utils/request');
 // T14 我的当地单价：账号覆盖价跟账号永久生效，只影响本人新测算；金额一律以分提交服务端。
 const UNIT_LABELS = { SQM: '平方米', METER: '米', PIECE: '个', SET: '套', HOUSEHOLD: '户', ITEM: '项' };
 const MAX_YUAN = 1000000; // 与服务端 1～1 亿分上限一致
+// 价格来源两种口径：平台地区返回 ACCOUNT_OVERRIDE；自定义地区（基于武汉新建的城市）返回
+// PROFILE_COPIED/PROFILE_COEFFICIENT/PROFILE_MANUAL。两者都是"我的价"，漏掉前者之外的来源会让
+// 已保存的价格不显示、再次编辑回填武汉基准价，用户看到的就是"保存没生效"。
+const PROFILE_SOURCES = ['PROFILE_MANUAL', 'PROFILE_COPIED', 'PROFILE_COEFFICIENT'];
+const SOURCE_LABELS = { PROFILE_MANUAL: '手工价', PROFILE_COPIED: '武汉复制', PROFILE_COEFFICIENT: '系数价' };
 
 function yuanText(cents) {
   return (cents / 100).toFixed(2);
+}
+
+function hasMyPrice(option) {
+  return option.myPriceCents != null
+    && (option.priceSource === 'ACCOUNT_OVERRIDE' || PROFILE_SOURCES.indexOf(option.priceSource || '') >= 0);
 }
 
 function toView(data) {
@@ -18,16 +28,24 @@ function toView(data) {
     itemId: group.itemId,
     itemName: group.itemName,
     category: group.category,
-    options: (group.options || []).map(option => ({
-      optionId: option.optionId,
-      label: option.label,
-      unitLabel: UNIT_LABELS[option.unit] || option.unit || '',
-      baselineText: option.baselinePriceCents == null ? '待补价' : '¥' + yuanText(option.baselinePriceCents),
-      myText: option.myPriceCents == null ? '' : '¥' + yuanText(option.myPriceCents),
-      overridden: option.priceSource === 'ACCOUNT_OVERRIDE',
-      missing: option.priceSource === 'MISSING',
-      reason: option.reason || ''
-    }))
+    options: (group.options || []).map(option => {
+      const mine = hasMyPrice(option);
+      const source = option.priceSource || '';
+      return {
+        optionId: option.optionId,
+        label: option.label,
+        unitLabel: UNIT_LABELS[option.unit] || option.unit || '',
+        baselineText: option.baselinePriceCents == null ? '待补价' : '¥' + yuanText(option.baselinePriceCents),
+        myText: mine ? '¥' + yuanText(option.myPriceCents) : '',
+        myPriceCents: mine ? option.myPriceCents : null,
+        overridden: mine,
+        // 只有手工价/账号覆盖价才谈得上"恢复默认"；武汉复制、系数价由创建/重算生成。
+        canReset: source === 'ACCOUNT_OVERRIDE' || source === 'PROFILE_MANUAL',
+        sourceLabel: SOURCE_LABELS[source] || '',
+        missing: source === 'MISSING',
+        reason: option.reason || ''
+      };
+    })
   })).filter(group => group.options.length);
 }
 
@@ -124,7 +142,11 @@ protectedPage({
     const current = this.findOption(optionId);
     if (!current || this.data.saving || this.data.loading || !this.current()) return;
     this._editContext = { optionId, regionCode: this.data.regionCode, seq: ++this._contextSeq };
-    this.setData({ editOptionId: optionId, inputValue: current.overridden ? current.myText.replace('¥', '') : current.baselineText === '待补价' ? '' : current.baselineText.replace('¥', '') });
+    // 已存过本地区单价就从「我的价」起改；没有才用基准价。此前只认账号覆盖价，导致新建城市每次
+    // 打开输入框都回填武汉基准价，再保存就把手工价覆盖回武汉价。
+    const inputValue = current.myText ? current.myText.replace('¥', '')
+      : current.baselineText === '待补价' ? '' : current.baselineText.replace('¥', '');
+    this.setData({ editOptionId: optionId, inputValue });
   },
   cancelEdit() { this._contextSeq++; this._editContext = null; this.setData({ editOptionId: null, inputValue: '', saving: false, resetting: false }); },
   onPriceInput(event) { this.setData({ inputValue: event.detail.value }); },
@@ -159,7 +181,9 @@ protectedPage({
     const regionCode = this.data.regionCode, context = ++this._contextSeq;
     wx.showModal({
       title: '恢复默认价',
-      content: '恢复后你的预算测算将使用平台基准价，已保存的预算不变。',
+      content: this.data.regionCustom
+        ? '恢复后按武汉基准价（含地区系数）重新计算该项，已保存的预算不变。'
+        : '恢复后你的预算测算将使用平台基准价，已保存的预算不变。',
       confirmText: '恢复默认',
       success: result => {
         if (!result.confirm) return;

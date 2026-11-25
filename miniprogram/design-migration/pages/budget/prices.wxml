@@ -16,7 +16,7 @@
         <view class="price-copy">
           <text class="price-label">{{option.label}}<text class="price-unit"> · {{option.unitLabel}}</text></text>
           <text class="row-description">{{regionCustom ? "武汉基准价" : "基准价"}} {{option.baselineText}}</text>
-          <text wx:if="{{option.overridden}}" class="price-mine">我的单价 {{option.myText}}<text wx:if="{{option.reason}}" class="price-reason">（{{option.reason}}）</text></text>
+          <text wx:if="{{option.overridden}}" class="price-mine">我的单价 {{option.myText}}<text wx:if="{{option.sourceLabel}}" class="price-source">{{option.sourceLabel}}</text><text wx:if="{{option.reason}}" class="price-reason">（{{option.reason}}）</text></text>
           <text wx:elif="{{option.missing}}" class="row-description">{{regionCustom ? "武汉也暂无此项目价，可先填入你当地的行情价" : "平台暂无此项目基准价，可先填入你当地的行情价"}}</text>
         </view>
         <view class="price-actions">
@@ -32,7 +32,7 @@
           </view>
           <block wx:else>
             <button class="text-action" data-option-id="{{option.optionId}}" bindtap="startEdit" aria-label="调整{{option.label}}单价">{{option.overridden ? '修改' : '调整'}}</button>
-            <button wx:if="{{option.overridden}}" class="text-action muted-action" data-option-id="{{option.optionId}}" bindtap="reset" disabled="{{resetting}}" loading="{{resetting}}">恢复默认</button>
+            <button wx:if="{{option.canReset}}" class="text-action muted-action" data-option-id="{{option.optionId}}" bindtap="reset" disabled="{{resetting}}" loading="{{resetting}}">恢复默认</button>
           </block>
         </view>
       </view>
