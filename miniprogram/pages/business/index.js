@@ -9,7 +9,7 @@ const loadSummaryRows=CRM.loadSummaryRows;
 const definition=createDashboard(1, {
 data: { panel: null, keyword: '', customers: [], filteredCustomers: [],
 platCustomers: [], platCommissions: [], platGrowth: null, platformStatus: '', platformError: '', platformTodos: null,
-salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '内容创作', icon: 'video-filled', action: 'remix' }, { title: '方案预算', icon: 'home-design-icon', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }, { title: '提交委托', icon: 'contract', action: 'commission', url: '/pages/customers/index?intent=commission' }],
+salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '灵感检索', icon: 'home-design-icon', action: 'inspiration', url: '/design-migration/pages/library/index' }, { title: '方案预算', icon: 'plan-file', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }, { title: '提交委托', icon: 'contract', action: 'commission', url: '/pages/customers/index?intent=commission' }],
 creation: [{ title: '爆款二创', icon: 'fire', action: 'remix' }, { title: '数字人口播', icon: 'person-filled', action: 'digital' }, { title: 'AI视频', icon: 'video-filled', action: 'video' }]
 },
 onLoad() { PTPage.init(this); },
@@ -81,7 +81,7 @@ this.setData(patch);
 };
 definition.filterRows=function(rows){const keyword=this.data.keyword||'';if(!keyword)return rows;return rows.filter(c=>((c.name||'')+(c.searchText||'')+(c.desc||'')).includes(keyword));};
 definition.filterCustomers=function(){this.setData({filteredCustomers:this.filterRows(this.data.customers||[])});};
-// AI design opens the 方案 tab; quick budget starts in the explore page. A customer is chosen when saving.
+// Inspiration is a secondary tool. Existing budget behavior stays unchanged pending its scope decision.
 definition.openSalesShortcut=function(e){const url=e.currentTarget.dataset.url;if(url)return require('../../utils/page-navigation').open(url);this.openAction(e);};
 definition.openSalesMetric=function(e){const focus=e.currentTarget.dataset.focus;if(focus==='commission')return require('../../utils/page-navigation').open('/pages/account/index?view=personal-performance');if(['all','due','appointments'].includes(focus))require('../../utils/page-navigation').open('/pages/customers/index?focus='+focus);};
 definition.continueSalesCustomer=function(){if(this.data.recentCustomer)require('../../utils/page-navigation').open('/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.recentCustomer.id));};

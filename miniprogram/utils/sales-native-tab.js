@@ -1,5 +1,5 @@
-// The five sales workspaces share the existing five native Tab pages. Other
-// roles retain their own workbenches; no subpackage is required for a Tab paint.
+// Sales creation and customers reuse native Tab pages. Other roles retain
+// their own workbenches; no subpackage is required for a Tab paint.
 const navigation = require('./page-navigation');
 const ROUTES = navigation.salesTabs;
 function sales() {
@@ -8,7 +8,7 @@ function sales() {
   return !!post && ['sales', 'sales-lead'].includes(post.roleCode);
 }
 function register(kind, legacy) {
-  const make = {creation:require('./sales-creation-page'),design:require('./sales-design-page'),customers:require('./sales-customers-page')}[kind];
+  const make = {creation:require('./sales-creation-page'),customers:require('./sales-customers-page')}[kind];
   const salesPage = make();
   const definitions = { sales: salesPage, legacy };
   const active = () => sales() ? 'sales' : 'legacy';

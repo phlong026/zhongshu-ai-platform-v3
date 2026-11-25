@@ -1,7 +1,7 @@
 const { createDashboard } = require('../../utils/dashboard');
 const PTPage = require('../../utils/platform-todos-page');
-require('../../utils/sales-native-tab').register('design', createDashboard(2, {
-data: { panel: null, deskTitle: '工程工作台', roleLabel: '', homeName: '', active: false, projectCount: 0, activeCount: 0, pendingCount: 0, deliveryCount: 0, todoCount: 0, platformTodos: null, tools: [{ title: '我的项目', icon: 'folder', action: 'projects' }, { title: '施工计划', icon: 'calendar', action: 'schedule' }, { title: '材料计划', icon: 'material', action: 'materials' }, { title: '节点款项', icon: 'tasks', action: 'payments' }] },
+Page(createDashboard(2, {
+data: { redirectingSales: true, panel: null, deskTitle: '工程工作台', roleLabel: '', homeName: '', active: false, projectCount: 0, activeCount: 0, pendingCount: 0, deliveryCount: 0, todoCount: 0, platformTodos: null, tools: [{ title: '我的项目', icon: 'folder', action: 'projects' }, { title: '施工计划', icon: 'calendar', action: 'schedule' }, { title: '材料计划', icon: 'material', action: 'materials' }, { title: '节点款项', icon: 'tasks', action: 'payments' }] },
 onLoad() { PTPage.init(this); },
 // 工程 tab：工程岗重定向到工程首页；其余岗位（老板等）走平台 API 态——项目计数 + 平台待办，无本地演示数据。
 onShow() {
@@ -9,6 +9,10 @@ const a = require('../../utils/access').context();
 const X = require('../../utils/access'), O = require('../../utils/organization');
 const http = require('../../api/http'), auth = require('../../api/auth');
 const post = (() => { try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; } })();
+// This native route is still shared by engineering/management. Old sales links return home.
+const retiredSales = !!post && ['sales', 'sales-lead'].includes(post.roleCode);
+this.setData({ redirectingSales: retiredSales });
+if (retiredSales) { wx.switchTab({ url: '/pages/business/index', fail: () => wx.showToast({ title: '请从底部首页进入', icon: 'none' }) }); return; }
 if (post ? O.has(post.roleCode, 'engineer') : a.active && O.has(a.role, 'engineer')) { wx.reLaunch({ url: '/pages/build/home/index' }); return; }
 const nav = require('../../utils/workbench-nav')();
 this.setData({ ...nav, panel: null, canWork: nav.canEngineering, active: !nav.guest, deskTitle: '工程工作台', homeName:post&&post.name||'同事', roleLabel: post ? (O.roles[post.roleCode] || post.roleCode) : (X.roles[a.role] || '访客'), projectCount: '—', activeCount: '—', pendingCount: '—', deliveryCount: '—', todoCount: '—' });
