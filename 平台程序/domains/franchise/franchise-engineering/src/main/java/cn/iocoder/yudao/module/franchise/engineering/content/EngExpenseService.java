@@ -176,7 +176,7 @@ public class EngExpenseService {
         }
         if (expense.getPayableId() != null) {
             payables.syncUnpaidExpenseAmount(post, expense.getProjectId(), expenseId, expense.getPayableId(),
-                    newCents, "eng-expense-unpaid:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(idempotencyKey));
+                    newCents, "ex-pay:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(commands.requireIdempotencyKey(idempotencyKey)));
         }
         // record 与 replay 同 canonical（R2 P2：字段集不同致同键重试摘要不匹配）；旧金额入日志
         expenses.updateById(new FrEngExpenseDO().setId(expenseId).setAmountCents(newCents));

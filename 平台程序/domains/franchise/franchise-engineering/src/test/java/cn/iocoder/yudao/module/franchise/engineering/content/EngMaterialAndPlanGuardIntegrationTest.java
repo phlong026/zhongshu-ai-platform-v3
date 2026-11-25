@@ -1170,9 +1170,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         var withPayable = as(engineer, () -> expensesService.terms(engineer, expenseId,
                 new EngExpenseService.TermsCommand("收款人", "原凭据"), idem()));
         long payableId = Long.parseLong((String) withPayable.get("payableId"));
-        String key = idem();
+        String key = "e".repeat(80);
         for (int i=0;i<2;i++) {
-            var edited=as(engineer, () -> expensesService.revise(engineer, expenseId, new BigDecimal("800"), "核减", key));
+            String retryKey = i == 0 ? key : " " + key + " ";
+            var edited=as(engineer, () -> expensesService.revise(engineer, expenseId, new BigDecimal("800"), "核减", retryKey));
             assertThat(edited.get("payableId")).isEqualTo(Long.toString(payableId));
             assertThat(((Number) edited.get("amountCents")).longValue()).isEqualTo(80000);
         }
