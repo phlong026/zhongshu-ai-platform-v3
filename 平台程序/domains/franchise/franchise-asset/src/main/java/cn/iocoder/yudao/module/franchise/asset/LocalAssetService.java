@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort.Slot;
+import cn.iocoder.yudao.module.franchise.api.HeadquartersDocumentAccessPort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
@@ -65,6 +66,12 @@ public class LocalAssetService implements AssetAccessPort {
     private final CommissionDeliverableAccessPort deliverables;
     private java.util.List<cn.iocoder.yudao.module.franchise.api.AssetVisibilityPort> visibilityPolicies = java.util.List.of();
     private cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort workflowScopes;
+    private HeadquartersDocumentAccessPort headquartersDocuments;
+
+    @Autowired(required = false)
+    public void setHeadquartersDocuments(HeadquartersDocumentAccessPort access) {
+        this.headquartersDocuments = access;
+    }
 
     @Autowired(required = false)
     public void setWorkflowScopes(cn.iocoder.yudao.module.franchise.api.CustomerWorkflowAssetScopePort scopes) {
@@ -402,6 +409,46 @@ public class LocalAssetService implements AssetAccessPort {
         }
     }
 
+    /** Does not issue a transferable URL, create a service account, or impersonate a store post. */
+    @Override
+    public ReferenceContent readHeadquartersDocument(HeadquartersDocumentAccessPort.Request request) {
+        if (headquartersDocuments == null) throw exception(RESOURCE_FORBIDDEN);
+        var scope = headquartersDocuments.requireReadable(request);
+        Asset asset = headquartersAsset(scope);
+        try (InputStream input = storage.getObject(asset.objectKey())) {
+            byte[] bytes = input.readNBytes(Math.toIntExact(MAX_BYTES.get(asset.type())) + 1);
+            if (bytes.length == 0 || bytes.length != asset.acceptedSize() || !hash(bytes).equals(asset.acceptedSha()))
+                throw invalid("资料内容与审核摘要不一致");
+            // Recheck after storage I/O: a revoked post, switched identity or removed reference cannot finish a download.
+            var currentScope = headquartersDocuments.requireReadable(request);
+            if (!scope.equals(currentScope)) throw exception(RESOURCE_FORBIDDEN);
+            Asset current = headquartersAsset(currentScope);
+            if (!asset.objectKey().equals(current.objectKey()) || current.acceptedSize() != bytes.length
+                    || !hash(bytes).equals(current.acceptedSha())) throw exception(RESOURCE_FORBIDDEN);
+            return new ReferenceContent(bytes, current.contentMime(), current.acceptedSha());
+        } catch (IOException | RuntimeException error) {
+            if (error instanceof ServiceException serviceException) throw serviceException;
+            log.warn("B HQ document read failed tenant={} org={} asset={} error={}",
+                    scope.tenantId(), scope.ownerOrgId(), scope.assetId(), error.getClass().getSimpleName());
+            throw invalid("资料读取失败，请重试");
+        }
+    }
+
+    private Asset headquartersAsset(HeadquartersDocumentAccessPort.Scope scope) {
+        var current = posts.require();
+        if (scope == null || scope.tenantId() != tenant() || scope.readerUserId() != current.userId()
+                || scope.readerPostId() != current.postId() || scope.headquartersOrgId() != current.orgId()
+                || !"headquarters".equals(current.orgType())
+                || !Set.of("hq-admin", "finance", "finance-lead").contains(current.roleCode())) throw exception(RESOURCE_FORBIDDEN);
+        long account = accounts.requireExistingServiceAccountForTask(scope.tenantId(), scope.ownerOrgId());
+        Asset asset = loadOwned(scope.tenantId(), scope.ownerOrgId(), account, scope.assetId());
+        if (asset == null || !"ACCEPTED".equals(asset.status()) || asset.objectKey() == null
+                || !scope.allowedTypes().contains(asset.type()) || !MAX_BYTES.containsKey(asset.type())
+                || "CONTENT_ASSET".equals(asset.type()) || asset.acceptedSize() <= 0
+                || asset.acceptedSize() > MAX_BYTES.get(asset.type())) throw exception(RESOURCE_FORBIDDEN);
+        return asset;
+    }
+
     @Override
     public ReferenceContent readDesignReference(Actor actor, long id) {
         long tenant = authorize(actor);
@@ -556,12 +603,7 @@ public class LocalAssetService implements AssetAccessPort {
     }
 
     private Asset load(long tenant, Actor actor, long id) {
-        Asset row = db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
-                        + " AND service_account_id=? AND deleted=FALSE", (rs, i) -> new Asset(rs.getLong("id"), rs.getLong("tenant_id"),
-                        rs.getLong("org_id"), rs.getLong("service_account_id"), rs.getLong("creator_user_id"), rs.getLong("creator_post_id"),
-                        rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
-                        rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
-                        rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")), id, tenant, actor.orgId(), actor.serviceAccountId()).stream().findFirst().orElse(null));
+        Asset row = loadOwned(tenant, actor.orgId(), actor.serviceAccountId(), id);
         if (row != null) {
             var policies = visibilityPolicies.stream().filter(policy -> policy.supports(row.type())).toList();
             // Without the customer policy, a shared company service account must not expose private documents.
@@ -570,6 +612,17 @@ public class LocalAssetService implements AssetAccessPort {
             for (var policy : policies) policy.requireReadable(tenant, actor, resource);
         }
         return row;
+    }
+
+    /** Raw owner lookup is private; only ordinary ACL reads or the independent HQ business grant may use it. */
+    private Asset loadOwned(long tenant, long org, long account, long id) {
+        return db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
+                        + " AND service_account_id=? AND deleted=FALSE", (rs, i) -> new Asset(rs.getLong("id"), rs.getLong("tenant_id"),
+                        rs.getLong("org_id"), rs.getLong("service_account_id"), rs.getLong("creator_user_id"), rs.getLong("creator_post_id"),
+                        rs.getString("asset_type"), rs.getString("declared_mime"), rs.getLong("size_bytes"), rs.getString("sha256"),
+                        rs.getString("upload_key"), rs.getString("object_key"), rs.getString("upload_status"), rs.getString("rejected_reason"),
+                        rs.getString("validation_token"), rs.getLong("accepted_size_bytes"), rs.getString("accepted_sha256")),
+                id, tenant, org, account).stream().findFirst().orElse(null));
     }
 
     private <T> T db(String operation, long id, Supplier<T> action) {

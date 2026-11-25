@@ -36,6 +36,11 @@ public interface AssetAccessPort {
 
     record DownloadUrlView(String downloadUrl, Long expiresAt) { }
 
+    /** Direct bytes for an independently authorized HQ business reference; never accepts a storage URL or an owner org. */
+    default ReferenceContent readHeadquartersDocument(HeadquartersDocumentAccessPort.Request request) {
+        throw new IllegalArgumentException("总部资料读取未配置");
+    }
+
     /** Explicit customer/node evidence scope; never grants generic access to legacy design references. */
     default DownloadUrlView createWorkflowDownloadUrl(Actor actor, long customerId, String stepCode, long assetId) {
         throw new IllegalArgumentException("客户节点资料访问未配置");

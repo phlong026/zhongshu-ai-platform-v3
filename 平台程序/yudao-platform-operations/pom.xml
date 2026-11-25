@@ -8,6 +8,11 @@
     <dependency><groupId>software.amazon.awssdk</groupId><artifactId>s3</artifactId></dependency>
     <dependency><groupId>cn.iocoder.boot</groupId><artifactId>platform-wallet</artifactId><version>${revision}</version></dependency>
     <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-content</artifactId><version>${revision}</version></dependency>
+    <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-crm</artifactId><version>${revision}</version></dependency>
+    <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-finance</artifactId><version>${revision}</version></dependency>
     <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-platform-test-support</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-engineering</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-sales</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-domain-franchise-commission</artifactId><version>${revision}</version><scope>test</scope></dependency>
   </dependencies>
 </project>
