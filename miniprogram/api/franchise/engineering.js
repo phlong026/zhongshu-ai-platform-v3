@@ -31,6 +31,7 @@ const projects = {
   },
   /** 详情聚合（档案+计划+文档+尾段，按身份脱敏 D-13） */
   get: (id) => http.get('/franchise/engineering/' + id),
+  managerCandidates: id => http.get('/franchise/engineering/' + encodeURIComponent(id) + '/manager-candidates'),
   /** 换负责人（在岗工程线校验 1_115_000_010 + CAS；旧负责人立即失权） */
   changeManager: (id, engineerUserId, note, key) =>
     http.post('/franchise/engineering/' + id + '/manager', { engineerUserId, note: note || '' }, idem(key, 'manager'))
