@@ -201,16 +201,22 @@ public class FranchiseTodoProvider implements TodoProvider {
         if (access.isHandoverManager(post, commission.getCompanyId(), handover.getManagerUserId())) {
             items.add(item("handover-review:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交资料待核查接收", "HANDOVER_SUBMITTED",
-                    null, true, commissionPage(commission.getId(), "receive"), handover.getCreateTime()));
+                    null, true, ExternalCommissionService.external(commission) ? externalHandoverPage(commission.getId())
+                            : commissionPage(commission.getId(), "receive"), handover.getCreateTime()));
         } else if (access.canWrite(post, commission)) {
             items.add(item("handover-waiting:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交审查中", "HANDOVER_SUBMITTED",
-                    null, false, commissionPage(commission.getId(), "progress"), handover.getCreateTime()));
+                    null, false, ExternalCommissionService.external(commission) ? externalHandoverPage(commission.getId())
+                            : commissionPage(commission.getId(), "progress"), handover.getCreateTime()));
         }
     }
 
     private static String commissionPage(long commissionId, String view) {
         return COMMISSION_PAGE + "?view=" + view + "&commissionId=" + commissionId;
+    }
+
+    private static String externalHandoverPage(long commissionId) {
+        return "/pages/external-handover/index?commissionId="+commissionId;
     }
 
     private Long latestTotalCents(long commissionId) {

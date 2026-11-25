@@ -102,6 +102,9 @@ public class CommissionService implements DesignFeeProgressApi {
     @jakarta.annotation.Resource private CommissionSimulatedPayments simulatedPayments;
     @jakarta.annotation.Resource private CommissionManifestService manifests;
     @jakarta.annotation.Resource private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private ExternalHandoverAccess externalHandovers;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.franchise.api.EngineeringProjectContextPort engineeringContexts;
 
     private boolean simulationAllowed(CommissionDO commission) {
         return simulatedPayments.allowed(commission.getCompanyId(), commission.getDesignOrgId());
@@ -330,6 +333,12 @@ public class CommissionService implements DesignFeeProgressApi {
 
     public CommissionDO requireReadable(PostSnapshot post, long commissionId) {
         CommissionDO commission = commissionMapper.selectById(commissionId);
+        if (commission!=null && ExternalCommissionService.external(commission)) {
+            if (externalHandovers!=null) return externalHandovers.readable(post,commissionId).commission();
+            var customer=customerMapper.selectById(commission.getCustomerId());
+            if (customer==null || !CustomerAccess.canRead(post,customer)) throw exception(COMMISSION_NOT_FOUND);
+            return commission;
+        }
         boolean manager = commission != null && handoverMapper.selectByCommission(commissionId).stream()
                 .anyMatch(h -> access.isHandoverManager(post, commission.getCompanyId(), h.getManagerUserId()));
         if (commission == null || !manager && !access.canRead(post, commission)) {
@@ -351,6 +360,23 @@ public class CommissionService implements DesignFeeProgressApi {
     }
 
     private Detail detail(PostSnapshot post, CommissionDO commission) {
+        if (ExternalCommissionService.external(commission) && externalHandovers != null) {
+            var subject = externalHandovers.readable(post, commission.getId());
+            if (!CustomerAccess.canRead(post, subject.customer())) {
+                // Engineering access is to the current frozen packet, not the customer's legacy business history.
+                var current = subject.commission();
+                var visible = new CommissionDO().setId(current.getId()).setCompanyId(current.getCompanyId())
+                        .setCustomerId(current.getCustomerId()).setCustomerName(subject.customer().getName())
+                        .setStatus(current.getStatus()).setWorkflowMode(current.getWorkflowMode())
+                        .setExternalRequestVersion(current.getExternalRequestVersion())
+                        .setExternalResultVersion(current.getExternalResultVersion())
+                        .setHandoverVersion(current.getHandoverVersion()).setRevision(current.getRevision());
+                var packets = externalHandovers.packets(current.getId(), current.getCompanyId()).stream()
+                        .filter(packet -> externalHandovers.canReadPacket(post, subject, packet)).toList();
+                return new Detail(visible, List.of(), List.of(), packets, null, List.of(),
+                        displayStatus(visible), null, List.of(), null);
+            }
+        }
         boolean designAdmin = access.isDesignAdminOf(post, commission);
         List<CommissionSubmissionDO> submissions = submissionMapper.selectByCommission(commission.getId());
         if (designAdmin) {
@@ -365,8 +391,9 @@ public class CommissionService implements DesignFeeProgressApi {
             approval=cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(approval,ApprovalDO.class).setAmountCents(null);
         }
         var simulated = simulatedPayment(commission);
+        var packets=handoverMapper.selectByCommission(commission.getId());
         return new Detail(commission, submissions, progressMapper.selectByCommission(commission.getId()),
-                handoverMapper.selectByCommission(commission.getId()), approval, allowedActions(post, commission),
+                packets, approval, allowedActions(post, commission),
                 displayStatus(commission), designAdmin || simulated != null || ExternalCommissionService.external(commission) ? null : settlement(commission),
                 manifests.list(commission.getId()), designAdmin && simulated != null ? simulated.designView() : simulated);
     }
@@ -781,10 +808,19 @@ public class CommissionService implements DesignFeeProgressApi {
 
     /** 本人是接收人的委托集合 */
     private java.util.Set<Long> managedCommissionIds(PostSnapshot post) {
-        return java.util.Set.copyOf(handoverMapper.selectList(
+        if (!FranchiseRoles.has(post,FranchiseRoles.ENGINEER)) return java.util.Set.of();
+        var packets=handoverMapper.selectList(
                         new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CommissionHandoverDO>()
-                                .eq(CommissionHandoverDO::getManagerUserId, post.userId()))
-                .stream().map(CommissionHandoverDO::getCommissionId).toList());
+                                .eq(CommissionHandoverDO::getManagerUserId, post.userId()));
+        var managed=new java.util.HashSet<Long>();
+        var ids=packets.stream().map(CommissionHandoverDO::getCommissionId).collect(java.util.stream.Collectors.toSet());
+        if (!ids.isEmpty()) for (var row:commissionMapper.selectList(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CommissionDO>().in(CommissionDO::getId,ids))) {
+            if (!ExternalCommissionService.external(row) || packets.stream().anyMatch(h -> h.getCommissionId().equals(row.getId())
+                    && java.util.Objects.equals(h.getVersion(),row.getHandoverVersion()) && !"ACCEPTED".equals(h.getStatus()))) managed.add(row.getId());
+        }
+        if (engineeringContexts!=null) managed.addAll(engineeringContexts.sourceCommissionsForActor(post.orgId(),post.userId()));
+        return java.util.Set.copyOf(managed);
     }
 
     // ===================== 展示 =====================

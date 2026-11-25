@@ -24,6 +24,9 @@ public class ExternalCommissionDocumentReferences implements CustomerDocumentRef
                   WHERE tenant_id=? AND company_id=? AND data->'attachments' @> CAST(? AS jsonb)
                 UNION SELECT customer_id FROM fr_commission_external_result
                   WHERE tenant_id=? AND company_id=? AND attachments @> CAST(? AS jsonb)
-                """, Long.class, tenant, company, ref, tenant, company, ref));
+                UNION SELECT r.customer_id FROM fr_commission_handover h JOIN fr_commission_external_result r
+                  ON r.commission_id=h.commission_id AND r.version=h.external_result_version AND r.company_id=h.company_id
+                  WHERE r.tenant_id=? AND h.company_id=? AND h.source_mode='EXTERNAL' AND h.confirmation_asset_id=?
+                """, Long.class, tenant, company, ref, tenant, company, ref,tenant,company,asset));
     }
 }

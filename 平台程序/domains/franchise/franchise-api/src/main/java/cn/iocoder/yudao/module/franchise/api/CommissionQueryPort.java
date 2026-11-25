@@ -10,6 +10,10 @@ import java.util.Locale;
  */
 public interface CommissionQueryPort {
 
+    record HandoverContext(String mode, Integer version, CustomerPaymentPlanDraftPort.Snapshot paymentPlan) { }
+    /** The engineering caller has already authorized this company/project; read only the accepted packet. */
+    default HandoverContext findHandoverContext(long companyId,long commissionId) { return null; }
+
     /** Only IDs already authorized by the CRM query may be passed; company scope is mandatory. */
     default java.util.Map<Long, String> customerDesignStatuses(long companyId, java.util.Collection<Long> customerIds) {
         return java.util.Map.of();

@@ -27,6 +27,8 @@ public class CommissionHandoverDO {
     private Long commissionId;
     private Integer version;
     private Integer dispatchSeq;
+    private String sourceMode;
+    private Integer externalResultVersion;
     /** 四份文件，各为 JSON {name,url} */
     private String resultFile;
     private String drawingFile;

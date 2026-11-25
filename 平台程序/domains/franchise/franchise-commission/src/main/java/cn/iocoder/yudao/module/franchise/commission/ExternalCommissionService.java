@@ -265,12 +265,12 @@ public class ExternalCommissionService {
             throw exception(IDEMPOTENCY_KEY_REUSED);
         return true;
     }
-    private void requireHistoricalSettlement(PostSnapshot post, CommissionDO commission) {
+    void requireHistoricalSettlement(PostSnapshot post, CommissionDO commission) {
         if (simulations.blocked(commission) && (!simulations.reviewedForSettlement(commission)
                 || !settlement.lockAndRead(commission.getId(), commission.getSubmissionVersion(), post).readyToDispatch()))
             throw exception(HISTORICAL_SETTLEMENT_REQUIRED);
     }
-    private void validateFiles(PostSnapshot post, long customerId, List<Attachment> files) {
+    void validateFiles(PostSnapshot post, long customerId, List<Attachment> files) {
         if (files.isEmpty()) return;
         assetPolicy.requireAttachable(post, customerId, files);
         var query = evidence.getIfAvailable();

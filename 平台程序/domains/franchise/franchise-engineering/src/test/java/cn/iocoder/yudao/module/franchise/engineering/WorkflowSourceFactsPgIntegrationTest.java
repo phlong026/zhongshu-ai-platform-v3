@@ -23,8 +23,12 @@ class WorkflowSourceFactsPgIntegrationTest extends FranchisePgIntegrationTest {
     static class Config {
         @org.springframework.context.annotation.Bean
         cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort evidence() {
-            return (tenant, ids, types) -> ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")
-                    ? java.util.Map.of(9001L, tenant) : java.util.Map.of();
+            return (tenant, ids, types) -> {
+                var owners=new java.util.HashMap<Long,Long>();
+                if (ids.contains(9001L) && types.contains("CONTRACT_ATTACHMENT")) owners.put(9001L,tenant);
+                if (ids.contains(9003L) && types.contains("ENG_SITE_PHOTO")) owners.put(9003L,tenant);
+                return owners;
+            };
         }
     }
     @Resource JdbcTemplate jdbc;
@@ -69,7 +73,11 @@ class WorkflowSourceFactsPgIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,status,milestone,completed_at) VALUES(?,?,?,0,'正式开工','DONE','START',?)", node, store.orgId(), project, today());
         jdbc.update("INSERT INTO fr_eng_site_record(id,company_id,project_id,node_id,occurred_at,note,completion,result,file_asset_ids,author_user_id) VALUES(?,?,?,?,?,'正式开工',TRUE,'PASS','[]'::jsonb,1)", record, store.orgId(), project, node, today());
         assertThat(engineering.findFacts(tenant, Map.of(customer, store.orgId()))).singleElement().satisfies(fact -> assertThat(fact.complete()).isFalse());
-        jdbc.update("UPDATE fr_eng_site_record SET file_asset_ids='[\"9001\"]'::jsonb WHERE id=?", record);
+        for (String invalid:java.util.List.of("[\"9001\"]","[\"9002\"]","[\"9003\",\"bad\"]","[null]","{}")) {
+            jdbc.update("UPDATE fr_eng_site_record SET file_asset_ids=CAST(? AS jsonb) WHERE id=?",invalid,record);
+            assertThat(engineering.findFacts(tenant,Map.of(customer,store.orgId()))).singleElement().satisfies(fact -> assertThat(fact.complete()).isFalse());
+        }
+        jdbc.update("UPDATE fr_eng_site_record SET file_asset_ids='[\"9003\"]'::jsonb WHERE id=?", record);
         assertThat(engineering.findFacts(tenant, Map.of(customer, store.orgId()))).singleElement().satisfies(fact -> {
             assertThat(fact.complete()).isTrue(); assertThat(fact.fields()).containsEntry("projectId", Long.toString(project));
         });
@@ -77,6 +85,23 @@ class WorkflowSourceFactsPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(engineering.findFacts(tenant, Map.of(customer, store.orgId() + 1))).isEmpty();
         jdbc.update("UPDATE fr_eng_site_record SET occurred_at=? WHERE id=?", today().minusDays(1), record);
         assertThat(engineering.findFacts(tenant, Map.of(customer, store.orgId()))).singleElement().satisfies(fact -> assertThat(fact.complete()).isFalse());
+    }
+
+    @Test void aForeignProjectCannotUseAnotherCompanysAcceptedStartProofOrOverwriteItsOwner() {
+        long own=primaryProject(),ownNode=IdWorker.getId();
+        var other=fixture.store(); long foreignCustomer=IdWorker.getId(),foreignProject=IdWorker.getId(),foreignNode=IdWorker.getId();
+        jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'另一公司',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id",other.orgId(),tenant);
+        jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status) VALUES(?,?,1,'另一客户','13900000002','到店','REGISTERED')",foreignCustomer,other.orgId());
+        jdbc.update("INSERT INTO fr_eng_project(id,company_id,customer_id,source_type,manager_user_id,name,author_user_id) VALUES(?,?,?,'HANDOVER',1,'其他工程',1)",foreignProject,other.orgId(),foreignCustomer);
+        for (long[] row:java.util.List.of(new long[]{own,ownNode,store.orgId()},new long[]{foreignProject,foreignNode,other.orgId()})) {
+            jdbc.update("UPDATE fr_eng_project SET actual_start_at=? WHERE id=?",today(),row[0]);
+            jdbc.update("INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,status,milestone,completed_at) VALUES(?,?,?,0,'正式开工','DONE','START',?)",row[1],row[2],row[0],today());
+            jdbc.update("INSERT INTO fr_eng_site_record(id,company_id,project_id,node_id,occurred_at,note,completion,result,file_asset_ids,author_user_id) VALUES(?,?,?,?,?,'实际开工',TRUE,'PASS','[9003]'::jsonb,1)",IdWorker.getId(),row[2],row[0],row[1],today());
+        }
+        var facts=engineering.findFacts(tenant,Map.of(customer,store.orgId(),foreignCustomer,other.orgId()));
+        assertThat(facts).hasSize(2);
+        assertThat(facts.stream().filter(f -> f.customerId()==customer).findFirst().orElseThrow().complete()).isTrue();
+        assertThat(facts.stream().filter(f -> f.customerId()==foreignCustomer).findFirst().orElseThrow().complete()).isFalse();
     }
 
     @Test void incrementProjectsCannotCompleteTheInitialConstructionStep() {
