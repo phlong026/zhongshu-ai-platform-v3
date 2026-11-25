@@ -79,7 +79,7 @@
       <text wx:if="{{summary.pendingCount}}" class="pending-note">{{summary.pendingCount}} 条资料尚待确认区县，见下方名单</text>
       <text wx:if="{{summary.offMapPendingCount}}" class="pending-note">另有 {{summary.offMapPendingCount}} 条资料未完整定位，不计入未确认地区的视野统计</text>
       <text wx:if="{{mode==='region'}}" class="summary-note">按所选行政区域统计，拖动地图不改变区域数据</text>
-      <text wx:else class="summary-note">按当前可见点位统计，同一加盟商跨县只计一次</text>
+      <text wx:else class="summary-note">按地图视野统计，不随名称搜索变化；同一加盟商跨县只计一次</text>
     </view>
     <block wx:if="{{mode==='region'||(!viewportError&&!viewportLoading&&summary.status!=='loading')}}">
     <block wx:if="{{admin&&brandCounts.length}}">
@@ -91,8 +91,10 @@
         </button>
       </view>
     </block>
+    </block>
+    <block wx:if="{{pinned||keyword||mode==='region'||(!viewportError&&!viewportLoading&&summary.status!=='loading')}}">
     <view class="section-heading map-section-heading list-head"><text class="section-title">{{pinned?'该点资料':keyword?'名称查询结果':'加盟商与覆盖记录'}}</text><text class="section-meta">{{total}} 条</text><button wx:if="{{pinned}}" bindtap="showAll">查看全部</button></view>
-    <view wx:if="{{keyword}}" class="query-note"><text>查询“{{keyword}}”：当前品牌范围内全部地区，点击记录定位</text><button bindtap="clearSearch">取消查询</button></view>
+    <view wx:if="{{keyword}}" class="query-note"><text>名称搜索（跨地区）匹配 {{searchMatchCount}} 条资料：{{keyword}}</text><button bindtap="clearSearch">取消查询</button></view>
     <view class="stores">
       <button wx:for="{{rows}}" wx:key="id" class="store" data-id="{{item.id}}" bindtap="toggleRecord">
         <view class="record-icon"><image src="{{item.recordType==='FRANCHISE'?'/assets/account-shop.jpg':'/assets/icons/map-pin.svg'}}" mode="aspectFit"/></view>

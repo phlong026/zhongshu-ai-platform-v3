@@ -1,10 +1,11 @@
 const http = require('../../../api/http');
 const auth = require('../../../api/auth');
 const { axes, readSnapshot, readRegions, mapView, searchRegions, hasPosition } = require('./model');
+const PAGE_SIZE = 30;
 const route = '/pages/account/store-map/index';
 const initial = () => ({markers:[],callouts:[],rows:[],total:0,pinned:false,brands:[],brandCounts:[],pickers:[],
   selectedBrand:'',brandIndex:0,admin:false,brandName:'',error:'',loading:true,
-  query:'',keyword:'',suggestions:[],searchOpen:false,mode:'region',viewportError:'',viewportLoading:false,
+  query:'',keyword:'',searchMatchCount:0,suggestions:[],searchOpen:false,mode:'region',viewportError:'',viewportLoading:false,
   overview:{franchiseCount:0,coverageRecordCount:0,districtCount:0},summary:null,expandedId:'',focusNote:'',
   latitude:35.9,longitude:104.2,scale:4});
 
@@ -14,13 +15,15 @@ Page({
   onHide() {
     this.visible = false; this.generation = (this.generation || 0) + 1;
     this.snapshot = null; this.catalog = null; this.bounds = null; this.filters = {};
-    this.list = []; this.visibleStores = []; this.markerStores = []; this.mapPoints = []; this.fitPending = null; this.fitInFlight = false;
+    this.list = []; this.markerKeys = new Map(); this.rowLimit = PAGE_SIZE; this.mapPoints = []; this.fitPending = null; this.fitInFlight = false;
     this.setData(initial());
   },
   onUnload() { this.onHide(); },
   async load() {
     const generation = this.generation = (this.generation || 0) + 1, alive = http.sessionGuard();
-    this.snapshot = null; this.catalog = null; this.bounds = null; this.filters = {}; this.fitPending = null; this.fitInFlight = false;
+    this.snapshot = null; this.catalog = null; this.bounds = null; this.filters = {};
+    this.list = []; this.markerKeys = new Map(); this.rowLimit = PAGE_SIZE;
+    this.fitPending = null; this.fitInFlight = false;
     this.setData(initial());
     if (!http.token()) return wx.redirectTo({url:'/pages/account/index?view=login&return=' + encodeURIComponent(route)});
     const post = auth.currentApiPost();
@@ -39,16 +42,27 @@ Page({
   },
   renderMap(fit = false) {
     if (!this.snapshot || !this.catalog) return;
-    const view = mapView(this.snapshot,this.filters,this.catalog,this.data.mode,this.bounds);
+    const build = () => mapView(this.snapshot,this.filters,this.catalog,this.data.mode,this.bounds);
+    let view = build();
+    if (this.filters.pointKey && !view.pinnedRows) delete this.filters.pointKey;
+    this.list = view.pinnedRows || view.rows;
+    const focusIndex = this.filters.record ? this.list.findIndex(row => row.id === this.filters.record) : -1;
+    const keepFocus = focusIndex >= 0;
+    if (keepFocus) this.rowLimit = Math.max(this.rowLimit,Math.ceil((focusIndex + 1) / PAGE_SIZE) * PAGE_SIZE);
+    if (this.filters.record && !keepFocus) {
+      delete this.filters.record;
+      view = build();
+      this.list = view.pinnedRows || view.rows;
+    }
     this.mapPoints = view.points;
-    this.visibleStores = view.rows;
-    this.markerStores = view.markers.map(marker => marker.storeIds);
+    this.markerKeys = new Map(view.markers.map(marker => [marker.id,marker.key]));
     const callouts = view.markers.map(({id,heading,brands,selected}) => ({id,heading,brands,selected}));
-    const markers = view.markers.map(({storeIds,heading,brands,selected,...marker}) => marker);
+    const markers = view.markers.map(({key,storeIds,heading,brands,selected,...marker}) => marker);
     const patch = {markers,callouts,pickers:view.pickers,brands:view.brands,brandCounts:view.brandCounts,
       overview:view.overview,summary:view.summary,selectedBrand:this.filters.brand || '',
       keyword:this.filters.keyword || '',brandIndex:Math.max(0,view.brands.findIndex(brand => brand.id === this.filters.brand)),
-      expandedId:this.filters.record || ''};
+      rows:this.list.slice(0,this.rowLimit),total:this.list.length,pinned:!!view.pinnedRows,searchMatchCount:view.rows.length,
+      expandedId:this.filters.record || '',...(!keepFocus ? {focusNote:''} : {})};
     if (fit) {
       const points = view.fitPoints;
       const target = this.catalog.byCode.get(this.filters.district || this.filters.city || this.filters.province);
@@ -58,7 +72,11 @@ Page({
       this.fitInFlight = false;
     }
     this.setData(patch,() => { if (fit) this.fitMarkers(); });
-    this.showStores(null);
+  },
+  resetListScope() {
+    delete this.filters.pointKey;
+    delete this.filters.record;
+    this.rowLimit = PAGE_SIZE;
   },
   mapContext() { return typeof wx.createMapContext === 'function' ? wx.createMapContext('stores',this) : null; },
   fitMarkers() {
@@ -77,7 +95,7 @@ Page({
     if (!picker || picker.disabled) return;
     const choice = picker.choices[Number(e.detail.value)];
     if (!choice) return;
-    this.filters[picker.key] = choice.id; delete this.filters.record;
+    this.filters[picker.key] = choice.id; this.resetListScope();
     axes.slice(index + 1).forEach(([key]) => delete this.filters[key]);
     if (picker.key === 'district' && choice.id) this.applyRegion(choice.id);
     this.viewportRequest = (this.viewportRequest || 0) + 1;
@@ -95,20 +113,20 @@ Page({
     if (!this.snapshot?.admin) return;
     const id = e.currentTarget.dataset.id ?? this.data.brands[Number(e.detail.value)]?.id;
     if (id === undefined || !this.data.brands.some(brand => brand.id === id)) return;
-    this.filters.brand = id; delete this.filters.record;
+    this.filters.brand = id; this.resetListScope();
     this.setData({focusNote:''});
     this.renderMap(this.data.mode === 'region');
   },
   searchInput(e) {
     const query = String(e.detail.value || '').slice(0,80);
     this.setData({query,searchOpen:!!query.trim(),suggestions:this.catalog ? searchRegions(this.catalog,query) : []});
-    if (!query.trim() && this.filters?.keyword) { delete this.filters.keyword; this.renderMap(false); }
+    if (!query.trim() && this.filters?.keyword) { delete this.filters.keyword; this.resetListScope(); this.renderMap(false); }
   },
   chooseSearchRegion(e) {
     if (!this.catalog) return;
     const region = this.catalog.byCode.get(String(e.currentTarget.dataset.code));
     if (!region) return;
-    this.applyRegion(region.code); delete this.filters.keyword; delete this.filters.record;
+    this.applyRegion(region.code); delete this.filters.keyword; this.resetListScope();
     this.viewportRequest = (this.viewportRequest || 0) + 1;
     this.setData({query:'',suggestions:[],searchOpen:false,mode:'region',viewportLoading:false,viewportError:'',focusNote:''});
     this.renderMap(true);
@@ -125,18 +143,19 @@ Page({
   },
   searchName() {
     if (!this.snapshot) return;
-    this.filters.keyword = this.data.query.trim(); delete this.filters.record;
+    this.filters.keyword = this.data.query.trim(); this.resetListScope();
     this.setData({suggestions:[],searchOpen:false,focusNote:''});
     this.renderMap(true);
   },
   clearSearch() {
-    if (this.filters) { delete this.filters.keyword; delete this.filters.record; }
+    if (this.filters) { delete this.filters.keyword; this.resetListScope(); }
     this.setData({query:'',keyword:'',suggestions:[],searchOpen:false,focusNote:''});
     this.renderMap(false);
   },
   changeMode(e) {
     const mode = e.currentTarget.dataset.mode;
-    if (!this.snapshot || !['region','viewport'].includes(mode)) return;
+    if (!this.snapshot || !['region','viewport'].includes(mode) || this.data.mode === mode) return;
+    this.resetListScope();
     this.viewportRequest = (this.viewportRequest || 0) + 1;
     this.setData({mode,viewportError:'',viewportLoading:false});
     this.renderMap(false);
@@ -183,15 +202,22 @@ Page({
     else update(this.data.scale);
   },
   selectMarker(e) {
-    const ids = this.markerStores?.[Number(e.detail?.markerId ?? e.currentTarget?.dataset.markerId) - 1];
-    if (this.snapshot && ids) this.showStores(new Set(ids));
+    const key = this.markerKeys?.get(Number(e.detail?.markerId ?? e.currentTarget?.dataset.markerId));
+    if (!this.snapshot || !key || key === this.filters.pointKey) return;
+    this.resetListScope();
+    this.filters.pointKey = key;
+    this.renderMap(false);
   },
-  showAll() { if (this.snapshot) this.showStores(null); },
-  showStores(ids) {
-    this.list = ids ? this.visibleStores.filter(row => ids.has(row.id)) : this.visibleStores;
-    this.setData({rows:this.list.slice(0,30),total:this.list.length,pinned:!!ids,expandedId:this.filters.record || ''});
+  showAll() {
+    if (!this.snapshot) return;
+    this.resetListScope();
+    this.renderMap(false);
   },
-  more() { if (this.snapshot) this.setData({rows:this.list.slice(0,this.data.rows.length + 30)}); },
+  more() {
+    if (!this.snapshot) return;
+    this.rowLimit += PAGE_SIZE;
+    this.setData({rows:this.list.slice(0,this.rowLimit)});
+  },
   toggleRecord(e) {
     const id = String(e.currentTarget.dataset.id);
     const record = this.list?.find(row => row.id === id);
@@ -208,6 +234,6 @@ Page({
     this.fitInFlight = false;
     this.setData({latitude:points[0].latitude,longitude:points[0].longitude,scale:10,
       focusNote:points.length > 1 ? '已定位该记录的 ' + points.length + ' 个覆盖区县（区县中心）' : '已定位至' + this.catalog.byCode.get(points[0].regionCode).name + '中心'},() => this.fitMarkers());
-    if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({selector:'#stores',duration:250});
+    // Move the map camera, not the page: keep the opened record on screen.
   }
 });

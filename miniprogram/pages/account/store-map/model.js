@@ -130,7 +130,7 @@ function groupMarkers(points, snapshot, catalog, selectedRecordId) {
     if (!groups.has(key)) groups.set(key, {latitude:point.latitude,longitude:point.longitude,recordIds:new Set(),regionCodes:new Set()});
     const group = groups.get(key); group.recordIds.add(point.recordId); group.regionCodes.add(point.regionCode);
   }
-  return [...groups.values()].map((group,index) => {
+  return [...groups].map(([key,group],index) => {
     const records = [...group.recordIds].map(id => snapshot.byId.get(id)), first = records[0];
     const mixed = records.some(row => row.brandId !== first.brandId), amount = counts(records);
     const heading = unique([...group.regionCodes].map(code => catalog.byCode.get(code)?.name)).join('、');
@@ -141,7 +141,7 @@ function groupMarkers(points, snapshot, catalog, selectedRecordId) {
         detail:[amount.franchiseCount ? amount.franchiseCount + '家' : '', amount.coverageRecordCount ? amount.coverageRecordCount + '条覆盖记录' : ''].filter(Boolean).join(' · ')};
     });
     const selected = group.recordIds.has(selectedRecordId);
-    return {id:index + 1,latitude:group.latitude,longitude:group.longitude,storeIds:[...group.recordIds],
+    return {id:index + 1,key,latitude:group.latitude,longitude:group.longitude,storeIds:[...group.recordIds],
       heading,brands,selected,iconPath:'/pages/account/store-map/pin.jpg',width:selected ? 26 : 20,height:selected ? 32 : 25,zIndex:selected ? 10 : 1,
       customCallout:{display:'ALWAYS',anchorY:0},
       callout:{content:(heading || (mixed ? '多品牌' : first.brandName)) + '\n' + detail,display:'ALWAYS',
@@ -180,22 +180,26 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
   const keyword = text(filters.keyword).toLowerCase();
   const matchesName = row => !keyword || (row.name + ' ' + row.originalRegionText + ' ' + row.brandName).toLowerCase().includes(keyword);
   const resultRecords = keyword ? candidates : [...new Map([...confirmed,...pending].map(row => [row.id,row])).values()];
-  const rows = resultRecords.filter(matchesName).map(row => ({...row,
+  const formatRow = row => ({...row,
     name:row.name || '名称待补充', typeLabel:row.recordType === 'FRANCHISE' ? '加盟商' : '覆盖记录',
     pending:incomplete(row,catalog),districtCount:districtCodes(row,catalog).length,
     districtNames:districtCodes(row,catalog).map(code => regionTitle(catalog.byCode.get(code))).join('；'),
-    regionText:row.originalRegionText || unique(row.regionCodes.map(code => catalog.byCode.get(code)?.name)).join('、') || '地区待补充' }));
+    regionText:row.originalRegionText || unique(row.regionCodes.map(code => catalog.byCode.get(code)?.name)).join('、') || '地区待补充' });
+  const rows = resultRecords.filter(matchesName).map(formatRow);
   const mapRecordIds = new Set(candidates.filter(matchesName).map(row => row.id));
   const mapPoints = validPoints.filter(point => mapRecordIds.has(point.recordId)
     && (keyword || viewport || point.recordId === filters.record || contains(target,catalog.byCode.get(point.regionCode))));
   const markers = groupMarkers(mapPoints,snapshot,catalog,filters.record);
+  const pinnedMarker = filters.pointKey && markers.find(marker => marker.key === filters.pointKey);
+  // A point list is scoped to its pin, not to the camera bounds after moving the map.
+  const pinnedRows = pinnedMarker ? pinnedMarker.storeIds.map(id => formatRow(snapshot.byId.get(id))) : null;
   const displayBrands = snapshot.brands.filter(brand => !filters.brand || brand.id === filters.brand);
   const brandCounts = displayBrands.map(brand => ({...brand,...counts(confirmed.filter(row => row.brandId === brand.id)),
     pendingCount:pending.filter(row => row.brandId === brand.id).length}));
   const regionCenters = target ? catalog.rows.filter(row => row.level === 'district' && contains(target,row) && hasPosition(row)) : [];
   const fitPoints = (keyword && markers.length ? markers : regionCenters.length ? regionCenters : markers)
     .map(({latitude,longitude}) => ({latitude,longitude}));
-  return { overview, summary, rows, markers, points:validPoints, brandCounts, brands:[{id:'',name:'全部品牌'},...snapshot.brands],
+  return { overview, summary, rows, pinnedRows, markers, points:validPoints, brandCounts, brands:[{id:'',name:'全部品牌'},...snapshot.brands],
     pickers:buildPickers(filters,catalog), fitPoints,
     center:keyword && markers.length ? markers[0] : hasPosition(target || {}) ? target : fitPoints[0] || {latitude:35.9,longitude:104.2} };
 }
