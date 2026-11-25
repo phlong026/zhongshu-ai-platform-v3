@@ -60,10 +60,6 @@ public class FranchiseMapService {
             brand=owners.get(0).get("id").toString();brandName=(String)owners.get(0).get("name");
         }
         var items=directory.mapRecords(all?null:Long.parseLong(brand));
-        Map<String,String> addresses=new HashMap<>();
-        jdbc.query("SELECT org_id,address FROM pf_org_profile WHERE tenant_id=?",r->{
-            addresses.put(r.getString("org_id"),r.getString("address")==null?"":r.getString("address").trim());
-        },tenant);
         Map<String,FranchiseRegionCatalog.Region> catalog=new HashMap<>();regions.all().forEach(r->catalog.put(r.code(),r));
         List<MapRecord> records=new ArrayList<>();List<Point> points=new ArrayList<>();List<Store> stores=new ArrayList<>();
         Object[] brandArgs=all?new Object[]{tenant}:new Object[]{tenant,Long.parseLong(brand)};
@@ -71,7 +67,9 @@ public class FranchiseMapService {
                 (r,i)->new Brand(r.getString("id"),r.getString("name"),brandColor(r.getLong("id"),r.getString("name"))),brandArgs);
         for(var item:items) {
             String publicName=publicName(item,catalog);
-            String publicAddress=item.linkedOrgId()==null?"":addresses.getOrDefault(item.linkedOrgId(),"");
+            // StoreProfile address is private. Keep the map field for client compatibility,
+            // but do not fill it until an independently authorized public address exists.
+            String publicAddress="";
             records.add(new MapRecord(item.id(),publicName,item.brandId(),item.brandName(),item.brandColor(),item.recordType(),
                     item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),publicAddress));
             FranchiseRegionCatalog.Region firstDistrict=null;
