@@ -19,7 +19,7 @@ function workflow(patch = {}) {
     events: [], hasMoreEvents: false, ...patch };
 }
 function harness(options = {}) {
-  let definition, session = 1, post = { postId: '7', roleCode: 'sales', brandId: '3' }, keyCount = 0;
+  let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
   const calls = [], navigations = [], toasts = [];
   const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
   const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download'].map(name => [name, async (...args) => {
@@ -75,7 +75,26 @@ test('05测量和06报价能进入外部委托，06保留预算并提供付款�
     assert.equal(h.callsFor('save').length + h.callsFor('complete').length, 0);
   }
   const start = harness({ step: 'START' }); await start.open(); start.page.openSource(); assert.match(start.navigations.at(-1).url, /external-entrust\/index\?customerId=42/);
-  start.state.steps[7].fields.projectId = '77'; await start.page.load(); start.page.openSource(); assert.equal(start.navigations.at(-1).url, '/pages/build/index?view=overview&id=77');
+  start.state.steps[7].fields.projectId = '77'; await start.page.load(); start.page.openSource(); assert.equal(start.navigations.at(-1).url, '/pages/external-entrust/index?customerId=42');
+});
+
+test('第08步业务岗保留真实开工事实，无工程查询权限时进入当前客户委托与移交', async () => {
+  const { render } = require('./role-page-runtime.cjs'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  for (const post of [{ roleCode: 'sales' }, { roleCode: 'sales-lead' }, { roleCode: 'boss', permissions: [] }]) {
+    const h = harness({ step: 'START', post }); h.state.steps[7].fields = { projectId: '77', actualStartAt: '2026-11-24', status: 'STARTED' }; await h.open();
+    h.page.openSource(); assert.equal(h.navigations.at(-1).url, '/pages/external-entrust/index?customerId=42');
+    assert.ok(h.page.data.facts.some(fact => fact.value === '2026-11-24')); assert.equal(h.page.data.step.canWrite, false);
+    const button = flatten(render(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), h.page.data)).find(node => node.attrs?.bindtap === 'openSource');
+    assert.match(button.children.map(node => node.text || '').join(''), /查看委托与移交/);
+  }
+});
+
+test('第08步具有工程查询权限的门店岗位可进入真实工程，只有项目编号不代表工程读权', async () => {
+  for (const roleCode of ['boss', 'engineer', 'finance']) {
+    const h = harness({ step: 'START', post: { roleCode, permissions: ['franchise:engineering:query'] } }); h.state.steps[7].fields.projectId = '77'; await h.open();
+    h.page.openSource(); assert.equal(h.navigations.at(-1).url, '/pages/build/index?view=overview&id=77'); assert.equal(h.page.data.step.canReadEngineering, true);
+    assert.equal(h.callsFor('save').length + h.callsFor('complete').length, 0);
+  }
 });
 
 test('相关办理入口对未保存填写给出提示，保存结果未知或切岗后不跳转', async () => {
@@ -221,7 +240,7 @@ test('07/08只读真实事实且没有完成按钮；预算入口仍携带客户
     h.page.openSource();
   }
   assert.equal(h.navigations[0].url, '/pages/workflow/index?view=contract&id=42');
-  assert.equal(h.navigations[1].url, '/pages/build/index?view=overview&id=91');
+  assert.equal(h.navigations[1].url, '/pages/external-entrust/index?customerId=42');
   h.page.select('QUOTATION'); h.page.openBudget();
   assert.equal(h.navigations[2].url, '/design-migration/pages/budget/quick?customerId=42');
 });

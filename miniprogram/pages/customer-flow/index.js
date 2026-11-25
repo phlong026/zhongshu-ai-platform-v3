@@ -65,7 +65,7 @@ Page({
     this.selectedCode = code;
     const form = draft ? clone(draft.form) : model.form(step);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
-    this.setData({ step, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
+    this.setData({ step: { ...step, canReadEngineering: this.canReadEngineering() }, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
       conflict: !!draft && draft.revision !== this.data.workflow.revision, showHistory: false, activeRecord: null, error: '' });
   },
   selectStep(event) {
@@ -259,11 +259,16 @@ Page({
     wx.showModal({ title: '本步尚未保存', content: '继续办理不会保存或完成本步，请核对未保存的填写。', confirmText: '继续办理', success: result => { if (result.confirm && this.alive(savedScope)) go(); } });
   },
   openCustomer() { if (this.alive()) navigation.open('/pages/workflow/index?view=customer&id=' + encodeURIComponent(this.customerId)); },
+  canReadEngineering() {
+    const post = auth.currentApiPost();
+    return post?.orgType === 'store' && ['engineer', 'project-manager', 'boss', 'owner', 'finance', 'finance-lead'].includes(post.roleCode)
+      && (!Array.isArray(post.permissions) || post.permissions.includes('franchise:engineering:query'));
+  },
   openSource() {
     if (!this.alive() || this.data.busy || this.data.uploading || this.data.uncertain) return;
     if (this.selectedCode === 'CONTRACT') return navigation.open('/pages/workflow/index?view=contract&id=' + encodeURIComponent(this.customerId));
     const projectId = model.id(this.data.step?.fields?.projectId);
-    if (projectId) navigation.open('/pages/build/index?view=overview&id=' + encodeURIComponent(projectId));
+    if (projectId && this.canReadEngineering()) navigation.open('/pages/build/index?view=overview&id=' + encodeURIComponent(projectId));
     else this.openEntrust();
   },
   toggleHistory() { if (!this.alive() || this.data.busy) return; this.setData({ showHistory: !this.data.showHistory, activeRecord: null }); if (this.data.showHistory) return this.loadHistory(true); },
