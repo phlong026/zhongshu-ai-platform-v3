@@ -140,7 +140,7 @@ class ContentMaterialPgIntegrationTest extends FranchisePgIntegrationTest {
         var cover=body("私有封面","image/png","PERSONAL");cover.put("coverOf",Long.toString(main));
         long coverId=Long.parseLong((String)service.upload(alice,cover).get("assetId"));service.complete(alice,coverId);
         when(assets.contentMetadata(any(AssetAccessPort.Actor.class),anyLong())).thenAnswer(call->{
-            visibility.requireReadable(1,call.getArgument(0),call.getArgument(1));return new AssetAccessPort.ContentMetadata("video/mp4","a".repeat(64),1024);
+            visibility.requireReadable(1,call.<AssetAccessPort.Actor>getArgument(0),call.<Long>getArgument(1).longValue());return new AssetAccessPort.ContentMetadata("video/mp4","a".repeat(64),1024);
         });
         var active=new java.util.concurrent.atomic.AtomicReference<>(bob);
         var gate=new ContentTaskAssetService(()->Optional.of(active.get()),accounts,assets);
