@@ -9,7 +9,7 @@ import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
-import { portalMode } from '@/utils/platformIdentity'
+import { canReadHeadquartersAnnouncements, portalMode } from '@/utils/platformIdentity'
 import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
 
 const { start, done } = useNProgress()
@@ -45,6 +45,11 @@ router.beforeEach(async (to, from) => {
         return { path: '/fr/identity', replace: true }
       }
       if (to.path === '/platform-login') return { path: '/fr/identity', replace: true }
+      if (to.path === '/platform-announcements') {
+        return canReadHeadquartersAnnouncements(identity.currentPost, (permission) => identity.can(permission))
+          ? true
+          : { path: '/fr/identity', replace: true }
+      }
       if (!to.path.startsWith('/fr')) return { path: '/fr/identity', replace: true }
       return true
     }

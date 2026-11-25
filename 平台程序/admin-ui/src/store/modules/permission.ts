@@ -8,7 +8,7 @@ import { checkPermi } from '@/utils/permission'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
-import { portalMode } from '@/utils/platformIdentity'
+import { canReadHeadquartersAnnouncements, portalMode } from '@/utils/platformIdentity'
 import { getAccessToken } from '@/utils/auth'
 
 const { wsCache } = useCache()
@@ -54,8 +54,12 @@ export const usePermissionStore = defineStore('permission', {
           this.addRouters = []
           this.routers = [
             ...remainingRouter.filter((route) => route.path === '/'),
-            ...buildStaffMenus(cloneDeep(frRouter) as AppRouteRecordRaw[], (permission) =>
-              platformIdentity.hasCurrentPostPermission(permission)
+            ...buildStaffMenus(
+              cloneDeep(frRouter) as AppRouteRecordRaw[],
+              (permission) => platformIdentity.hasCurrentPostPermission(permission),
+              canReadHeadquartersAnnouncements(platformIdentity.currentPost, (permission) =>
+                platformIdentity.hasCurrentPostPermission(permission)
+              )
             )
           ]
           resolve()
