@@ -86,9 +86,11 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
 
     @Test void dynamicStagesAndInactiveFactsHaveTheSameEffectiveBasisInBothLedgers() {
         long active=workbench.register(finance,"active",entry("project:"+project,"payable",10000,"COMPANY"));
-        long voided=workbench.register(finance,"voided",entry("project:"+project,"payable",9000,"COMPANY"));
+        long advance=payments.register(finance,"advance-to-void",new FinPaymentService.PaymentCommand(active,9000,LocalDate.now(),null,null,"EMPLOYEE",finance.userId(),"经办员工",null));
+        long voided=jdbc.queryForObject("SELECT id FROM fr_fin_payable WHERE company_id=? AND source_type='reimbursement' AND source_ref=?",Long.class,finance.orgId(),Long.toString(advance));
+        payments.void_(finance,advance,"原垫付登记有误");
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_fin_payable WHERE id=?",String.class,voided)).isEqualTo("已作废");
         long deleted=workbench.register(finance,"deleted",entry("project:"+project,"payable",8000,"COMPANY"));
-        jdbc.update("UPDATE fr_fin_payable SET status='已作废' WHERE id=?",voided);
         jdbc.update("UPDATE fr_fin_payable SET deleted=true WHERE id=?",deleted);
         long s1=IdWorker.getId(),s2=IdWorker.getId();
         jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,contract_id,stage,amount_cents,status) VALUES(?,?,?,'STAGE_CUSTOM_A',40000,'PENDING'),(?,?,?,'STAGE_CUSTOM_B',60000,'PENDING')",s1,finance.orgId(),contract,s2,finance.orgId(),contract);
@@ -98,6 +100,8 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(accounting.get(finance,project)).containsEntry("confirmedCostCents","10000").containsEntry("receivableCents","80000");
         var ledger=(Map<?,?>)workbench.ledger(finance.orgId(),"project:"+project).get("summary");
         assertThat(((Number)ledger.get("committed_cents")).longValue()).isEqualTo(10000);
+        assertThat(((Number)ledger.get("outstanding_cents")).longValue()).isEqualTo(10000);
+        assertThat(((Number)ledger.get("paid_cents")).longValue()).isZero();
         assertThat(((Number)ledger.get("receivable_cents")).longValue()).isEqualTo(80000);
         var old=new FinProjectLedgerService(jdbc).page(finance.orgId(),project,1,20).summary();
         assertThat(old.receivableCents()).isEqualTo(100000);assertThat(old.payableCents()).isEqualTo(10000);
@@ -202,7 +206,7 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("UPDATE system_users SET status=1 WHERE id=?",finance.userId());
         assertThatThrownBy(()->accounting.get(finance,project)).hasMessageContaining("当前岗位");
         jdbc.update("UPDATE system_users SET status=0 WHERE id=?",finance.userId());
-        jdbc.update("UPDATE pf_staff_post SET status='REVOKED' WHERE id=?",finance.postId());
+        jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",finance.userId(),finance.postId());
         assertThatThrownBy(()->accounting.confirm(finance,project,"revoked-post",cmd)).hasMessageContaining("当前岗位");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_project_accounting WHERE project_id=?",Long.class,project)).isZero();
     }
