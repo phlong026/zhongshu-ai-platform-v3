@@ -8,6 +8,8 @@
   --zs-control-radius: 14rpx;
   --zs-brand: #89512a;
   --zs-brand-press: #75451f;
+  --zs-champagne: #a16b2a;
+  --zs-champagne-soft: #f6eee3;
   --zs-bg: #faf8f4;
   --zs-card: #ffffff;
   --zs-line: #eee8df;

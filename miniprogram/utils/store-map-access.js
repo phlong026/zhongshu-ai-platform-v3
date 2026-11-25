@@ -1,6 +1,6 @@
 function canViewAllStores(post) {
-  return !!post && post.orgType === 'headquarters' && Array.isArray(post.permissions)
-    && post.permissions.includes('franchise:store-map:read-all');
+  // The API validates the active post; every headquarters post has read-only map access.
+  return !!post && post.orgType === 'headquarters';
 }
 
 module.exports = { canViewAllStores };

@@ -90,9 +90,13 @@ async function run() {
     await map.load();
     assert.equal(map.data.error,'');
     assert.deepEqual(map.data.rows.map(row=>row.name).sort(),expected.sort());
-    assert.ok(map.data.rows.every(r=>Number.isFinite(r.latitude)&&r.districtCode.length===6));
+    assert.ok(map.data.rows.every(r=>r.recordType==='FRANCHISE'&&r.regionCodes.some(code=>/^\d{6}$/.test(code))));
+    assert.ok(map.data.markers.length>0&&map.data.markers.every(r=>Number.isFinite(r.latitude)&&Number.isFinite(r.longitude)));
     if(id==='hq') assert.equal(new Set(map.data.rows.map(row=>row.color)).size,2);
     const raw=await request('/franchise/store-map?brandId=other&scope=all','GET',undefined,id);
+    assert.equal(raw.schemaVersion,2);
+    assert.deepEqual(raw.records.map(row=>row.name).sort(),expected);
+    assert.ok(raw.points.every(point=>point.locationPrecision==='district'&&raw.records.some(row=>row.id===point.recordId&&row.regionCodes.includes(point.regionCode))));
     assert.deepEqual(raw.stores.map(row=>row.name).sort(),expected);
     map.onHide();
   }
