@@ -781,49 +781,49 @@ function recordView(bundle, ctx) {
     }),
     dunning: data.dunning, materialFollowups: data.materialFollowups, collections: p.collections,
     // 直接项目费用清单（行内 label/操作位预计算——WXML 禁方法调用）
-    expenseRows: (opts.expenses || []).map(e => ({
-      id: String(e.expenseId), name: e.name || '',
-      purposeText: ({ LABOR: '劳务', TRAVEL: '差旅', OTHER: '其它' })[e.purpose] || e.purpose || '',
-      amountText: e.amountCents == null ? '—' : (e.amountCents / 100).toFixed(2),
-      statusText: e.status === 'CANCELLED' ? '已取消' : (e.payableId ? '已挂应付' : '已登记'),
-      canTerms: own && !archived && e.status !== 'CANCELLED' && !e.payableId,
-      canRevise: own && !archived && e.status !== 'CANCELLED',
-      canCancel: own && !archived && e.status !== 'CANCELLED' && !e.payableId
+    expenseRows:(opts.expenses||[]).map(e=>({
+      id:String(e.expenseId),name:e.name||'',
+      purposeText:({LABOR:'劳务',TRAVEL:'差旅',OTHER:'其它'})[e.purpose]||e.purpose||'',
+      amountText:e.amountCents==null?'—':(e.amountCents/100).toFixed(2),
+      statusText:e.status==='CANCELLED'?'已取消':(e.payableId?'已挂应付':'已登记'),
+      canTerms:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId,
+      canRevise:own&&!archived&&e.status!=='CANCELLED',
+      canCancel:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId
     })),
-    expenseMode: opts.expenseMode || 'register',
-    expenseTarget: form.expenseName || '',
-    purposes: [{ code: 'LABOR', label: '劳务' }, { code: 'TRAVEL', label: '差旅' }, { code: 'OTHER', label: '其它' }],
-    purposeLabel: ({ LABOR: '劳务', TRAVEL: '差旅', OTHER: '其它' })[form.purposeCode] || '劳务',
-    docs: p.documents, events: [
-      ...(d.sourceCommissionId ? [{id:'handover',title:'业务移交建档 · 委托 '+d.sourceCommissionId,time:d.drawingVersion||'',by:actor('eng-project-from-handover')}] : []),
-      ...(d.preparedAt ? [{id:'prepare',title:'开工准备已保存',time:dateOf(d.preparedAt),by:actor('eng-prepare')}] : []),
-      ...(p.actualStart ? [{id:'start',title:'实际开工已记录',time:p.actualStart.date,by:actor('eng-start')}] : []),
+    expenseMode:opts.expenseMode||'register',
+    expenseTarget:form.expenseName||'',
+    purposes:[{code:'LABOR',label:'劳务'},{code:'TRAVEL',label:'差旅'},{code:'OTHER',label:'其它'}],
+    purposeLabel:({LABOR:'劳务',TRAVEL:'差旅',OTHER:'其它'})[form.purposeCode]||'劳务',
+    docs:p.documents,events:[
+      ...(d.sourceCommissionId?[{id:'handover',title:'业务移交建档 · 委托 '+d.sourceCommissionId,time:d.drawingVersion||'',by:actor('eng-project-from-handover')}]:[]),
+      ...(d.preparedAt?[{id:'prepare',title:'开工准备已保存',time:dateOf(d.preparedAt),by:actor('eng-prepare')}]:[]),
+      ...(p.actualStart?[{id:'start',title:'实际开工已记录',time:p.actualStart.date,by:actor('eng-start')}]:[]),
       ...nodes.filter(n=>n.status==='已完成').map(n=>({id:'node-'+n.id,title:n.name+'已完成',time:n.completedAt,by:actor(n.milestone==='start'?'eng-start':'eng-node-complete:'+n.id)})),
-      ...(delivery ? [{id:'deliver',title:'工程已交付 · '+delivery.recipient,time:delivery.date,by:actor('eng-deliver')}] : []),
-      ...(settlement ? [{id:'settle',title:'项目已确认结算',time:settlement.date,by:actor('eng-settle')}] : []),
-      ...(archived ? [{id:'archive',title:'项目资料已归档',time:dateOf(d.closure.archivedAt),by:actor('eng-archive')}] : [])
+      ...(delivery?[{id:'deliver',title:'工程已交付 · '+delivery.recipient,time:delivery.date,by:actor('eng-deliver')}]:[]),
+      ...(settlement?[{id:'settle',title:'项目已确认结算',time:settlement.date,by:actor('eng-settle')}]:[]),
+      ...(archived?[{id:'archive',title:'项目资料已归档',time:dateOf(d.closure.archivedAt),by:actor('eng-archive')}]:[])
     ],
-    nodeRows: nodes.map(n => ({ ...n, url: base + (n.milestone==='start'?'start':'node&nodeId='+encodeURIComponent(n.id)), delayUrl:base+'delay&nodeId='+encodeURIComponent(n.id) })),
-    cameraUrl:base+'cameras', delayUrl:node?base+'delay&nodeId='+encodeURIComponent(node.id):'',
+    nodeRows:nodes.map(n=>({...n,url:base+(n.milestone==='start'?'start':'node&nodeId='+encodeURIComponent(n.id)),delayUrl:base+'delay&nodeId='+encodeURIComponent(n.id)})),
+    cameraUrl:base+'cameras',delayUrl:node?base+'delay&nodeId='+encodeURIComponent(node.id):'',
     startBlocked:!p.actualStart&&!actions.length&&view==='start'?(next?.title||'请先确认签约后期款'):'',
     startPrerequisiteUrl:next?.url&&next.url!==base+'start'?next.url:base+'collection&stage=start',
     canManageCameras:own&&!archived&&!delivery,
-    canTransferManager: view === 'project' && own && !archived && !!opts.userId
-      && String(opts.userId) === String(d.managerUserId),
-    handlers:opts.handlers||[], cameras:opts.cameras||[], cameraError:opts.cameraError||'',
+    canTransferManager:view==='project'&&own&&!archived&&!!opts.userId
+      &&String(opts.userId)===String(d.managerUserId),
+    handlers:opts.handlers||[],cameras:opts.cameras||[],cameraError:opts.cameraError||'',
     delayHistory:(node?.delayHistory||[]).map((r,i)=>({...r,id:String(i),recordedAt:timestampDate(r.recordedAt),recoveryDate:dateOf(r.recoveryDate),ownerName:r.ownerName||(opts.handlers||[]).find(h=>String(h.id)===String(r.ownerUserId))?.name||'原责任人'})),
-    nodePlans: plans.filter(r=>r.nodeId===node?.id),
-    nodeMoney: node ? (()=>{const rows=plans.filter(r=>r.nodeId===node.id),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return {known:rows.every(r=>r.known),plannedText:centsText(sum('total')),committedText:centsText(sum('total')),paidText:centsText(sum('paid')),remainingText:centsText(sum('remaining')),expenses:[]};})() : null,
-    inspections, nodeEvidenceOptions,
-    nodeEvidenceIndex: Math.max(0, nodeEvidenceOptions.findIndex(option => option.recordId === (form.nodeRecordId || '') && option.assetId === (form.nodeReplaceAssetId || ''))),
-    arrivals: (plan?.lines || []).flatMap(l=>(l.receipts||[]).map(r=>({id:String(r.id),materialName:l.name,unit:l.unit,date:dateOf(r.occurredAt),actual:r.actualQuantity,note:r.transactionNo||'',qualityText:r.qualified?'合格实收':'实收待质检处理',file:r.fileAssetId?{assetId:String(r.fileAssetId)}:null,corrections:parseJsonList(r.corrections),canCorrect:own&&!delivery&&!!r.id}))),
-    pending: own && !archived ? [
+    nodePlans:plans.filter(r=>r.nodeId===node?.id),
+    nodeMoney:node?(()=>{const rows=plans.filter(r=>r.nodeId===node.id),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return{known:rows.every(r=>r.known),plannedText:centsText(sum('total')),committedText:centsText(sum('total')),paidText:centsText(sum('paid')),remainingText:centsText(sum('remaining')),expenses:[]};})():null,
+    inspections,nodeEvidenceOptions,
+    nodeEvidenceIndex:Math.max(0,nodeEvidenceOptions.findIndex(option=>option.recordId===(form.nodeRecordId||'')&&option.assetId===(form.nodeReplaceAssetId||''))),
+    arrivals:(plan?.lines||[]).flatMap(l=>(l.receipts||[]).map(r=>({id:String(r.id),materialName:l.name,unit:l.unit,date:dateOf(r.occurredAt),actual:r.actualQuantity,note:r.transactionNo||'',qualityText:r.qualified?'合格实收':'实收待质检处理',file:r.fileAssetId?{assetId:String(r.fileAssetId)}:null,corrections:parseJsonList(r.corrections),canCorrect:own&&!delivery&&!!r.id}))),
+    pending:own&&!archived?[
       ...(!delivery?nodes.filter(n=>n.status!=='已完成'&&n.deviationDays>0).map(n=>({id:'delay-'+n.id,title:n.name+'延期'+n.deviationDays+'天',status:n.delayOwnerName,url:base+'delay&nodeId='+encodeURIComponent(n.id)})):[]),
-      ...(next ? [{ id: 'next', title: next.title, url: next.url }] : []),
-      ...(!delivery ? plans.filter(r => r.lines.some(l => Number(l.remainingQty) > 0)).map(r => ({
-        id: 'material-' + r.id, title: '材料到货待核对', status: nodes.find(n => n.id === r.nodeId)?.name || '', url: r.url
-      })) : [])
-    ] : [], waiting: [], engineers: [], engineerIndex: 0, templates: [], templateIndex: 0,
+      ...(next?[{id:'next',title:next.title,url:next.url}]:[]),
+      ...(!delivery?plans.filter(r=>r.lines.some(l=>Number(l.remainingQty)>0)).map(r=>({
+        id:'material-'+r.id,title:'材料到货待核对',status:nodes.find(n=>n.id===r.nodeId)?.name||'',url:r.url
+      })):[])
+    ]:[],waiting:[],engineers:[],engineerIndex:0,templates:[],templateIndex:0,
     links, next,
     node: node || null, plan: plan || null,
     materialNodes:nodes.filter(n=>n.milestone!=='start'),
