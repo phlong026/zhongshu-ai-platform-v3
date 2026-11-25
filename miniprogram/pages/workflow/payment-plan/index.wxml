@@ -5,11 +5,12 @@
     <view class="plan-card plan-summary">
       <view class="plan-heading"><text>{{customerName||'合同付款计划'}}</text><text class="plan-badge">{{creating?'待签合同':context.statusLabel}}</text></view>
       <text wx:if="{{context}}" class="plan-muted">付款计划 V{{context.planVersion||1}}</text>
+      <text wx:if="{{creating&&quoteSource}}" class="plan-muted">已带入{{quoteSource}}，请按正式约定填写付款节点。</text>
       <view wx:if="{{!editing}}" class="plan-total">¥ {{context.totalText}}</view>
       <view class="plan-summary-actions"><text class="plan-muted">{{refreshing?'正在更新…':context&&!context.canEdit?'只读查看':''}}</text><button wx:if="{{context}}" class="plan-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回付款计划':'变更记录'}}</button></view>
     </view>
     <view wx:if="{{error}}" class="plan-error"><text>{{error}}</text><button wx:if="{{uncertain}}" class="plan-link" bindtap="runPending" disabled="{{busy}}" loading="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="plan-link" bindtap="reloadLatest">载入最新</button></view>
-    <view wx:if="{{conflict}}" class="plan-error"><text>合同已有更新，请载入最新版本后调整。</text><button class="plan-link" bindtap="reloadLatest">载入最新</button></view>
+    <view wx:if="{{conflict}}" class="plan-error"><text>{{creating?'所选报价已变化，请返回客户页面重新选择或手动办理。':'合同已有更新，请载入最新版本后调整。'}}</text><button class="plan-link" bindtap="reloadLatest">载入最新</button></view>
     <view wx:if="{{showHistory}}" class="plan-card">
       <button wx:for="{{history}}" wx:key="version" class="plan-history" data-version="{{item.version}}" bindtap="viewVersion"><view class="plan-heading"><text>付款计划 V{{item.version}}</text><text>¥ {{item.totalText}}</text></view><text class="plan-muted">{{item.createdOn}} {{item.actorName}}</text><text class="plan-note">{{item.reason||'创建付款计划'}}</text></button>
       <text wx:if="{{historyLoading}}" class="plan-state">正在加载变更记录…</text><view wx:elif="{{historyError}}" class="plan-state"><text>{{historyError}}</text><button class="plan-link" bindtap="loadHistory">重新加载</button></view><text wx:elif="{{!history.length}}" class="plan-state">暂无付款计划变更记录</text>

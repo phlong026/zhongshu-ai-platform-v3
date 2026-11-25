@@ -90,12 +90,12 @@ test('缺失或缓存不匹配的当前岗位不发起公告请求', async () =>
   }
 });
 
-test('列表发送当前租户岗位，分页不重入，失败重试原页并对重复ID去重', async () => {
+test('列表发送当前租户岗位，分页不重入，失败可按原范围重试', async () => {
   const env = await setup(); let pending;
   const first = Array.from({ length: 20 }, (_, index) => announcement(String(index + 1)));
   env.handler = (url, request) => {
     if (url !== API) return;
-    if (request.data.pageNo === 1) return { list: first, total: 21 };
+    if (request.data.pageSize === 20) return { list: first, total: 21 };
     pending = request; return { pending: true };
   };
   const page = await env.open(LIST);
@@ -109,12 +109,76 @@ test('列表发送当前租户岗位，分页不重入，失败重试原页并�
   pending.fail({ errMsg: 'offline' }); await firstMore;
   assert.equal(page.data.items.length, 20); assert.equal(page.data.pageNo, 1); assert.ok(page.data.error);
   const retry = page.retry();
-  assert.equal(pending.data.pageNo, 2);
-  reply(pending, { list: [announcement('20'), announcement(LONG_ID)], total: '21' }); await retry;
+  assert.deepEqual(pending.data, { pageNo: 1, pageSize: 40 });
+  reply(pending, { list: [...first, announcement(LONG_ID)], total: '21' }); await retry;
   assert.equal(page.data.items.length, 21); assert.equal(page.data.items.at(-1).id, LONG_ID);
   assert.equal(page.data.hasMore, false); assert.equal(page.data.error, '');
   await page.loadMore(); assert.equal(env.reads().length, 3);
   assert.ok(text(env.render(page)).includes('已显示全部公告'));
+});
+
+test('点加载更多时撤回前一页的公告，保留搜索并更新列表，不漏原第21条', async () => {
+  const env = await setup();
+  let ordered = Array.from({ length: 21 }, (_, i) => announcement(String(i + 1), { title: '工程公告 ' + (i + 1) }));
+  env.handler = (url, { data }) => url === API
+    ? { list: ordered.slice((data.pageNo - 1) * data.pageSize, data.pageNo * data.pageSize), total: ordered.length }
+    : undefined;
+  const page = await env.open(LIST);
+  page.input({ detail: { value: '工程公告' } });
+  await page.search();
+  ordered = ordered.slice(1);
+  await (await (await env.runtime.currentPage()).$('.announcement-more')).tap(); await flush();
+  assert.deepEqual(page.data.items.map(row => row.id), ordered.map(row => row.id));
+  assert.deepEqual(env.reads().at(-1).request.data, { pageNo: 1, pageSize: 40, keyword: '工程公告' });
+  assert.equal(page.data.searchText, '工程公告');
+  assert.equal(page.data.total, 20);
+  assert.equal(page.data.hasMore, false);
+  assert.ok(text(env.render(page)).includes('公告列表已更新'));
+});
+
+test('总数相同但撤回、置顶和新发公告改变顺序，完整重读而不是沿用旧20条', async () => {
+  const env = await setup();
+  let ordered = Array.from({ length: 21 }, (_, i) => announcement(String(i + 1)));
+  env.handler = (url, { data }) => url === API
+    ? { list: ordered.slice((data.pageNo - 1) * data.pageSize, data.pageNo * data.pageSize), total: ordered.length }
+    : undefined;
+  const page = await env.open(LIST);
+  ordered = [announcement('99', { pinned: true }), ordered[20], ...ordered.slice(1, 20)];
+  await page.loadMore();
+  assert.deepEqual(page.data.items.map(row => row.id), ordered.map(row => row.id));
+  assert.equal(page.data.total, 21);
+  assert.equal(page.data.refreshNotice, '公告列表已更新');
+});
+
+test('超过一百条逐批核对：跨批重复不把不完整名单当成功，重试能恢复', async () => {
+  const env = await setup();
+  const ordered = Array.from({ length: 125 }, (_, i) => announcement(String(i + 1)));
+  let inconsistent = true;
+  env.handler = (url, { data }) => {
+    if (url !== API) return;
+    const offset = (data.pageNo - 1) * data.pageSize;
+    const list = ordered.slice(offset, offset + data.pageSize);
+    if (data.pageNo === 2 && inconsistent) list[0] = ordered[99];
+    return { list, total: ordered.length };
+  };
+  const page = await env.open(LIST);
+  for (let i = 0; i < 4; i++) await page.loadMore();
+  assert.equal(page.data.items.length, 100);
+  const before = env.reads().length;
+  await page.loadMore();
+  assert.equal(env.reads().length - before, 2, 'no runaway retries');
+  assert.equal(page.data.items.length, 100); assert.match(page.data.error, /列表刚有变化/);
+  await page.onReachBottom();
+  assert.equal(env.reads().length - before, 2, 'retry is explicit after a failed refresh');
+  assert.equal(page.data.hasMore, true);
+  inconsistent = false;
+  await page.retry();
+  assert.equal(page.data.error, '');
+  assert.equal(page.data.items.length, 120);
+  assert.equal(page.data.items.at(-1).id, '120');
+  await page.loadMore();
+  assert.deepEqual(page.data.items.map(row => row.id), ordered.map(row => row.id));
+  assert.equal(page.data.hasMore, false);
 });
 
 test('搜索确认重置页码，较晚的旧查询不覆盖新查询，清除搜索展示空态', async () => {
@@ -171,7 +235,9 @@ test('分页时权限撤销立即清空列表，错误响应不继续保留先�
   const env = await setup(); let pending;
   env.handler = (url, request) => {
     if (url !== API) return;
-    if (request.data.pageNo === 1) return { list: [announcement()], total: 40 };
+    if (request.data.pageSize === 20) return {
+      list: Array.from({ length: 20 }, (_, i) => announcement(String(i + 1))), total: 40
+    };
     pending = request; return { pending: true };
   };
   const page = await env.open(LIST), more = page.loadMore();

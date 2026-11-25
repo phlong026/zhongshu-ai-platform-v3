@@ -411,7 +411,13 @@ Page({
    this.setData({latestRequirementId:latest?latest.id:''});
   });
  },
- openContractForm(){if(this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id));},
+ openContractForm(){if(!this.data.busy&&!this.data.contractsHasActive&&this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id));},
+ useContractQuote(e){
+  if(this.data.busy||this.data.contractsHasActive||!this.guardTradeSubmit('contractError'))return;
+  const id=String(e.currentTarget.dataset.quoteId),quote=(this.data.salesQuotes||[]).find(q=>String(q.id)===id);
+  if(!quote||!PF.toCents(quote.totalText))return this.setData({contractError:'这份报价已不可用，请重新选报价或手填金额'});
+  require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id)+'&quoteId='+encodeURIComponent(id));
+ },
  openPaymentPlan(e){const id=String(e.currentTarget.dataset.id);if((this.data.salesContracts||[]).some(c=>c.id===id))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?contractId='+encodeURIComponent(id));},
  platformSubmitContract(){return this.openContractForm();},
  platformCommandFor(action,targetId){this.__cmdKeys=this.__cmdKeys||{};const k=action+':'+targetId;if(!this.__cmdKeys[k])this.__cmdKeys[k]=PF.commandKey(action);return this.__cmdKeys[k];},

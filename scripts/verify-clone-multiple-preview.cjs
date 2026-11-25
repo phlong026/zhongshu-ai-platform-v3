@@ -97,3 +97,41 @@ test('uncertain clone retries preserve the exact request and do not become an ac
  await h.page.createClone();assert.equal(h.page.data.cloneRetry,true);await h.page.createClone();
  assert.equal(h.requests[0].key,h.requests[1].key);assert.deepEqual(h.requests[0].body,h.requests[1].body);assert.equal(h.rows.length,1);
 });
+
+test('a failed background check leaves the new upload error intact, checks other rows, and retries',async()=>{
+ const h=clonePage(),requests=[];
+ h.rows.push(...['a','b'].map(id=>({id,kind:'AVATAR',status:'RUNNING',ready:false})));
+ let rejectA;
+ h.api.clones.refresh=async id=>{
+  requests.push(id);
+  if(requests.length===1)await new Promise((_,reject)=>{rejectA=reject;});
+  Object.assign(h.rows.find(r=>r.id===id),{status:'READY',ready:true});
+ };
+ h.page.openDigital(event('AVATAR'));await flush();
+ h.page.setData({cloneError:'新素材上传失败'});
+ const first=h.timers.get(h.page.__refreshTimer)();
+ assert.equal(h.page.data.cloneBusy,false,'status polling must not disable Confirm/Create');
+ assert.equal(h.page.data.cloneError,'新素材上传失败');
+ rejectA(Error('temporary network failure'));
+ await first;
+ assert.deepEqual(requests,['a','b']);
+ assert.equal(h.page.data.avatarCloneRows.find(r=>r.id==='b').ready,true);
+ assert.equal(h.page.data.cloneError,'新素材上传失败');
+ assert.equal(h.timers.size,1);
+ await h.timers.get(h.page.__refreshTimer)();
+ assert.deepEqual(requests,['a','b','a']);assert.equal(h.timers.size,0);
+ assert.equal(h.page.data.cloneRefreshError,'');
+});
+
+test('leaving an avatar stops further polling without changing the open form',async()=>{
+ const h=clonePage(),requests=[];
+ h.rows.push(...['a','b'].map(id=>({id,kind:'AVATAR',status:'RUNNING',ready:false})));
+ let finish;
+ h.api.clones.refresh=id=>{requests.push(id);return new Promise(resolve=>{finish=resolve;});};
+ h.page.openDigital(event('AVATAR'));await flush();
+ const pending=h.timers.get(h.page.__refreshTimer)();
+ h.page.onHide();finish();await pending;
+ assert.deepEqual(requests,['a']);assert.equal(h.timers.size,0);
+ assert.equal(h.page.data.cloneRefreshing,false);
+ assert.equal(h.page.data.cloneBusy,false);
+});

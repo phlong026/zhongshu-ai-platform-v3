@@ -24,7 +24,7 @@ function harness(options = {}) {
     h.calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
-    if (name === 'prepare') return { contracts: [], requirements: [{ id: '31' }], quotes: [{ totalCents: 10000, customerName: '本店客户' }] };
+    if (name === 'prepare') return { contracts: [], requirements: [{ id: '31' }], quotes: [{ id: '81', customerId: '42', totalCents: 10000, customerName: '本店客户' }] };
     if (name === 'versions') return [{ version: 1, contract_revision: 3, total_cents: 10000, reason: '创建', created_at: '2026-11-25',
       stages: [{ id: '900719925474099991', label: '原约定', amount_cents: 10000, ratio_bps: 10000, trigger_type: 'ON_SIGN', sequence: 1 }] }];
     h.state.contract.revision += 1;
@@ -65,6 +65,7 @@ test('财务按合同读取付款计划，不触发客户列表、需求、预�
 
 test('创建合同按任意期数提交统一比例，保留需求引用且不发送固定三期字段', async () => {
   const h = harness({ create: true, role: 'sales' }); await h.open();
+  h.page.input(event('total', '100')); h.page.chooseMode(tap({ mode: 'RATIO' }));
   h.page.input(event('ratio', '30', 'new-1')); h.page.addRow();
   h.page.input(event('ratio', '70', 'new-2')); h.page.input(event('label', '主体封顶款', 'new-2'));
   h.page.trigger({ currentTarget: { dataset: { row: 'new-2' } }, detail: { value: '2' } });
@@ -75,6 +76,57 @@ test('创建合同按任意期数提交统一比例，保留需求引用且不�
   assert.equal(body.paymentStages[1].trigger, 'NODE_COMPLETED'); assert.equal(body.paymentStages[1].nodeIndex, 3);
   assert.ok(['signAfterCents', 'baseDoneCents', 'capDoneCents'].every(key => !(key in body)));
   assert.equal(h.page.data.editing, false); assert.equal(h.page.contractId, '91');
+});
+
+test('主干兼容新合同不自动采用最新报价或默认整期付款，手工金额仍可独立签约', async () => {
+  const h = harness({ create: true, role: 'sales' }); await h.open();
+  assert.equal(h.page.data.form.total, ''); assert.equal(h.page.data.form.rows[0].amount, '');
+  assert.equal(h.page.data.form.rows[0].ratio, ''); assert.equal(h.page.data.quoteSource, '');
+  await h.page.submit(); assert.equal(h.callsFor('create').length, 0);
+  h.page.input(event('total', '390000')); await h.page.submit();
+  assert.equal(h.callsFor('create').length, 0, '填写总额不会替业务员填写付款节点');
+  h.page.input(event('amount', '390000', 'new-1')); await h.page.submit();
+  const body = h.callsFor('create')[0].args[0];
+  assert.equal(body.totalCents, 39000000); assert.equal(body.paymentStages[0].amountCents, 39000000);
+});
+
+test('主干兼容仅采用业务员选定的报价，总额不覆盖手工填写，付款比例须主动确认', async () => {
+  const quotes = [{ id: '82', customerId: '42', totalCents: 52000000 }, { id: '81', customerId: '42', totalCents: 48000000 }];
+  const h = harness({ role: 'sales', route: { customerId: '42', quoteId: '81' },
+    api: { prepare: async () => ({ contracts: [], requirements: [], quotes: copy(quotes) }) } });
+  await h.open(); assert.equal(h.page.data.form.total, '480000.00');
+  assert.equal(h.page.data.form.rows[0].amount, ''); assert.equal(h.page.data.form.rows[0].ratio, '');
+  assert.match(h.page.data.quoteSource, /480000/); await h.page.submit(); assert.equal(h.callsFor('create').length, 0);
+  h.page.input(event('total', '470000')); quotes[1].totalCents = 49000000; await h.page.load();
+  assert.equal(h.page.data.form.total, '470000');
+  h.page.chooseMode(tap({ mode: 'RATIO' })); h.page.input(event('ratio', '100', 'new-1')); await h.page.submit();
+  const body = h.callsFor('create')[0].args[0];
+  assert.equal(body.totalCents, 47000000); assert.equal(body.paymentStages[0].ratioBps, 10000);
+});
+
+test('主干兼容失效或其他客户报价不能回退到第一份，错误深链不能读取', async () => {
+  for (const quotes of [[{ id: '82', customerId: '42', totalCents: 10000 }], [{ id: '81', customerId: '43', totalCents: 10000 }], [{ id: '81', customerId: '42', totalCents: 0 }]]) {
+    const h = harness({ role: 'sales', route: { customerId: '42', quoteId: '81' },
+      api: { prepare: async () => ({ contracts: [], requirements: [], quotes }) } });
+    await h.open(); await h.page.submit(); assert.equal(h.page.data.ready, false); assert.equal(h.callsFor('create').length, 0);
+    assert.match(h.page.data.error, /所选报价已不可用/);
+  }
+  for (const route of [{ customerId: '42', quoteId: 'invalid' }, { contractId: '91', quoteId: '81' }]) {
+    const h = harness({ role: 'sales', route }); await h.open();
+    assert.equal(h.calls.length, 0); assert.equal(h.page.data.ready, false);
+  }
+});
+
+test('主干兼容已填写后报价撤销或转属其他客户，保留填写供核对但阻止提交旧金额', async () => {
+  for (const updated of [[], [{ id: '81', customerId: '43', totalCents: 10000 }]]) {
+    const h = harness({ role: 'sales', route: { customerId: '42', quoteId: '81' } }); await h.open();
+    h.page.input(event('amount', '100', 'new-1'));
+    h.overrides.prepare = async () => ({ contracts: [], requirements: [], quotes: updated });
+    await h.page.load(); await h.page.submit();
+    assert.equal(h.page.data.form.rows[0].amount, '100'); assert.equal(h.page.data.conflict, true);
+    assert.equal(h.page.editable(), false); assert.equal(h.callsFor('create').length, 0);
+    assert.equal(h.nodes().find(n => n.attrs?.bindtap === 'submit').attrs.disabled, true);
+  }
 });
 
 test('创建前资料加载失败和非销售岗位均不能提交空上下文合同', async () => {

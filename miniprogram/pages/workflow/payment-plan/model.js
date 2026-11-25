@@ -32,8 +32,8 @@ function emptyRow(key) {
   return { key, stageId: null, label: '', amount: '', ratio: '', dueDate: '', trigger: 'MANUAL', nodeIndex: '', collectedCents: 0 };
 }
 function initial(totalCents) {
-  return { total: money(totalCents), mode: 'RATIO', signedDate: '', reason: '',
-    rows: [{ ...emptyRow('new-1'), label: '第1期', ratio: '100' }] };
+  return { total: money(totalCents), mode: 'AMOUNT', signedDate: '', reason: '',
+    rows: [{ ...emptyRow('new-1'), label: '第1期' }] };
 }
 function stage(row, index) {
   const stageId = id(row.stageId == null ? row.id : row.stageId);
