@@ -46,12 +46,13 @@ public class AppAccountPriceController {
 
     @PutMapping("/my-prices/{optionId}")
     @Operation(summary = "设置本人单价覆盖：仅标准目录选项，金额为 1～1亿分")
-    @RateLimiter(time = 60, count = 30, keyResolver = ClientIpRateLimiterKeyResolver.class)
+    @RateLimiter(time = 60, count = 120, keyResolver = ClientIpRateLimiterKeyResolver.class)
     public CommonResult<AppMyPriceRespVO> setMyPrice(@PathVariable String optionId, @RequestParam String regionCode,
             @RequestBody Map<String, Object> body,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         long accountId = requireAccountId(authorization);
-        verifiedAccountRateLimiter.check("budget-my-price", accountId, 10, 60);
+        // 新建城市要逐项配 35 个价：旧桶突发 10 次、每 6 秒补 1 个，后半段会 429。
+        verifiedAccountRateLimiter.check("budget-my-price", accountId, 60, 60);
         long id = BudgetInputs.positiveId(optionId);
         return success(budgetCatalogService.isMyRegion(accountId, regionCode) && !budgetCatalogService.isPlatformRegion(regionCode)
                 ? budgetCatalogService.setMyPrice(accountId, regionCode, id, body)
@@ -60,11 +61,12 @@ public class AppAccountPriceController {
 
     @DeleteMapping("/my-prices/{optionId}")
     @Operation(summary = "恢复默认：移除本人覆盖价，后续测算回基准价")
-    @RateLimiter(time = 60, count = 30, keyResolver = ClientIpRateLimiterKeyResolver.class)
+    @RateLimiter(time = 60, count = 120, keyResolver = ClientIpRateLimiterKeyResolver.class)
     public CommonResult<AppMyPriceRespVO> resetMyPrice(@PathVariable String optionId, @RequestParam String regionCode,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         long accountId = requireAccountId(authorization);
-        verifiedAccountRateLimiter.check("budget-my-price", accountId, 10, 60);
+        // 恢复默认单独计桶，不占用改价额度。
+        verifiedAccountRateLimiter.check("budget-my-price-reset", accountId, 30, 60);
         long id = BudgetInputs.positiveId(optionId);
         return success(budgetCatalogService.isMyRegion(accountId, regionCode) && !budgetCatalogService.isPlatformRegion(regionCode)
                 ? budgetCatalogService.resetMyPrice(accountId, regionCode, id)
