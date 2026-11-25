@@ -60,6 +60,12 @@ public class FranchiseDirectoryController {
     public CommonResult<FranchiseDirectoryService.Item> update(@PathVariable String id,@RequestBody FranchiseDirectoryService.RecordRequest input) {
         return CommonResult.success(directory.update(id,input,actor()));
     }
+    @PutMapping("/franchise-directory/{id}/map-display")
+    @ApiAccessLog(requestEnable=false,responseEnable=false)
+    public CommonResult<FranchiseDirectoryService.Item> updateMapDisplay(@PathVariable String id,@RequestBody FranchiseDirectoryService.MapDisplayRequest input) {
+        actor();
+        return CommonResult.success(directory.updateMapDisplay(id,input));
+    }
     @PostMapping("/franchise-onboard/from-directory")
     @ApiAccessLog(requestEnable=false,responseEnable=false)
     public CommonResult<FranchiseOnboardService.Result> onboard(@RequestBody FranchiseDirectoryService.FromDirectoryRequest input,HttpServletResponse response) {

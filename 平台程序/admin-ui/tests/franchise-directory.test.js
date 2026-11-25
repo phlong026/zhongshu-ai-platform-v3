@@ -143,6 +143,48 @@ const entry = {
   version: 7
 }
 
+test('public map name edits a linked record independently without sending internal account fields', async () => {
+  const writes = []
+  const item = { ...entry, linkedOrgId: '998', publicName: '原公开店名' }
+  const env = loadView('FranchiseDirectoryPanel.vue', {
+    updateDirectoryMapDisplay: async (id, payload) => { writes.push({ id, payload }); return item }
+  })
+  env.state.openMapEditor(item)
+  assert.equal(env.state.mapEditVisible.value, true)
+  env.state.mapPublicName.value = ' 测试品牌 · 武汉门店 '
+  await env.state.saveMapDisplay()
+  assert.deepEqual(plain(writes), [{ id: item.id, payload: { publicName: '测试品牌 · 武汉门店', expectedVersion: 7 } }])
+  assert.equal(item.name, entry.name)
+  assert.equal(env.state.mapEditVisible.value, false)
+})
+
+test('public map name save cannot repopulate a deactivated directory or display a late success', async () => {
+  const pending = deferred()
+  const env = loadView('FranchiseDirectoryPanel.vue', { updateDirectoryMapDisplay: () => pending.promise })
+  env.state.openMapEditor(entry)
+  env.state.mapPublicName.value = '公开名称'
+  const saving = env.state.saveMapDisplay()
+  env.hooks.deactivated()
+  pending.resolve(entry)
+  await saving
+  assert.equal(env.state.mapEditVisible.value, false)
+  assert.equal(env.state.mapEditing.value, null)
+  assert.equal(env.state.mapPublicName.value, '')
+  assert.deepEqual(env.messages, [])
+})
+
+test('public map name conflict keeps the typed name and does not retry a stale revision', async () => {
+  let writes = 0
+  const env = loadView('FranchiseDirectoryPanel.vue', { updateDirectoryMapDisplay: async () => { writes++; throw { code: 409, msg: '名录资料已变化，请重新载入' } } })
+  env.state.openMapEditor(entry)
+  env.state.mapPublicName.value = '我的草稿'
+  await env.state.saveMapDisplay()
+  assert.equal(writes, 1)
+  assert.equal(env.state.mapEditVisible.value, true)
+  assert.equal(env.state.mapPublicName.value, '我的草稿')
+  assert.match(env.state.mapEditError.value, /已变化/)
+})
+
 test('XLSX precheck and commit send the original file as multipart and use the unwrapped result', async () => {
   const calls = []
   const api = moduleFrom(
