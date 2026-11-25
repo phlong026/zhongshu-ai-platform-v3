@@ -27,8 +27,10 @@ class FranchiseRolesTest extends FranchisePgIntegrationTest {
                 });
         Integer templates = jdbc.queryForObject("SELECT count(*) FROM pf_post_template WHERE domain = 'franchise'", Integer.class);
 
-        assertThat(templates).isEqualTo(13);
+        assertThat(templates).isEqualTo(14);
         assertThat(inherits).isEqualTo(FranchiseRoles.INHERITS);
+        assertThat(jdbc.queryForObject("SELECT org_types FROM pf_post_template WHERE role_code='hq-admin'", String.class))
+                .isEqualTo("headquarters");
     }
 
     @Test

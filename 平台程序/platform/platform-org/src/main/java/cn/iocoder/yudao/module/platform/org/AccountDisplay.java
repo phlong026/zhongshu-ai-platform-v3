@@ -9,6 +9,7 @@ public record AccountDisplay(String personName, String roleCode, String roleName
             Map.entry("sales", "业务员"), Map.entry("sales-lead", "业务负责人"),
             Map.entry("engineer", "工程人员"), Map.entry("project-manager", "工程负责人"),
             Map.entry("finance", "财务专员"), Map.entry("finance-lead", "财务负责人"),
+            Map.entry("hq-admin", "总部管理员"),
             Map.entry("hq-design-admin", "设计行政"), Map.entry("hq-designer", "设计师"),
             Map.entry("hq-design-lead", "设计负责人"), Map.entry("hq-operations", "运营专员"),
             Map.entry("hq-operations-lead", "运营负责人"));
