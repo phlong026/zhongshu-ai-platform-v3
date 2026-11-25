@@ -62,7 +62,10 @@ public class CompanyRechargeCatalog {
                   WHERE tenant_id=o.tenant_id AND wallet_id=o.wallet_id AND order_id=o.id AND channel_state<>'FAILED'
                   ORDER BY create_time DESC,id DESC LIMIT 1) r ON true
                 WHERE o.tenant_id=? AND o.org_id=? AND o.actor_id=? AND o.post_id=?
-                  AND o.credit_target='COMPANY' ORDER BY o.create_time DESC,o.id DESC LIMIT 1
+                  AND o.credit_target='COMPANY'
+                ORDER BY (o.credit_state <> 'BLOCKED' AND (o.payment_state IN ('PENDING','UNKNOWN')
+                    OR (o.payment_state='SUCCEEDED' AND o.credit_state='PENDING'))) DESC,
+                    o.create_time DESC,o.id DESC LIMIT 1
                 """,(r,i)->new Order(r.getString("id"),displayState(r.getString("payment_state"),r.getString("credit_state"),r.getString("refund_state"),r.getString("refund_points")),
                 r.getLong("price_fen"),r.getString("credits"),r.getBoolean("quote_current")),org.tenantId(),org.id(),org.actorId(),org.postId());
         String name=jdbc.queryForObject("SELECT name FROM system_dept WHERE tenant_id=? AND id=?",String.class,org.tenantId(),org.id());

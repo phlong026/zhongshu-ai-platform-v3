@@ -63,6 +63,18 @@ class VirtualPaymentAdapterSafetyTest {
     }
 
     @Test
+    void onlyClosedPaymentTypesBecomeClosedFacts() throws Exception {
+        givenOrder(0, 6);
+        assertThat(adapter.queryOrder(order).state()).isEqualTo("CLOSED");
+        givenOrder(7, 6);
+        assertThat(adapter.queryOrder(order).state()).isEqualTo("CLOSED");
+        givenOrder(1, 6);
+        assertThat(adapter.queryOrder(order).state()).isEqualTo("UNKNOWN");
+        givenOrder(0, 1);
+        assertThat(adapter.queryOrder(order).state()).isEqualTo("UNKNOWN");
+    }
+
+    @Test
     void refundNotificationUsesMchOrderIdAndDoesNotQueryBeforePersistence() {
         var body = "{\"Event\":\"xpay_refund_notify\",\"MchOrderId\":\"PFW3\",\"MchRefundId\":\"PFR4\",\"WxRefundId\":\"wx-refund\",\"RefundFee\":100,\"RetCode\":0}";
         var hint = adapter.parseNotification(Map.of(), body.getBytes(StandardCharsets.UTF_8));
