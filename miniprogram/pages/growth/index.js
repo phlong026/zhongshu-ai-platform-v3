@@ -6,6 +6,8 @@ const crm=require('../../api/franchise/crm');
 const http=require('../../api/http');
 const {makeFormHandlers}=require('../../utils/view-container');
 const DIRECT_SOURCE='直接来访／转介绍';
+const MANAGERS=['sales-lead','boss','owner'];
+const pendingAccessLost=error=>error?.postInvalid||[401,403,1103000002].includes(Number(error?.code));
 const currentPost=()=>{try{return http.token()?require('../../api/auth').currentApiPost():null;}catch(e){return null;}};
 const displayContent=content=>content?{...content,status:content.status==='演示已发布'?'已登记发布':content.status}:content;
 const totalOf=value=>{
@@ -13,25 +15,31 @@ if(typeof value==='number'&&Number.isFinite(value))return value;
 if(!value||typeof value!=='object'||Array.isArray(value))return 0;
 return Object.values(value).reduce((total,count)=>total+(Number.isFinite(Number(count))?Number(count):0),0);
 };
-Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[],pendingLeads:[]},
+Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[],directSourceChosen:false,pendingLeads:[]},
 onLoad(o){
 this.__captureUnloaded=false;this.id=o.id||'';
 const view=['content','capture','lead'].includes(o.view)?o.view:'home';
 this.__publicationEntry=view==='capture'?String(o.publicationId||o.contentId||''):'';
 this.setData({view});
 },onShow(){this.refresh();},
-onUnload(){this.__captureUnloaded=true;this.__captureSeq=(this.__captureSeq||0)+1;},
-refresh(){const post=currentPost();if(!(post&&post.orgType==='store'&&['sales','sales-lead','boss','owner'].includes(post.roleCode)))return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('加盟商内容与线索')});const a={active:true,orgType:'store',role:post.roleCode,staffId:'',name:post.name||''};const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='前往发布设置';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
+onUnload(){this.__captureUnloaded=true;this.__captureSeq=(this.__captureSeq||0)+1;this.resetPendingState(false);},
+refresh(){const post=currentPost();if(!(post&&post.orgType==='store'&&['sales',...MANAGERS].includes(post.roleCode))){
+this.__growthIdentity='';this.__captureSeq=(this.__captureSeq||0)+1;this.__captureKey='';this.__linkedCustomerRetry=null;
+this.resetPendingState(true);
+this.setData({canManage:false,canCapture:false,form:{},contents:[],leads:[],lead:null,content:null,existingCustomer:null,
+  published:[],publishedNames:[DIRECT_SOURCE],publishedIndex:0,directSourceChosen:false,growthStats:null});
+return wx.redirectTo({url:'/pages/account/index?view=access&content='+encodeURIComponent('加盟商内容与线索')});
+}const a={active:true,orgType:'store',role:post.roleCode,staffId:'',name:post.name||''};const s=G.load(),v=this.data.view,c=s.contents.find(c=>c.id===this.id),l=s.leads.find(l=>l.id===this.id);let primary='',action='';if(v==='content'&&c){if(Job.has(a.role,'sales')&&c.authorId===a.staffId&&c.status!=='演示已发布'){primary='前往发布设置';action='publish';}}if(v==='capture'){if(!Job.has(a.role,'sales'))return wx.redirectTo({url:'/pages/account/index?view=access'});primary='登记客资';action='capture';}if(v==='lead'&&l){if(l.status==='跟进中'&&l.ownerId===a.staffId){primary='保存跟进';action='follow';}}
 const identity=http.sessionGeneration()+':'+post.postId;
 if(this.__growthIdentity!==identity){
   this.__captureSeq=(this.__captureSeq||0)+1;
-  this.__captureKey='';this.__linkedCustomerRetry=null;
+  this.__captureKey='';this.__linkedCustomerRetry=null;this.resetPendingState(true);
   const publicationId=this.__growthIdentity?'':this.__publicationEntry;
   this.__growthIdentity=identity;this.__publicationEntry='';
   this.setData({form:{source:'直接来访',contentId:publicationId},published:[],publishedNames:[DIRECT_SOURCE],
-    publishedIndex:0,publicationError:'',pendingLeads:[],growthStats:null,error:''});
+    publishedIndex:0,directSourceChosen:false,publicationError:'',pendingLeads:[],growthStats:null,error:''});
 }
-const existing=l&&G.existingCustomer(l);this.setData({existingCustomer:existing?{id:existing.id,name:existing.name,owner:existing.owner}:null,title:v==='content'?'内容与发布':v==='capture'?'登记客资':v==='lead'?'客资跟进':'内容与客资',actorRole:a.role,canHandleLead:!!l&&Job.has(a.role,'sales')&&l.ownerId===a.staffId,canEditContent:!!c&&Job.has(a.role,'sales')&&c.authorId===a.staffId,canCapture:Job.has(a.role,'sales'),canManage:['sales-lead','boss','owner'].includes(a.role),contents:s.contents.map(displayContent),leads:s.leads,content:displayContent(c)||null,lead:l||null,missing:['content','lead'].includes(v)&&!(c||l),primary,action});if(http.token()){this.syncGrowth();if(this.data.canManage)this.loadPendingLeads();}},
+const existing=l&&G.existingCustomer(l);this.setData({existingCustomer:existing?{id:existing.id,name:existing.name,owner:existing.owner}:null,title:v==='content'?'内容与发布':v==='capture'?'登记客资':v==='lead'?'客资跟进':'内容与客资',actorRole:a.role,canHandleLead:!!l&&Job.has(a.role,'sales')&&l.ownerId===a.staffId,canEditContent:!!c&&Job.has(a.role,'sales')&&c.authorId===a.staffId,canCapture:Job.has(a.role,'sales'),canManage:MANAGERS.includes(a.role),contents:s.contents.map(displayContent),leads:s.leads,content:displayContent(c)||null,lead:l||null,missing:['content','lead'].includes(v)&&!(c||l),primary,action});if(http.token()){this.syncGrowth();if(this.data.canManage)this.loadPendingLeads();}},
 syncGrowth(){
 const request=http.requestGuard('growth-summary'),identity=this.__growthIdentity;
 const current=()=>!this.__captureUnloaded&&request()&&identity===this.__growthIdentity;
@@ -49,13 +57,14 @@ this.setData({growthStats:{publications:totalOf(summary.publications),leads:tota
   published:rows,publishedNames:[DIRECT_SOURCE,...rows.map(row=>row.title)],publishedIndex:index,
   publicationError:selected&&!index?'原发布作品当前不可用，请重新选择客资来源。':''});
 }).catch(()=>{
-  if(current()&&this.data.view==='capture')this.setData({publicationError:'发布作品暂时无法读取，请重试加载。'});
+  if(current()&&this.data.view==='capture')this.setData({published:[],publishedNames:[DIRECT_SOURCE],publishedIndex:0,
+    publicationError:'发布作品暂时无法读取，请重试加载。'});
 });
 },
 open(e){wx.navigateTo({url:'/pages/growth/index?view='+e.currentTarget.dataset.view+(e.currentTarget.dataset.id?'&id='+encodeURIComponent(e.currentTarget.dataset.id):'')});},
 registerConsultation(){const c=this.data.content;if(this.data.canCapture&&c?.publishedUrl)wx.navigateTo({url:'/pages/growth/index?view=capture&contentId='+encodeURIComponent(c.id)});},
-chooseDirectSource(){this.setData({'form.contentId':'',publishedIndex:0,publicationError:''});},
-pick(e){const key=e.currentTarget.dataset.key,n=Number(e.detail.value);if(key==='contentId')this.setData({'form.contentId':n?this.data.published[n-1]?.id:'',publishedIndex:n,publicationError:''});if(key==='reviewResult')this.setData({'form.reviewResult':['通过','退回修改'][n]});},
+chooseDirectSource(){this.setData({'form.contentId':'',publishedIndex:0,directSourceChosen:true});},
+pick(e){const key=e.currentTarget.dataset.key,n=Number(e.detail.value);if(key==='contentId'){if(n===0)return this.chooseDirectSource();const row=this.data.published[n-1];if(row)this.setData({'form.contentId':row.id,publishedIndex:n,directSourceChosen:false,publicationError:''});}if(key==='reviewResult')this.setData({'form.reviewResult':['通过','退回修改'][n]});},
 perform(e){const action=e?.currentTarget?.dataset?.action||this.data.action,f=this.data.form;if(action==='capture'&&http.token())return this.captureOnline(f);try{if(action==='capture'){const res=G.capture(f);wx.showToast({title:res.customer.linked?'已关联原客户，来源已保留':'客资已登记为本人客户',icon:'none'});this.setData({view:'home',form:{source:'直接来访'}});return wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(res.customer.id)});}else if(action==='publish'){return this.editContent();}else if(action==='link-existing'){const c=G.linkExisting(this.id,this.data.lead.revision);return wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(c.id)});}else if(action==='convert'){const c=G.convert(this.id,f,this.data.lead.revision);return wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(c.id)});}else{G.change(this.id,action,f,this.data.lead.revision);}this.setData({'form.note':'',error:''});this.refresh();}catch(e){if(action==='convert'&&/已有该客户/.test(e.message))this.setData({requestExistingLink:true});this.fail(e.message);}},
 /** 在线登记客资：走 /franchise/leads capture；选中的来源为平台发布时 source=内容发布:{publicationId} */
 captureOnline(f){
@@ -70,6 +79,7 @@ if(!context || (this.__growthIdentity && this.__growthIdentity!==context.session
 const alive=()=>this.captureAlive(context);
 const selected=(this.data.published||[]).find(row=>row.id===f.contentId);
 if(f.contentId&&!selected)return this.fail('请先核对发布作品，或重新选择客资来源');
+if(!selected&&!this.data.directSourceChosen)return this.fail('请选择发布作品，或点选「直接来访／转介绍」');
 const source=selected&&selected.publicationId?'内容发布:'+selected.publicationId:(String(f.source||'').trim()||'直接来访');
 if(!this.__captureKey)this.__captureKey='crm-capture-'+Date.now()+'-'+Math.floor(Math.random()*1e8); // 幂等键失败保留重试复用
 crm.leads.capture({name,phone,need,source},this.__captureKey).then(res=>{
@@ -134,36 +144,71 @@ return crm.customers.get(customerId).then(()=>{
 },
 editContent(){const c=this.data.content;if(c)wx.navigateTo({url:'/pages/studio/index?view=publish&work='+encodeURIComponent(c.workId)+'&content='+encodeURIComponent(c.id)});},
 goCustomer(){if(this.data.lead?.customerId)wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(this.data.lead.customerId)});},
-onlineLinkLead(e){ // M04-T03：负责人在线关联原客户——幂等键失败保留重试复用（Codex R1 P2-1）
-  const idx=Number(e.currentTarget.dataset.idx);
-  const item=(this.data.pendingLeads||[])[idx];
-  if(!item)return this.fail('请选择待关联客资');
-  if(!item.__linkKey)item.__linkKey='crm-link-'+item.leadId+'-'+Date.now();
-  crm.leads.link(item.leadId,item.revision,item.__linkKey).then(()=>{
-    wx.showToast({title:'已关联原客户',icon:'none'});
-    this.loadPendingLeads(); // 回读状态
-  }).catch(err=>this.fail(P.degradeMessage(err)));
+resetPendingState(render){
+  this.__pendingSeq=(this.__pendingSeq||0)+1;
+  this.__pendingOperations=new Map();
+  if(render)this.setData({pendingLeads:[],pendingLead:null,pendingError:''});
 },
-onlineInvalidateLead(e){ // M04-T03：负责人在线作废——幂等键同上
-  const idx=Number(e.currentTarget.dataset.idx);
-  const item=(this.data.pendingLeads||[])[idx];
-  if(!item)return this.fail('请选择待作废客资');
-  if(!item.__invKey)item.__invKey='crm-inv-'+item.leadId+'-'+Date.now();
-  crm.leads.invalidate(item.leadId,'负责人作废',item.revision,item.__invKey).then(()=>{
-    wx.showToast({title:'已作废',icon:'none'});
-    this.loadPendingLeads(); // 回读状态
-  }).catch(err=>this.fail(P.degradeMessage(err)));
+pendingScope(){
+  const post=currentPost();
+  if(!post||post.orgType!=='store'||!MANAGERS.includes(post.roleCode))return '';
+  const identity=http.sessionGeneration()+':'+post.postId;
+  return identity===this.__growthIdentity?identity:'';
 },
-loadPendingLeads(){ // M04-T03：负责人查 pending
-  if(!http.token())return;
-  const current=http.requestGuard('growth-pending');
-  crm.leads.pending().then(rows=>{
-    if(!current()||this.__captureUnloaded)return;
-    const items=(rows||[]).filter(r=>r.status==='LINK_REQUIRED').map(r=>({
-      leadId:r.id,name:r.name,phone:r.phone,revision:r.revision||1,source:r.source||''
-    }));
-    this.setData({pendingLeads:items});
-  }).catch(()=>{});
+onlineLinkLead(e){return this.mutatePendingLead(e,'link');},
+onlineInvalidateLead(e){return this.mutatePendingLead(e,'invalidate');},
+async mutatePendingLead(e,action){
+  const scope=this.pendingScope();
+  if(!scope||this.__captureUnloaded)return;
+  const id=String(e.currentTarget.dataset.leadId||'');
+  const row=(this.data.pendingLeads||[]).find(r=>r.leadId===id);
+  if(!row)return this.fail('该笔客资已变化，请刷新名单');
+  const operations=this.__pendingOperations||(this.__pendingOperations=new Map());
+  if(operations.get(id)?.busy)return;
+  const old=operations.get(id);
+  const command=old&&old.action===action&&old.revision===row.revision?old:{
+    action,revision:row.revision,key:'crm-'+action+'-'+id+'-'+Date.now()
+  };
+  command.busy=true;operations.set(id,command);
+  const alive=()=>!this.__captureUnloaded&&scope===this.pendingScope()&&this.__pendingOperations===operations;
+  this.setData({pendingError:'',pendingLeads:this.data.pendingLeads.map(r=>r.leadId===id?{...r,busy:true}:r)});
+  try{
+    if(action==='link')await crm.leads.link(id,command.revision,command.key);
+    else await crm.leads.invalidate(id,'负责人作废',command.revision,command.key);
+    if(!alive())return;
+    operations.delete(id);
+    this.__pendingSeq=(this.__pendingSeq||0)+1;
+    this.setData({pendingLeads:this.data.pendingLeads.filter(r=>r.leadId!==id)});
+    wx.showToast({title:action==='link'?'已关联原客户':'已作废',icon:'none'});
+    return this.loadPendingLeads();
+  }catch(error){
+    if(!alive())return;
+    command.busy=false;
+    if(pendingAccessLost(error))this.resetPendingState(true);
+    else this.setData({pendingLeads:this.data.pendingLeads.map(r=>r.leadId===id?{...r,busy:false}:r)});
+    this.fail(P.degradeMessage(error));
+  }
+},
+async loadPendingLeads(){
+  const scope=this.pendingScope();
+  if(!scope||this.__captureUnloaded)return;
+  const seq=this.__pendingSeq=(this.__pendingSeq||0)+1;
+  const alive=()=>!this.__captureUnloaded&&seq===this.__pendingSeq&&scope===this.pendingScope();
+  try{
+    const rows=await crm.leads.pending();
+    if(!alive())return;
+    if(!Array.isArray(rows))throw Error('待关联客资读取失败');
+    const items=rows.filter(r=>r.status==='LINK_REQUIRED').map(r=>{
+      const leadId=String(r.id);
+      return {leadId,name:r.name,phone:r.phone,revision:r.revision||1,source:r.source||'',
+        busy:!!this.__pendingOperations?.get(leadId)?.busy};
+    });
+    this.setData({pendingLeads:items,pendingError:''});
+  }catch(error){
+    if(!alive())return;
+    if(pendingAccessLost(error))this.resetPendingState(true);
+    this.setData({pendingError:P.degradeMessage(error)});
+  }
 },
 home(){wx.switchTab({url:'/pages/business/index'});},fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });
