@@ -165,7 +165,12 @@ class HeadquartersReadIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(reads.page("customers", filter(brandA, null, 1, 20)).total()).isEqualTo(2);
         assertThat(reads.page("customers", filter(brandB, companyA, 1, 20)).total()).isZero();
         long unassigned = organization(tenant, "store", null), unassignedCustomer = customer(unassigned, "未配置品牌客户");
+        // Model an unlinked historical directory projection, while retaining its real BOSS account/location.
+        // A new directory link must still satisfy the tenant/org unique constraint; no trigger is disabled.
+        jdbc.update("UPDATE pf_franchise_directory SET org_id=NULL WHERE tenant_id=? AND org_id=?", tenant, companyA);
         account(companyA, tenant, "金宅子");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_franchise_directory WHERE tenant_id=? AND org_id=?",
+                Long.class, tenant, companyA)).isEqualTo(1);
         assertThat(reads.context().companies()).filteredOn(row -> s(companyA).equals(row.get("id")))
                 .singleElement().satisfies(row -> assertThat(row).containsEntry("brandState", "AMBIGUOUS").containsEntry("brandId", null));
         assertThat(reads.page("customers", filter(brandA, null, 1, 20)).list()).extracting(row -> row.get("id")).containsExactly(s(peerCustomer));
