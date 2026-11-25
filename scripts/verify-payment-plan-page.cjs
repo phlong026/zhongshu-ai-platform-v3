@@ -169,6 +169,22 @@ test('保存结果未知时冻结原请求和幂等键，重试不接受已改�
   assert.equal(h.callsFor('save')[1].args[1].totalCents, 10000); assert.equal(h.page.data.uncertain, false);
 });
 
+test('付款计划保存超时后切回页面仍显示原请求重试，刷新不换幂等键', async () => {
+  const h = harness({ api: { save: async () => { throw { code: -1, msg: 'timeout' }; } } });
+  await h.open(); h.edit(); await h.page.submit();
+  const original = h.callsFor('save')[0], pending = h.page._pending;
+  h.page.onHide(); await h.page.onShow();
+  assert.equal(h.page.data.uncertain, true); assert.equal(h.page._pending, pending);
+  assert.equal(h.page.data.error, '');
+  const nodes = h.nodes(), retry = nodes.find(node => node.attrs?.bindtap === 'runPending');
+  assert.ok(retry, '读取最新计划成功后仍需核对原保存结果');
+  assert.match(nodes.map(node => node.text || '').join(''), /保存结果尚未确认/);
+  assert.equal(retry.attrs.disabled, false);
+  delete h.overrides.save; await h.page[retry.attrs.bindtap]();
+  assert.deepEqual(h.callsFor('save')[1].args, original.args);
+  assert.equal(h.page.data.uncertain, false); assert.equal(h.page._pending, null);
+});
+
 test('全额退款后的原收款节点仍有财务引用，不因净已收为零而允许删除', async () => {
   const h = harness(); h.state.stages[0].collectedCents = 0; h.state.stages[0].grossCents = 3000;
   h.state.stages[0].refundedCents = 3000; await h.open(); h.edit();
