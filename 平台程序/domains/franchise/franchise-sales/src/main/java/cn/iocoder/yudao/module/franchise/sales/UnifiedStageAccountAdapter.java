@@ -68,10 +68,11 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
 
     @Override
     public java.util.List<StageBalance> stageBalances(PostSnapshot post, long contractId) {
+        var contract=contracts.selectById(contractId);
         return collectService.stageSummary(post, contractId).stream().map(row -> new StageBalance(
                 String.valueOf(row.get("stage")), ((Number)row.get("amountCents")).longValue(),
                 ((Number)row.get("collectedCents")).longValue(),
-                (java.time.LocalDate) row.get("dueDate"), ((Number) row.get("stageId")).longValue(),
+                "ON_SIGN".equals(row.get("trigger")) && contract!=null ? contract.getSignedDate() : (java.time.LocalDate) row.get("dueDate"), ((Number) row.get("stageId")).longValue(),
                 ((Number) row.get("refundedCents")).longValue(),(String)row.get("label"),(String)row.get("trigger"),
                 (Integer)row.get("nodeIndex"),(Integer)row.get("planVersion"))).toList();
     }

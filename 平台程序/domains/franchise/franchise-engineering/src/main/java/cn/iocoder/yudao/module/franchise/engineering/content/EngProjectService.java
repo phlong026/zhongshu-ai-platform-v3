@@ -460,6 +460,7 @@ public class EngProjectService {
             view.put("saleContractId", project.getSaleContractId());
             view.put("customerId", project.getCustomerId());
             view.put("contractVersion", project.getContractVersion());
+            view.put("paymentPlanVersion",project.getPaymentPlanVersion());
             view.put("contractDate", project.getContractDate());
             view.put("contractAssetId", project.getContractAssetId());
         }
