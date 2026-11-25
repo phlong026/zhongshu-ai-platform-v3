@@ -93,7 +93,17 @@ export const isPostScopedUrl = (url = '') =>
   url.includes('/platform/org/') ||
   // 钱包 account/ledger 等 GET 需当前岗位上下文（服务端 @post.has('platform:wallet:read')）。
   url.includes('/platform/wallet/') ||
+  url.includes('/platform/announcements/') ||
   url.includes('/platform/posts/current-context')
+
+/** Announcement management is a headquarters workspace, not a store finance permission. */
+export const canReadHeadquartersAnnouncements = (
+  post: Pick<StaffPost, 'orgType' | 'roleCode'> | null | undefined,
+  can: (permission: string) => boolean
+) =>
+  post?.orgType === 'headquarters' &&
+  ['hq-admin', 'finance', 'finance-lead'].includes(post.roleCode) &&
+  can('platform:announcement:query')
 
 /**
  * 员工 Web 选岗后的落地页（identity 切换与短信登录共用，P2-1）。

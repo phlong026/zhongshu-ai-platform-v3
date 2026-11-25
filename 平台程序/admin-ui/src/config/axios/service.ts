@@ -248,6 +248,9 @@ service.interceptors.response.use(
       } else if (!silentError) {
         ElNotification.error({ title: msg })
       }
+      if ((response.config as { preserveBusinessError?: boolean }).preserveBusinessError === true) {
+        return Promise.reject(Object.assign(new Error(msg), { code }))
+      }
       return Promise.reject('error')
     } else {
       return data

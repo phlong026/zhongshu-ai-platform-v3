@@ -7,6 +7,7 @@ const roleLabels: Record<string, string> = {
   'project-manager': '工程负责人',
   finance: '财务专员',
   'finance-lead': '财务负责人',
+  'hq-admin': '总部管理员',
   'hq-design-admin': '设计行政',
   'hq-designer': '设计师',
   'hq-design-lead': '设计负责人',

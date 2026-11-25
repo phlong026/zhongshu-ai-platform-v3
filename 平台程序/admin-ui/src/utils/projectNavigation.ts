@@ -147,6 +147,13 @@ export function buildPlatformMenus(
       : []
   return [
     ...base.filter((route) => route.path === '/'),
+    ...(base.some((route) => route.path === '/') && can(['platform:announcement:query'])
+      ? [{
+          path: '/platform-announcements',
+          name: 'PlatformAnnouncementsEntry',
+          meta: { title: '公告管理', icon: 'ep:notification' }
+        }]
+      : []),
     ...pricing,
     ...(base.some((route) => route.path === '/') && can(['platform:operations:query'])
       ? [{path:'/platform-task-ops',name:'PlatformTaskOperationsEntry',meta:{title:'任务与积分核对',icon:'ep:finished'}}]
@@ -158,9 +165,10 @@ export function buildPlatformMenus(
 
 export function buildStaffMenus(
   routes: AppRouteRecordRaw[],
-  can: (permission: string) => boolean
+  can: (permission: string) => boolean,
+  headquartersAnnouncements = false
 ): AppRouteRecordRaw[] {
-  return routes
+  const staff = routes
     .filter((route) => route.path === '/fr')
     .map((route) => ({
       ...route,
@@ -172,6 +180,16 @@ export function buildStaffMenus(
         (child) => !child.meta?.hidden && (!child.meta?.permission || can(child.meta.permission))
       )
     }))
+  return [
+    ...staff,
+    ...(headquartersAnnouncements && can('platform:announcement:query')
+      ? [{
+          path: '/platform-announcements',
+          name: 'StaffAnnouncementsEntry',
+          meta: { title: '公司公告', icon: 'ep:notification' }
+        }]
+      : [])
+  ]
 }
 
 export function searchProjectMenus(routes: AppRouteRecordRaw[], keyword: string) {
@@ -214,6 +232,7 @@ export function groupPlatformNavigation(routes: AppRouteRecordRaw[]): AppRouteRe
   visit(routes)
   const groups = [
     { key: 'organization', title: '组织与权限', icon: 'ep:user-filled', paths: ['/platform-org/onboard', '/system/user', '/system/role', '/system/dept'] },
+    { key: 'announcements', title: '公司公告', icon: 'ep:notification', paths: ['/platform-announcements'] },
     { key: 'training', title: '课程培训', icon: 'ep:reading', paths: ['/training/courses', '/training/materials'] },
     { key: 'operations', title: '运营与积分', icon: 'ep:coin', paths: ['/platform-task-ops', '/platform-ops/wallets', '/platform-ops/orders', '/platform-ops/ledger', '/platform-ops/anomalies'] },
     { key: 'pricing', title: '定价与套餐', icon: 'ep:price-tag', paths: ['/platform-pricing', '/platform-ops/plans', '/platform-ops/design-prices'] },
