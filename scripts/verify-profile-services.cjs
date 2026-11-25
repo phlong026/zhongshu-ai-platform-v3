@@ -28,7 +28,7 @@ test('同品牌跨店可见，混入其他品牌或错误的全品牌响应时�
 });
 
 test('管理员同址落点合并，品牌和三级区划共同决定标记和清单', () => {
-  const org = { orgType: 'headquarters', permissions: ['franchise:store-map:read-all'] };
+  const org = { orgType: 'headquarters', roleCode:'hq-admin', permissions: ['franchise:store-map:read-all'] };
   const snapshot = readSnapshot({ scope: 'all', stores: [store, { ...store, id: 's2', brandId: 'b2' }] }, org);
   assert.equal(mapView(snapshot, {}).markers[0].storeIds.length, 2);
   const view = mapView(snapshot, { brand: 'b2', province: '33', city: '3301', district: '330110' });

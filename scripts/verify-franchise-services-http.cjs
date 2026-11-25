@@ -86,7 +86,7 @@ async function run() {
   const map=page('../miniprogram/pages/account/store-map/index');
   for(const [id,type,expected] of [['alpha','store',['甲一店','甲二店']],['beta','store',['乙一店']],['hq','headquarters',['甲一店','甲二店','乙一店']]]) {
     storage.set('zs-api-token-v1',id);storage.set('zs-api-post-v1',id);
-    storage.set('zs-api-posts-v1',[{orgType:type,postId:id,permissions:id==='hq'?['franchise:store-map:read-all']:[]}]);
+    storage.set('zs-api-posts-v1',[{orgType:type,postId:id,roleCode:id==='hq'?'hq-admin':'boss',permissions:id==='hq'?['franchise:store-map:read-all']:[]}]);
     await map.load();
     assert.equal(map.data.error,'');
     assert.deepEqual(map.data.rows.map(row=>row.name).sort(),expected.sort());
@@ -95,6 +95,8 @@ async function run() {
     if(id==='hq') assert.equal(new Set(map.data.rows.map(row=>row.color)).size,2);
     const raw=await request('/franchise/store-map?brandId=other&scope=all','GET',undefined,id);
     assert.equal(raw.schemaVersion,2);
+    assert.equal(raw.publicProjectionVersion,1);
+    assert.ok(raw.records.every(row=>!('originalRegionText' in row)&&!('linkedOrgId' in row)&&!('ownerName' in row)&&!('phone' in row)));
     assert.deepEqual(raw.records.map(row=>row.name).sort(),expected);
     assert.ok(raw.points.every(point=>point.locationPrecision==='district'&&raw.records.some(row=>row.id===point.recordId&&row.regionCodes.includes(point.regionCode))));
     assert.deepEqual(raw.stores.map(row=>row.name).sort(),expected);
