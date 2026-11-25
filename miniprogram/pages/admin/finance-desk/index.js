@@ -22,7 +22,9 @@ const closingRows=s=>!s?[]:s.legacy?[
  {label:'原确认净流出',value:displayFinanceMoney(s.paidCents),count:s.paymentCount},
  {label:'原确认结余',value:displayFinanceMoney(s.netCents)}
 ]:[
- ['已登记收款','grossReceipts'],['客户退款','clientRefunds'],['净实收','netReceived'],
+ ['已登记收款','grossReceipts'],
+ ...(Number.isSafeInteger(s.employeeRecoveryCents)&&s.employeeRecoveryCents>0&&Number.isSafeInteger(s.employeeRecoveryCount)&&s.employeeRecoveryCount>0?[['其中：员工归还多领报销','employeeRecovery']]:[]),
+ ['客户退款','clientRefunds'],['净实收','netReceived'],
  ['公司实付（含报销）','companyPaid'],['支出退回公司','companyReturned'],['公司净支出','netCompanyPaid'],
  ['收支结余','net'],['员工垫付','employeeAdvance'],['垫付退回员工','employeeReturned']
 ].map(([label,key])=>({label,value:displayFinanceMoney(s[key+'Cents']),count:s[key+'Count']}));
