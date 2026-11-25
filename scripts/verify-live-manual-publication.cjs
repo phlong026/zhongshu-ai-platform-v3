@@ -10,7 +10,7 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
-function loadPage({ create, list, verify, link, works = async () => [], accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
+function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
   let definition;
   const storage=new Map();
   const studio = {
@@ -50,10 +50,16 @@ function loadPage({ create, list, verify, link, works = async () => [], accounts
         if (!String(form.publishText || '').trim()) return '请填写发布文案';
         return '';
       },
-      validatePublishedUrl(value) { return String(value || '').trim() ? '' : '请填写发布后的作品链接'; },
+      validatePublishedUrl(value) {
+        const url = String(value || '').trim();
+        if (!url) return '请填写发布后的作品链接';
+        if (!/^https?:\/\//i.test(url)) return '请填写发布后的作品链接';
+        return '';
+      },
       rowsOf(rows) { return Array.isArray(rows) ? rows : []; },
       degradeMessage(error) { return error.message || '请求失败'; }
     },
+    '../../api/franchise/crm': { leads: { capture: capture || (async () => ({ result: 'CREATED', customerId: 'customer-1' })) } },
     '../../api/http': {
       token() { return 'fixture-token'; }, currentUserId() { return '42'; },
       sessionGeneration() { return 1; }, tenantId() { return 1; },
@@ -65,7 +71,7 @@ function loadPage({ create, list, verify, link, works = async () => [], accounts
   };
   const context = {
     Page(value) { definition = value; },
-    wx: { getStorageSync:key=>storage.get(key), setStorageSync:(key,value)=>storage.set(key,structuredClone(value)), removeStorageSync:key=>storage.delete(key), showToast(options) { toasts.push(options.title); }, redirectTo() {}, reLaunch() {} },
+    wx: { getStorageSync:key=>storage.get(key), setStorageSync:(key,value)=>storage.set(key,structuredClone(value)), removeStorageSync:key=>storage.delete(key), showToast(options) { toasts.push(options.title); }, redirectTo() {}, reLaunch(options) { if(options&&options.url)routes.push(options.url); }, navigateTo(options) { if(options&&options.url)routes.push(options.url); } },
     require(id) {
       if(id==='./publication-pending')return require('../miniprogram/pages/studio/publication-pending');
       if(id==='./publication-accounts')return require('../miniprogram/pages/studio/publication-accounts');
@@ -90,170 +96,202 @@ function loadPage({ create, list, verify, link, works = async () => [], accounts
   return instance;
 }
 
-test('manual publication uses a registered account ID and never sends editable names as identity', async () => {
-  let sent;
+const basePublishData = {
+  view: 'publish', workId: '8', title: '院落漫游', publishText: '口播文案', tags: '#乡墅',
+  selectedAccount: 1, publisherAccountId: '201',
+  publishedUrlInput: 'https://example.com/published/91'
+};
+
+test('link backfill uses a registered account ID and captures the lead with the publication source', async () => {
+  const calls = [];
+  const routes = [];
   const page = loadPage({
-    create: async payload => { sent = payload; return { id: 91 }; },
+    create: async (payload, key) => { calls.push(['create', payload, key]); return { id: 91, status: 'publishing' }; },
     list: async () => [],
-    pageData: {
-      view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', tags: '#乡墅',
-      selectedAccount: 1, publicationAccount: ' 泉州门店视频号 ', scheduled: '2099-12-01 10:00'
-    }
+    verify: async (id, key) => { calls.push(['verify', id, key]); },
+    link: async (id, url, key) => { calls.push(['link', id, url, key]); },
+    capture: async (payload, key) => { calls.push(['capture', payload, key]); return { result: 'CREATED', customerId: 'customer-9' }; },
+    routes,
+    pageData: Object.assign({}, basePublishData, { leadOpen: true, leadName: ' 王先生 ', leadPhone: '13800138000', leadNeed: ' 想了解二层户型 ' })
   });
 
-  page.submitPublishOnline();
-  await flush();
+  page.submitLinkAndLead();
+  for (let i = 0; i < 8; i += 1) await flush();
 
-  assert.deepEqual(JSON.parse(JSON.stringify(sent)), {
-    workId: '8', title: '院落漫游', publishText: '手动发布文案', tags: '#乡墅',
+  assert.equal(calls[0][0], 'create');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0][1])), {
+    workId: '8', title: '院落漫游', publishText: '口播文案', tags: '#乡墅',
     publisherAccountId: '201', platform: 'channels'
   });
-  assert.equal(Object.hasOwn(sent, 'accountId'), false);
-  assert.equal(Object.hasOwn(sent, 'accountName'), false);
-  assert.equal(Object.hasOwn(sent, 'scheduledAt'), false);
+  assert.equal(Object.hasOwn(calls[0][1], 'accountId'), false);
+  assert.equal(Object.hasOwn(calls[0][1], 'accountName'), false);
+  assert.equal(Object.hasOwn(calls[0][1], 'scheduledAt'), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1])).slice(0, 2), ['verify', '91']);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[2])).slice(0, 3), ['link', '91', 'https://example.com/published/91']);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[3])).slice(0, 2), ['capture', { name: '王先生', phone: '13800138000', need: '想了解二层户型', source: '内容发布:91' }]);
+  assert.equal(page.data.linkSaved, true);
+  assert.equal(page.data.linkSubmitting, false);
+  assert.match(routes[routes.length - 1], /\/pages\/workflow\/index\?view=customer&id=customer-9/);
 });
 
-test('manual publication requires an available registered account before creating a record', async () => {
+test('link-only submission skips lead capture and returns to the business home', async () => {
+  let captures = 0;
+  const routes = [];
+  const page = loadPage({
+    create: async () => ({ id: 92, status: 'publishing' }),
+    capture: async () => { captures += 1; return { result: 'CREATED', customerId: 'customer-1' }; },
+    routes,
+    pageData: Object.assign({}, basePublishData, { leadOpen: false })
+  });
+
+  page.submitLinkAndLead();
+  for (let i = 0; i < 8; i += 1) await flush();
+
+  assert.equal(captures, 0);
+  assert.equal(page.data.linkSaved, true);
+  assert.equal(routes.includes('/pages/business/index'), true);
+});
+
+test('link backfill requires an available registered account before creating a record', async () => {
   let calls = 0;
   const toasts = [];
   const page = loadPage({
-    create: async () => { calls += 1; return { id: 91 }; },
-    list: async () => [],
-    toasts,
-    pageData: { view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', publisherAccountId: '' }
+    create: async () => { calls += 1; return { id: 91 }; }, list: async () => [], toasts,
+    pageData: Object.assign({}, basePublishData, { publisherAccountId: '' })
   });
 
-  page.submitPublishOnline();
+  page.submitLinkAndLead();
   await flush();
 
   assert.equal(calls, 0);
   assert.deepEqual(toasts, ['请选择发布账号']);
 });
 
-test('manual publication requires a selected saved work and refuses an invalid page state', async () => {
+test('link backfill requires a selected saved work and a valid published URL', async () => {
   let calls = 0;
   const toasts = [];
   const page = loadPage({
     create: async () => { calls += 1; return { id: 91 }; }, list: async () => [], toasts,
-    pageData: { view: 'publish', workId: '', title: '院落漫游', publishText: '手动发布文案', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData, { workId: '' })
   });
-  await page.submitPublishOnline();
-  page.data.workId = '8';
-  page.data.invalidMessage = '作品已失效';
-  await page.submitPublishOnline();
+  page.submitLinkAndLead();
+  assert.deepEqual(toasts, ['请先选择已保存的作品']);
 
+  page.data.workId = '8';
+  page.data.publishedUrlInput = 'not-a-link';
+  page.submitLinkAndLead();
   assert.equal(calls, 0);
-  assert.deepEqual(toasts, ['请先选择已保存的作品', '请先选择已保存的作品']);
+  assert.equal(page.data.operationError, '请填写发布后的作品链接');
 });
 
-test('manual publication disables duplicate submit while one request is pending', async () => {
+test('link backfill disables duplicate submit while one request is pending', async () => {
   let resolveCreate;
   let calls = 0;
   const page = loadPage({
     create: () => { calls += 1; return new Promise(resolve => { resolveCreate = resolve; }); }, list: async () => [],
-    pageData: { view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData)
   });
 
-  const first = page.submitPublishOnline();
-  const second = page.submitPublishOnline();
+  const first = page.submitLinkAndLead();
+  const second = page.submitLinkAndLead();
   assert.equal(calls, 1);
-  assert.equal(page.data.publishSubmitting, true);
-  resolveCreate({ id: 91 });
+  assert.equal(page.data.linkSubmitting, true);
+  resolveCreate({ id: 91, status: 'publishing' });
   await Promise.all([first, second]);
-  assert.equal(page.data.publishSubmitting, false);
+  assert.equal(page.data.linkSubmitting, false);
 
   const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.wxml'), 'utf8');
-  assert.match(wxml, /loading="\{\{publishSubmitting\}\}"/);
-  assert.match(wxml, /disabled="\{\{publishSubmitting\}\}"/);
+  assert.match(wxml, /loading="\{\{linkSubmitting\}\}"/);
+  assert.match(wxml, /disabled="\{\{linkSubmitting\|\|linkSaved/);
 });
 
-test('manual publication ignores a successful response after session or post scope changes', async () => {
+test('link backfill ignores a successful response after session or post scope changes', async () => {
   let resolveCreate;
   let requestAlive = true;
   let currentScope = 'post-42';
   const routes = [];
-  const writes = [];
   const page = loadPage({
-    create: () => new Promise(resolve => { resolveCreate = resolve; }), list: async () => [], routes, writes,
+    create: () => new Promise(resolve => { resolveCreate = resolve; }), list: async () => [], routes,
     alive: () => requestAlive, scope: () => currentScope,
-    pageData: { view: 'publish', workId: '8', title: '院落漫游', publishText: '手动发布文案', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData)
   });
 
-  const pending = page.submitPublishOnline();
+  const pending = page.submitLinkAndLead();
   requestAlive = false;
   currentScope = 'post-99';
   page.actorScope = 'post-99';
-  resolveCreate({ id: 91 });
+  resolveCreate({ id: 91, status: 'publishing' });
   await pending;
 
   assert.deepEqual(routes, []);
-  assert.deepEqual(writes, []);
+  assert.equal(page.data.linkSaved, false);
 });
 
-test('network retry reuses the exact publication payload and idempotency key', async () => {
+test('network retry reuses the exact creation payload and idempotency key', async () => {
   const calls = [];
   const routes = [];
   const page = loadPage({
     create: async (payload, key) => {
       calls.push({ payload: JSON.parse(JSON.stringify(payload)), key });
       if (calls.length === 1) throw { code: -1, message: '响应丢失' };
-      return { id: 91 };
+      return { id: 91, status: 'publishing' };
     },
     list: async () => [], routes,
-    pageData: { view: 'publish', workId: '8', title: '原标题', publishText: '原文案', tags: '#原话题', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData, { title: '原标题', publishText: '原文案', tags: '#原话题' })
   });
 
-  await page.submitPublishOnline();
-  page.data.workId = '';
+  await page.submitLinkAndLead();
   page.data.title = '';
   page.data.publishText = '';
-  page.data.invalidMessage = '后来加载作品失败';
-  await page.resumePublication();
+  await page.submitLinkAndLead();
+  for (let i = 0; i < 8; i += 1) await flush();
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1], calls[0]);
-  assert.deepEqual(routes, ['/pages/studio/index?view=receipt&record=91']);
+  assert.equal(page.data.linkSaved, true);
 });
 
-test('server 500 keeps the original publication snapshot for an idempotent retry', async () => {
+test('server 500 keeps the original creation snapshot for an idempotent retry', async () => {
   const calls = [];
   const toasts = [];
   const page = loadPage({
     create: async (payload, key) => {
       calls.push({ payload: JSON.parse(JSON.stringify(payload)), key });
       if (calls.length === 1) throw { code: 500, message: '服务器异常' };
-      return { id: 93 };
+      return { id: 93, status: 'publishing' };
     },
     list: async () => [], toasts,
-    pageData: { view: 'publish', workId: '8', title: '原标题', publishText: '原文案', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData)
   });
 
-  await page.submitPublishOnline();
+  await page.submitLinkAndLead();
   page.data.title = '服务器异常后的编辑值';
   page.data.publishText = '不得以同一幂等键发送';
-  await page.resumePublication();
+  await page.submitLinkAndLead();
+  for (let i = 0; i < 8; i += 1) await flush();
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1], calls[0]);
-  assert.equal(toasts[0], '登记结果待确认，请核对上次登记；本页修改会保留');
+  assert.equal(toasts[0], '提交结果待确认，请重试核对本次提交');
 });
 
-test('an explicit business failure releases the publication snapshot for corrected input', async () => {
+test('an explicit business failure releases the snapshot for corrected input', async () => {
   const calls = [];
   const page = loadPage({
     create: async (payload, key) => {
       calls.push({ payload: JSON.parse(JSON.stringify(payload)), key });
       if (calls.length === 1) throw { code: 1114000001, message: '发布参数无效' };
-      return { id: 92 };
+      return { id: 92, status: 'publishing' };
     },
     list: async () => [],
-    pageData: { view: 'publish', workId: '8', title: '旧标题', publishText: '旧文案', publicationAccount: '门店视频号' }
+    pageData: Object.assign({}, basePublishData, { title: '旧标题', publishText: '旧文案' })
   });
 
-  await page.submitPublishOnline();
+  await page.submitLinkAndLead();
   page.data.title = '更正后的标题';
   page.data.publishText = '更正后的文案';
-  await page.submitPublishOnline();
+  await page.submitLinkAndLead();
+  for (let i = 0; i < 8; i += 1) await flush();
 
   assert.equal(calls.length, 2);
   assert.notEqual(calls[1].key, calls[0].key);
@@ -261,18 +299,24 @@ test('an explicit business failure releases the publication snapshot for correct
   assert.equal(calls[1].payload.publishText, '更正后的文案');
 });
 
-test('manual publication template selects registered accounts and offers management', () => {
+test('link backfill template exposes registered accounts, link and optional lead but no old form', () => {
   const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.wxml'), 'utf8');
-  assert.match(wxml, /发布平台/);
+  assert.match(wxml, /回填发布链接/);
+  assert.match(wxml, /发布链接/);
+  assert.match(wxml, /登记本次咨询客资/);
+  assert.match(wxml, /submitLinkAndLead/);
   assert.match(wxml, /publisherAccounts/);
   assert.match(wxml, /managePublisherAccounts/);
+  assert.doesNotMatch(wxml, /创建手动发布登记/);
+  assert.doesNotMatch(wxml, /publish-title-input/);
+  assert.doesNotMatch(wxml, /publish-copy-input/);
   assert.doesNotMatch(wxml, /bindinput="inputPublicationAccount"/);
-  assert.match(wxml, /手动发布后登记链接|请先在所选平台发布内容，再登记链接/);
-  assert.doesNotMatch(wxml, /chooseSchedule|sheet === 'schedule'|确认定时|定时需至少/);
+  assert.doesNotMatch(wxml, /定时需至少|确认定时|sheet === 'schedule'/);
 
   const pageSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
   assert.doesNotMatch(pageSource, /douyin-adviser|channels-design/);
 });
+
 
 test('manual link registration verifies external publication before linking a publishing record', async () => {
   const calls = [];

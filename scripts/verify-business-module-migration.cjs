@@ -57,6 +57,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
       if (name.endsWith('/api/http')) return http;
       if (name.endsWith('/api/auth')) return { currentApiPost: () => ({ postId: scope, roleCode: role,orgType,orgId:persistence.orgId||'33',userId:persistence.userId||'77' }) };
       if (name.endsWith('/api/franchise/content')) return api;
+      if (name.endsWith('/api/franchise/crm')) return { leads: { capture: async () => ({ result: 'CREATED', customerId: 'customer-1' }) } };
       if (name.endsWith('/utils/storage-keys')) return { creationDraft: 'creation-draft' };
       if (name.endsWith('/utils/page-navigation')) return { open: url => navigations.push(url) };
       throw Error('Unexpected dependency ' + name);
