@@ -51,6 +51,30 @@ test('company cash and employee advances are shown with matching counts; confirm
  await reopened.page.reconcileBook();assert.equal(reopened.calls.writes.length,0,'unchanged confirmed cash does not create a second confirmation');
 });
 
+test('employee reimbursement recovery is shown as part of receipts without backfilling prior confirmations',async()=>{
+ const h=harness(),base=facts({grossReceiptsCents:1020000,grossReceiptsCount:2,netReceivedCents:1020000,netCents:1000000});
+ const detailed={...base,employeeRecoveryCents:20000,employeeRecoveryCount:1};
+ let saved=base;
+ h.state.read=async period=>({period,current:detailed,confirmed:saved,needsReview:false});
+ await h.page.loadMonthClosing();
+ const label='其中：员工归还多领报销',closing=h.page.data.monthClosing;
+ assert.equal(closing.currentRows[0].label,'已登记收款');
+ assert.equal(closing.currentRows[0].value,'10,200.00');
+ assert.equal(closing.currentRows[0].count,2);
+ assert.equal(closing.currentRows[1].label,label);
+ assert.equal(closing.currentRows[1].value,'200.00');
+ assert.equal(closing.currentRows[1].count,1);
+ assert(!closing.confirmedRows.some(row=>row.label===label));
+ const template=path.join(__dirname,'../miniprogram/pages/admin/finance-desk/month-reconciliation.wxml');
+ let html=text(render(template,h.page.data));
+ assert(html.includes(label+' · 1笔')&&html.includes('¥200.00'));
+ assert.equal(html.split(label).length-1,1);
+ saved=detailed;await h.page.loadMonthClosing();
+ html=text(render(template,h.page.data));
+ assert.equal(html.split(label).length-1,2);
+ assert.equal(h.calls.writes.length,0);
+});
+
 test('later postings show new totals and a review marker without replacing the original confirmation',async()=>{
  const h=harness(),saved={...facts(),period:'2026-11',byName:'财务甲',updateTime:'2026-11-23T03:00:00Z'};
  h.state.read=async period=>({period,current:facts({companyPaidCents:40000,companyPaidCount:2,netCents:60000,sourceSignature:'v2'}),confirmed:saved,needsReview:true});
