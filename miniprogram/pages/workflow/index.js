@@ -96,6 +96,7 @@ Page({
    this.setData({contentSources:Array.isArray(rows)?rows:[]});
   }).catch(()=>{if(!this.stale(gen,sessionGen,postKey))this.setData({contentSources:[]});});
  },
+ openCustomerFlow(){if(this.data.platformMode&&this.data.customer)require('../../utils/page-navigation').open('/pages/customer-flow/index?customerId='+encodeURIComponent(this.id));},
  openContentSource(e){
   const id=String(e.currentTarget.dataset.publicationId||'');
   if(!/^\d+$/.test(id))return wx.showToast({title:'发布来源编号无效',icon:'none'});
@@ -385,7 +386,7 @@ Page({
   const PFc=this.__pf;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   const saleWrite=this.platformTradeFrame();
-  this.setData({view:'contract',title:'签订合同',salesContracts:null,contractsError:'',salesQuotes:null,quotesError:'',canRegister:false,canFollow:false,canCollect:PF.can(this.__post,'collect')});// contractForm 保留（S1-21 表单保留协议）
+  this.setData({view:'contract',title:'签订合同',salesContracts:null,contractsError:'',salesQuotes:null,quotesError:'',canRegister:false,canFollow:false,canCollect:PF.can(this.__post,'collect')});// 新建与调整付款计划由独立页面保留填写。
   this.loadTradeCustomerContext(gen,sessionGen,postKey);
   if(!saleWrite)return this.blockTradeLoad();
   const api=this.platformSalesApi();
@@ -411,77 +412,26 @@ Page({
    this.setData({latestRequirementId:latest?latest.id:''});
   });
  },
- openContractForm(){
-  if(this.data.busy||this.data.contractForm||this.data.contractsHasActive||!this.guardTradeSubmit('contractError'))return;
-  this.setData({contractForm:{total:'',signAfter:'',baseDone:'0',capDone:'0',signedDate:'',quoteLabel:''},contractError:''});
- },
+ openContractForm(){if(!this.data.busy&&!this.data.contractsHasActive&&this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id));},
  useContractQuote(e){
   if(this.data.busy||this.data.contractsHasActive||!this.guardTradeSubmit('contractError'))return;
   const id=String(e.currentTarget.dataset.quoteId),quote=(this.data.salesQuotes||[]).find(q=>String(q.id)===id);
   if(!quote||!PF.toCents(quote.totalText))return this.setData({contractError:'这份报价已不可用，请重新选报价或手填金额'});
-  this.openContractForm();
-  if(!this.data.contractForm)return;
-  this.setData({'contractForm.total':quote.totalText,'contractForm.quoteLabel':[quote.date,quote.priceVersion,'¥ '+quote.totalText].filter(Boolean).join(' · '),contractError:''},
-   ()=>{if(!this.__disposed&&this.data.view==='contract')wx.pageScrollTo?.({selector:'#contract-entry',duration:200});});
-  this.saveDraft();
+  require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?customerId='+encodeURIComponent(this.id)+'&quoteId='+encodeURIComponent(id));
  },
- contractInput(e){
-  const key=e.currentTarget.dataset.key;
-  if(this.data.busy||!this.data.contractForm||!['total','signAfter','baseDone','capDone'].includes(key))return;
-  this.setData({['contractForm.'+key]:e.detail.value,...(key==='total'?{'contractForm.quoteLabel':''}:{}),contractError:''});
-  this.saveDraft();
- },
- contractDate(e){this.setData({'contractForm.signedDate':e.detail.value,contractError:''});this.saveDraft();},
- platformSubmitContract(){
-  const fail=msg=>this.setData({contractError:msg,busy:false});
-  if(this.data.busy||!this.guardTradeSubmit('contractError'))return;
-  const fm=this.data.contractForm;
-  if(!fm)return fail('请先打开新建合同表单');
-  // M06-T02 三期：Σ三期=总额；签约后>0；基础完成后/封顶后≥0（0=未约定）
-  const total=PF.toCents(fm.total),signAfter=PF.toCents(fm.signAfter),baseDone=PF.toCents(fm.baseDone||'0'),capDone=PF.toCents(fm.capDone||'0');
-  if(!total)return fail('请填写合同总额（最多两位小数）');
-  if(!signAfter)return fail('签约后期金额必填且大于 0');
-  if(baseDone==null||capDone==null)return fail('基础完成后/封顶后金额须为不小于 0 的数字（未约定填 0）');
-  if(signAfter+baseDone+capDone!==total)return fail('三期金额之和必须等于合同总额');
-  const body={customerId:this.id,totalCents:total,signAfterCents:signAfter,baseDoneCents:baseDone,capDoneCents:capDone};
-  const sd=PF.dateToArray(fm.signedDate);if(sd)body.signedDate=sd;
-  if(this.data.latestRequirementId)body.requirementId=this.data.latestRequirementId;
-  const key=this.platformCommand('contract');
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({busy:true,contractError:''});
-  this.platformSalesApi().contracts.create(body,key).then(()=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommand('contract');this.setData({busy:false,contractForm:null});
-   this.loadPlatformContract();
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});// S1-21：网络失败保留快照原键；重拉 R8 供核对（006 同样进入核对）
-   this.loadPlatformContract();
-   fail(PF.errorMessageSales(err));
-  });
- },
+ openPaymentDraft(){if(this.guardTradeSubmit('contractError'))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?draft=1&customerId='+encodeURIComponent(this.id));},
+ openPaymentPlan(e){const id=String(e.currentTarget.dataset.id);if((this.data.salesContracts||[]).some(c=>c.id===id))require('../../utils/page-navigation').open('/pages/workflow/payment-plan/index?contractId='+encodeURIComponent(id));},
+ platformSubmitContract(){return this.openContractForm();},
  platformCommandFor(action,targetId){this.__cmdKeys=this.__cmdKeys||{};const k=action+':'+targetId;if(!this.__cmdKeys[k])this.__cmdKeys[k]=PF.commandKey(action);return this.__cmdKeys[k];},
  platformDropCommandFor(action,targetId){if(this.__cmdKeys)delete this.__cmdKeys[action+':'+targetId];},
  platformContractSign(e){
-  const id=e.currentTarget.dataset.id,card=(this.data.salesContracts||[]).find(c=>c.id===String(id));
-  const fail=msg=>this.setData({contractError:msg,busy:false});
-  if(!card||card.revision==null)return fail('数据已变化，请刷新后重试');
-  const key=this.platformCommandFor('sign',id);
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({busy:true,contractError:''});
-  this.platformSalesApi().contracts.sign(id,{revision:card.revision},key).then(res=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommandFor('sign',id);this.setData({busy:false});
-   if(res&&res.status==='SIGNED')wx.showToast({title:'已签订',icon:'none'});else wx.showToast({title:'合同状态已变化，已刷新',icon:'none'});
-   this.loadPlatformContract();
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});
-   if((err&&err.code)!==-1)this.platformDropCommandFor('sign',id);
-   fail(PF.errorMessageSales(err));
-  });
+  const card=(this.data.salesContracts||[]).find(c=>c.id===String(e.currentTarget.dataset.id));
+  if(this.data.busy||!PF.can(this.__post,'saleWrite')||!card||card.status!=='WAIT_SIGN')return;
+  return this.openContractEvidence(e);
+ },
+ openContractEvidence(e){
+  const id=String(e.currentTarget.dataset.id);
+  if(!this.data.busy&&(this.data.salesContracts||[]).some(c=>c.id===id))require('../../utils/page-navigation').open('/pages/contract-documents/index?contractId='+encodeURIComponent(id));
  },
  platformContractVoid(e){
   const id=e.currentTarget.dataset.id,card=(this.data.salesContracts||[]).find(c=>c.id===String(id));

@@ -1,0 +1,9 @@
+<view wx:if="{{paymentPlan}}" class="eng-section">
+  <view class="eng-heading"><text>正式合同付款计划</text><text>V{{paymentPlan.version}}</text></view>
+  <view class="record-title-row"><text class="eng-name">总额 ¥{{paymentPlan.totalText}}</text><text wx:if="{{paymentPlan.preparedVersion}}" class="eng-muted">准备时 V{{paymentPlan.preparedVersion}}</text></view>
+  <view wx:for="{{paymentPlan.rows}}" wx:key="id" class="record-field">
+    <view class="record-title-row"><text>{{index+1}}. {{item.label}}</text><text>¥{{item.amountText}}</text></view>
+    <text class="eng-muted">{{item.condition}}{{item.ratioText?' · '+item.ratioText:''}}{{item.dueDate?' · '+item.dueDate:''}}</text>
+  </view>
+</view>
+<view wx:if="{{paymentNotice}}" class="eng-section"><text class="eng-muted">{{paymentNotice}}</text></view>

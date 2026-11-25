@@ -59,17 +59,11 @@
     <text class="sec-sub">{{candidatesError ? '网络波动导致方案读取失败，生成结果不受影响，可重试加载。' : '生成结果未全部成功，只按成功的方案扣点，多付的点数会自动退回。'}}</text>
     <view class="empty-actions">
       <view wx:if="{{candidatesError}}" class="v12-primary-button" bindtap="retryCandidates">重试加载</view>
-      <view wx:else class="v12-primary-button" bindtap="regenerate">{{regenerating ? '重新生成中…' : '重新生成'}}</view>
       <view class="v12-secondary-button" bindtap="leavePage">返回上一步</view>
     </view>
   </view>
 
   <view class="stage-tip"><t-icon name="info-circle" size="24px" color="#b9690b" /><text>生成按成功方案结算，提示词费用单独结算；实际扣退点请查看点数流水</text></view>
-
-  <view wx:if="{{finished && !selectDone && candidates.length}}" class="regen-row" bindtap="regenerate" role="button" aria-label="重新生成方案">
-    <t-icon name="refresh" size="16px" color="#7b5532" />
-    <text>{{regenerating ? '正在创建生成任务…' : '对方案不满意？重新生成（将确认点数）'}}</text>
-  </view>
 
   <view class="actions" wx:if="{{!terminal && !targetInvalid}}"><view class="v12-primary-button" bindtap="continueLater">后台继续</view><view wx:if="{{canCancel}}" class="v12-secondary-button" bindtap="cancel">{{cancelling ? '取消处理中' : '取消生成'}}</view></view>
   <view class="actions" wx:if="{{targetInvalid || (terminal && !finished)}}"><view class="v12-secondary-button" bindtap="leavePage">返回记录</view></view>

@@ -15,6 +15,7 @@ function readSnapshot(payload, post) {
   if (!admin && !(payload.scope === 'brand' && post.orgType === 'store' && brandId
       && (!post.brandId || text(post.brandId) === brandId))) throw Error('当前岗位无权查看此地图');
   const version = Number(payload.schemaVersion) >= 2 ? 2 : 1;
+  const publicProjection = version === 2 && Number(payload.publicProjectionVersion) === 1;
   const source = version === 2 ? payload.records : payload.stores;
   if (!Array.isArray(source) || version === 2 && (!Array.isArray(payload.points) || !Array.isArray(payload.brands))) {
     throw Error('地图数据格式异常');
@@ -24,11 +25,14 @@ function readSnapshot(payload, post) {
     const recordType = version === 2 ? row.recordType : 'FRANCHISE';
     if (!['FRANCHISE', 'COVERAGE'].includes(recordType)) throw Error('地图记录类型异常');
     const regionCodes = unique((version === 2 ? row.regionCodes || [] : [row.districtCode || row.cityCode || row.provinceCode]).map(text));
-    const record = { ...row, id:text(row.id), brandId:text(row.brandId), name:text(row.name),
+    // Explicit public DTO projection also drops private fields returned by older cached clients/proxies.
+    const record = { id:text(row.id), brandId:text(row.brandId), name:publicProjection ? text(row.name) : '',
       brandName:text(row.brandName), color:color(row.brandColor), recordType, regionCodes,
       provinceCode:text(row.provinceCode), cityCode:text(row.cityCode),
       matchStatus:version === 2 ? row.matchStatus : row.districtCode ? 'RESOLVED' : 'UNRESOLVED',
-      originalRegionText:text(row.originalRegionText) || unique([row.provinceName, row.cityName, row.districtName]).join(' · ') };
+      publicAddress:publicProjection ? text(row.publicAddress) : '',
+      districtCode:text(row.districtCode), provinceName:text(row.provinceName), cityName:text(row.cityName),
+      districtName:text(row.districtName), latitude:row.latitude, longitude:row.longitude, locationPrecision:row.locationPrecision };
     return [record.id, record];
   })).values()];
   const byId = new Map(records.map(row => [row.id, row]));
@@ -41,7 +45,8 @@ function readSnapshot(payload, post) {
     if (!record || !record.regionCodes.includes(text(point.regionCode)) || point.locationPrecision !== 'district') {
       throw Error('地图落点与登记资料不一致');
     }
-    return { ...point, id:text(point.id), recordId:record.id, regionCode:text(point.regionCode) };
+    return { id:text(point.id), recordId:record.id, regionCode:text(point.regionCode),
+      latitude:point.latitude, longitude:point.longitude, locationPrecision:'district' };
   }) : records.filter(row => row.districtCode).map(row => ({
     id:row.id, recordId:row.id, regionCode:text(row.districtCode), longitude:row.longitude,
     latitude:row.latitude, locationPrecision:row.locationPrecision || 'unknown'
@@ -51,10 +56,11 @@ function readSnapshot(payload, post) {
 
 function readRegions(rows) {
   if (!Array.isArray(rows)) throw Error('行政区目录格式异常');
-  const regions = rows.map(row => ({ ...row, code:text(row.code), name:text(row.name),
+  const regions = rows.map(row => ({ code:text(row.code), name:text(row.name),
     level:({1:'province',2:'city',3:'district'})[row.level] || text(row.level).toLowerCase(),
     parentCode:text(row.parentCode), provinceCode:text(row.provinceCode), cityCode:text(row.cityCode),
-    districtCode:text(row.districtCode), provinceName:text(row.provinceName), cityName:text(row.cityName), districtName:text(row.districtName) }));
+    districtCode:text(row.districtCode), provinceName:text(row.provinceName), cityName:text(row.cityName), districtName:text(row.districtName),
+    latitude:row.latitude, longitude:row.longitude }));
   if (regions.some(row => !row.code || !row.name || !['province','city','district'].includes(row.level))) throw Error('行政区目录格式异常');
   return { rows:regions, byCode:new Map(regions.map(row => [row.code, row])) };
 }
@@ -178,13 +184,16 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
       : status === 'empty' ? '暂无已登记加盟商' : amounts.franchiseCount ? '已有加盟商' : '已有覆盖记录',
     offMapPendingCount:viewport ? candidates.filter(row => incomplete(row,catalog)).length : 0 };
   const keyword = text(filters.keyword).toLowerCase();
-  const matchesName = row => !keyword || (row.name + ' ' + row.originalRegionText + ' ' + row.brandName).toLowerCase().includes(keyword);
+  const regionText = row => unique(row.regionCodes.map(code => catalog.byCode.get(code)).filter(Boolean).map(regionTitle)).join('；')
+    || unique([row.provinceCode,row.cityCode].map(code => catalog.byCode.get(code)).filter(Boolean).map(regionTitle)).join('；') || '地区待补充';
+  const publicName = row => row.name || row.brandName + ' · ' + regionText(row) + (row.recordType === 'FRANCHISE' ? '门店' : '覆盖记录');
+  const matchesName = row => !keyword || [publicName(row),row.publicAddress,regionText(row),row.brandName].join(' ').toLowerCase().includes(keyword);
   const resultRecords = keyword ? candidates : [...new Map([...confirmed,...pending].map(row => [row.id,row])).values()];
   const formatRow = row => ({...row,
-    name:row.name || '名称待补充', typeLabel:row.recordType === 'FRANCHISE' ? '加盟商' : '覆盖记录',
+    name:publicName(row), typeLabel:row.recordType === 'FRANCHISE' ? '加盟商' : '覆盖记录',
     pending:incomplete(row,catalog),districtCount:districtCodes(row,catalog).length,
     districtNames:districtCodes(row,catalog).map(code => regionTitle(catalog.byCode.get(code))).join('；'),
-    regionText:row.originalRegionText || unique(row.regionCodes.map(code => catalog.byCode.get(code)?.name)).join('、') || '地区待补充' });
+    regionText:regionText(row) });
   const rows = resultRecords.filter(matchesName).map(formatRow);
   const mapRecordIds = new Set(candidates.filter(matchesName).map(row => row.id));
   const mapPoints = validPoints.filter(point => mapRecordIds.has(point.recordId)

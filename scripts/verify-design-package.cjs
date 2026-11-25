@@ -65,8 +65,6 @@ const path = require('path');
   assert.equal(dpage.data.entranceEnabled, true, '在途旧设计行政授权入口保持可用');
   const targets = {
     inspiration: { route: 'design-migration/pages/library/index' },
-    'ai-config': { route: 'design-migration/pages/ai-design/index', line: 'FLAT' },
-    'ai-facade': { route: 'design-migration/pages/ai-design/index', line: 'ELEVATION' },
     budget: { route: 'design-migration/pages/budget/quick' }
   };
   for (const entry of dpage.data.entries) {
@@ -76,6 +74,7 @@ const path = require('path');
     assert.equal(target.route, expected.route, entry.view + ' 入口跳转目标');
     if (expected.line) assert.equal(target.data.line, expected.line, entry.view + ' 设计类型透传');
   }
-  assert(dpage.data.entries.length === 4, '在途旧设计行政的四入口完整');
+  assert.deepEqual(dpage.data.entries.map(entry => entry.view), ['inspiration', 'budget'], '历史设计入口只保留灵感库和快速预算');
+  assert(!fs.readFileSync('miniprogram/pages/design/index.wxml', 'utf8').includes('开始AI设计'), '旧页面不再邀请发起收费生成');
   console.log(JSON.stringify({ ...report, renderedImages: imageChecks }, null, 2));
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });

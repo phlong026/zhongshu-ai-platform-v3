@@ -10,16 +10,16 @@ const wxml = read('miniprogram/pages/account/index.wxml');
 
 assert(!wxml.includes('手机号登录'), '登录页已移除手机号登录');
 assert(!wxml.includes('data-handler="sendCaptcha"'), '登录页已移除短信验证码入口');
-assert(wxml.includes('bindconfirm="findAccounts"'), '用户名输入支持键盘立即匹配');
-assert(wxml.includes('data-handler="selectAccount"'), '多账号匹配支持明确选择');
-assert(wxml.includes('结果较多，请补充名称'), '账号匹配被截断时提示继续缩小范围');
+assert(wxml.includes('请输入管理员提供的完整账号'), '账号输入要求完整账号');
+assert(!/findAccounts|selectAccount|accountMatches/.test(wxml), '登录页面不检索或展示匿名账号候选');
 assert(wxml.includes("'accountLogin'"), '账号密码登录入口已接线');
 assert(wxml.includes('data-handler="clearDefaultAccount"'), '默认账号可以清除');
 assert(!wxml.includes('绑定已有账号') && !wxml.includes('toggleWechatBinding'), '不要求用户手动绑定微信');
 assert(wxml.includes('open-type="getPhoneNumber"') && wxml.includes('bindgetphonenumber="onWechatPhoneNumber"'), '首次微信通过官方手机号授权自动识别账号');
 assert(wxml.includes('bindtap="wechatLogin"'), '微信普通按钮登录已接线');
 
-assert(authSource.includes("'/platform/auth/account/matches'"), 'auth API 提供账号简写匹配');
+assert(!authSource.includes('/platform/auth/account/matches'), 'auth API 不提供匿名人员或账号检索');
+assert(authSource.includes('function accountLoginByName('), '完整账号与密码直接提交认证');
 assert(authSource.includes("'/platform/auth/account/login'"), 'auth API 提供账号密码登录');
 assert(authSource.includes('phoneCode: opts.phoneCode') && !authSource.includes('/platform/auth/wechat-bind'), '客户端只提交微信授权 code，不手动绑定');
 assert(pageSource.includes('preferredPostId'), '登录后优先进入后端指定的门店岗位');
@@ -48,7 +48,8 @@ assert.ok(!/10-64位|同时包含字母和数字/.test(wxml + pageSource), '清�
 
 const account = { accountId: '88', loginName: 'hjmz-jxnc-gaoxin-lizhong', orgName: '合家美宅-江西南昌-高新-李忠', ownerName: '李忠',personName:'李忠',roleCode:'boss',roleName:'老板',shortOrgName:'合家美宅 · 江西南昌高新' };
 login.saveDefault(account);
-assert.deepEqual(login.defaultAccount(), account, '默认账号仅保存账号标识与展示信息');
+assert.deepEqual(login.defaultAccount(), {accountId:account.accountId,loginName:account.loginName}, '默认账号仅保存已验证账号标识与登录名');
+assert(!/ownerName|personName|orgName|roleCode|roleName|shortOrgName/.test(JSON.stringify(storage.get(login.DEFAULT_KEY))), '默认账号不缓存人员和组织资料');
 assert.equal(JSON.stringify(storage.get(login.DEFAULT_KEY)).includes('password'), false, '默认账号不保存密码');
 login.clearDefault();
 assert.equal(login.defaultAccount(), null, '默认账号可清除');

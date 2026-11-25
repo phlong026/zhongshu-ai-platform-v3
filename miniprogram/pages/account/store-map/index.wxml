@@ -16,7 +16,7 @@
       <button wx:for="{{suggestions}}" wx:key="code" class="search-result" data-code="{{item.code}}" bindtap="chooseSearchRegion">
         <image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>{{item.label}}</text><image class="result-chevron" src="/assets/creation-chevron.png" mode="aspectFit"/>
       </button>
-      <button class="name-search" bindtap="searchName">按名称或原始地区查询“{{query}}”</button>
+      <button class="name-search" bindtap="searchName">按门店名称、地址或地区查询“{{query}}”</button>
     </view>
     <view class="map-overview">
       <view class="overview-item">
@@ -102,13 +102,14 @@
           <view class="record-heading"><text class="name">{{item.name}}</text><text wx:if="{{item.pending}}" class="record-status">待确认</text></view>
           <view class="record-brand"><text class="dot" style="background:{{item.color}}"/><text>{{item.brandName}} · {{item.typeLabel}}</text></view>
           <text class="record-region {{expandedId===item.id?'expanded':''}}">{{item.regionText}}</text>
+          <text wx:if="{{item.publicAddress}}" class="record-detail">门店地址：{{item.publicAddress}}</text>
           <text wx:if="{{item.districtCount>1}}" class="record-coverage">已确认覆盖 {{item.districtCount}} 个区县</text>
           <text wx:if="{{expandedId===item.id&&item.districtNames}}" class="record-detail">{{item.districtNames}}</text>
           <text wx:if="{{expandedId===item.id}}" class="record-detail">{{item.pending?'区县归属尚未完整确认':'登记地区已确认'}} · {{item.recordType==='FRANCHISE'?'按加盟商去重统计':'覆盖记录不计入加盟商家数'}}</text>
         </view>
         <image class="record-chevron {{expandedId===item.id?'expanded':''}}" src="/assets/creation-chevron.png" mode="aspectFit"/>
       </button>
-      <view wx:if="{{!total}}" class="map-message">{{keyword?'未找到匹配的名称或原始地区记录':mode==='viewport'?'当前视野暂无可定位记录':'当前区域暂无已登记记录'}}</view>
+      <view wx:if="{{!total}}" class="map-message">{{keyword?'未找到匹配的门店名称、地址或地区':mode==='viewport'?'当前视野暂无可定位记录':'当前区域暂无已登记记录'}}</view>
       <button wx:if="{{total>rows.length}}" class="more" bindtap="more">查看更多记录</button>
     </view>
     </block>

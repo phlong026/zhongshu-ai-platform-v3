@@ -22,6 +22,7 @@ function request(method, url, data, headers) {
   const expected = captureSession();
   if (!expected) return Promise.reject({ code: 401, msg: '请先登录' });
   const path = url.split('?')[0].replace(/^\/app-api\/design\/v1/, '');
+  if(require('../../utils/design-retirement').blocked(method,path))return require('../../utils/design-retirement').reject();
   const query = {};
   (url.split('?')[1] || '').split('&').filter(Boolean).forEach(pair => {
     const split = pair.indexOf('=');

@@ -1,5 +1,5 @@
 <view class="v12-page" wx:if="{{accessReady}}">
-  <v12-navbar title="灵感库" show-back />
+  <v12-navbar title="{{pickMode?'选择参考户型':'灵感库'}}" show-back />
   <view class="v12-content v12-content--tab library-content">
     <view class="search"><t-icon name="search" size="20px" color="#a89a8c" /><input placeholder="搜索户型名称或编号" value="{{keyword}}" bindinput="onSearch" /></view>
     <view class="source-tabs"><view class="{{source === 0 ? 'active' : ''}}" data-index="0" bindtap="selectSource">公司案例</view><view class="{{source === 1 ? 'active' : ''}}" data-index="1" bindtap="selectSource">AI案例</view></view>
@@ -17,6 +17,7 @@
       <view class="v12-card case-card case-cover-watch" wx:for="{{visibleCases}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
         <view class="image-wrap"><image wx:if="{{item.image}}" src="{{item.image}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="imageError" /><view wx:elif="{{item.imageLoading}}" class="cover-state">图片加载中…</view><view wx:elif="{{item.imageError}}" class="cover-state cover-retry" role="button" data-id="{{item.id}}" catchtap="retryCover">点击重试</view><view wx:else class="cover-state">暂无封面</view><text wx:if="{{item.tag}}">{{item.tag}}</text></view>
         <view class="case-copy"><text>{{item.title}}</text><text>{{item.meta}}</text></view>
+        <button wx:if="{{pickMode}}" class="reference-action" data-id="{{item.id}}" catchtap="chooseReference">选用此户型</button>
       </view>
     </view>
     <v12-state wx:if="{{loading}}" status="loading" text="正在加载方案…" card="{{false}}" />

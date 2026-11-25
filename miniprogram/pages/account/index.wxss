@@ -8,7 +8,7 @@
 .wechat-actions{margin-top:40rpx}
 .login-card .solid.wechat-login-btn{display:flex;align-items:center;justify-content:center;gap:12rpx;background:#07c160!important;color:#fff!important}
 .wechat-login-icon{width:44rpx;height:44rpx;flex-shrink:0}
-.default-account,.selected-account{display:flex;align-items:center;gap:16rpx;margin:18rpx 0;padding:20rpx;border-radius:14rpx;background:#f7f1e9}.selected-account{display:block;border:1rpx solid #dbc5aa}.selected-account text{display:block}.account-search{margin-top:18rpx}.account-match-list{margin:18rpx 0}.account-match{display:flex;align-items:center;width:100%;padding:18rpx 20rpx;margin-top:12rpx;text-align:left;background:#f8f4ee;border:1rpx solid transparent;border-radius:14rpx}.account-match.selected-option{border-color:#9b6a43;background:#f5eadc}.account-match text{display:block}.change-password-title{display:block;margin:24rpx 0 12rpx;font-weight:600;color:#824019}.remember-account{margin-top:20rpx}
+.account-search{margin-top:18rpx}.change-password-title{display:block;margin:24rpx 0 12rpx;font-weight:600;color:#824019}.remember-account{margin-top:20rpx}
 .profile-hero .hint{margin-top:8rpx}
 .demo-entry-row{display:flex;justify-content:center;padding-top:8rpx}
 .demo-entry{background:transparent;font-size:var(--zs-font-caption);color:#9b7b5e;padding:10rpx 0}
@@ -18,7 +18,7 @@
 .login-card .login-password-input{letter-spacing:0!important;text-align:left;font-variant-numeric:normal;font-family:var(--zs-font-family);font-size:30rpx;line-height:normal}
 .login-password-row .label{min-width:112rpx}.login-password-row{gap:12rpx}
 .password-visibility{flex-shrink:0;min-width:76rpx;min-height:76rpx;padding:0 8rpx;line-height:76rpx;color:var(--zs-brand);font-size:26rpx;background:transparent}
-.account-login-name{overflow-wrap:anywhere}.account-match .strong text,.selected-account .strong text,.default-account .strong text{display:inline}
+
 .login-consent-mask{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:32rpx;box-sizing:border-box}
 .login-consent-panel{width:100%;max-width:650rpx;max-height:85vh;box-sizing:border-box;border-radius:24rpx;background:var(--zs-card);padding:32rpx;color:var(--zs-text);overflow:hidden}
 .login-consent-heading{font-size:34rpx;line-height:48rpx;font-weight:600}.login-consent-links{display:flex;flex-wrap:wrap;gap:8rpx}.login-consent-links button{background:transparent;color:var(--zs-brand);font-size:28rpx;padding:8rpx 0;margin:0}

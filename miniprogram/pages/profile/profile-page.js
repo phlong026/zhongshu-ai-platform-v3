@@ -28,7 +28,8 @@ const LOGIN_ONLY = ['profile', 'messages', 'announcements', 'performance', 'stor
 const emptyCourse = () => ({ learningLabel: '', courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
 const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
 const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyProfile().avatar, unread: 0, role: '', company: '',
-  identityText: '', identityOrganization: '', identityRole: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false });
+  identityText: '', identityOrganization: '', identityRole: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
+  showAdminMap:false, showStoreMap:false });
 
 // Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
@@ -55,6 +56,7 @@ function managementEntries(a) {
 function entries(a) {
   if (!a.active) return [];
   if (a.api) {
+    if (O.headquartersReader(a)) return [{ text: '总部全品牌工作台', url: '/pages/headquarters/index?section=' + (a.role === 'hq-admin' ? 'overview' : 'finance') }, { text: '公司与项目账本', url: '/pages/headquarters/index?section=books' }];
     if (require('../../utils/access').isBoss(a)) return [{ text: '团队绩效', url: '/pages/admin/tasks/index?view=team' }];
     if (a.role === 'sales-lead') return [{ text: '客户与责任转交', url: '/pages/customers/index' }];
     if (a.role === 'project-manager') return [{ text: '工程项目', url: '/pages/build/projects/index' }];
@@ -99,7 +101,8 @@ module.exports = function (tabIndex) {
           courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
         learningAvailable: apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
         engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || ['store','headquarters'].includes(actor.orgType),
-        showAdminMap: canViewAllStores(apiPost), entries: entries(actor), managementEntries: managementEntries(actor),
+        showAdminMap: canViewAllStores(apiPost), showStoreMap:!loggedIn || actor.orgType === 'store' || canViewAllStores(apiPost),
+        entries: entries(actor), managementEntries: managementEntries(actor),
         name: this.__profileDenied ? '' : s.profile.name, avatar: this.__profileDenied ? Profile.emptyProfile().avatar : s.profile.avatar, profileLoading: !!http.token(), profileError: '', role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
         unread: apiLoggedIn ? (this.apiUnread || 0) : M.totalUnread(A.scoped(s,s.messages).filter(x => !x.read).length,0)
@@ -161,6 +164,7 @@ module.exports = function (tabIndex) {
       let target = d.url;
       if (!target) {
         const action = d.action || (ACTIONS[d.view] ? d.view : ''), eng = this.data.engineeringProfile;
+        if (action === 'storeMap' && this.data.loggedIn && !this.data.showStoreMap) return;
         target = ACTIONS[action] ? ACTIONS[action](eng, d.id || (action === 'course' ? this.data.courseId : ''), this.data.ownerProfile) : d.view ? account(d.view, d.id ? '&id=' + encodeURIComponent(d.id) : '') : '';
         if (!this.data.loggedIn && (['learning','resources','course'].includes(action)||LOGIN_ONLY.includes(action) || (d.view && ['profile', 'messages', 'orders', 'personal-performance'].includes(d.view)))) target = account('login', '&return=' + encodeURIComponent(target));
       }

@@ -278,51 +278,7 @@ protectedPage({
   },
   // 选择页收敛后重生成入口移到这里：不满意候选可直接再生成（扣点确认在前），逻辑与原两页一致
   regenerate() {
-    if (!this.data.finished || this.data.selectDone || this._regenerating) return;
-    const projectId = this._projectId;
-    if (!projectId) { wx.showToast({ title: '项目信息未就绪，请重新进入', icon: 'none' }); return; }
-    const stage = this.data.stage;
-    if (stage === 'elevation' && !getDesignApp().globalData.elevationConfig) {
-      // 无可复用的立面配置：先去配置页（与原选择页行为一致）
-      getDesignApp().globalData.aiLine = 'elevation';
-      navigation.switchTab({ url: '/design-migration/pages/ai-design/index', fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
-      return;
-    }
-    this._regenerating = true;
-    const self = this;
-    const count = this.data.count || 2;
-    const fallback = generationOptions.defaults(stage === 'plane' ? 'FLAT' : 'ELEVATION');
-    const resolution = this.data.resolution || fallback.resolution;
-    const orientation = this.data.orientation || fallback.orientation;
-    const attempts = require('../../utils/generation-attempt');
-    const slot = 'regenerate:' + projectId + ':' + this._jobId;
-    const payload = { projectId: projectId, stage: stage, count: count, resolution: resolution, orientation: orientation,
-      config: stage === 'elevation' ? Object.assign({}, getDesignApp().globalData.elevationConfig) : null };
-    if (payload.config) delete payload.config.priceConfirmation;
-    let attempt;
-    try { attempt = attempts.begin(slot, payload); }
-    catch (error) { this._regenerating = false; wx.showToast({ title: error.msg || '无法保存请求', icon: 'none' }); return; }
-    const idemKey = attempt.key;
-    this.setData({ regenerating: true });
-    const priceRequest = attempt.confirmedPrice ? Promise.resolve(attempt.confirmedPrice)
-      : require('../../utils/generation-price').confirm(stage === 'plane' ? 'FLAT' : 'ELEVATION', count, '', { resolution: resolution });
-    return priceRequest.then(function (price) {
-      attempt.confirmedPrice = price; attempts.save(slot, attempt);
-      attempts.submitted(slot, attempt);
-      if (stage === 'plane') return api.createFlatJob(projectId, count, idemKey, price, { resolution: resolution, orientation: orientation });
-      const config = Object.assign({}, getDesignApp().globalData.elevationConfig, { count: count, resolution: resolution, orientation: orientation, priceConfirmation: price });
-      return api.createElevationJob(projectId, config, idemKey);
-    }).then(function (job) {
-      if (self._stopped) return;
-      attempts.complete(slot, attempt);
-      getDesignApp().globalData.jobId = job.jobId;
-      wx.redirectTo({ url: '/design-migration/pages/ai-design/generating?stage=' + stage + '&count=' + count });
-    }).catch(function (err) {
-      try { attempts.failed(slot, attempt, err); } catch (stale) { /* Session changed. */ }
-      if (!err || !err.cancelled) wx.showToast({ title: (err && err.msg) || '重新生成失败', icon: 'none' });
-      self._regenerating = false;
-      self.setData({ regenerating: false });
-    });
+    wx.showToast({ title: '请在客户跟进中上传外部设计成果', icon: 'none' });
   },
   cancel() {
     if (this._cancelling) return;

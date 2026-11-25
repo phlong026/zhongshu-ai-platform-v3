@@ -6,7 +6,7 @@
  * Long 超出 ±(2^53-1) 输出字符串（边界值本身也是字符串）——ID 一律不透明值，禁止数值化。
  */
 const CRM_ROLES = ['sales', 'sales-lead', 'boss', 'owner'];
-const DESIGN_STATUS_TEXT = {FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
+const DESIGN_STATUS_TEXT = {EXTERNAL_PENDING:'等待外部成果',EXTERNAL_READY:'外部成果已登记',FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
 const customerStatus = c => DESIGN_STATUS_TEXT[c.designStatus] || statusText(c.status);
 const STATUS_TEXT = { REGISTERED: '已登记', FOLLOWING: '跟进中' };
 
@@ -84,7 +84,7 @@ const shortDate = d => String(d || '').slice(5, 10);
 function customerRow(c, ctx) {
   const day = (ctx && ctx.today) || today();
   const canW = !!(ctx && ctx.canWrite);
-  const appointment = toDate(c.nextVisitDate);
+  const appointment = toDate(c.workflow?.nextContactOn || c.nextVisitDate);
   const fresh = !c.lastFollowAt;
   const lastDate = toDate(c.lastFollowAt);
   const name = c.name || '';
@@ -103,11 +103,11 @@ function customerRow(c, ctx) {
     const n = daysBetween(lastDate, day);
     cue = n > 0 ? n + ' 天未跟进' : '今天已跟进'; cueTone = 'customer-cue-muted'; rank = 4; sortKey = String(c.lastFollowAt || 0);
   }
-  const detail = fresh ? '待首次沟通' : appointment ? '下次：' + shortDate(appointment) + ' 客户回访' : '上次：' + shortDate(lastDate);
+  const detail = appointment ? '下次：' + shortDate(appointment) + ' 客户回访' : fresh ? '待首次沟通' : '上次：' + shortDate(lastDate);
   const id = String(c.id);
   return {
     id, name, initial: name.slice(0, 1),
-    status: customerStatus(c), stageName: customerStatus(c),
+    status: customerStatus(c), stageName: c.workflow?.currentStepName || customerStatus(c), workflow: c.workflow || null,
     phone: phoneText, phoneText, dial: c.phone || '',
     searchText, city: c.city || '', summary: c.summary || '',
     brief: [c.city, c.source && c.source !== '未记录' ? c.source : ''].filter(Boolean).join(' · '),
@@ -116,6 +116,7 @@ function customerRow(c, ctx) {
     canFollow: canW,
     action: canW ? '写跟进' : '看记录',
     url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id) + (fresh && canW ? '&modal=follow' : ''),
+    flowUrl: '/pages/customer-flow/index?customerId=' + encodeURIComponent(id),
     hasPhone: !!c.phone,
     hasDesign: !!DESIGN_STATUS_TEXT[c.designStatus], hasPlan: false, hasVisit: !!ctx?.visited,
     ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),

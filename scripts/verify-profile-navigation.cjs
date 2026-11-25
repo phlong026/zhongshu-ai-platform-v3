@@ -272,17 +272,18 @@ test('门店登录后加盟商服务的两个入口仍直达对应展示页', ()
   ]);
 });
 
-for (const role of ['hq-design-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
-  test('总部 '+role+'：加盟商服务、众墅甄选和全品牌地图均展示，查看入口不依赖编辑权限', () => {
+for (const role of ['hq-admin','hq-design-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
+  test('总部 '+role+'：全品牌地图仅开放管理员与财务，查看入口不依赖编辑权限', () => {
     reset('hq-design-admin');
     auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:role,permissions:[]}]);
     auth.switchPost(42);
     const page=show('/pages/profile/index');
-    assert.equal(page.data.showStoreServices,true);assert.equal(page.data.showAdminMap,true);
+    const allowed=['hq-admin','finance','finance-lead'].includes(role);
+    assert.equal(page.data.showStoreServices,true);assert.equal(page.data.showAdminMap,allowed);assert.equal(page.data.showStoreMap,allowed);
     navigation=[];
     for(const action of ['services','selection','storeMap'])page.open({currentTarget:{dataset:{action}}});
     assert.deepEqual(navigation.map(row=>row.url),[
-      '/pages/account/index?view=services','/pages/account/index?view=selection','/pages/account/store-map/index'
+      '/pages/account/index?view=services','/pages/account/index?view=selection',...(allowed?['/pages/account/store-map/index']:[])
     ]);
   });
 }

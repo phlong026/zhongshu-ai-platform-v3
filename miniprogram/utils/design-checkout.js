@@ -7,7 +7,7 @@ const pricing = () => X.rawBook('headquarters')?.designAreaPrices?.at(-1) || nul
 const copy = require('./clone');
 
 function assertDemo() {
-  X.assert(X.context().demo && !require('./sample-files').release(), '请使用体验账号进行模拟支付，正式版不支持此操作');
+  throw Error('实体费用模拟付款已停用，请在外部付款后登记流水和凭证');
 }
 
 function savePricing(form) {

@@ -115,7 +115,7 @@ module.exports=()=>({
  open(e){const id=e.currentTarget.dataset.id;
   if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:this.data.intent==='commission'&&this.data.canRegister?'/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id));
-  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.url});}},
+  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.flowUrl||row.url});}},
  call(e){const dial=(this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id))||{}).dial;
   if(!/^1\d{10}$/.test(dial||''))return wx.showToast({title:'该号码不可拨打',icon:'none'});wx.makePhoneCall({phoneNumber:dial,fail(){}});},
 });

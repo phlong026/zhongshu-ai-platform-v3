@@ -28,7 +28,7 @@ test('同品牌跨店可见，混入其他品牌或错误的全品牌响应时�
 });
 
 test('管理员同址落点合并，品牌和三级区划共同决定标记和清单', () => {
-  const org = { orgType: 'headquarters', permissions: ['franchise:store-map:read-all'] };
+  const org = { orgType: 'headquarters', roleCode:'hq-admin', permissions: ['franchise:store-map:read-all'] };
   const snapshot = readSnapshot({ scope: 'all', stores: [store, { ...store, id: 's2', brandId: 'b2' }] }, org);
   assert.equal(mapView(snapshot, {}).markers[0].storeIds.length, 2);
   const view = mapView(snapshot, { brand: 'b2', province: '33', city: '3301', district: '330110' });
@@ -109,9 +109,24 @@ test('连续点击只建一单，支付返回后仍以公司积分订单状态�
     const p = page(); await p.refresh(); p.choose({ currentTarget: { dataset: { id: 'p1' } } });
     await Promise.all([p.checkout(), p.checkout()]);
     assert.equal(calls.length, 2);
-    assert.equal(p.data.order.label, '积分到账中');
+    assert.equal(p.data.order.label, '额度到账中');
     order.status = 'CREDITED'; await p.refresh();
-    assert.equal(p.data.order.label, '积分已到账');
+    assert.equal(p.data.order.label, '额度已到账');
     p.dismissOrder(); await p.refresh(); assert.equal(p.data.order, null);
   } finally { global.wx = originalWx; }
+});
+
+
+test('充值退款状态来自服务端，退款中不可再次支付，额度欠账不伪装为余额到账',async t=>{
+ t.mock.method(points,'fingerprint',key);let order={id:'o1',amountCents:1200,credits:'120',status:'REFUNDING'};
+ t.mock.method(http,'get',async()=>({...catalog(offer),currentOrder:order}));
+ const write=t.mock.method(http,'post',()=>assert.fail('退款订单不可再支付'));
+ const p=page();await p.refresh();assert.equal(p.data.order.canPay,false);assert.equal(p.data.order.label,'退款核对中');await p.checkout();
+ order={...order,status:'REFUNDED'};await p.refresh();assert.equal(p.data.order.label,'已退款');p.dismissOrder();assert.equal(p.data.order,null);
+ order={...order,status:'REFUND_REVIEW'};await p.refresh();assert.equal(p.data.order.label,'退款已完成，额度待核对');assert.equal(p.data.order.canPay,false);assert.equal(write.mock.callCount(),0);
+});
+
+test('模拟充值API不会请求旧模拟写入端点',async t=>{
+ const write=t.mock.method(http,'post',()=>assert.fail('旧模拟写口不可调用'));
+ await assert.rejects(points.purchase({id:'old-plan'},'old-key'),e=>e.code===403&&/模拟充值已停用/.test(e.message));assert.equal(write.mock.callCount(),0);
 });

@@ -1,0 +1,26 @@
+<view class="accounting-page">
+  <business-header title="项目核算"/>
+  <view wx:if="{{!ready}}" class="accounting-empty"><text>{{loading?'正在读取项目原账…':error||'项目核算暂不可用'}}</text><button wx:if="{{!loading}}" class="accounting-secondary" bindtap="load">重新加载</button><button wx:if="{{!loading}}" class="accounting-link" bindtap="login">登录／切换身份</button></view>
+  <view wx:else class="accounting-body">
+    <view class="accounting-heading"><view><text class="accounting-name">{{row.projectName}}</text><text class="accounting-state {{row.state==='STALE'?'accounting-warning':''}}">{{row.stateText}}</text></view><button class="accounting-link" bindtap="ledger">查看原账 ›</button></view>
+    <view class="accounting-card">
+      <text class="accounting-caption">按已确认项目费用计算的毛利</text><view class="accounting-profit">¥ {{row.profitText}}</view>
+      <text class="accounting-muted">合同金额 − 已确认项目费用</text>
+      <view class="accounting-cash"><text>现金结余</text><text>¥ {{row.cashText}}</text></view>
+      <text class="accounting-muted">客户净收款 − 公司净付款。现金结余不表示项目利润。</text>
+      <view class="accounting-metrics"><view wx:for="{{row.metrics}}" wx:key="key"><text>{{item.label}}</text><text>¥ {{item.value}}</text></view></view>
+    </view>
+    <view class="accounting-note"><text>{{row.notice}}</text><text class="accounting-muted">{{row.basis}}</text></view>
+    <view wx:if="{{error}}" class="accounting-error"><text>{{error}}</text><button wx:if="{{uncertain}}" class="accounting-link" bindtap="retry" disabled="{{busy}}" loading="{{busy}}">用原请求重试</button><button wx:elif="{{!busy}}" class="accounting-link" bindtap="load">载入最新核算</button></view>
+    <view wx:if="{{row.canConfirm&&row.state!=='CURRENT'}}" class="accounting-card">
+      <text class="accounting-title">结项核算确认</text><text class="accounting-muted">当前原账将保存为 V{{row.version+1}}，旧确认版本继续保留。</text>
+      <checkbox-group bindchange="check"><label class="accounting-check"><checkbox value="complete" checked="{{checked}}" disabled="{{busy||uncertain||conflict}}" color="#80512e"/><text>已核对合同，项目已发生费用已经完整归集</text></label></checkbox-group>
+      <textarea class="accounting-input" value="{{note}}" bindinput="input" maxlength="1000" auto-height placeholder="填写核对范围、调整说明及仍需关注的往来" disabled="{{busy||uncertain||conflict}}"/>
+      <button class="accounting-primary" bindtap="submit" disabled="{{busy||uncertain||conflict}}" loading="{{busy}}">保存核算确认版本</button>
+    </view>
+    <view class="accounting-history-heading"><text class="accounting-title">核算确认记录</text><text class="accounting-muted">历史金额保持不变</text></view>
+    <view wx:for="{{history}}" wx:key="id" class="accounting-card accounting-history"><view class="accounting-history-top"><text>确认版本 V{{item.version}}</text><text class="accounting-muted">{{item.date}}</text></view><view class="accounting-metrics"><view><text>项目毛利</text><text>¥ {{item.profitText}}</text></view><view><text>已确认费用</text><text>¥ {{item.costText}}</text></view><view><text>现金结余</text><text>¥ {{item.cashText}}</text></view></view><text class="accounting-record-note">{{item.note}}</text></view>
+    <text wx:if="{{!history.length&&!historyLoading&&!historyError}}" class="accounting-empty">暂无核算确认记录</text><text wx:if="{{historyError}}" class="accounting-error">{{historyError}}</text>
+    <button wx:if="{{historyMore}}" class="accounting-link accounting-more" bindtap="moreHistory" disabled="{{historyLoading}}" loading="{{historyLoading}}">{{historyError?'重试读取历史':'加载更多确认记录'}}</button>
+  </view>
+</view>

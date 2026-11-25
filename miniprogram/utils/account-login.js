@@ -5,13 +5,7 @@ function publicAccount(account) {
   if (!account || account.accountId === undefined || !account.loginName) return null;
   return {
     accountId: String(account.accountId),
-    loginName: String(account.loginName),
-    orgName: String(account.orgName || ''),
-    ownerName: String(account.ownerName || ''),
-    personName: String(account.personName || account.ownerName || ''),
-    roleCode: String(account.roleCode || ''),
-    roleName: String(account.roleName || ''),
-    shortOrgName: String(account.shortOrgName || '')
+    loginName: String(account.loginName)
   };
 }
 

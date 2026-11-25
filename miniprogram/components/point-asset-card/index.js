@@ -20,7 +20,7 @@ Component({
   },
   methods: {
     stop() { this.__hidden = true; this.__loadId = (this.__loadId || 0) + 1; this.__reading = null; },
-    openPackages() { wx.navigateTo({url:'/pages/wallet/packages/index'}); },
+    openPackages() { return this.openRecharge(); },
     refresh() {
       if (this.__hidden) return;
       const key = points.fingerprint(), sameScope = key === this.__pointKey;

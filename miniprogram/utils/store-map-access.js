@@ -1,6 +1,7 @@
 function canViewAllStores(post) {
-  // The API validates the active post; every headquarters post has read-only map access.
-  return !!post && post.orgType === 'headquarters';
+  // Match the server's current-post check; other headquarters roles have no global map scope.
+  return !!post && post.orgType === 'headquarters'
+    && ['hq-admin', 'finance', 'finance-lead'].includes(post.roleCode);
 }
 
 module.exports = { canViewAllStores };

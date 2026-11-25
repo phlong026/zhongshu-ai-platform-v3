@@ -12,13 +12,13 @@ const money = cents => Money.money(cents, { symbol: false });
 const today = () => require('../../../utils/account').localDate();
 
 /** 视图 → API 动作（与 api/franchise/commission.js 注释的命令枚举一致；submit 走独立提交端点） */
-const ACTIONS = { pay:'commission-simulate-pay',submit: 'commission-submit', feedback: 'commission-feedback', complete: 'design-complete', dispatch: 'design-dispatch', handover: 'packet-submit', receive: 'packet-receive' };
+const ACTIONS = { submit: 'commission-submit', feedback: 'commission-feedback', complete: 'design-complete', dispatch: 'design-dispatch', handover: 'packet-submit', receive: 'packet-receive' };
 const FILTERS = ['全部', Status.designing, Status.modifying, Status.pay, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
 const FILTER_STATUSES = { [Status.designing]:'DESIGNING', [Status.modifying]:'MODIFYING', '设计与修改':'DESIGNING,MODIFYING',
   [Status.pay]:'FEE_PENDING,FEE_RETURNED', [Status.dispatch]:'DESIGN_COMPLETED', [Status.handover]:'DISPATCHED,HANDOVER_RETURNED',
   [Status.receive]:'HANDOVER_SUBMITTED', [Status.dispatched]:'ACCEPTED' };
 const STATUS_ORDER = { [Status.modifying]: 0, [Status.designing]: 1, [Status.pay]: 2, [Status.dispatch]: 3, [Status.handover]: 4, [Status.receive]: 5, [Status.dispatched]: 6 };
-const KNOWN_VIEWS = ['pay','progress', 'submit', 'complete', 'dispatch', 'handover', 'receive'];
+const KNOWN_VIEWS = ['progress', 'submit', 'complete', 'dispatch', 'handover', 'receive'];
 
 const url = (id, view = 'progress') => '/pages/workflow/commission/index?view=' + view + '&commissionId=' + encodeURIComponent(id);
 
@@ -146,7 +146,7 @@ function normalize(dto = {}) {
 
 /* ---- 状态推导（优先后端显式提示，缺省按归一化状态推导） ---- */
 function derive(c) {
-  if(c.simulatedPayment&&c.simulatedPayment.status==='PENDING')return{state:'待模拟付款登记',owner:'经办业务',view:'pay',actionable:c.allowedActions.includes('commission-simulate-pay')};
+  if(c.simulatedPayment&&c.simulatedPayment.status==='PENDING')return{state:'历史模拟记录待核对',owner:'财务',view:'progress',actionable:false};
   const summary = { FEE_PENDING: ['费用待老板审批', '门店老板', 'progress'], FEE_RETURNED: ['委托费用待修改', '业务', 'submit'], DESIGNING: [Status.designing, '总部设计行政', 'complete'], DESIGN_COMPLETED: [Status.dispatch, '总部设计行政', 'dispatch'], DISPATCHED: [Status.handover, '业务', 'handover'], HANDOVER_SUBMITTED: [Status.receive, '工程', 'receive'], HANDOVER_RETURNED: [Status.handover, '业务', 'handover'], ACCEPTED: ['业务移交完成', '已完成', 'progress'] }[c.status];
   if (summary) return { state: summary[0], owner: summary[1], view: summary[2], actionable: c.allowedActions.includes(actionFor(summary[2])) };
   const fb = c.feedbacks[c.feedbacks.length - 1];
@@ -190,7 +190,7 @@ function statusOf(c) {
 
 /* ---- 展示行 ---- */
 function feeNotice(c) {
-  if(c.simulatedPayment)return c.simulatedPayment.status==='PAID'?'付款登记完成（模拟）':'委托待模拟付款登记';
+  if(c.simulatedPayment)return '历史模拟记录不计实际收支；实际付款由财务登记流水和凭证';
   if (!c.request) return '提交委托后费用按授权规则执行；到账登记由财务在财务工作台办理';
   if (c.fee && ['pending', 'pending-approval', 'pending_approval', 'approving'].includes(c.fee.status)) return '委托费用待加盟商老板审批';
   if (c.fee && c.fee.status === 'returned') return '委托费用待修改后重新提交';

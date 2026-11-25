@@ -15,7 +15,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function loadPage(platformCrm = CRM) {
+function loadPage(platformCrm = CRM, navigations = []) {
   let definition;
   const source = fs.readFileSync(path.join(ROOT, 'miniprogram/pages/workflow/index.js'), 'utf8');
   vm.runInNewContext(source, {
@@ -25,6 +25,7 @@ function loadPage(platformCrm = CRM) {
       if (id === '../../utils/view-container') return { routeValue: value => value || '', fail() {} };
       if (id === '../../utils/platform-crm') return platformCrm;
       if (id === '../../api/http') return { token: () => 'token' };
+      if (id === '../../utils/page-navigation') return { open: url => navigations.push(url) };
       if (id === './views') return { titles: {} };
       throw new Error('unexpected require: ' + id);
     },
@@ -70,7 +71,8 @@ test('sales collection resubmits the returned method and edited account and star
 
 function harness(options = {}) {
   const platformCrm = options.platformCrm || CRM;
-  const definition = loadPage(platformCrm);
+  const navigations = [];
+  const definition = loadPage(platformCrm, navigations);
   let sessionGeneration = 1;
   const detailCalls = [];
   const requirementListCalls = [];
@@ -146,7 +148,7 @@ function harness(options = {}) {
     }
   });
   return {
-    page, detailCalls, requirementListCalls, requirementCreates, quoteCreates, contractCreates,
+    page, detailCalls, requirementListCalls, requirementCreates, quoteCreates, contractCreates, navigations,
     currentSessionGeneration: () => sessionGeneration,
     switchPost() { sessionGeneration += 1; page.__postKey = 'post-2'; page.__post = { postId: 'post-2', roleCode: 'sales' }; }
   };
@@ -358,7 +360,9 @@ test('trade views expose loading, retry, and saleWrite button gates', () => {
   assert.match(wxml, /bindtap="retryRequirements"/);
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">登记需求/);
   assert.match(wxml, /wx:if="\{\{saleWrite\}\}"[^>]*bindtap="submit">开始测算/);
-  assert.match(wxml, /saleWrite&&requirementsStatus==='ready'&&contractForm/);
+  assert.match(wxml, /saleWrite&&requirementsStatus==='ready'&&!contractsHasActive/);
+  assert.match(wxml, /bindtap="openContractForm">新建合同/);
+  assert.doesNotMatch(wxml, /contractForm\.(signAfter|baseDone|capDone)/, '固定三期表单由独立付款计划页面替代');
 });
 
 test('real contract stages map and render without shadowing the tone WXS module', async () => {
@@ -420,41 +424,33 @@ test('quote requires footprint and building area before compilation or API write
   assert.equal(h.quoteCreates.length, 0);
 });
 
-test('new contract never copies the newest estimate or sets a full first installment', async () => {
-  const h=harness(),page=h.page;
-  page.setData({view:'contract',requirementsStatus:'ready',salesQuotes:[
-    {id:'22',totalText:'520000.00',date:'2026-11-25',priceVersion:'试算'},
-    {id:'21',totalText:'480000.00',date:'2026-11-24',priceVersion:'报价'}
-  ]});
+test('new contract routes without choosing an estimate; only the explicit quote action supplies its ID', () => {
+  const h = harness(), page = h.page;
+  page.setData({ view: 'contract', requirementsStatus: 'ready', salesQuotes: [
+    { id: '22', totalText: '520000.00', date: '2026-11-25' },
+    { id: '21', totalText: '480000.00', date: '2026-11-24' }
+  ] });
   page.openContractForm();
-  assert.equal(page.data.contractForm.total,'');
-  assert.equal(page.data.contractForm.signAfter,'');
-  page.platformSubmitContract();
-  assert.equal(h.contractCreates.length,0);
-  page.useContractQuote({currentTarget:{dataset:{quoteId:'21'}}});
-  assert.equal(page.data.contractForm.total,'480000.00');
-  assert.equal(page.data.contractForm.signAfter,'');
-  assert.match(page.data.contractForm.quoteLabel,/2026-11-24.*480000/);
-  page.setData({salesQuotes:[{id:'23',totalText:'540000.00'}]});
-  page.platformSubmitContract();
-  assert.equal(h.contractCreates.length,0,'first payment must be supplied separately');
-  for(const [key,value] of Object.entries({signAfter:'180000',baseDone:'200000',capDone:'100000'}))
-    page.contractInput({currentTarget:{dataset:{key}},detail:{value}});
-  page.platformSubmitContract();await flush();
-  const body=h.contractCreates[0];
-  assert.equal(body.totalCents,48000000);
-  assert.equal(body.signAfterCents,18000000);
-  assert.equal(body.baseDoneCents,20000000);
-  assert.equal(body.capDoneCents,10000000);
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9');
+  assert.equal(page.data.contractForm, undefined, '金额仅在独立付款编辑器录入，入口不创建默认表单');
+  assert.equal(h.contractCreates.length, 0);
+  page.useContractQuote({ currentTarget: { dataset: { quoteId: '21' } } });
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9&quoteId=21');
+  assert.equal(h.navigations.length, 2);
+  page.useContractQuote({ currentTarget: { dataset: { quoteId: 'unknown' } } });
+  assert.equal(h.navigations.length, 2); assert.equal(h.contractCreates.length, 0);
+  for (const blocked of [{ busy: true }, { contractsHasActive: true }]) {
+    page.setData({ busy: false, contractsHasActive: false, ...blocked });
+    page.openContractForm(); page.useContractQuote({ currentTarget: { dataset: { quoteId: '21' } } });
+    assert.equal(h.navigations.length, 2);
+  }
 });
 
-test('a contract can be recorded without a quote and the salesperson can explicitly enter a full first installment',async()=>{
-  const h=harness(),page=h.page;
-  page.setData({view:'contract',requirementsStatus:'ready',salesQuotes:[]});
+test('a contract with no quote opens the same editor for explicit manual totals and installments', () => {
+  const h = harness(), page = h.page;
+  page.setData({ view: 'contract', requirementsStatus: 'ready', salesQuotes: [] });
   page.openContractForm();
-  for(const [key,value] of Object.entries({total:'390000',signAfter:'390000'}))
-    page.contractInput({currentTarget:{dataset:{key}},detail:{value}});
-  page.platformSubmitContract();await flush();
-  assert.equal(h.contractCreates[0].signAfterCents,39000000);
-  assert.equal(h.contractCreates[0].totalCents,39000000);
+  assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9');
+  assert.equal(h.contractCreates.length, 0);
+  // The editor behavior and exact manual payload are exercised by verify-payment-plan-page.cjs.
 });

@@ -80,14 +80,14 @@ function stagesView(stages, urlOf) {
   return (stages || []).map(s => {
     const expected = centsText(s.expectedCents), confirmed = centsText(s.confirmedCents), remaining = centsText(s.remainingCents);
     return {
-      stage: STAGE_URL[s.stage] || 'start', stageId: s.stageId ? String(s.stageId) : '',
-      name: STAGE_NAME[s.stage] || s.stage,
+      stage: STAGE_URL[s.stage] || String(s.stage || ''), key: String(s.stage || ''), trigger: s.trigger, waitingForWork: !!s.waitingForWork, stageId: s.stageId ? String(s.stageId) : '',
+      name: s.label || STAGE_NAME[s.stage] || s.stage,
       expected, confirmed, remaining, due: dateOf(s.due),
       expectedText: expected, confirmedText: confirmed, remainingText: remaining,
       settled: (s.confirmedCents || 0) >= (s.expectedCents || 0) && (s.expectedCents || 0) > 0,
       collectible: Number(s.expectedCents) > 0 && Number(s.remainingCents) > 0,
       status: s.expectedCents === 0 ? '未约定收款' : (s.expectedCents || 0) > 0 && (s.remainingCents || 0) <= 0 ? '已收齐' : (s.confirmedCents || 0) > 0 ? '部分收款' : '待财务登记收款',
-      url: urlOf ? urlOf(STAGE_URL[s.stage] || 'start') : ''
+      url: urlOf ? urlOf(STAGE_URL[s.stage] || String(s.stage || '')) : ''
     };
   });
 }
@@ -244,7 +244,7 @@ function pageData(bundle) {
     plans: plansView(bundle.materials),
     settle: settleView(bundle.settle || {}),
     dunning: (bundle.followups || []).filter(f => f.kind === 'COLLECTION').map(f => ({
-      id: String(f.id == null ? '' : f.id), stage: (f.stage || 'START').toLowerCase(),
+      id: String(f.id == null ? '' : f.id), stage: String(f.stage || ''), label: installments.find(i=>i.key===f.stage)?.name || f.stage || '',
       date: timestampDate(f.createTime), // createTime 毫秒数字主形态（数字调 slice 曾整页崩）
       promiseDate: dateOf(f.promiseDate), note: f.note || ''
     })).reverse(),
@@ -388,17 +388,17 @@ async function perform(action, id, form, node, key) {
         f.siteFile ? [await uploadVoucher(f.siteFile.path, 'ENG_SITE_PHOTO')] : [],
         f.siteReason || f.reason, key);
     case 'collect':
-      if (f.stage === 'tail') throw new Error('请从财务工作台办理交付尾款');
+      if (!f.stage) throw new Error('请选择付款节点');
       return api.collections.register(id, {
-        stage: f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
+        stage: ({start:'SIGN_AFTER',base:'BASE_DONE',topping:'CAP_DONE'})[f.stage] || f.stage,
         amount: yuan(f, 'amount', '收款金额'),
         transactionNo: String(f.transaction || '').trim(), occurredAt: dateStr,
         // R2 P1-2：收款凭据走 FIN_VOUCHER 通道（finance 岗在 FIN 白名单内；ENG 类通道签票即 403）
         fileAssetId: await uploadVoucher(f.file && f.file.path, 'FIN_VOUCHER')
       }, key);
     case 'dunning':
-      if (f.stage === 'tail') throw new Error('请从财务工作台办理交付尾款');
-      return api.collections.dunning(id, f.stage === 'topping' ? 'CAP_DONE' : f.stage === 'base' ? 'BASE_DONE' : 'SIGN_AFTER',
+      if (!f.stage) throw new Error('请选择付款节点');
+      return api.collections.dunning(id, ({start:'SIGN_AFTER',base:'BASE_DONE',topping:'CAP_DONE'})[f.stage] || f.stage,
         f.promiseDate || null, String(f.note || '').trim(), key);
     case 'material-plan': {
       const lines = (f.lines || []).filter(l => String(l.name || '').trim());
@@ -560,7 +560,7 @@ function recordView(bundle, ctx) {
   const actor = key => d.timelineActors?.[key] || '经办人未留存';
   const view = opts.view || 'overview';
   // M07-T02 三期：base（基础完成后期款）随 BASE_DONE 收款入口进入
-  const stage = ['base','topping','tail'].includes(opts.stage) ? opts.stage : 'start';
+  const stage = opts.stage || 'start';
   const today = opts.today || '';
   const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
   const p = data.p;
@@ -587,7 +587,7 @@ function recordView(bundle, ctx) {
   const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
   const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
-  const part = data.installments.find(i => i.stage === stage);
+  const part = data.installments.find(i => i.stage === stage || i.key === stage);
 
   // 计划单行补 url/due（后端汇总行无计划级 due，取首行需用日期派生）
   const plans = data.plans.map(r => ({
@@ -626,14 +626,15 @@ function recordView(bundle, ctx) {
     }
   }
 
+  if (part) form.stage = part.key;
   let fields = [], actions = [];
   if (view === 'collection') {
     // M07-T04 批次#36/R1 P1-4：在线收款登记恢复（finance 系岗——856 collect 码；封顶门禁后端裁决）
-    if (stage !== 'tail' && financeRole && part && part.collectible && (stage !== 'topping' || toppingReached)) {
+    if (financeRole && part && part.collectible && (part.stage !== 'topping' || toppingReached)) {
       fields = [viewField('amount', '本次收款金额（元）', 'digit'), viewField('date', '收款日期', 'date'),
         viewField('transaction', '收款流水或凭据编号'), viewField('file', '收款凭据（jpg/png/pdf）', 'file')];
       actions = [{ action: 'collect', label: '登记实际收款' }];
-    } else if (stage !== 'tail' && own && part && part.collectible && (stage !== 'topping' || toppingReached)) {
+    } else if (own && part && part.collectible && !part.waitingForWork && (part.stage !== 'topping' || toppingReached)) {
       fields = [viewField('promiseDate', '业主承诺付款日（选填）', 'date'), viewField('note', '催收情况说明（选填）', 'textarea')];
       actions = [{ action: 'dunning', label: '登记已催收' }];
     }
@@ -766,7 +767,7 @@ function recordView(bundle, ctx) {
   return {
     p, form, fields, actions, fileNames: {},
     // M07-T02：期次行补 collection 跳转（BASE_DONE 收款入口；stage 已是 STAGE_URL 归一值 start/base/topping）
-    installments: data.installments.map(i => ({ ...i, url: i.stage === 'tail' && financeRole ? '/pages/admin/finance-desk/index?view=flows' + (i.stageId ? '&homeStage=' + encodeURIComponent(i.stageId) : '') : base + 'collection&stage=' + i.stage })),
+    installments: data.installments.map(i => ({ ...i, url: i.stage === 'tail' && financeRole ? '/pages/admin/finance-desk/index?view=flows' + (i.stageId ? '&homeStage=' + encodeURIComponent(i.stageId) : '') : base + 'collection&stage=' + encodeURIComponent(i.key || i.stage) })),
     plans: view === 'materials' && opts.nodeId ? plans.filter(r=>r.nodeId===String(opts.nodeId)) : plans, settle: data.settle,
     // R2 P1-4：现场记录透出（后端 detail.siteRecords——JSONB 文本解析；site-correct 更正入口数据源）
     siteRecords: (d.siteRecords || []).filter(r => String(r.node_id) === String((node && node.id) || '')).map(r => {
@@ -832,8 +833,8 @@ function recordView(bundle, ctx) {
     settlementUrl: base + 'settlement',
     paceDone: nodes.filter(n => n.status === '已完成').length, paceTotal: nodes.length,
     paceOverdue: nodes.filter(n => n.status !== '已完成' && n.deviationDays>0).length,
-    stage, stageText: p.stageText, partLabel: stage === 'base' ? '基础完成后期款'
-      : stage === 'topping' ? '封顶后期款' : stage === 'tail' ? '交付尾款' : '签约后期款',
+    stage, stageText: p.stageText, partLabel: part?.name || (stage === 'base' ? '基础完成后期款'
+      : stage === 'topping' ? '封顶后期款' : stage === 'tail' ? '交付尾款' : '签约后期款'),
     own, canPay: false, finance: financeRole,
     canAdjust: own && !delivery && !!plan,
     canTerms: (opts.termsRole == null ? financeRole : !!opts.termsRole) && !archived && !!plan && plan.lines.some(l => l.termsEditable),

@@ -5,8 +5,8 @@ const { formatYuan } = require('../../../utils/wallet-view');
 const route = '/pages/wallet/company-recharge/index';
 const base = '/franchise/company-points/recharge';
 const refreshMs = 10000;
-const statusText = { CREATED: '待支付', PROCESSING: '支付确认中', PAID: '积分到账中',
-  CREDITED: '积分已到账', CLOSED: '订单已关闭', FAILED: '支付失败' };
+const statusText = { CREATED: '待支付', PROCESSING: '支付确认中', PAID: '额度到账中',
+  CREDITED: '额度已到账', CLOSED: '订单已关闭', FAILED: '支付失败', REFUNDING:'退款核对中', REFUNDED:'已退款', REFUND_REVIEW:'退款已完成，额度待核对' };
 const initial = () => ({ loading: true, error: '', note: '', company: '', enabled: false, reason: '',
   plans: [], hasPlans: false, selected: null, busy: false, order: null, browseOnly: false });
 
@@ -166,7 +166,7 @@ Page({
   },
   dismissOrder() {
     const order = this.data.order;
-    if (!order || (!order.quoteExpired && !['CREDITED','CLOSED','FAILED'].includes(order.status))) return;
+    if (!order || (!order.quoteExpired && !['CREDITED','CLOSED','FAILED','REFUNDED','REFUND_REVIEW'].includes(order.status))) return;
     this.lastSeenOrder = order.id + '/' + order.status;
     this.setData({ order: null, note: '' });
   }
