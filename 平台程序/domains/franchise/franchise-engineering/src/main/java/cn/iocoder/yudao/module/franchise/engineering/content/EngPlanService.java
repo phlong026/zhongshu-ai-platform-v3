@@ -274,28 +274,50 @@ public class EngPlanService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> start(PostSnapshot post, long projectId,
                                      NodeRecordCommand cmd, String idempotencyKey) {
+        idempotencyKey=commands.requireIdempotencyKey(idempotencyKey);
+        jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?)",Object.class,
+                cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                        new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),idempotencyKey));
         projectService.requireOwned(post,projectId,"start");
         projectService.projects().lockById(projectId);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "start");
-        // 重放输入=落账输入（评审十三 P1-3）：统一 cmd 原始日期形状，杜绝 now() 归一后的哈希错位
-        Map<String, Object> payload = Map.of("date", cmd.date() == null ? "" : cmd.date().toString());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
-        if (replayed.isPresent()) {
+        if (cmd==null) throw exception(ENGINEERING_INPUT_INVALID,"请填写实际开工记录");
+        Map<String,Object> payload=new LinkedHashMap<>();
+        payload.put("projectId",projectId); payload.put("input",cmd);
+        var previous=commands.previous(post,idempotencyKey,"eng-start",projectId);
+        if (previous.isPresent()) {
+            if (!AGGREGATE.equals(previous.get().getAggregateType())) throw exception(IDEMPOTENCY_KEY_REUSED);
+            var recorded=JsonUtils.parseTree(previous.get().getPayload());
+            if (recorded.isObject() && recorded.size()==1 && recorded.has("date")) {
+                String submittedDate=cmd.date()==null?"":cmd.date().toString();
+                if (!submittedDate.equals(recorded.path("date").asText()) || cmd.fileAssetId()==null
+                        || cmd.fileAssetIds()!=null && !cmd.fileAssetIds().isEmpty()) throw exception(IDEMPOTENCY_KEY_REUSED);
+                boolean saved=Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                        SELECT EXISTS(SELECT 1 FROM fr_eng_site_record r JOIN fr_eng_plan_node n
+                          ON n.id=r.node_id AND n.company_id=r.company_id AND n.project_id=r.project_id
+                        WHERE r.company_id=? AND r.project_id=? AND n.milestone='START' AND r.completion AND r.result='PASS'
+                          AND r.occurred_at=? AND r.note=? AND r.file_asset_ids=CAST(? AS jsonb))
+                        """,Boolean.class,post.orgId(),projectId,project.getActualStartAt(),
+                        StrUtil.blankToDefault(cmd.note(),"正式开工"),JsonList.of(cmd.fileAssetId())));
+                if (!saved) throw exception(IDEMPOTENCY_KEY_REUSED);
+            } else commands.replayed(post,idempotencyKey,payload);
             return projectService.detail(post, projectId);
         }
+        if (cmd.date()==null || cmd.date().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))))
+            throw exception(ENGINEERING_INPUT_INVALID,"请填写已发生的实际开工日期");
+        if (cmd.note()!=null && cmd.note().length()>1000 || cmd.fileAssetIds()!=null && !cmd.fileAssetIds().isEmpty())
+            throw exception(ENGINEERING_INPUT_INVALID,"开工说明不超过1000字，请使用单份明确的开工凭据");
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         if (project.getActualStartAt() != null || project.getPreparedAt() == null
-                || nodes.isEmpty() || nodes.stream().anyMatch(n -> n.getStartDate() == null || n.getEndDate() == null)) {
+                || nodes.stream().filter(n -> "START".equals(n.getMilestone())).count()!=1
+                || nodes.stream().anyMatch(n -> n.getStartDate() == null || n.getEndDate() == null)) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先完成开工准备并填写全部节点计划日期");
         }
         requireStartGate(post, projectId);
         // M07-T03/I04：开工凭据资产域侧校验
         requireValidAsset(post, cmd.fileAssetId(),
                 java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "开工");
-        LocalDate startDate = cmd.date() == null ? LocalDate.now() : cmd.date();
-        if (startDate.isAfter(LocalDate.now())) {
-            throw exception(ENGINEERING_INPUT_INVALID, "开工日期不能晚于今天");
-        }
+        LocalDate startDate = cmd.date();
         projectService.projects().updateById(new FrEngProjectDO().setId(projectId)
                 .setActualStartAt(startDate));
         project.setActualStartAt(startDate); // 内存 DO 同步（recalcStatus 派生依赖）

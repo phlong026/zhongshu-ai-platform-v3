@@ -386,8 +386,16 @@ public class LocalAssetService implements AssetAccessPort {
             throw exception(RESOURCE_FORBIDDEN);
         }
         var owner = new Actor(ref.ownerOrgId(), ownerAccount, consumer.userId(), consumer.postId());
-        Asset asset = accepted(tenant, owner, ref.assetId());
-        String type = ref.slot() == Slot.CONFIRMATION ? "CONTRACT_ATTACHMENT" : "DESIGN_DELIVERABLE";
+        Asset asset;
+        if (ref.slot().external()) {
+            // The customer may not be readable through CRM by the designated engineer. Only the persisted packet grant
+            // supplies this owner; generic BUSINESS_DOCUMENT reads still go through CustomerWorkflowAssetPolicy.
+            asset = loadOwned(tenant, ref.ownerOrgId(), ownerAccount, ref.assetId());
+            if (asset == null || !"ACCEPTED".equals(asset.status()) || asset.objectKey() == null
+                    || asset.acceptedSize() <= 0 || !isSha256(asset.acceptedSha())) throw exception(RESOURCE_FORBIDDEN);
+        } else asset = accepted(tenant, owner, ref.assetId());
+        String type = ref.slot().external() ? "BUSINESS_DOCUMENT"
+                : ref.slot() == Slot.CONFIRMATION ? "CONTRACT_ATTACHMENT" : "DESIGN_DELIVERABLE";
         if (!type.equals(asset.type())) throw exception(RESOURCE_FORBIDDEN);
         return asset;
     }
@@ -432,7 +440,10 @@ public class LocalAssetService implements AssetAccessPort {
             } else {
                 var current = requireScope(ref.commissionId(), ref.dispatchSeq(), ref.slot());
                 if (!ref.equals(current)) throw exception(RESOURCE_FORBIDDEN);
-                scopedAsset(tenant, actor, current);
+                Asset confirmed = scopedAsset(tenant, actor, current);
+                if (!java.util.Objects.equals(asset.objectKey(), confirmed.objectKey())) throw exception(RESOURCE_FORBIDDEN);
+                if (current.slot().external() && (bytes.length != confirmed.acceptedSize() || !hash(bytes).equals(confirmed.acceptedSha())))
+                    throw invalid("资料与已校验内容不一致");
             }
             return new DownloadContent(bytes, asset.contentMime());
         } catch (IOException | RuntimeException e) {
@@ -657,7 +668,7 @@ public class LocalAssetService implements AssetAccessPort {
         return row;
     }
 
-    /** Raw owner lookup is private; only ordinary ACL reads or the independent HQ business grant may use it. */
+    /** Raw owner lookup stays private; ordinary reads or a freshly verified persisted business grant may use it. */
     private Asset loadOwned(long tenant, long org, long account, long id) {
         return db("load", id, () -> jdbc.query("SELECT * FROM fr_asset WHERE id=? AND tenant_id=? AND org_id=?"
                         + " AND service_account_id=? AND deleted=FALSE", (rs, i) -> new Asset(rs.getLong("id"), rs.getLong("tenant_id"),
