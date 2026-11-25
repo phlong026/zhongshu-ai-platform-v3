@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.franchise.content.controller.admin.ContentCloneController;
+import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -108,21 +111,30 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         when(assets.readContentMedia(any(), eq(700L))).thenReturn(new AssetAccessPort.ContentMedia(new byte[100],mime,sha,duration,width,height));
         return assets;
     }
-    @Test void normalizedImportTransfersVerifiedBytesAndReplaysReceiptWithoutAnotherUpload() {
+    @Test void normalizedImportCanBePreviewedAndOnlyTransfersAfterConsent() {
         var transport = new ContentProviderTransport.Scripted(
                 ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/sample.mp3?Signature=fixture\",\"content_type\":\"audio/mp3\",\"file_id\":\"normalized-provider-file\"}",0),
                 ContentProviderTransport.json(200,"",0));
         var service = service(transport); var assets = mediaAssets("audio/mpeg",6,0,0); service.setAssets(assets,org -> 88L);
         var first = service.importAsset(post,21,"VOICE",700);
-        assertThat(first).containsEntry("status","UPLOADED").containsEntry("assetId","700").containsEntry("mimeType","audio/mpeg");
+        assertThat(first).containsEntry("status","UPLOADED").containsEntry("providerStatus","NOT_SENT")
+                .containsEntry("assetId","700").containsEntry("mimeType","audio/mpeg");
         assertThat(service.importAsset(post,21,"VOICE",700)).isEqualTo(first);
+        long id = Long.parseLong(first.get("uploadId").toString());
+        assertThatThrownBy(() -> service.requireUploaded(post,21,id,"VOICE")).hasMessageContaining("尚未上传完成");
+        for (String consent : Arrays.asList(null, "", "outdated-version")) {
+            assertThatThrownBy(() -> service.requireAuthorizedUpload(post,21,id,"VOICE",consent)).hasMessageContaining("授权");
+        }
+        assertThat(transport.calls).isEmpty();
+        assertThat(service.requireAuthorizedUpload(post,21,id,"VOICE",ContentCloneService.CONSENT_VERSION).fileId())
+                .isEqualTo("normalized-provider-file");
+        assertThat(service.requireAuthorizedUpload(post,21,id,"VOICE",ContentCloneService.CONSENT_VERSION).fileId())
+                .isEqualTo("normalized-provider-file");
         assertThat(transport.calls).hasSize(2);
         assertThat(transport.calls.get(1).method()).isEqualTo("PUT");
         assertThat(transport.calls.get(1).body()).hasSize(100);
         assertThat(transport.calls.get(1).headers()).containsOnly(entry("Content-Type","audio/mp3"));
-        verify(assets,times(2)).readContentMedia(new AssetAccessPort.Actor(33,88,22,11),700L);
-        long id = Long.parseLong(first.get("uploadId").toString());
-        assertThat(service.requireUploaded(post,21,id,"VOICE").fileId()).isEqualTo("normalized-provider-file");
+        verify(assets,times(4)).readContentMedia(new AssetAccessPort.Actor(33,88,22,11),700L);
         assertThatThrownBy(() -> service.complete(post,id)).hasMessageContaining("原素材");
         assertThatThrownBy(() -> service.completeFileUpload(post,id,100,sha)).hasMessageContaining("原素材");
         var otherPost = new PostSnapshot(12L,22L,33L,"store","sales",null,false,Set.of());
@@ -130,6 +142,48 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         when(assets.readContentMedia(any(),eq(700L))).thenThrow(new IllegalArgumentException("source access revoked"));
         assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("source access revoked");
         assertThat(transport.calls).hasSize(2);
+    }
+    @Test void browserAndLegacyDirectRoutesRequireConsentBeforeIssuingAnyGrant() {
+        var transport = new ContentProviderTransport.Scripted();
+        var current = mock(CurrentPost.class);
+        when(current.require()).thenReturn(post);
+        var controller = new ContentCloneController(
+                mock(ContentCloneService.class), current, service(transport));
+        assertThatThrownBy(() -> controller.upload(21, new ContentCloneController.Upload(
+                "VOICE","audio/mpeg",100,sha,null))).hasMessageContaining("授权");
+        assertThatThrownBy(() -> controller.fileTicket(21, new ContentCloneController.FileFormat(
+                "VOICE","audio/mpeg",null))).hasMessageContaining("授权");
+        assertThat(transport.calls).isEmpty();
+    }
+
+    @Test void actualCloneCreationOnlySendsTheSelectedAssetAfterAuthorization() {
+        var transport = new ContentProviderTransport.Scripted(
+                ContentProviderTransport.json(200,"{\"upload_url\":\"https://upload.hifly.cc/sample.mp3\",\"content_type\":\"audio/mp3\",\"file_id\":\"consented-file\"}",0),
+                ContentProviderTransport.json(200,"",0),
+                ContentProviderTransport.json(200,"{\"code\":0,\"task_id\":\"consented-task\"}",0));
+        var uploads = service(transport);
+        var assets=mediaAssets("audio/mpeg",6,0,0); uploads.setAssets(assets,org -> 88L);
+        // The abandoned selection is never sent to the provider.
+        when(assets.contentMetadata(any(),eq(701L))).thenReturn(new AssetAccessPort.ContentMetadata("audio/mpeg",sha,100));
+        var selected=new byte[100]; Arrays.fill(selected,(byte)42);
+        when(assets.readContentMedia(any(),eq(701L))).thenReturn(new AssetAccessPort.ContentMedia(selected,"audio/mpeg",sha,6,0,0));
+        uploads.importAsset(post,21,"VOICE",700);
+        long chosen=Long.parseLong(uploads.importAsset(post,21,"VOICE",701).get("uploadId").toString());
+        var points=mock(OrgPointPort.class);
+        var config=new ContentProviderProperties(); config.getHifly().setApiKey("server-only-key");
+        var clones=new ContentCloneService(jdbc,personas,uploads,points,config,transport,null,transactionManager);
+        assertThatThrownBy(()->clones.create(post,21,"VOICE","样本",chosen,null,"original-request",5))
+                .hasMessageContaining("授权");
+        assertThat(transport.calls).isEmpty();
+        verifyNoInteractions(points);
+        when(points.reserveConfirmed(any(),eq(5L))).thenReturn(100L);
+        var created=clones.create(post,21,"VOICE","样本",chosen,ContentCloneService.CONSENT_VERSION,"original-request",5);
+        assertThat(created).containsEntry("status","RUNNING");
+        assertThat(clones.create(post,21,"VOICE","样本",chosen,ContentCloneService.CONSENT_VERSION,"original-request",5))
+                .isEqualTo(created);
+        assertThat(transport.calls).hasSize(3);
+        assertThat(transport.calls.get(1).body()).isEqualTo(selected);
+        verify(points).reserveConfirmed(any(),eq(5L));
     }
     @Test void invalidKindsDurationsAndSourceIntegrityCannotReachTheProvider() {
         var transport = new ContentProviderTransport.Scripted(); var service = service(transport);
@@ -142,7 +196,7 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700)).hasMessageContaining("revoked");
         assertThat(transport.calls).isEmpty();
     }
-    @Test void concurrentImportsCannotDuplicateTheProviderTransfer() throws Exception {
+    @Test void concurrentAuthorizedSubmissionsCannotDuplicateTheProviderTransfer() throws Exception {
         var started = new java.util.concurrent.CountDownLatch(1); var release = new java.util.concurrent.CountDownLatch(1);
         var count = new java.util.concurrent.atomic.AtomicInteger();
         ContentProviderTransport transport = (method,url,headers,bytes,timeout) -> {
@@ -153,12 +207,13 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         var service = service(transport); service.setAssets(mediaAssets("audio/mpeg",6,0,0),org -> 88L);
         var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
         try {
-            var first = pool.submit(() -> service.importAsset(post,21,"VOICE",700));
+            long id=Long.parseLong(service.importAsset(post,21,"VOICE",700).get("uploadId").toString());
+            var first = pool.submit(() -> service.requireAuthorizedUpload(post,21,id,"VOICE",ContentCloneService.CONSENT_VERSION));
             assertThat(started.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(() -> service.importAsset(post,21,"VOICE",700))
+            assertThatThrownBy(() -> service.requireAuthorizedUpload(post,21,id,"VOICE",ContentCloneService.CONSENT_VERSION))
                     .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e -> assertThat(e.getCode()).isEqualTo(1_114_000_012));
             release.countDown();
-            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS).fileId()).isEqualTo("concurrent-provider-file");
             assertThat(count.get()).isEqualTo(2);
         } finally { release.countDown(); pool.shutdownNow(); }
     }
@@ -173,15 +228,17 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         var service=service(transport); var assets=mediaAssets("audio/mpeg",6,0,0);service.setAssets(assets,org->88L);
         var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
         try{
-            var first=pool.submit(()->service.importAsset(post,21,"VOICE",700));
-            var second=pool.submit(()->service.importAsset(post,24,"VOICE",700));
+            long one=Long.parseLong(service.importAsset(post,21,"VOICE",700).get("uploadId").toString());
+            long two=Long.parseLong(service.importAsset(post,24,"VOICE",700).get("uploadId").toString());
+            var first=pool.submit(()->service.requireAuthorizedUpload(post,21,one,"VOICE",ContentCloneService.CONSENT_VERSION));
+            var second=pool.submit(()->service.requireAuthorizedUpload(post,24,two,"VOICE",ContentCloneService.CONSENT_VERSION));
             assertThat(started.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             assertThatThrownBy(()->service.importAsset(post,21,"VOICE",701))
                 .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,e->assertThat(e.getCode()).isEqualTo(1_114_000_012));
             verify(assets,never()).readContentMedia(any(),eq(701L));
             release.countDown();
-            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
-            assertThat(second.get(5,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("status","UPLOADED");
+            assertThat(first.get(5,java.util.concurrent.TimeUnit.SECONDS).fileId()).startsWith("bounded-");
+            assertThat(second.get(5,java.util.concurrent.TimeUnit.SECONDS).fileId()).startsWith("bounded-");
             assertThat(service.importAsset(post,21,"VOICE",700)).containsEntry("status","UPLOADED");
             assertThat(grants.get()).isEqualTo(2);
         }finally{release.countDown();pool.shutdownNow();}

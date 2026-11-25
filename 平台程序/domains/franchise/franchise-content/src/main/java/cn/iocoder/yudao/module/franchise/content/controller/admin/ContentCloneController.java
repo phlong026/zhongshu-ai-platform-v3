@@ -18,14 +18,15 @@ public class ContentCloneController {
     private final ContentCloneUploadService uploads;
     public ContentCloneController(ContentCloneService clones,CurrentPost posts,ContentCloneUploadService uploads) {this.clones=clones;this.posts=posts;this.uploads=uploads;}
     public record Create(String kind,String title,long sourceUploadId,String consentVersion,long confirmedCredits,Long sourceAssetId) { }
-    public record Upload(String kind,String mimeType,long sizeBytes,String sha256) { }
+    public record Upload(String kind,String mimeType,long sizeBytes,String sha256,String consentVersion) { }
     @PostMapping("/personas/{personaId}/clone-upload-tickets")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
     public CommonResult<Map<String,Object>> upload(@PathVariable("personaId") long id,@RequestBody Upload body) {
         var post=posts.require();clones.assertAccess(post,body.kind());
+        ContentCloneService.requireConsent(body.consentVersion());
         return success(uploads.issue(post,id,body.kind(),body.mimeType(),body.sizeBytes(),body.sha256()));
     }
-    public record FileFormat(String kind,String mimeType) {}
+    public record FileFormat(String kind,String mimeType,String consentVersion) {}
     public record FileReceipt(long sizeBytes,String sha256) {}
     public record AssetUpload(String kind, long assetId) {}
 
@@ -41,6 +42,7 @@ public class ContentCloneController {
     public CommonResult<Map<String,Object>> fileTicket(@PathVariable("personaId") long id,@RequestBody FileFormat body) {
         var post=posts.require();
         clones.assertAccess(post,body.kind());
+        ContentCloneService.requireConsent(body.consentVersion());
         return success(uploads.prepareFileUpload(post,id,body.kind(),body.mimeType()));
     }
 
