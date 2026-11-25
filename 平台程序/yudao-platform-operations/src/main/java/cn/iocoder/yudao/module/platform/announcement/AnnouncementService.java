@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.platform.announcement;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -80,12 +81,29 @@ public class AnnouncementService {
     public Detail create(Save input) {
         var actor = access.admin(true);
         Save value = validate(input, actor.tenantId());
+        String requestId = createRequestId(input.createRequestId());
+        String fingerprint = requestId == null ? null : DigestUtil.sha256Hex(JsonUtils.toJsonString(List.of(
+                value.title(), value.summary(), value.content(), value.visibility(),
+                value.brandIds().stream().sorted().toList(), value.pinned())));
         String id = UUID.randomUUID().toString();
-        jdbc.update("""
-                INSERT INTO pf_announcement(id,tenant_id,title,summary,content,visibility,pinned,created_by,updated_by)
-                VALUES(?,?,?,?,?,?,?,?,?)
+        // The unique key serializes concurrent attempts until the first transaction (including audit) finishes.
+        int inserted = jdbc.update("""
+                INSERT INTO pf_announcement(id,tenant_id,title,summary,content,visibility,pinned,created_by,updated_by,
+                    create_request_id,create_request_fingerprint)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT (tenant_id,created_by,create_request_id) DO NOTHING
                 """, id, actor.tenantId(), value.title(), value.summary(), value.content(), value.visibility(),
-                value.pinned(), actor.userId(), actor.userId());
+                value.pinned(), actor.userId(), actor.userId(), requestId, fingerprint);
+        if (inserted == 0) {
+            var prior = jdbc.queryForMap("""
+                    SELECT id,create_request_fingerprint FROM pf_announcement
+                    WHERE tenant_id=? AND created_by=? AND create_request_id=?
+                    """, actor.tenantId(), actor.userId(), requestId);
+            if (!fingerprint.equals(prior.get("create_request_fingerprint"))) {
+                throw new ServiceException(409, "保存请求与原草稿内容不一致，请核对原草稿");
+            }
+            return detail((String) prior.get("id"), actor.tenantId());
+        }
         saveBrands(id, actor.tenantId(), value.brandIds());
         Detail result = detail(id, actor.tenantId());
         audit(actor, "CREATE", result);
@@ -242,6 +260,12 @@ public class AnnouncementService {
                 INSERT INTO pf_announcement_audit(tenant_id,announcement_id,actor_id,post_id,action,revision,snapshot)
                 VALUES(?,?,?,?,?,?,?::jsonb)
                 """, actor.tenantId(), result.id(), actor.userId(), actor.postId(), action, result.revision(), JsonUtils.toJsonString(result));
+    }
+
+    private static String createRequestId(String value) {
+        if (value == null) return null; // Legacy clients may omit the request ID.
+        check(value.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"), "保存请求编号无效");
+        return value;
     }
 
     private static long brandId(String value) {

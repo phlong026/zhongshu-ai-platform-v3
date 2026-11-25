@@ -39,6 +39,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.platform.announcement.AnnouncementModel.*;
@@ -269,6 +273,70 @@ class AnnouncementIntegrationTest extends PlatformPgIntegrationTest {
                 .andExpect(jsonPath("$.code").value(403));
         SecurityContextHolder.clearContext();
         mvc.perform(get("/platform/announcements/app")).andExpect(jsonPath("$.code").value(401));
+    }
+
+    @Test
+    void repeatedDraftSaveViaHttpReturnsOriginalWithoutCreatingAnotherDraftOrAudit() throws Exception {
+        String key = UUID.randomUUID().toString();
+        String input = """
+                {"title":"待确认的公告草稿","content":"正文","visibility":"ALL","brandIds":[],"createRequestId":"%s"}
+                """.formatted(key);
+        String createdJson = mvc.perform(post("/platform/announcements/admin")
+                        .header(CurrentPost.HEADER, administrator.postId()).contentType(MediaType.APPLICATION_JSON)
+                        .content(input))
+                .andExpect(jsonPath("$.code").value(0)).andReturn().getResponse().getContentAsString();
+        String draftId = com.jayway.jsonpath.JsonPath.read(createdJson, "$.data.id");
+        mvc.perform(post("/platform/announcements/admin")
+                        .header(CurrentPost.HEADER, administrator.postId()).contentType(MediaType.APPLICATION_JSON)
+                        .content(input))
+                .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.id").value(draftId));
+        mvc.perform(post("/platform/announcements/admin")
+                        .header(CurrentPost.HEADER, administrator.postId()).contentType(MediaType.APPLICATION_JSON)
+                        .content(input.replace("正文", "修改的内容")))
+                .andExpect(jsonPath("$.code").value(409));
+        assertThat(service.adminList("", "DRAFT", "", 1, 20).list()).extracting(Summary::id).containsExactly(draftId);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_announcement_audit WHERE announcement_id=?", Long.class,
+                draftId)).isEqualTo(1L);
+        Detail current = service.publish(draftId, new Action(0L));
+        mvc.perform(post("/platform/announcements/admin")
+                        .header(CurrentPost.HEADER, administrator.postId()).contentType(MediaType.APPLICATION_JSON)
+                        .content(input))
+                .andExpect(jsonPath("$.data.id").value(draftId)).andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.revision").value((int) current.revision()));
+        select(finance);
+        denied(403, () -> service.create(new Save("待确认的公告草稿", "", "正文", "ALL", List.of(), false, null, key)));
+        select(createPost(tenant, hq, "headquarters", "hq-admin"));
+        var independent = service.create(new Save("待确认的公告草稿", "", "正文", "ALL", List.of(), false, null, key));
+        assertThat(independent.id()).isNotEqualTo(draftId);
+        long otherTenant = id();
+        select(createPost(otherTenant, org(otherTenant, "headquarters"), "headquarters", "hq-admin"), otherTenant);
+        assertThat(service.create(new Save("待确认的公告草稿", "", "正文", "ALL", List.of(), false, null, key)).id())
+                .isNotIn(draftId, independent.id());
+    }
+
+    @Test
+    void concurrentCreateRetriesUseOneCommittedDraft() throws Exception {
+        var input = new Save("并行保存", "", "正文", "ALL", List.of(), false, null, UUID.randomUUID().toString());
+        var barrier = new CyclicBarrier(2);
+        Callable<String> create = () -> {
+            select(administrator);
+            try {
+                barrier.await(10, TimeUnit.SECONDS);
+                return service.create(input).id();
+            } finally {
+                clear();
+            }
+        };
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(create);
+            var retry = pool.submit(create);
+            String id = first.get(20, TimeUnit.SECONDS);
+            assertThat(retry.get(20, TimeUnit.SECONDS)).isEqualTo(id);
+            assertThat(service.adminList("", "DRAFT", "", 1, 20).list()).extracting(Summary::id).containsExactly(id);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

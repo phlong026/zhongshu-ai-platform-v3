@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
+const { webcrypto } = require('node:crypto')
 const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileScript } = require('vue/compiler-sfc')
@@ -24,6 +25,7 @@ function load(file, imports = {}, globals = {}) {
     Error,
     Date,
     Intl,
+    crypto: webcrypto,
     __testEnv: {},
     require(name) {
       if (name in imports) return imports[name]
@@ -69,13 +71,14 @@ function view(overrides = {}) {
   const identity = vue.reactive({ context: { post: { postId: '201' } } })
   const calls = []
   const confirmations = []
+  const notices = []
   const hooks = {}
   const api = {
     announcementOptions: async () => choices(),
     listAnnouncements: async () => ({ list: [record()], total: 1 }),
     getAnnouncement: async () => record(),
-    saveAnnouncement: async (input, existing) => {
-      calls.push(['save', plain(input), plain(existing || null)])
+    saveAnnouncement: async (input, existing, createRequestId) => {
+      calls.push(['save', plain(input), plain(existing || null), createRequestId])
       return record({ ...input, revision: 3 })
     },
     changeAnnouncementStatus: async (key, action, expectedRevision) => {
@@ -98,7 +101,7 @@ function view(overrides = {}) {
       }
     },
     'element-plus': {
-      ElMessage: { success() {} },
+      ElMessage: { success: (message) => notices.push(message) },
       ElMessageBox: {
         confirm: async (...args) => {
           confirmations.push(args)
@@ -132,6 +135,7 @@ function view(overrides = {}) {
     identity,
     calls,
     confirmations,
+    notices,
     hooks
   }
 }
@@ -167,6 +171,10 @@ test('announcement API uses B endpoints, preserves UUID and large brand IDs, and
   assert.equal(calls[3][1].data.expectedRevision, 2)
   assert.deepEqual(calls[3][1].data.brandIds, [bigBrand])
   assert.deepEqual(calls[4][1].data, { expectedRevision: 3 })
+  await api.saveAnnouncement(model.announcementInput(record()), undefined, id)
+  assert.equal(calls[5][0], 'post')
+  assert.equal(calls[5][1].data.createRequestId, id)
+  assert.equal(calls[3][1].data.createRequestId, undefined)
   assert.ok(calls.every(([, request]) => request.preserveBusinessError && request.silentError))
 })
 
@@ -465,4 +473,81 @@ test('axios preserves opted-in business errors after post-generation rejection a
     response(envelope({ preserveBusinessError: true, platformGeneration: 1 })),
     /STALE_POST_RESPONSE/
   )
+})
+
+test('lost create response reopens the same frozen command and resolves to the original record', async () => {
+  const attempts = []
+  const drafts = new Map()
+  const f = view({
+    api: {
+      saveAnnouncement: async (input, existing, requestId) => {
+        attempts.push({ input: plain(input), existing, requestId })
+        assert.match(requestId, /^[0-9a-f-]{36}$/)
+        if (!drafts.has(requestId)) {
+          drafts.set(requestId, record(input))
+          throw Error('模拟服务器已保存，网页回执丢失')
+        }
+        return { ...drafts.get(requestId), status: 'WITHDRAWN', revision: 3 }
+      }
+    }
+  })
+  await f.page.load()
+  f.page.createDraft()
+  Object.assign(f.page.form, { title: '原草稿', content: '原正文' })
+  await f.page.save()
+  assert.match(f.page.editorError.value, /确认保存结果/)
+  f.page.closeEditor()
+  f.page.createDraft()
+  assert.equal(f.page.form.title, '原草稿')
+  f.page.form.title = '即使模型误写也不替换原请求'
+  await f.page.save()
+  assert.equal(drafts.size, 1)
+  assert.deepEqual(attempts[1], attempts[0])
+  assert.equal(f.page.selected.value.id, id)
+  assert.equal(f.page.selected.value.status, 'WITHDRAWN')
+  assert.match(f.notices.at(-1), /原公告/)
+})
+
+test('definite create rejection allows editing and a new command; switching identity clears pending state', async () => {
+  const attempts = []
+  const f = view({
+    api: {
+      saveAnnouncement: async (input, existing, requestId) => {
+        attempts.push({ title: input.title, requestId })
+        if (attempts.length === 1) throw Object.assign(Error('请求无效'), { code: 400 })
+        if (attempts.length === 2) throw Error('回执丢失')
+        return record(input)
+      }
+    }
+  })
+  await f.page.load()
+  f.page.createDraft()
+  Object.assign(f.page.form, { title: '首个提交', content: '正文' })
+  await f.page.save()
+  f.page.form.title = '纠正后的标题'
+  await f.page.save()
+  assert.equal(attempts[1].title, '纠正后的标题')
+  assert.notEqual(attempts[1].requestId, attempts[0].requestId)
+  f.state.post = '202'
+  f.state.generation++
+  f.identity.context = { post: { postId: '202' } }
+  await vue.nextTick()
+  await f.page.load()
+  f.page.createDraft()
+  assert.equal(f.page.form.title, '')
+  Object.assign(f.page.form, { title: '另一工作身份', content: '正文' })
+  await f.page.save()
+  assert.notEqual(attempts[2].requestId, attempts[1].requestId)
+})
+
+test('request IDs use secure random bytes if randomUUID is unavailable (intranet HTTP)', () => {
+  const intranetCrypto = { getRandomValues: (bytes) => bytes.fill(0xab) }
+  const intranetModel = load(
+    'views/platform/announcements/model.ts',
+    {},
+    { crypto: intranetCrypto }
+  )
+  assert.equal(intranetModel.createRequestId(), 'abababab-abab-4bab-abab-abababababab')
+  const unsupported = load('views/platform/announcements/model.ts', {}, { crypto: {} })
+  assert.throws(() => unsupported.createRequestId(), /安全生成/)
 })
