@@ -55,7 +55,8 @@ export const getAnnouncement = (id: string): Promise<AnnouncementDetail> =>
 
 export const saveAnnouncement = (
   input: AnnouncementInput,
-  existing?: { id: string; revision: number }
+  existing?: { id: string; revision: number },
+  createRequestId?: string
 ): Promise<AnnouncementDetail> =>
   existing
     ? request.put({
@@ -63,7 +64,7 @@ export const saveAnnouncement = (
         data: { ...input, expectedRevision: existing.revision },
         ...errors
       })
-    : request.post({ url: base, data: input, ...errors })
+    : request.post({ url: base, data: { ...input, createRequestId }, ...errors })
 
 export const changeAnnouncementStatus = (
   id: string,

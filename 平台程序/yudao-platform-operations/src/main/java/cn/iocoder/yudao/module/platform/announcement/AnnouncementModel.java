@@ -7,7 +7,12 @@ public final class AnnouncementModel {
     private AnnouncementModel() { }
 
     public record Save(String title, String summary, String content, String visibility,
-                       List<String> brandIds, boolean pinned, Long expectedRevision) { }
+                       List<String> brandIds, boolean pinned, Long expectedRevision, String createRequestId) {
+        public Save(String title, String summary, String content, String visibility,
+                    List<String> brandIds, boolean pinned, Long expectedRevision) {
+            this(title, summary, content, visibility, brandIds, pinned, expectedRevision, null);
+        }
+    }
     public record Action(Long expectedRevision) { }
     public record Brand(String id, String name) { }
     public record Options(boolean canWrite, List<Brand> brands) { }

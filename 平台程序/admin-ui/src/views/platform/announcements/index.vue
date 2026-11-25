@@ -6,7 +6,7 @@
         <p>发布后，员工可在小程序“我的 → 公司公告”查看。</p>
       </div>
       <el-button v-if="canWrite" type="primary" :disabled="busy" @click="createDraft">
-        新建公告
+        {{ pendingCreate ? '继续确认草稿' : '新建公告' }}
       </el-button>
     </header>
 
@@ -141,7 +141,7 @@
           v-if="mode === 'edit' && canWrite"
           :model="form"
           label-position="top"
-          :disabled="busy || stale"
+          :disabled="busy || stale || (!selected && !!pendingCreate)"
         >
           <el-form-item label="公告标题" required>
             <el-input
@@ -216,9 +216,9 @@
       <template #footer>
         <el-button :disabled="busy" @click="editorOpen = false">关闭</el-button>
         <template v-if="canWrite && !detailLoading && !stale">
-          <el-button v-if="mode === 'edit'" type="primary" :loading="busy" @click="save"
-            >保存草稿</el-button
-          >
+          <el-button v-if="mode === 'edit'" type="primary" :loading="busy" @click="save">{{
+            !selected && pendingCreate ? '确认保存结果' : '保存草稿'
+          }}</el-button>
           <template v-else-if="selected">
             <el-button v-if="selected.status !== 'PUBLISHED'" :disabled="busy" @click="editSelected"
               >编辑</el-button
@@ -266,6 +266,7 @@ import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { useUserStore } from '@/store/modules/user'
 import {
   announcementInput,
+  createRequestId,
   errorMessage,
   errorStatus,
   inputError,
@@ -298,6 +299,7 @@ const selected = ref<AnnouncementDetail | null>(null)
 const mode = ref<'view' | 'edit'>('view')
 const form = reactive<AnnouncementInput>(newAnnouncement())
 const editorError = ref('')
+const pendingCreate = ref<{ id: string; input: AnnouncementInput; scope: string } | null>(null)
 const stale = ref(false)
 const busy = ref(false)
 const canWrite = computed(() => ready.value && options.value.canWrite)
@@ -323,6 +325,7 @@ const clearPrivateState = () => {
   options.value = { canWrite: false, brands: [] }
   ready.value = false
   selected.value = null
+  pendingCreate.value = null
   Object.assign(form, newAnnouncement())
   editorOpen.value = false
   busy.value = false
@@ -367,8 +370,9 @@ const createDraft = () => {
   if (!canWrite.value || busy.value) return
   detailSequence++
   selected.value = null
-  Object.assign(form, newAnnouncement())
-  editorError.value = ''
+  if (pendingCreate.value?.scope !== scope()) pendingCreate.value = null
+  Object.assign(form, announcementInput(pendingCreate.value?.input || newAnnouncement()))
+  editorError.value = pendingCreate.value ? '上次保存结果待确认，点击「确认保存结果」继续。' : ''
   stale.value = false
   mode.value = 'edit'
   detailLoading.value = false
@@ -453,29 +457,54 @@ const mutationFailed = (error: unknown) => {
 
 const save = async () => {
   if (!canWrite.value || busy.value || stale.value || mode.value !== 'edit') return
-  const input = announcementInput(form)
+  const captured = scope()
+  const record = selected.value
+  if (pendingCreate.value?.scope !== captured) pendingCreate.value = null
+  const pending = record ? null : pendingCreate.value
+  const input = pending ? announcementInput(pending.input) : announcementInput(form)
   const issue = inputError(input)
   if (issue) {
     editorError.value = issue
     return
   }
-  const captured = scope()
-  const record = selected.value
+  let command = pending
+  if (!record && !command) {
+    try {
+      command = { id: createRequestId(), input, scope: captured }
+      pendingCreate.value = command
+    } catch {
+      editorError.value = '当前浏览器无法安全保存草稿，请刷新页面或换一个浏览器后重试。'
+      return
+    }
+  }
   busy.value = true
   editorError.value = ''
   try {
     const saved = await saveAnnouncement(
       input,
-      record ? { id: record.id, revision: record.revision } : undefined
+      record ? { id: record.id, revision: record.revision } : undefined,
+      command?.id
     )
     if (!current(captured)) return
+    if (command) pendingCreate.value = null
     selected.value = saved
     Object.assign(form, announcementInput(saved))
     mode.value = 'view'
-    ElMessage.success('草稿已保存，可预览后发布')
+    ElMessage.success(
+      saved.status === 'DRAFT' ? '草稿已保存，可预览后发布' : '已找到原公告，显示当前状态'
+    )
     await load()
   } catch (error) {
-    if (current(captured)) mutationFailed(error)
+    if (!current(captured)) return
+    const code = errorStatus(error)
+    if (command && code === 400) pendingCreate.value = null
+    if (command && ![400, 401, 403].includes(code)) {
+      editorError.value =
+        code === 409
+          ? '本次保存与原记录不一致，请先核对公告列表。'
+          : '保存结果待确认，请点击「确认保存结果」，不会重复新增。'
+      if (code === 409) stale.value = true
+    } else mutationFailed(error)
   } finally {
     if (current(captured)) busy.value = false
   }
