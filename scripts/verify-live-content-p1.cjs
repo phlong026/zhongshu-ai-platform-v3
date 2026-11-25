@@ -625,12 +625,11 @@ test('work detail cannot replace a typed or recovered publication draft or paint
   await first;
   assert.equal(f.page.data.publishText,'人工确认的文案');
 
-  f.page.__publicationDraftRestored=true;
-  f.page.data.publishText='';
+  f.page.data.publishText='恢复的发稿正文';
   f.setWork(Promise.resolve(detail));
   await f.page.loadApiWork(id);
-  assert.equal(f.page.data.publishText,'');
-  f.page.__publicationDraftRestored=false;
+  assert.equal(f.page.data.publishText,'恢复的发稿正文');
+  f.page.data.publishText='';
   f.setWork(new Promise(r=>{ resolve=r; }));
   const old=f.page.loadApiWork(id);
   f.switchScope('new-post');

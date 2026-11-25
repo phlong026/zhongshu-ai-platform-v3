@@ -10,7 +10,7 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
-function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
+function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], work = async () => null, accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
   let definition;
   const storage=new Map();
   const studio = {
@@ -42,7 +42,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
       api: {
         publications: { create, page: list, verify, link },
         publisherAccounts: { list: accounts },
-        drafts: { works, work: async () => null },
+        drafts: { works, work },
         tasks: { page: async () => [] }
       },
       validatePublicationForm(form) {
@@ -558,5 +558,44 @@ test('a published record without a matching server URL cannot attach a contact e
     await page.submitLinkAndLead();
     assert.equal(captured,0);
     assert.match(page.data.operationError,/链接与当前输入不一致/);
+  }
+});
+
+test('first link save waits for selected work detail, then freezes the full saved body', async () => {
+  const bodies=[], toasts=[];
+  let release;
+  const page=loadPage({pageData:{...basePublishData,publishText:''},toasts,
+    work:()=>new Promise(resolve=>{release=resolve;}),
+    create:async body=>{bodies.push(body);return {id:91,status:'published',publishedUrl:basePublishData.publishedUrlInput};},
+    list:async()=>[]});
+  const pending=page.loadApiWork(basePublishData.workId);
+  assert.equal(page.data.publisherAccountsLoading,false);
+  await page.submitLinkAndLead();
+  assert.equal(bodies.length,0);
+  assert.equal(page.__linkFlow,undefined);
+  assert.match(toasts.at(-1),/正在读取作品正文/);
+  release({workId:'8',title:'院落漫游',script:'故事开头\n第二段正文'});
+  await pending;
+  await page.submitLinkAndLead();
+  assert.equal(bodies.length,1);
+  assert.equal(bodies[0].publishText,'故事开头\n第二段正文');
+});
+
+test('editing, frozen retries, and definitive detail failure remain usable without waiting', async () => {
+  for(const scenario of ['manual','frozen','failed']){
+    let release;
+    const writes=[];
+    const page=loadPage({pageData:{...basePublishData,publishText:scenario==='manual'?'我确认过的文案':''},
+      work:()=>scenario==='failed'?Promise.reject(new Error('读不到')):new Promise(resolve=>{release=resolve;}),
+      create:async (body,key)=>{writes.push({body,key});return {id:91,status:'published',publishedUrl:basePublishData.publishedUrlInput};},
+      list:async()=>[]});
+    if(scenario==='frozen')page.__linkFlow={workId:'8',createKey:'same-key',payload:{workId:'8',title:'原题',publishText:'原请求正文',publisherAccountId:'201'}};
+    const pending=page.loadApiWork('8');
+    if(scenario==='failed'){await pending;assert.equal(page.data.workDetailFailed,true);}
+    await page.submitLinkAndLead();
+    assert.equal(writes.length,1);
+    assert.equal(writes[0].body.publishText, scenario==='manual'?'我确认过的文案':scenario==='frozen'?'原请求正文':'院落漫游');
+    if(scenario==='frozen')assert.equal(writes[0].key,'same-key');
+    if(release){release({workId:'8',title:'保存的标题',script:'迟到的正文'});await pending;}
   }
 });
