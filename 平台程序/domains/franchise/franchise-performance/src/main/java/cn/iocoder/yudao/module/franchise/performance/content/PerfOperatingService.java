@@ -164,15 +164,18 @@ public class PerfOperatingService {
     private Map<String, Object> currentReconciliation(long companyId, String period) {
         // One statement sees a coherent set of source rows. Counts and amounts use the same facts.
         List<Map<String, Object>> rows = jdbc.queryForList("""
-            SELECT 'receipt' AS kind,id::text AS id,amount_cents,'COMPANY' AS funding,received_date::text AS business_date
-            FROM fr_fin_receipt WHERE company_id=? AND status='已登记'
-                AND received_date>=?::date AND received_date<?::date
+            SELECT 'receipt' AS kind,r.id::text AS id,r.amount_cents,'COMPANY' AS funding,r.received_date::text AS business_date,
+                EXISTS (SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.org_id=r.company_id
+                    AND e.aggregate_type='fin-employee-recovery' AND e.aggregate_id=r.id
+                    AND e.revision=1 AND e.command='fin-employee-recovery') AS employee_recovery
+            FROM fr_fin_receipt r WHERE r.company_id=? AND r.status='已登记'
+                AND r.received_date>=?::date AND r.received_date<?::date
             UNION ALL
-            SELECT 'payment',id::text,amount_cents,funding_type,pay_date::text
+            SELECT 'payment',id::text,amount_cents,funding_type,pay_date::text,false
             FROM fr_fin_payment WHERE company_id=? AND status='已核实' AND funding_type IN ('COMPANY','EMPLOYEE')
                 AND pay_date>=?::date AND pay_date<?::date
             UNION ALL
-            SELECT refund_direction,id::text,amount_cents,funding_type,date::text
+            SELECT refund_direction,id::text,amount_cents,funding_type,date::text,false
             FROM fr_fin_refund WHERE company_id=? AND status='已核实' AND replaced_by_id IS NULL
                 AND (refund_direction='client' OR funding_type IN ('COMPANY','EMPLOYEE'))
                 AND date>=?::date AND date<?::date
@@ -180,7 +183,7 @@ public class PerfOperatingService {
             """, companyId, period + "-01", nextMonth(period), companyId, period + "-01", nextMonth(period),
                 companyId, period + "-01", nextMonth(period));
         Map<String, Object> out = new LinkedHashMap<>();
-        for (String name : List.of("grossReceipts", "clientRefunds", "companyPaid", "companyReturned", "employeeAdvance", "employeeReturned")) {
+        for (String name : List.of("grossReceipts", "employeeRecovery", "clientRefunds", "companyPaid", "companyReturned", "employeeAdvance", "employeeReturned")) {
             out.put(name + "Cents", 0L);
             out.put(name + "Count", 0);
         }
@@ -194,7 +197,14 @@ public class PerfOperatingService {
                 case "expense" -> employee ? "employeeReturned" : "companyReturned";
                 default -> throw new IllegalStateException("Unexpected reconciliation source " + kind);
             };
-            out.put(name + "Cents", cents(out, name + "Cents") + ((Number)row.get("amount_cents")).longValue());
+            long amount = ((Number)row.get("amount_cents")).longValue();
+            // This is a subset of company cash receipts, not a new receipt or a supplier refund to an employee.
+            // Keep the original five source fields for existing reconciliation signatures.
+            if (Boolean.TRUE.equals(row.remove("employee_recovery"))) {
+                out.put("employeeRecoveryCents", cents(out, "employeeRecoveryCents") + amount);
+                out.put("employeeRecoveryCount", ((Number)out.get("employeeRecoveryCount")).intValue() + 1);
+            }
+            out.put(name + "Cents", cents(out, name + "Cents") + amount);
             out.put(name + "Count", ((Number)out.get(name + "Count")).intValue() + 1);
         }
         long gross = cents(out, "grossReceiptsCents"), refunds = cents(out, "clientRefundsCents");
