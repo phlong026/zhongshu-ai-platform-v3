@@ -38,5 +38,16 @@ public class FinProjectAccountingAccess {
         if(!Boolean.TRUE.equals(active))throw denied();
     }
     static boolean canConfirm(PostSnapshot post){return post!=null && "store".equals(post.orgType()) && Set.of("finance","finance-lead").contains(post.roleCode());}
+    /** HQ 只读端口外层负责 HQ 角色授权，这里防传入其他租户或已失效公司。 */
+    @Transactional(readOnly=true,propagation=Propagation.REQUIRES_NEW,isolation=Isolation.READ_COMMITTED)
+    public void company(long tenant,long company) {
+        if(!java.util.Objects.equals(TenantContextHolder.getTenantId(),tenant))throw denied();
+        Boolean active=jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM pf_org_unit o JOIN system_dept d ON d.id=o.dept_id
+              WHERE o.dept_id=? AND o.org_id=o.dept_id AND o.kind='ORG' AND o.org_type='store' AND o.status='ACTIVE'
+                AND d.tenant_id=? AND d.status=0 AND d.deleted=0)
+            """,Boolean.class,company,tenant);
+        if(!Boolean.TRUE.equals(active))throw denied();
+    }
     private static ServiceException denied(){return new ServiceException(403,"当前岗位不能读取或确认该公司的项目核算");}
 }
