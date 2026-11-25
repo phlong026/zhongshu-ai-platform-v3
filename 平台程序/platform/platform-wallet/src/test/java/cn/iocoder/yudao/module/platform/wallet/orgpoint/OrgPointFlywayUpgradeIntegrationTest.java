@@ -68,8 +68,12 @@ class OrgPointFlywayUpgradeIntegrationTest extends PlatformPgIntegrationTest {
                 // 测试 schema 只模拟 911~914 的历史；更早且低于当前版本的迁移按已忽略处理。
                 .ignoreMigrationPatterns("*:ignored")
                 .locations("classpath:" + LOCATION).load();
-        assertThat(current.migrate().migrationsExecuted).isEqualTo(5);
+        assertThat(current.migrate().migrationsExecuted).isEqualTo(6);
         current.validate();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema
+                + ".flyway_schema_history WHERE version='20261125.1100' AND success", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema
+                + ".org_point_pool_backfill", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT credit_target FROM " + schema
                 + ".pf_recharge_order WHERE id=7", String.class)).isEqualTo("WALLET");
         assertThat(jdbc.queryForObject("SELECT balance FROM " + schema
