@@ -30,12 +30,14 @@ public interface CommissionRespVos {
                       Integer dispatchSeq, String dispatchedSchemeVersion, Integer dispatchedSubmissionVersion,
                       Integer handoverVersion, OffsetDateTime firstReadyAt,
                       OffsetDateTime tailPaidAt, OffsetDateTime tailReadyAt, long revision,
-                      OffsetDateTime createTime, OffsetDateTime updateTime) {
+                      OffsetDateTime createTime, OffsetDateTime updateTime, String workflowMode,
+                      Integer externalRequestVersion, Integer externalResultVersion) {
         public static Commission of(CommissionDO c) {
             return new Commission(c.getId(), c.getCustomerId(), c.getCustomerName(), c.getStatus(),
                     c.getSubmissionVersion(), c.getDispatchSeq(), c.getDispatchedSchemeVersion(),
                     c.getDispatchedSubmissionVersion(), c.getHandoverVersion(), c.getFirstReadyAt(),
-                    c.getTailPaidAt(), c.getTailReadyAt(), c.getRevision(), c.getCreateTime(), c.getUpdateTime());
+                    c.getTailPaidAt(), c.getTailReadyAt(), c.getRevision(), c.getCreateTime(), c.getUpdateTime(),
+                    c.getWorkflowMode(), c.getExternalRequestVersion(), c.getExternalResultVersion());
         }
     }
 

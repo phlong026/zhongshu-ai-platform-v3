@@ -109,6 +109,17 @@ public class FranchiseTodoProvider implements TodoProvider {
             String key = Long.toString(commission.getId());
             OffsetDateTime since = commission.getUpdateTime();
             String customer = commission.getCustomerName();
+            if (ExternalCommissionService.external(commission)) {
+                if (access.canWrite(post, commission) && Set.of(CommissionDO.STATUS_EXTERNAL_PENDING,
+                        CommissionDO.STATUS_EXTERNAL_READY, CommissionDO.STATUS_HANDOVER_RETURNED).contains(commission.getStatus())) {
+                    String title = CommissionDO.STATUS_EXTERNAL_PENDING.equals(commission.getStatus()) ? "外部设计成果待登记"
+                            : CommissionDO.STATUS_HANDOVER_RETURNED.equals(commission.getStatus()) ? "工程退回，待补充移交资料" : "外部成果已登记，待移交工程";
+                    items.add(item("external-entrust:"+key+":"+commission.getRevision(), "「"+customer+"」"+title,
+                            commission.getStatus(),null,true,"/pages/external-entrust/index?customerId="+commission.getCustomerId(),since));
+                }
+                if (CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) handoverReviewTodo(post,commission,items);
+                continue;
+            }
             if(commission.getDispatchSeq()!=null && !commissions.readyToDispatch(commission)) {
                 items.add(item("design-finance-anomaly:"+key+":"+commission.getSubmissionVersion(),
                         "「"+customer+"」下发后设计资金净额不足，请核对退款/退回",commission.getStatus(),null,

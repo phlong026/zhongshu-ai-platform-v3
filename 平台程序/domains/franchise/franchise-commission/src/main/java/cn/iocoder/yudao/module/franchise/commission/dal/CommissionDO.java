@@ -27,6 +27,8 @@ public class CommissionDO {
     public static final String STATUS_HANDOVER_SUBMITTED = "HANDOVER_SUBMITTED";
     public static final String STATUS_HANDOVER_RETURNED = "HANDOVER_RETURNED";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
+    public static final String STATUS_EXTERNAL_PENDING = "EXTERNAL_PENDING";
+    public static final String STATUS_EXTERNAL_READY = "EXTERNAL_READY";
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
@@ -35,6 +37,9 @@ public class CommissionDO {
     private Long customerId;
     private String customerName;
     private String status;
+    private String workflowMode;
+    private Integer externalRequestVersion;
+    private Integer externalResultVersion;
     private Integer submissionVersion;
     /** 当前有效下发版本；登记修改意见后清空 */
     private Integer dispatchSeq;

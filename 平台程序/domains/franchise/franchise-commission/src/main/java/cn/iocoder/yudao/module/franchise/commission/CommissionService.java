@@ -119,6 +119,8 @@ public class CommissionService implements DesignFeeProgressApi {
         CustomerDO customer=customerMapper.selectById(customerId);
         if(customer==null || !CustomerAccess.canRead(post,customer)) throw exception(COMMISSION_NOT_FOUND);
         var c=commissionMapper.selectByCustomer(customerId);
+        if(c!=null && ExternalCommissionService.external(c)) return new Context(customerId,c.getId(),null,null,detail(post,c),
+                allowedActions(post,c),customer.getName(),customer.getCity(),false,CommissionBrief.customerInfo(customer),java.util.Map.of());
         var budget=customerService.latestScheme(customerId,CustomerSchemeDO.KIND_BUDGET);
         FeeOffer offer=null;
         long designOrgId = soleHeadquarters();
@@ -281,7 +283,7 @@ public class CommissionService implements DesignFeeProgressApi {
         var filters = statuses == null || statuses.isBlank() ? List.<String>of()
                 : java.util.Arrays.stream(statuses.split(",")).map(String::trim).distinct().toList();
         if (!java.util.Set.of("FEE_PENDING", "FEE_RETURNED", "DESIGNING", "DESIGN_COMPLETED", "DISPATCHED",
-                "HANDOVER_SUBMITTED", "HANDOVER_RETURNED", "ACCEPTED", "MODIFYING").containsAll(filters)) {
+                "HANDOVER_SUBMITTED", "HANDOVER_RETURNED", "ACCEPTED", "MODIFYING", "EXTERNAL_PENDING", "EXTERNAL_READY").containsAll(filters)) {
             throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
         }
         return commissionMapper.selectPage(page, access.visibleTo(post,
@@ -365,7 +367,7 @@ public class CommissionService implements DesignFeeProgressApi {
         var simulated = simulatedPayment(commission);
         return new Detail(commission, submissions, progressMapper.selectByCommission(commission.getId()),
                 handoverMapper.selectByCommission(commission.getId()), approval, allowedActions(post, commission),
-                displayStatus(commission), designAdmin || simulated != null ? null : settlement(commission),
+                displayStatus(commission), designAdmin || simulated != null || ExternalCommissionService.external(commission) ? null : settlement(commission),
                 manifests.list(commission.getId()), designAdmin && simulated != null ? simulated.designView() : simulated);
     }
 
@@ -473,6 +475,8 @@ public class CommissionService implements DesignFeeProgressApi {
     public Detail feeDecide(PostSnapshot post, long commissionId, FeeDecisionCommand command, String idempotencyKey) {
         idempotencyKey=commandLock(post,idempotencyKey);
         if(replayed(post,idempotencyKey,command,commissionId,"commission-fee-decide")) return get(post,commissionId);
+        // External conversion and fee approval share commission -> approval -> settlement lock order.
+        jdbc.queryForList("SELECT id FROM fr_commission WHERE id=? AND company_id=? FOR UPDATE",Long.class,commissionId,post.orgId());
         CommissionDO commission = commissionMapper.selectById(commissionId);
         if (commission == null || commission.getCompanyId() != post.orgId()
                 || !FranchiseRoles.atStore(post) || !FranchiseRoles.isBoss(post)) {
@@ -787,6 +791,14 @@ public class CommissionService implements DesignFeeProgressApi {
 
     /** 显示状态：存储状态 + 首尾款进度（文案与小程序 sales-flow.js next() 一致） */
     public String displayStatus(CommissionDO commission) {
+        if (ExternalCommissionService.external(commission)) return switch (commission.getStatus()) {
+            case CommissionDO.STATUS_EXTERNAL_PENDING -> "外部设计中 · 待登记成果";
+            case CommissionDO.STATUS_EXTERNAL_READY -> "外部成果已登记 · 待工程移交";
+            case CommissionDO.STATUS_HANDOVER_SUBMITTED -> "移交待工程接收";
+            case CommissionDO.STATUS_HANDOVER_RETURNED -> "移交被退回 · 待补充资料";
+            case CommissionDO.STATUS_ACCEPTED -> "工程已接收";
+            default -> commission.getStatus();
+        };
         if (simulatedPayments.blocked(commission) && !readyToDispatch(commission)) {
             return "历史模拟委托 · 待正式结算";
         }
@@ -813,6 +825,14 @@ public class CommissionService implements DesignFeeProgressApi {
         java.util.ArrayList<String> actions = new java.util.ArrayList<>();
         String status = commission.getStatus();
         boolean writable = access.canWrite(post, commission);
+        if (ExternalCommissionService.external(commission)) {
+            if (writable && java.util.Set.of(CommissionDO.STATUS_EXTERNAL_PENDING,CommissionDO.STATUS_EXTERNAL_READY,
+                    CommissionDO.STATUS_HANDOVER_RETURNED).contains(status)) {
+                actions.add("external-entrust-register"); actions.add("external-results-register");
+                if (commission.getExternalResultVersion()!=null) actions.add("external-packet-submit");
+            }
+            return actions;
+        }
         if (CommissionDO.STATUS_FEE_RETURNED.equals(status) && writable) {
             actions.add("commission-submit");
         }
