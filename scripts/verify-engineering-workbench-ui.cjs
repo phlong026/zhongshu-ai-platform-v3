@@ -412,3 +412,35 @@ test('工作台显示对应岗位的待办标题，积分卡异常态仍可重�
     assert.equal(nodes.some(node => node.tag === 'button'), state !== 'ready');
   }
 });
+
+test('项目和材料分别记住真实筛选、搜索、展开与列表，不读取对方的迟到结果', async () => {
+  const h=await setup();
+  await h.open('/pages/build/projects/index');
+  const page=current(),tap=workspaceBar();
+  page.filter({currentTarget:{dataset:{value:'待交付'}}});
+  await page.search({detail:{value:'陈家'}});
+  page.toggleProjects();
+  assert.deepEqual(page.data.cards.map(x=>x.id),[rows[2].id]);
+
+  const request=wx.request, pending=[];
+  wx.request=options=>options.url.endsWith('/franchise/engineering/projects')&&options.data?.keyword==='陈家'
+    ?pending.push(options):request(options);
+  const old=page.refreshOnline();
+  tap(9);await flush();
+  assert.equal(page.data.filter,'全部');assert.equal(page.data.keyword,'');assert.equal(page.data.expandedProjects,false);
+  assert.deepEqual(page.data.cards.map(x=>x.id),rows.map(x=>x.id));
+  pending[0].success({statusCode:200,data:{code:0,data:[rows[2]]}});await old;
+  assert.deepEqual(page.data.cards.map(x=>x.id),rows.map(x=>x.id));
+  await page.search({detail:{value:'王家'}});
+  assert.deepEqual(page.data.cards.map(x=>x.id),[rows[1].id]);
+
+  wx.request=request;tap(8);await flush();
+  assert.equal(page.data.filter,'待交付');assert.equal(page.data.keyword,'陈家');assert.equal(page.data.expandedProjects,true);
+  assert.deepEqual(page.data.cards.map(x=>x.id),[rows[2].id]);
+  tap(9);await flush();
+  assert.equal(page.data.filter,'全部');assert.equal(page.data.keyword,'王家');assert.equal(page.data.expandedProjects,false);
+  assert.deepEqual(page.data.cards.map(x=>x.id),[rows[1].id]);
+  h.projects([rows[1], {...rows[0],name:'林家新项目'}]);
+  await page.search({detail:{value:'林家'}});
+  assert.deepEqual(page.data.cards.map(x=>x.name),['林家新项目'],'restored panel still accepts fresh server results');
+});
