@@ -97,9 +97,9 @@ class FinPayrollIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->service.saveRecord(finance,"other-user",record(other,"BUSINESS",0,null,100,0,List.of()))).hasMessageContaining("员工不属于");
         assertThatThrownBy(()->service.saveRecord(finance,"wrong-family",record(sales,"ENGINEERING",0,null,100,0,List.of()))).hasMessageContaining("员工不属于");
         assertThatThrownBy(()->service.saveRecord(finance,"wrong-stage",record(sales,"BUSINESS",0,null,100,0,List.of(new FinPayrollService.CommissionLine(project,stage+1000,100,"核对"))))).hasMessageContaining("付款节点");
-        jdbc.update("UPDATE pf_staff_post SET status='REVOKED' WHERE id=?",sales.postId());
+        jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",finance.userId(),sales.postId());
         assertThatThrownBy(()->service.saveRecord(finance,"departed",record(sales,"BUSINESS",0,null,100,0,List.of()))).hasMessageContaining("员工不属于");
-        jdbc.update("UPDATE pf_staff_post SET status='ACTIVE',role_code='engineer' WHERE id=?",sales.postId());
+        jdbc.update("UPDATE pf_staff_post SET status='ACTIVE',revoked_at=NULL,revoked_by=NULL,role_code='engineer' WHERE id=?",sales.postId());
         assertThatThrownBy(()->service.saveRecord(finance,"transferred",record(sales,"BUSINESS",0,null,100,0,List.of()))).hasMessageContaining("员工不属于");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payroll_record WHERE company_id=?",Long.class,finance.orgId())).isZero();
     }
