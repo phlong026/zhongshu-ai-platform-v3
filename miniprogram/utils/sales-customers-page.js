@@ -1,8 +1,9 @@
 const Job=require('./organization');
 const PF=require('./platform-crm'),http=require('../api/http');
+const SERVER_PAGE_SIZE=50,MAX_WINDOW_PAGES=4;
 const TABS=[['due','今日待跟进'],['appointments','预约回访'],['all','全部'],['visited','已到店']];
 const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约回访的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
-const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'}; // M04-T05：API 态到店口径入口说明
+const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'};
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',platformRefreshing:false,authError:false},
  onLoad(o={}){this.applyEntryIntent(o);},
@@ -12,7 +13,6 @@ module.exports=()=>({
  cancelSearch(){if(this.__searchTimer){clearTimeout(this.__searchTimer);this.__searchTimer=null;}},
  onShow(){
   this.cancelSearch();
-  // 双体系分流（首个 demo 调用之前）：token+销售家族岗位 → API 态；否则 demo 原样零请求
   const post=(()=>{try{const auth=require('../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(PF.pageMode(http.token(),post)==='api'){
    this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../api/franchise/crm');
@@ -24,20 +24,16 @@ module.exports=()=>({
    this.setData({isLead,isBossView,canRegister:PF.can(post,'capture'),isDemo:false,navigationIndex});
    return this.loadPlatformList();
   }
-  // 非 API 态（无 token / 无销售岗位）：不再回落本地演示数据，显示错误态 + 登录引导
   this.__post=null;this.__postKey='';this.__customerScope='';this.__loadedQuery='';this.__listFlight=null;this.__listRetry=null;
   this.setData({platformMode:true,platformStatus:'degraded',platformRefreshing:false,platformError:http.token()?'当前身份暂无客户查看权限':'请先登录后查看客户',authError:!http.token(),customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[],hasMore:false,canRegister:false});
  },
  goLogin(){wx.redirectTo({url:'/pages/account/index?view=login'});},
- // ---- API 态：列表/详情加载与乱序隔离（三元组 + 卸载标记；401 按 09 文档 §六四组合表） ----
  stale(gen,sessionGen,postKey){return this.__unloaded||gen!==this.__loadGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey;},
  handle401(err,sessionGenAtRequest){
   if(!(err&&err.code===401&&!err.silent))return false;
-  // 「迟到」判别依据=token 是否存活（http 层清会话同样推进代次，不能只看代次）：
   // token 存活+代次已变 → 新会话迟到 401，整体丢弃；token 存活+代次未变 → 当前会话业务 401，页面 clearSession；
-  // token 已空 → http 层已清（当前会话 HTTP 401），页面只做数据清理。
   if(this.__http.token()){
-   if(sessionGenAtRequest!==this.__http.sessionGeneration())return true;// 迟到业务 401：整体丢弃，保护新会话现场
+   if(sessionGenAtRequest!==this.__http.sessionGeneration())return true;
    this.__http.clearSession();
   }
   this.__loadedQuery='';this.__listRetry=null;
@@ -46,7 +42,7 @@ module.exports=()=>({
  },
  loadPlatformList(append=false){
   const PF=this.__pf,post=this.__post;
-  if(!PF||!post)return this.setData({platformStatus:'degraded',platformError:'请先登录后查看客户',authError:true}); // 未具备在线上下文（无 token/岗位）时不再回落本地数据
+  if(!PF||!post)return this.setData({platformStatus:'degraded',platformError:'请先登录后查看客户',authError:true});
   if(append&&(this.__searchTimer||this.data.platformStatus==='loading'||this.data.platformRefreshing))return;
   const keyword=(this.data.keyword||'').trim(),tab=this.data.tab;
   if(append&&(keyword!==this.__loadedKeyword||tab!==this.__loadedTab))append=false;
@@ -54,22 +50,26 @@ module.exports=()=>({
   const query=JSON.stringify([sessionGen,post.tenantId,post.orgId,postKey,post.roleCode,post.orgType,keyword,tab]);
   const retry=this.__listRetry?.query===query?this.__listRetry:null;
   if(append&&retry)append=false;
-  const firstPage=append?(this.__pageNo||0)+1:1;
   if(this.__listFlight&&this.__listFlight.query===query&&this.__listFlight.append===append&&this.__listFlight.gen===this.__loadGen)return this.__listFlight.promise;
   const gen=this.__loadGen=(this.__loadGen||0)+1,retain=this.__loadedQuery===query;
-  const lastPage=append?firstPage:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
+  const lastPage=append?(this.__pageNo||0)+1:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
   const displaySize=append?this.data.pageSize+10:retry?.displaySize??this.data.pageSize;
+  // Existing server limit is 200. Fetch the visible prefix in one ordered read
+  // within that bound, including appends, so equal-total swaps cannot mix two versions.
+  const windowed=lastPage<=MAX_WINDOW_PAGES,mergeAppend=append&&!windowed;
+  const firstPage=mergeAppend?lastPage:1;
   const flight={query,gen,append,promise:null};this.__listFlight=flight;
   if(!append&&!retain)this.__loadedQuery='';
-  if(!append)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
+  if(!append||windowed)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
   // Independent offset requests can straddle a colleague's edit. Do not commit
   // an observable drift as a complete list, or advance the cursor on rejection.
   const drift={};
   flight.promise=(async()=>{
-   const ids=new Set(append?this.data.customers.map(row=>String(row.id)):[]);
-   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=append?this.__total:null;
-   for(let pageNo=firstPage;pageNo<=lastPage;pageNo++){
-    const res=await this.__crmApi.customers.page(pageNo,50,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
+   const ids=new Set(mergeAppend?this.data.customers.map(row=>String(row.id)):[]);
+   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=mergeAppend?this.__total:null;
+   const batchSize=windowed?lastPage*SERVER_PAGE_SIZE:SERVER_PAGE_SIZE;
+   for(let pageNo=firstPage;pageNo<=(windowed?1:lastPage);pageNo++){
+    const res=await this.__crmApi.customers.page(pageNo,batchSize,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
     if(this.stale(gen,sessionGen,postKey))return;
     const rows=res&&res.list||[];
     total=typeof(res&&res.total)==='number'?res.total:ids.size+rows.length;
@@ -78,8 +78,9 @@ module.exports=()=>({
     for(const row of rows){
      const id=String(row.id);if(ids.has(id))throw drift;ids.add(id);
     }
-    list=list.concat(rows);lastCount=rows.length;loadedPage=pageNo;
-    if(!rows.length||pageNo*50>=total){
+    list=list.concat(rows);lastCount=rows.length;loadedPage=windowed?Math.max(1,Math.ceil(rows.length/SERVER_PAGE_SIZE)):pageNo;
+    if(windowed&&typeof res?.total==='number'&&ids.size!==Math.min(total,batchSize))throw drift;
+    if(!rows.length||pageNo*batchSize>=total){
      if(typeof res?.total==='number'&&ids.size!==total)throw drift;
      break;
     }
@@ -88,13 +89,13 @@ module.exports=()=>({
   })().then(res=>{
    if(this.stale(gen,sessionGen,postKey))return;
    const rows=res.list.map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write'),visited:tab==='visited'}));
-   const merged=append?this.data.customers.concat(rows):rows;
+   const merged=mergeAppend?this.data.customers.concat(rows):rows;
    this.__pageNo=res.loadedPage;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__loadedQuery=query;this.__total=res.total;this.__serverHasMore=merged.length<res.total&&res.lastCount>0;
    this.__listRetry=null;
    const pageSize=displaySize;
    this.setData({platformStatus:'ready',platformRefreshing:false,platformError:'',customers:merged,pageSize,tabs:this.platformTabs(merged),...this.customerListPatch(merged,pageSize)});
   }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;// 401 四组合先判（内部自带迟到判别）
+   if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
    if(err===drift){
     this.__listRetry={query,lastPage,displaySize};
@@ -126,7 +127,7 @@ module.exports=()=>({
  },
  more(){
   if(this.__searchTimer||this.data.platformStatus==='loading'||this.data.platformRefreshing)return;
-  if(this.data.filteredCustomers.length>this.data.pageSize){ // 已加载行未展示完：本地扩页（M04-T01 展示翻页与服务端取页一致）
+  if(this.data.filteredCustomers.length>this.data.pageSize){
    this.setData({pageSize:this.data.pageSize+10});this.filterCustomers();return;
   }
   return this.loadPlatformList(true);
