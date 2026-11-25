@@ -807,6 +807,8 @@ function recordView(bundle, ctx) {
     startBlocked:!p.actualStart&&!actions.length&&view==='start'?(next?.title||'请先确认签约后期款'):'',
     startPrerequisiteUrl:next?.url&&next.url!==base+'start'?next.url:base+'collection&stage=start',
     canManageCameras:own&&!archived&&!delivery,
+    canTransferManager: view === 'project' && own && !archived && !!opts.userId
+      && String(opts.userId) === String(d.managerUserId),
     handlers:opts.handlers||[], cameras:opts.cameras||[], cameraError:opts.cameraError||'',
     delayHistory:(node?.delayHistory||[]).map((r,i)=>({...r,id:String(i),recordedAt:timestampDate(r.recordedAt),recoveryDate:dateOf(r.recoveryDate),ownerName:r.ownerName||(opts.handlers||[]).find(h=>String(h.id)===String(r.ownerUserId))?.name||'原责任人'})),
     nodePlans: plans.filter(r=>r.nodeId===node?.id),

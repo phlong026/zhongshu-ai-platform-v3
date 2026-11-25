@@ -1,17 +1,19 @@
 const R=require('../../../utils/engineering-records'),X=require('../../../utils/access'),O=require('../../../utils/organization'),Files=require('../../../utils/sample-files'),SI=require('../schedule-import');
 const P=require('../../../utils/platform-engineering'); // 工程域纯函数+在线编排（阶段 2）
 const Nav=require('../../../utils/page-navigation');
+const ManagerTransfer=require('./manager-transfer');
 const {makeFormHandlers}=require('../../../utils/view-container');
 const baseHandlers=makeFormHandlers();
 const titles={cameras:'工地实景',delay:'进度偏差处理',overview:'工程项目',prepare:'开工准备',start:'正式开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',expenses:'项目费用',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
 const field=(key,label,type='text')=>({key,label,type});
 Page({
  ...baseHandlers,
+ ...ManagerTransfer.handlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
  input(e){baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register'},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=['base','topping','tail'].includes(o.stage)?o.stage:'start';this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,docs:[],fileNames:{},samplePreview:null,busy:false,error:''});}if(this.id)this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length&&(this.data.node?.status!=='已完成'||this.data.expanded.nodeEdit)?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -69,7 +71,7 @@ Page({
   }catch(err){if(alive())this.fail((err&&err.msg)||(err&&err.message)||'授权查看失败，请重试');}
  },
  onHide(){this.__inactive=true;this.__previewClosed=true;this.setData({playbackUrl:'',playingCameraId:''});},
- onUnload(){this.__disposed=true;this.__previewClosed=true;},
+ onUnload(){this.__disposed=true;this.__previewClosed=true;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;},
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){ // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
    const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId();
@@ -123,7 +125,7 @@ Page({
    }
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
-   if(this.data.busy)return;
+   if(this.data.busy||this.data.managerTransferPending)return;
    const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId();
    const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);
    this.setData({busy:true,error:''});
@@ -159,7 +161,7 @@ Page({
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}
    finally{if(alive())this.setData({busy:false});}
   },
-  perform(e){if(this.data.busy)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
+  perform(e){if(this.data.busy||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
   const action=e.currentTarget.dataset.action,f={...this.data.form};
    if(['node','site','node-correct','node-reopen'].includes(action))f.nodeId=this.data.node&&this.data.node.id;
    if(action==='material-terms')f.file=f.termsFile;
