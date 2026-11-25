@@ -1,0 +1,28 @@
+<template name="plan">
+  <view class="entrust-heading"><text>工程付款约定</text><text class="entrust-muted">{{plan.sourceLabel}}{{plan.version?' · V'+plan.version:''}}</text></view>
+  <block wx:if="{{plan.rows.length}}">
+    <view class="entrust-total">¥ {{plan.totalText}}</view>
+    <view wx:for="{{plan.rows}}" wx:key="sequence" class="entrust-plan-row"><view><text>{{item.label}}</text><text class="entrust-muted">{{item.condition}}{{item.dueDate?' · '+item.dueDate:''}}</text></view><view><text>¥ {{item.amountText}}</text><text wx:if="{{item.ratioText}}" class="entrust-muted">{{item.ratioText}}</text></view></view>
+  </block>
+  <text wx:else class="entrust-muted entrust-spaced">尚未填写工程付款约定</text>
+</template>
+<template name="files">
+  <view wx:for="{{files}}" wx:key="assetId" class="entrust-file"><button class="entrust-file-name" data-asset-id="{{item.assetId}}" data-kind="{{item.kind}}" data-version="{{item.version}}" bindtap="previewFile">{{item.title}}</button><button wx:if="{{removable}}" class="entrust-link" data-asset-id="{{item.assetId}}" disabled="{{locked}}" bindtap="removeFile">移除</button></view>
+</template>
+<template name="request">
+  <view class="entrust-fact"><text>实际委托日期</text><text>{{record.occurredOn||'—'}}</text></view>
+  <view class="entrust-fact"><text>外部服务方</text><text>{{record.data.providerName}}</text></view>
+  <view wx:if="{{record.data.providerReference}}" class="entrust-fact"><text>外部编号</text><text>{{record.data.providerReference}}</text></view>
+  <view wx:if="{{record.data.area||record.data.floors}}" class="entrust-fact"><text>建筑规模</text><text>{{record.data.area?record.data.area+'㎡':''}}{{record.data.area&&record.data.floors?' · ':''}}{{record.data.floors?record.data.floors+'层':''}}</text></view>
+  <text class="entrust-label">委托需求</text><text class="entrust-copy">{{record.data.text}}</text>
+  <text class="entrust-label">服务范围</text><text class="entrust-copy">{{record.data.scope}}</text>
+  <block wx:if="{{record.reason}}"><text class="entrust-label">{{record.action==='CONVERT'?'转入原因':'变更说明'}}</text><text class="entrust-copy">{{record.reason}}</text></block>
+  <block wx:if="{{record.attachments.length}}"><text class="entrust-label">委托附件</text><template is="files" data="{{files:record.attachments}}"/></block>
+</template>
+<template name="result">
+  <view class="entrust-fact"><text>对应需求版本</text><text>V{{record.data.requestVersion}}</text></view>
+  <view class="entrust-fact"><text>实际交付日期</text><text>{{record.occurredOn||'—'}}</text></view>
+  <view class="entrust-fact"><text>图纸版本</text><text>{{record.data.drawingVersion}}</text></view>
+  <template is="files" data="{{files:record.attachments}}"/>
+  <block wx:if="{{record.reason}}"><text class="entrust-label">成果说明 / 更正原因</text><text class="entrust-copy">{{record.reason}}</text></block>
+</template>

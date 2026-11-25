@@ -140,6 +140,13 @@
       "pages": [
         "index","record"
       ]
+    },
+    {
+      "root": "pages/external-entrust",
+      "name": "external-entrust",
+      "pages": [
+        "index"
+      ]
     }
   ],
   "window": {

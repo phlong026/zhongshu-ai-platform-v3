@@ -28,9 +28,11 @@ Page({
     let view = options.view || 'progress';
     if (view==='paid') view='receipt';
     if (view==='created'||view==='pay') view='progress';
+    this.historyOnly = options.history === '1';
+    if (this.historyOnly) view = 'progress';
     this.view = view; this.initialized = false; // 加载统一由 onShow→refresh 触发，避免冷启动重复请求
   },
-  onShow() { return this.refresh(false); },
+  onShow() { if (require('./external-entry')(this)) return; return this.refresh(false); },
   onUnload() { this.disposed = true; this.__countsRequest = this.__todosRequest = this.__recentRequest = this.__projectRequest = null; },
   /** 在线岗位：无 token 或无后端岗位时页面整体进入登录引导错误态 */
   post() { try { return http.token() ? auth.currentApiPost() : null; } catch (e) { return null; } },
@@ -231,7 +233,7 @@ Page({
       ? { state: '待发起委托', owner: '经办业务', view: 'submit', actionable: true }
       : Presentation.stateOf(c);
     const action = Presentation.actionFor(view);
-    const can = !!action && Presentation.canDo(c, view, actor);
+    const can = !this.historyOnly && !!action && Presentation.canDo(c, view, actor);
     const basis = c.request && c.request.basis;
     const currentQuote = c.fee && c.fee.quote;
     const budgetChanged = view === 'submit' && this.initialized && ((basis && this.data.form.__budgetVersion !== basis.version) || (currentQuote && this.data.form.__pricingVersion !== currentQuote.pricingVersion));
@@ -257,7 +259,7 @@ Page({
     }
     const labels = { submit: '提交设计委托', feedback: '提交修改意见', complete: '设计完成', dispatch: '上传并下发成果', handover: c.handover ? '补充后移交给工程' : '移交给工程', receive: '确认接收' };
     this.action = can ? action : '';
-    this.nextView = !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
+    this.nextView = !this.historyOnly && !can && n.actionable && n.view !== view && Presentation.actionFor(n.view) ? n.view : '';
     this.setData({
       title: ({ submit: '设计委托', progress: '委托与交付', feedback: '登记修改意见', handover: '成果与移交', complete: '设计办理', dispatch: '下发设计成果', receive: '业务资料接收' })[view] || '委托与交付',
       view, platformStatus: 'ready', error: preservedError,
@@ -266,8 +268,8 @@ Page({
       simulationAllowed, paymentChoiceRequired,
       paymentOrder:paymentView(c.simulatedPayment),
       paymentChannel:this.data.paymentChannel||'WECHAT',
-      canFeeDecide: c.allowedActions.includes('fee-decide'),
-      canFeedback: view !== 'feedback' && c.allowedActions.includes('commission-feedback'),
+      canFeeDecide: !this.historyOnly && c.allowedActions.includes('fee-decide'),
+      canFeedback: !this.historyOnly && view !== 'feedback' && c.allowedActions.includes('commission-feedback'),
       canPrepareBudget:view==='submit'&&!!this.__context&&this.__context.canPrepareBudget===true,
       submitBlockedReason:view==='submit'&&!can?( !basis?'请先完成参考预算，再发起设计委托':!currentQuote?'当前设计费报价未就绪，请联系管理员':'当前账号暂不能提交本次委托，请联系经办业务或管理员'):'',
       budgetReady: !!basis, budgetBasis: basis,
@@ -498,6 +500,7 @@ Page({
     await API.policies.save({ scope, recipient, totalCents, firstCents, active: f.active !== false });
   },
   async submit() {
+    if (this.historyOnly) return;
     if(this.view==='pay'&&this.action==='commission-simulate-pay')return this.simulatePayment();
     if (this.action === 'commission-submit') {
       if (this.data.busy || this.data.platformStatus !== 'ready' || this.data.paymentChoiceRequired) return;
@@ -557,7 +560,7 @@ Page({
   choosePayment(e){if(this.data.busy||this.data.simulationPhase||this.data.simulationUncertain)return;const value=e.currentTarget.dataset.channel;if(['WECHAT','ALIPAY'].includes(value)&&value!==this.data.paymentChannel){this.dropCmdKey('simulate-pay');this.setData({paymentChannel:value});}},
   simulatePayment(){return this.openSimulationPayment();},
   async returnPacket() {
-    if (this.data.busy) return;
+    if (this.data.busy || this.historyOnly) return;
     const action = 'packet-return';
     this.setData({ busy: true, error: '' });
     const session = http.sessionGuard(), alive = () => session() && !this.disposed;

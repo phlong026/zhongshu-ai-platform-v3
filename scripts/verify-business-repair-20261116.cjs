@@ -134,13 +134,13 @@ function commission(prepare,contextOverride={}){
  const p={...definition,data:structuredClone(definition.data),setData(patch){Object.assign(this.data,patch)}};p.onLoad({view:'submit',customerId:'100'});
  return {p,getOpened:()=>opened};
 }
-test('missing budget exposes preparation without granting commission submission permission',async()=>{
- const {p,getOpened}=commission(true);await p.onShow();assert.equal(p.data.customer.name,'验收客户');assert.equal(p.data.budgetCard,true);assert.equal(p.data.canPrepareBudget,true);assert.equal(p.data.primary,'');assert.equal(p.action,'');p.completeBudget();assert.equal(getOpened(),'/pages/workflow/index?view=budget&id=100');
+test('retained legacy submit renderer never grants permission merely because budget preparation is available',async()=>{
+ const {p,getOpened}=commission(true);await p.refresh(false);assert.equal(p.data.customer.name,'验收客户');assert.equal(p.data.budgetCard,true);assert.equal(p.data.canPrepareBudget,true);assert.equal(p.data.primary,'');assert.equal(p.action,'');p.completeBudget();assert.equal(getOpened(),'/pages/workflow/index?view=budget&id=100');
 });
-test('read-only customer cannot navigate through the budget write entry',async()=>{
- const {p,getOpened}=commission(false);await p.onShow();p.completeBudget();assert.equal(getOpened(),undefined);assert.equal(p.data.canPrepareBudget,false);assert(p.data.submitBlockedReason);
+test('retained legacy renderer blocks a readonly customer from the budget write entry',async()=>{
+ const {p,getOpened}=commission(false);await p.refresh(false);p.completeBudget();assert.equal(getOpened(),undefined);assert.equal(p.data.canPrepareBudget,false);assert(p.data.submitBlockedReason);
 });
 test('returning to a historical simulated commission only opens read-only progress',async()=>{
  const detail={commission:{id:'200',customerId:'100',customerName:'验收客户',status:'DESIGNING',submissionVersion:1},submissions:[],allowedActions:['commission-simulate-pay'],simulatedPayment:{status:'PENDING',amountCents:240000}};
- const {p}=commission(true,{commissionId:'200',commission:detail});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'progress');assert.equal(p.action,'');assert.equal(p.data.primary,'');
+ const {p}=commission(true,{commissionId:'200',commission:detail});p.onLoad({view:'progress',customerId:'100',history:'1'});await p.onShow();assert.equal(p.id,'200');assert.equal(p.data.view,'progress');assert.equal(p.action,'');assert.equal(p.data.primary,'');
 });

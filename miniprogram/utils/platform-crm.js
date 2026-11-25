@@ -6,7 +6,7 @@
  * Long 超出 ±(2^53-1) 输出字符串（边界值本身也是字符串）——ID 一律不透明值，禁止数值化。
  */
 const CRM_ROLES = ['sales', 'sales-lead', 'boss', 'owner'];
-const DESIGN_STATUS_TEXT = {FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
+const DESIGN_STATUS_TEXT = {EXTERNAL_PENDING:'等待外部成果',EXTERNAL_READY:'外部成果已登记',FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
 const customerStatus = c => DESIGN_STATUS_TEXT[c.designStatus] || statusText(c.status);
 const STATUS_TEXT = { REGISTERED: '已登记', FOLLOWING: '跟进中' };
 
