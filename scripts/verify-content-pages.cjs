@@ -68,11 +68,11 @@ assert.ok(Array.from(makeVideoTaskTitle({ kind: 'ai_video', description: '超长
 
 // ===== Task title contract =====
 assert.equal(makeTaskTitle({ kind: 'ai_video', description: '请帮我生成一个现代别墅外观展示视频，镜头从入口推进' }), 'AI视频｜现代别墅外观展示视频，镜头从入口推进');
-assert.equal(P.makeTaskTitle({ kind: 'digital', title: '乡墅招商介绍' }), '数字人口播｜乡墅招商介绍');
-assert.equal(P.makeTaskTitle({ kind: 'copy', text: '农村自建房推广\n第一段正文内容' }), '文案二创｜农村自建房推广');
-assert.equal(P.makeTaskTitle({ kind: 'ai_video', description: '' }), 'AI视频｜未命名创作');
-const normalizedLongTitle = P.makeTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) });
-assert.equal(P.makeTaskTitle({ kind: 'ai_video', title: normalizedLongTitle }), normalizedLongTitle);
+assert.equal(makeTaskTitle({ kind: 'digital', title: '乡墅招商介绍' }), '数字人口播｜乡墅招商介绍');
+assert.equal(makeTaskTitle({ kind: 'copy', text: '农村自建房推广\n第一段正文内容' }), '文案二创｜农村自建房推广');
+assert.equal(makeTaskTitle({ kind: 'ai_video', description: '' }), 'AI视频｜未命名创作');
+const normalizedLongTitle = makeTaskTitle({ kind: 'ai_video', description: '超长主题'.repeat(20) });
+assert.equal(makeTaskTitle({ kind: 'ai_video', title: normalizedLongTitle }), normalizedLongTitle);
 
 
 // ===== taskView：后端七态 → 页面四态 =====
