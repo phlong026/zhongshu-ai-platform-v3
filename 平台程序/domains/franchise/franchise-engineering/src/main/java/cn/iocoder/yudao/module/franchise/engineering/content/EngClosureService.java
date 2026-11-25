@@ -106,34 +106,30 @@ public class EngClosureService {
         if (!planService.materialReadyForNode(post, projectId, null)) {
             throw exception(GATE_NOT_MET); // 请先核对材料到货
         }
-        long expectedTotal = collectionTerms.selectByProject(post.orgId(), projectId).stream()
-                .mapToLong(FrEngCollectionTermDO::getAmountCents).sum();
-        // M09-T03/R2 P1-1：全累计收款门禁走统一账净口径（有统一合同经 UnifiedStageAccountPort——
-        // 已核实净实收；无合同回退工程留痕行）。「资金不足不抹去已施工事实」——门禁仅拦交付动作
-        // R1 P1-3：以工程档案冻结合同为准（sale_contract_id 复用 M06-T03 列）——作废重签后
-        // B 合同收款不得放行 A 合同的工程交付；未冻结回退当前活跃（存量兼容）
-        Long uContractId;
-        try {
-            uContractId = jdbcTemplate.queryForObject(
-                    "SELECT sale_contract_id FROM fr_eng_project WHERE id = ?", Long.class, projectId);
-        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            uContractId = null;
+        // Keep the project's frozen contract; a replacement contract must not clear this project.
+        Long contractId = project.getSaleContractId();
+        if (contractId == null && project.getCustomerId() != null) {
+            contractId = unifiedStages.activeContractId(post, project.getCustomerId());
         }
-        if (uContractId == null) {
-            uContractId = project.getCustomerId() == null ? null
-                    : unifiedStages.activeContractId(post, project.getCustomerId());
-        }
-        long received = uContractId != null
-                ? unifiedStages.stageCollectedCents(post, uContractId, "SIGN_AFTER")
-                        + unifiedStages.stageCollectedCents(post, uContractId, "BASE_DONE")
-                        + unifiedStages.stageCollectedCents(post, uContractId, "CAP_DONE")
-                : collections.selectByProject(post.orgId(), projectId).stream()
-                        .mapToLong(FrEngCollectionDO::getAmountCents).sum();
-        if(uContractId!=null){
-            expectedTotal=jdbcTemplate.queryForObject("SELECT COALESCE(sum(amount_cents),0) FROM fr_sale_payment_stage WHERE contract_id=? AND company_id=? AND NOT deleted AND NOT after_delivery",Long.class,uContractId,post.orgId());
-        }
-        if (received < expectedTotal) {
-            throw exception(GATE_NOT_MET); // 全累计收款门禁（operations.js rank：delivery 前全收齐）
+        if (contractId != null) {
+            // An installment must be covered by its own net receipts in the current contract plan.
+            boolean outstanding = Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM fr_sale_payment_stage s
+                        LEFT JOIN (
+                    """ + cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.STAGE_NET + """
+                        ) net ON net.company_id=s.company_id AND net.stage_id=s.id
+                        WHERE s.contract_id=? AND s.company_id=? AND NOT s.deleted AND NOT s.after_delivery
+                          AND COALESCE(net.collected,0)<s.amount_cents
+                    )
+                    """, Boolean.class, contractId, post.orgId()));
+            if (outstanding) throw exception(GATE_NOT_MET);
+        } else {
+            long expected = collectionTerms.selectByProject(post.orgId(), projectId).stream()
+                    .mapToLong(FrEngCollectionTermDO::getAmountCents).sum();
+            long received = collections.selectByProject(post.orgId(), projectId).stream()
+                    .mapToLong(FrEngCollectionDO::getAmountCents).sum();
+            if (received < expected) throw exception(GATE_NOT_MET);
         }
         LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
         if (StrUtil.isBlank(cmd.recipient()) || cmd.fileAssetId() == null || date.isAfter(LocalDate.now())) {
