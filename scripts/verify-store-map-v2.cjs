@@ -270,3 +270,74 @@ test('首次视野状态仍为loading时，相同bounds的成功回调仍能完�
   viewports[0].success(bounds);
   assert.equal(page.data.summary.status,'registered');assert.equal(page.data.summary.franchiseCount,2);
 });
+
+test('点县气泡后展开唯一门店，视野刷新时列表和已展开项不丢失',async()=>{
+  const source=fixture(Array.from({length:31},(_,i)=>record('first-'+i)).concat(record('only','a',['420117'])));
+  source.records=source.records.slice(3);
+  const ids=new Set(source.records.map(r=>r.id));
+  source.points=source.points.filter(p=>ids.has(p.recordId));
+  const {page,runtime,viewports}=await openMap({source});
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:31}};
+  page.changeMode({currentTarget:{dataset:{mode:'viewport'}}});
+  viewports[0].success(bounds);
+  const screen=await runtime.currentPage();
+  await (await screen.$('.county-callout[data-marker-id="2"]')).tap();
+  assert.deepEqual(page.data.rows.map(row=>row.id),['only']);
+  const scrolls=[]; wx.pageScrollTo=options=>scrolls.push(options);
+  await (await screen.$('.store')).tap();
+  assert.deepEqual(scrolls,[],'只移动地图镜头，页面不从展开的资料跳走');
+  assert.equal(page.data.expandedId,'only');assert(page.data.pinned);
+  assert.deepEqual(page.data.rows.map(row=>row.id),['only']);
+  await (await screen.$('map')).trigger('regionchange',{type:'end'});
+  assert(await screen.$('.record-detail'),'定位更新期间也应保留已展开的选定点资料');
+  viewports[1].success({southwest:{longitude:114.78,latitude:30.82},northeast:{longitude:114.82,latitude:30.87}});
+  assert.equal(page.data.summary.franchiseCount,1);
+  assert.deepEqual(page.data.rows.map(row=>row.id),['only']);
+  assert.equal(page.data.expandedId,'only');
+  await (await screen.$('map')).trigger('regionchange',{type:'end',causedBy:'drag'});
+  viewports[2].success({southwest:{longitude:114.30,latitude:30.33},northeast:{longitude:114.33,latitude:30.37}});
+  assert.equal(page.data.summary.franchiseCount,31);
+  assert.deepEqual(page.data.rows.map(row=>row.id),['only'],'移动镜头不等于关闭点位资料');
+  assert.equal(page.data.expandedId,'only');
+  await (await screen.$('.list-head button')).tap();
+  assert.equal(page.data.pinned,false);
+  assert.equal(page.data.expandedId,'');
+  assert.equal(page.data.total,31);
+});
+
+test('加载第31条后可展开和收起；换品牌时清除旧点与旧分页',async()=>{
+  const {page,runtime}=await openMap({source:fixture(Array.from({length:31},(_,i)=>record('new-'+i)))});
+  const screen=await runtime.currentPage();
+  await (await screen.$('.county-callout')).tap();
+  assert.equal(page.data.rows.length,30);
+  await (await screen.$('.more')).tap();
+  const id=page.data.rows[30].id;
+  await (await screen.$('.store[data-id="'+id+'"]')).tap();
+  assert.equal(page.data.rows[30].id,id);
+  assert.equal(page.data.expandedId,id);
+  await (await screen.$('.store[data-id="'+id+'"]')).tap();
+  assert.equal(page.data.expandedId,'');assert.equal(page.data.rows[30].id,id);
+  page.changeBrand({currentTarget:{dataset:{id:'b'}}});
+  assert.equal(page.data.pinned,false);
+  assert.equal(page.data.expandedId,'');
+  assert(page.data.rows.every(row=>row.brandId==='b'));
+});
+
+test('视野总数和跨地区名称匹配数分别显示；清空查询后只保留视野统计',async()=>{
+  const {page,runtime,viewports}=await openMap({source:fixture(Array.from({length:30},(_,i)=>record('extra-'+i)))});
+  const screen=await runtime.currentPage();
+  page.changeMode({currentTarget:{dataset:{mode:'viewport'}}});
+  viewports[0].success({southwest:{longitude:114.30,latitude:30.33},northeast:{longitude:114.33,latitude:30.37}});
+  page.searchInput({detail:{value:'验收记录two'}});page.searchName();
+  assert.equal(page.data.summary.franchiseCount,32);
+  assert.equal(page.data.summary.coverageRecordCount,1);
+  assert.equal(page.data.searchMatchCount,1);
+  assert.equal(page.data.markers.length,1);
+  assert.match(await (await screen.$('.summary-note')).text(),/视野统计.*不随名称搜索变化/);
+  assert.match(await (await screen.$('.query-note')).text(),/跨地区.*匹配 1 条资料/);
+  page.searchInput({detail:{value:'没有这条记录'}});page.searchName();
+  assert.match(await (await screen.$('.query-note')).text(),/匹配 0 条资料/);
+  page.clearSearch();
+  assert.equal(await screen.$('.query-note'),null);
+  assert.equal(page.data.summary.franchiseCount,32);
+});
