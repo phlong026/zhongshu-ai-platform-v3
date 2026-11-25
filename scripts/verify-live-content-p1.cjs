@@ -567,3 +567,34 @@ test('F05 warm list loading and errors do not replace cards or flash a loading b
   assert.ok(taskError);
   assert.equal(!!vm.runInNewContext(taskError[1], { tasksError: '刷新失败', tasksLoaded: true }), false, 'warm errors must not replace task rows');
 });
+
+test('task center never hides a running task or one whose generated work still needs repair', async () => {
+  const confirmations=[], fixture=studioFixture({view:'tasks'},{showModal: options=>confirmations.push(options)}),page=fixture.page;
+  fixture.setTasks(Promise.resolve([
+    {...lists.tasks.row('11'),status:'RUNNING'},
+    {...lists.tasks.row('12'),kind:'copy',status:'FAILED',generationStatus:'SUCCEEDED',resultState:'FAILED',saveRetryable:true},
+    {...lists.tasks.row('13'),status:'SUBMISSION_UNCERTAIN'},lists.tasks.row('14')
+  ]));
+  page.refreshData();await flush();
+  const action=id=>({currentTarget:{dataset:{id}},touches:[{clientX:100,clientY:20}]});
+  for(const id of ['11','12','13']){
+    page.onTaskTouchStart(action(id));
+    page.onTaskTouchMove({touches:[{clientX:10,clientY:20}]});
+    page.onTaskTouchEnd();
+    page.dismissTaskTap(action(id));page.onTaskLongPress(action(id));await page.dismissTask(id);
+    const row=page.data.tasks.find(row=>row.id===id);
+    assert.equal(row.canDismiss,false);assert.equal(!!row.swiped,false);
+  }
+  assert.equal(fixture.calls.dismiss,0);assert.equal(confirmations.length,0);
+  assert.equal(page.data.tasks.find(row=>row.id==='12').saveRetryable,true);
+
+  page.onTaskTouchStart(action('14'));
+  page.onTaskTouchMove({touches:[{clientX:10,clientY:20}]});page.onTaskTouchEnd();
+  assert.equal(page.data.tasks.find(row=>row.id==='14').swiped,true);
+  page.dismissTaskTap(action('14'));
+  assert.equal(confirmations.length,1);assert.equal(fixture.calls.dismiss,0);
+  confirmations[0].success({confirm:false});assert.equal(fixture.calls.dismiss,0);
+  page.onTaskLongPress(action('14'));assert.equal(confirmations.length,2);
+  confirmations[1].success({confirm:true});await flush();
+  assert.equal(fixture.calls.dismiss,1);
+});

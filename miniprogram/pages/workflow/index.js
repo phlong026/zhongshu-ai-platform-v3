@@ -412,13 +412,32 @@ Page({
    this.setData({latestRequirementId:latest?latest.id:''});
   });
  },
- openContractForm(){const q=(this.data.salesQuotes||[])[0];this.setData({contractForm:{total:(q&&q.totalText)||'',signAfter:(q&&q.totalText)||'',baseDone:'0',capDone:'0',signedDate:''},contractError:''});},
- contractInput(e){this.setData({['contractForm.'+e.currentTarget.dataset.key]:e.detail.value,contractError:''});this.saveDraft();},
+ openContractForm(){
+  if(this.data.busy||this.data.contractForm||this.data.contractsHasActive||!this.guardTradeSubmit('contractError'))return;
+  this.setData({contractForm:{total:'',signAfter:'',baseDone:'0',capDone:'0',signedDate:'',quoteLabel:''},contractError:''});
+ },
+ useContractQuote(e){
+  if(this.data.busy||this.data.contractsHasActive||!this.guardTradeSubmit('contractError'))return;
+  const id=String(e.currentTarget.dataset.quoteId),quote=(this.data.salesQuotes||[]).find(q=>String(q.id)===id);
+  if(!quote||!PF.toCents(quote.totalText))return this.setData({contractError:'这份报价已不可用，请重新选报价或手填金额'});
+  this.openContractForm();
+  if(!this.data.contractForm)return;
+  this.setData({'contractForm.total':quote.totalText,'contractForm.quoteLabel':[quote.date,quote.priceVersion,'¥ '+quote.totalText].filter(Boolean).join(' · '),contractError:''},
+   ()=>{if(!this.__disposed&&this.data.view==='contract')wx.pageScrollTo?.({selector:'#contract-entry',duration:200});});
+  this.saveDraft();
+ },
+ contractInput(e){
+  const key=e.currentTarget.dataset.key;
+  if(this.data.busy||!this.data.contractForm||!['total','signAfter','baseDone','capDone'].includes(key))return;
+  this.setData({['contractForm.'+key]:e.detail.value,...(key==='total'?{'contractForm.quoteLabel':''}:{}),contractError:''});
+  this.saveDraft();
+ },
  contractDate(e){this.setData({'contractForm.signedDate':e.detail.value,contractError:''});this.saveDraft();},
  platformSubmitContract(){
   const fail=msg=>this.setData({contractError:msg,busy:false});
-  if(!this.guardTradeSubmit('contractError'))return;
+  if(this.data.busy||!this.guardTradeSubmit('contractError'))return;
   const fm=this.data.contractForm;
+  if(!fm)return fail('请先打开新建合同表单');
   // M06-T02 三期：Σ三期=总额；签约后>0；基础完成后/封顶后≥0（0=未约定）
   const total=PF.toCents(fm.total),signAfter=PF.toCents(fm.signAfter),baseDone=PF.toCents(fm.baseDone||'0'),capDone=PF.toCents(fm.capDone||'0');
   if(!total)return fail('请填写合同总额（最多两位小数）');

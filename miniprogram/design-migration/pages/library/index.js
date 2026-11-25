@@ -9,6 +9,12 @@ const assets = require('../../utils/assets');
 const format = require('../../utils/format');
 const classifications = require('../../utils/case-classifications');
 const coverImages = require('../../../utils/design-case-images');
+const SEARCH_DELAY_MS = 280;
+
+function cancelSearchTimer(page) {
+  if (page._searchTimer != null) clearTimeout(page._searchTimer);
+  page._searchTimer = null;
+}
 
 protectedPage({
   data: {
@@ -38,16 +44,26 @@ protectedPage({
   },
   onShow() {
     if (this.data.pickMode && !http.isSameSession(this._pickerSession)) {
+      cancelSearchTimer(this);
       this._listSeq = (this._listSeq || 0) + 1;
-      this.setData({ cases: [], visibleCases: [], loading: false, error: '工作身份已变化，请返回客户流程重新选择' }); return;
+      this.setData({ cases: [], visibleCases: [], visibleCount: 0, caseCount: 0, cursor: null, hasMore: false, loading: false, error: '工作身份已变化，请返回客户流程重新选择' }); return;
     }
     if(this.data.cases.length) this.watchCovers();
   },
-  onUnload() { this.__caseImageObserver?.disconnect(); this._unloaded = true; this._listSeq = (this._listSeq || 0) + 1; },
+  onUnload() {
+    this.__caseImageObserver?.disconnect();
+    cancelSearchTimer(this);
+    this._unloaded = true;
+    this._listSeq = (this._listSeq || 0) + 1;
+  },
   onReachBottom() { if (this.data.hasMore && !this.data.loading && !this.data.error) this.loadPage(false); },
   retry() { return this.loadPage(this._retryReset !== false); },
   loadPage(reset) {
     if (this.data.loading && !reset) return;
+    if (reset) {
+      cancelSearchTimer(this);
+      this._coverFlights = new Set();
+    }
     this._retryReset = !!reset;
     const seq = this._listSeq = (this._listSeq || 0) + (reset ? 1 : 0);
     const self = this;
@@ -61,6 +77,7 @@ protectedPage({
     const depth = parseFloat(filters.depth);
     const params = {
       cursor: cursor, limit: 10,
+      keyword: (this.data.keyword || '').trim() || undefined,
       sourceType: filters.sourceType || undefined,
       styleCode: filters.styleCode || undefined,
       floorCount: filters.floorCount || undefined,
@@ -70,7 +87,6 @@ protectedPage({
     };
     return api.listCases(params).then(function (page) {
       if (!current()) return;
-      const startIndex = reset ? 0 : self.data.cases.length;
       const newCases = (page.list || []).map(function (c) {
         const tag = format.styleLabel(c.styleCode);
         return {
@@ -95,18 +111,12 @@ protectedPage({
     });
   },
   refreshVisible() {
-    const keyword = (this.data.keyword || '').trim();
     const cases = this.data.cases.map(c => {
       const style = this.data.styleOptions.find(option => option.code === c.style);
       const tag = style ? style.label : c.tag;
       return Object.assign({}, c, { tag, meta: (c.area ? c.area + '㎡' : '') + (c.floors ? ' · ' + c.floors + '层' : '') + (tag ? ' · ' + tag : '') });
     });
-    const visible = !keyword ? cases : cases.filter(function (c) {
-      return (c.title || '').indexOf(keyword) >= 0
-        || (c.tag || '').indexOf(keyword) >= 0
-        || String(c.area || '').indexOf(keyword) >= 0;
-    });
-    this.setData({ visibleCases: visible, visibleCount: visible.length, caseCount: cases.length });
+    this.setData({ visibleCases: cases, visibleCount: cases.length, caseCount: cases.length });
   },
   updateCover(id, patch) {
     this.setData({ cases: this.data.cases.map(row => row.id === id ? Object.assign({}, row, patch) : row) });
@@ -119,11 +129,12 @@ protectedPage({
     if(!row || !row.coverAssetId || (this._coverFlights && this._coverFlights.has(row.id)) || (!force && row.image && Date.now()-row.imageLoadedAt<coverImages.FRESH_MS))return;
     const seq=this._listSeq,session=http.captureSession();
     const current=()=>!this._unloaded&&seq===this._listSeq&&http.isSameSession(session);
-    this._coverFlights=this._coverFlights||new Set();this._coverFlights.add(row.id);
+    const flights = this._coverFlights = this._coverFlights || new Set();
+    flights.add(row.id);
     this.updateCover(row.id,{imageLoading:true,imageError:false});
     return assets.fetchCaseAssetDataUrl(row.id,row.coverAssetId,{rendition:'COVER',version:row.versionId,force}).then(url=>{
       if(current())this.updateCover(row.id,{image:url,imageLoading:false,imageError:false,imageLoadedAt:Date.now()});
-    }).catch(()=>{if(current())this.updateCover(row.id,{image:'',imageLoading:false,imageError:true});}).finally(()=>this._coverFlights.delete(row.id));
+    }).catch(()=>{if(current())this.updateCover(row.id,{image:'',imageLoading:false,imageError:true});}).finally(()=>flights.delete(row.id));
   },
   imageError(e) {
     const row=this.data.cases.find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(!row)return;
@@ -132,8 +143,21 @@ protectedPage({
   },
   retryCover(e) { return this.loadCover(this.data.cases.find(r=>String(r.id)===String(e.currentTarget.dataset.id)),true); },
   onSearch(e) {
-    this.setData({ keyword: e.detail.value });
-    this.refreshVisible(); this.watchCovers();
+    const keyword = String(e.detail.value || '');
+    const previous = (this.data.keyword || '').trim();
+    this.setData({ keyword });
+    if (keyword.trim() === previous) return;
+    // Discard the old cursor and in-flight results as soon as a new query is typed.
+    cancelSearchTimer(this);
+    this._listSeq = (this._listSeq || 0) + 1;
+    this._retryReset = true;
+    this.setData({ loading: true, error: '', loaded: false, cases: [], visibleCases: [],
+      visibleCount: 0, caseCount: 0, cursor: null, hasMore: true });
+    const session = http.captureSession();
+    this._searchTimer = setTimeout(() => {
+      this._searchTimer = null;
+      if (!this._unloaded && http.isSameSession(session)) this.loadPage(true);
+    }, SEARCH_DELAY_MS);
   },
   selectSource(e) {
     const index = Number(e.currentTarget.dataset.index);

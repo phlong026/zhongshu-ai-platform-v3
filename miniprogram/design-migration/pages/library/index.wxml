@@ -1,7 +1,7 @@
 <view class="v12-page" wx:if="{{accessReady}}">
   <v12-navbar title="{{pickMode?'选择参考户型':'灵感库'}}" show-back />
   <view class="v12-content v12-content--tab library-content">
-    <view class="search"><t-icon name="search" size="20px" color="#a89a8c" /><input placeholder="搜索户型名称、风格或面积" value="{{keyword}}" bindinput="onSearch" /></view>
+    <view class="search"><t-icon name="search" size="20px" color="#a89a8c" /><input placeholder="搜索户型名称或编号" value="{{keyword}}" bindinput="onSearch" /></view>
     <view class="source-tabs"><view class="{{source === 0 ? 'active' : ''}}" data-index="0" bindtap="selectSource">公司案例</view><view class="{{source === 1 ? 'active' : ''}}" data-index="1" bindtap="selectSource">AI案例</view></view>
     <view class="v12-card filters">
       <view class="filter-row"><text class="filter-label">建筑风格</text><scroll-view class="style-scroll" scroll-x enhanced show-scrollbar="{{false}}"><view class="filter-pills style-pills"><text wx:for="{{styleOptions}}" wx:key="code" class="{{filters.styleCode === item.code ? 'selected' : ''}}" data-key="styleCode" data-value="{{item.code}}" bindtap="onFilterChange">{{item.label}}</text></view></scroll-view></view>
@@ -22,6 +22,6 @@
     </view>
     <v12-state wx:if="{{loading}}" status="loading" text="正在加载方案…" card="{{false}}" />
     <v12-state wx:elif="{{error}}" id="library-load-error" status="error" text="{{error}}" action-text="重新加载" bind:action="retry" card="{{false}}" />
-    <v12-state wx:elif="{{loaded && !visibleCount}}" status="empty" icon="search" text="没有符合筛选条件的方案，换个筛选看看" card="{{false}}" />
+    <v12-state wx:elif="{{loaded && !visibleCount && !hasMore}}" status="empty" icon="search" text="没有符合筛选条件的方案，换个筛选看看" card="{{false}}" />
   </view>
 </view>
