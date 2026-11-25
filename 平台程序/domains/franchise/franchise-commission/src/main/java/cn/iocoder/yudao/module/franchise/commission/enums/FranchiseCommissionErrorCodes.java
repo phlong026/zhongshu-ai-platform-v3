@@ -30,6 +30,6 @@ public interface FranchiseCommissionErrorCodes {
     ErrorCode HANDOVER_DECISION_FORBIDDEN = new ErrorCode(1_111_000_019, "移交由被指定的工程负责人本人核查");
     ErrorCode HANDOVER_RETURN_REASON_REQUIRED = new ErrorCode(1_111_000_020, "退回请填写原因");
 
-    ErrorCode SIMULATION_FORBIDDEN = new ErrorCode(1_111_000_022, "当前组织未开放模拟付款，请刷新后按正式流程办理");
+    ErrorCode SIMULATION_FORBIDDEN = new ErrorCode(1_111_000_022, "实体费用支付入口已取消，请在外部付款后登记实际流水和凭证");
     ErrorCode HISTORICAL_SETTLEMENT_REQUIRED = new ErrorCode(1_111_000_023, "历史模拟委托须由财务完成正式付款及核收后才能办理");
 }
