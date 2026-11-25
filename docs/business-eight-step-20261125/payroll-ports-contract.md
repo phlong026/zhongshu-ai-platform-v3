@@ -68,3 +68,11 @@ historyAuthorized(long tenantId, long companyId, long recordId, int pageNo, int 
 ## 验证边界
 
 11 个新增真实 PG 集成用例进入 release-regression 名单，覆盖未配置的人工模式、无支付副作用、规则/核算历史不改写、真实自定义节点净回款、其他公司/转岗员工、幂等、错误租户/停用公司、老板只读/伪造角色、非法金额/月、并发核算版本、核算提交期间规则升级等待及事务回滚。本地 Java17 语法解析与差异检查通过；完整类型编译和 PG 执行必须由固定 SHA CI 验证。
+
+## 总部页面接入
+
+总部管理员、总部财务及财务主管使用 `/platform/headquarters/companies/{companyId}/payroll` 下的 GET `/rules`、`/records`、`/records/{id}` 和 `/records/{id}/history`。目标必须为当前真实租户内有效门店公司；其他品牌可以读取，其他租户不能读取。未传 `family` 或 `month` 时保持 null，复用端口的不限筛选语义。
+
+接口先核对总部当前有效任职和目标公司，再以明确的 tenant/company 调用只读端口；返回前重新核对任职与公司状态，响应标记 `readOnly=true`、`Cache-Control: no-store`。没有借用门店员工身份，也没有新增总部写入薪酬的接口。小程序在总部工作台先选门店公司，再打开薪酬记录页面；总部组织本身不作为门店薪酬目标。
+
+新增的总部 PG/HTTP 用例覆盖三个允许角色、两个品牌、全部读取路由、无筛选参数、非总部/旧设计行政/跨租户拒绝，以及查询期间公司关闭或岗位撤销。当前已完成独立源码评审与 Java 语法检查，数据库执行结果仍须由该候选版本的 CI 给出。

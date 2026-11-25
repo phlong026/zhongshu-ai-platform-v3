@@ -7,6 +7,8 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.HeadquartersDocumentAccessPort.Request;
+import cn.iocoder.yudao.module.franchise.api.PayrollReadPort;
+import cn.iocoder.yudao.module.platform.headquarters.controller.admin.HeadquartersPayrollController;
 import cn.iocoder.yudao.module.franchise.api.HeadquartersDocumentAccessPort.Resource;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowAssetPolicy;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService;
@@ -100,6 +102,63 @@ class HeadquartersReadIntegrationTest extends PlatformPgIntegrationTest {
     }
 
     @AfterEach void clear() { TenantContextHolder.clear(); SecurityContextHolder.clearContext(); }
+
+    @Test
+    void headquartersPayrollUsesExplicitCompanyAndRealHeadquartersGuardsForAllReadRoutes() throws Exception {
+        var port=mock(PayrollReadPort.class);
+        when(port.rulesAuthorized(anyLong(),anyLong(),nullable(String.class),anyInt(),anyInt())).thenReturn(Map.of("list",List.of()));
+        when(port.recordsAuthorized(anyLong(),anyLong(),nullable(String.class),nullable(String.class),anyInt(),anyInt())).thenAnswer(call -> {
+            assertThat(posts.require().orgId()).isEqualTo(headquarters);
+            assertThat(TenantContextHolder.getTenantId()).isEqualTo(tenant);
+            return Map.of("list",List.of(Map.of("companyId",Long.toString(call.getArgument(1,Long.class)))));
+        });
+        when(port.recordAuthorized(anyLong(),anyLong(),anyLong())).thenReturn(Map.of("id","8801"));
+        when(port.historyAuthorized(anyLong(),anyLong(),anyLong(),anyInt(),anyInt())).thenReturn(Map.of("list",List.of()));
+        var controller=new HeadquartersPayrollController(guard,port);
+        for(String role:List.of("hq-admin","finance","finance-lead")) {
+            actor(role.equals("hq-admin")?admin:post(user,headquarters,"headquarters",role),tenant);
+            for(long company:List.of(companyA,companyB)) {
+                var response=controller.records(company,"2026-11","BUSINESS",1,20);
+                assertThat(response.getHeaders().getCacheControl()).contains("no-store");
+                assertThat(response.getBody().getData()).containsEntry("readOnly",true);
+                assertThat(controller.rules(company,"ENGINEERING",1,20).getBody().getData()).containsEntry("readOnly",true);
+                assertThat(controller.record(company,8801).getBody().getData()).containsEntry("id","8801").containsEntry("readOnly",true);
+                assertThat(controller.history(company,8801,1,20).getBody().getData()).containsEntry("readOnly",true);
+            }
+        }
+        // Missing HTTP filters must stay null: the payroll port treats null as unrestricted, never the empty string.
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/platform/headquarters/companies/"+companyA+"/payroll/rules"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.readOnly").value(true));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/platform/headquarters/companies/"+companyA+"/payroll/records"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.data.readOnly").value(true));
+        verify(port).rulesAuthorized(tenant,companyA,null,1,20);
+        verify(port).recordsAuthorized(tenant,companyA,null,null,1,20);
+        code(404,()->controller.records(foreignCompany,"2026-11","BUSINESS",1,20));
+        verify(port,never()).recordsAuthorized(anyLong(),eq(foreignCompany),anyString(),anyString(),anyInt(),anyInt());
+        for(var invalid:List.of(post(user,companyA,"store","finance"),post(user,headquarters,"headquarters","hq-design-admin"))) {
+            actor(invalid,tenant);code(403,()->controller.rules(companyB,"BUSINESS",1,20));
+        }
+        actor(admin,foreignTenant);code(403,()->controller.records(companyA,"2026-11","BUSINESS",1,20));
+    }
+
+    @Test
+    void payrollRechecksCompanyAndPostBeforeReturningTheSalaryResult() {
+        var port=mock(PayrollReadPort.class);
+        var controller=new HeadquartersPayrollController(guard,port);
+        when(port.recordsAuthorized(tenant,companyB,"2026-11","BUSINESS",1,20)).thenAnswer(call -> {
+            jdbc.update("UPDATE system_dept SET status=1 WHERE id=?",companyB);
+            return Map.of("privateSalary",500000L);
+        });
+        code(403,()->controller.records(companyB,"2026-11","BUSINESS",1,20));
+        when(port.recordAuthorized(tenant,companyA,8801)).thenAnswer(call -> {
+            jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now() WHERE id=?",admin.postId());
+            return Map.of("privateSalary",500000L);
+        });
+        code(403,()->controller.record(companyA,8801));
+    }
 
     @Test
     void allThreeHeadquartersRolesReadAllBrandsOnlyInsideTheirActualTenant() {
