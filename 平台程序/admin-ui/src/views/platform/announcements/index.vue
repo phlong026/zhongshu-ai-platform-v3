@@ -261,7 +261,11 @@ import {
   type AnnouncementRow
 } from '@/api/platform/announcements'
 import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
-import { currentPostId, postGeneration } from '@/utils/platformIdentity'
+import {
+  currentPostId,
+  PENDING_ANNOUNCEMENT_CREATE_KEY,
+  postGeneration
+} from '@/utils/platformIdentity'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { useUserStore } from '@/store/modules/user'
 import {
@@ -299,11 +303,13 @@ const selected = ref<AnnouncementDetail | null>(null)
 const mode = ref<'view' | 'edit'>('view')
 const form = reactive<AnnouncementInput>(newAnnouncement())
 const editorError = ref('')
-const pendingCreate = ref<{ id: string; input: AnnouncementInput; scope: string } | null>(null)
+type PendingCreate = { id: string; input: AnnouncementInput; scope: string }
+const pendingCreate = ref<PendingCreate | null>(null)
 const stale = ref(false)
 const busy = ref(false)
 const canWrite = computed(() => ready.value && options.value.canWrite)
 let active = true
+let loadedScope = ''
 let listSequence = 0
 let detailSequence = 0
 const scope = () =>
@@ -317,7 +323,67 @@ const scope = () =>
   ])
 const current = (captured: string) => active && captured === scope()
 
-const clearPrivateState = () => {
+// 页面刷新会重新确认同一岗位并更新 generation；存储身份不记录 token，只认同账号、租户与岗位。
+const recoveryScope = () => {
+  const actor = user.getUser.id
+  const post = currentPostId()
+  return getAccessToken() && actor && post
+    ? JSON.stringify([getTenantId(), getVisitTenantId(), String(actor), post])
+    : ''
+}
+const forgetCreate = () => {
+  pendingCreate.value = null
+  try {
+    sessionStorage.removeItem(PENDING_ANNOUNCEMENT_CREATE_KEY)
+  } catch {
+    // Storage may be unavailable; retain in-page safeguards.
+  }
+}
+const persistCreate = (command: PendingCreate) => {
+  const binding = recoveryScope()
+  if (!binding) return
+  try {
+    sessionStorage.setItem(
+      PENDING_ANNOUNCEMENT_CREATE_KEY,
+      JSON.stringify({ id: command.id, input: command.input, binding })
+    )
+  } catch {
+    // The current page can still retry its frozen request.
+  }
+}
+const restoreCreate = (captured: string) => {
+  if (pendingCreate.value) return
+  const binding = recoveryScope()
+  if (!binding) return
+  try {
+    const raw = sessionStorage.getItem(PENDING_ANNOUNCEMENT_CREATE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    const input = saved?.input
+    if (
+      saved?.binding !== binding ||
+      !/^[0-9a-f-]{36}$/i.test(saved?.id) ||
+      !input ||
+      typeof input.title !== 'string' ||
+      typeof input.summary !== 'string' ||
+      typeof input.content !== 'string' ||
+      typeof input.pinned !== 'boolean' ||
+      !['ALL', 'BRANDS'].includes(input.visibility) ||
+      !Array.isArray(input.brandIds) ||
+      input.brandIds.some((value: unknown) => typeof value !== 'string') ||
+      inputError(input)
+    ) {
+      forgetCreate()
+      return
+    }
+    pendingCreate.value = { id: saved.id, input: announcementInput(input), scope: captured }
+  } catch {
+    forgetCreate()
+  }
+}
+
+const clearPrivateState = (discardRecovery = true) => {
+  loadedScope = ''
   listSequence++
   detailSequence++
   rows.value = []
@@ -325,7 +391,8 @@ const clearPrivateState = () => {
   options.value = { canWrite: false, brands: [] }
   ready.value = false
   selected.value = null
-  pendingCreate.value = null
+  if (discardRecovery) forgetCreate()
+  else pendingCreate.value = null
   Object.assign(form, newAnnouncement())
   editorOpen.value = false
   busy.value = false
@@ -342,10 +409,13 @@ const load = async () => {
   try {
     const [choices, page] = await Promise.all([announcementOptions(), listAnnouncements(params)])
     if (!current(captured) || sequence !== listSequence) return
+    loadedScope = captured
     options.value = choices
     rows.value = page.list
     total.value = page.total
     ready.value = true
+    if (choices.canWrite) restoreCreate(captured)
+    else forgetCreate()
   } catch (error) {
     if (!current(captured) || sequence !== listSequence) return
     rows.value = []
@@ -367,7 +437,7 @@ const resetFilters = () => {
 }
 
 const createDraft = () => {
-  if (!canWrite.value || busy.value) return
+  if (!canWrite.value || busy.value || !current(loadedScope)) return
   detailSequence++
   selected.value = null
   if (pendingCreate.value?.scope !== scope()) pendingCreate.value = null
@@ -456,7 +526,14 @@ const mutationFailed = (error: unknown) => {
 }
 
 const save = async () => {
-  if (!canWrite.value || busy.value || stale.value || mode.value !== 'edit') return
+  if (
+    !canWrite.value ||
+    busy.value ||
+    stale.value ||
+    mode.value !== 'edit' ||
+    !current(loadedScope)
+  )
+    return
   const captured = scope()
   const record = selected.value
   if (pendingCreate.value?.scope !== captured) pendingCreate.value = null
@@ -472,6 +549,7 @@ const save = async () => {
     try {
       command = { id: createRequestId(), input, scope: captured }
       pendingCreate.value = command
+      persistCreate(command)
     } catch {
       editorError.value = '当前浏览器无法安全保存草稿，请刷新页面或换一个浏览器后重试。'
       return
@@ -486,7 +564,7 @@ const save = async () => {
       command?.id
     )
     if (!current(captured)) return
-    if (command) pendingCreate.value = null
+    if (command) forgetCreate()
     selected.value = saved
     Object.assign(form, announcementInput(saved))
     mode.value = 'view'
@@ -497,7 +575,7 @@ const save = async () => {
   } catch (error) {
     if (!current(captured)) return
     const code = errorStatus(error)
-    if (command && code === 400) pendingCreate.value = null
+    if (command && code === 400) forgetCreate()
     if (command && ![400, 401, 403].includes(code)) {
       editorError.value =
         code === 409
@@ -548,14 +626,14 @@ const changeStatus = async (row: AnnouncementRow, action: 'publish' | 'withdraw'
 watch(
   () => identity.context,
   () => {
-    clearPrivateState()
+    clearPrivateState(false)
     if (active) void load()
   }
 )
 onMounted(load)
 onBeforeUnmount(() => {
   active = false
-  clearPrivateState()
+  clearPrivateState(false)
 })
 </script>
 

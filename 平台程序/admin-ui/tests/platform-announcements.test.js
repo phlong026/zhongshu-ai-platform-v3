@@ -66,6 +66,14 @@ const deferred = () => {
 }
 const plain = (value) => JSON.parse(JSON.stringify(value))
 
+const tabStorage = () => {
+  const values = new Map()
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key)
+  }
+}
 function view(overrides = {}) {
   const state = { tenant: '1', actor: '101', post: '201', generation: 1, ...overrides.scope }
   const identity = vue.reactive({ context: { post: { postId: '201' } } })
@@ -117,6 +125,7 @@ function view(overrides = {}) {
     },
     '@/utils/platformIdentity': {
       currentPostId: () => state.post,
+      PENDING_ANNOUNCEMENT_CREATE_KEY: platform.PENDING_ANNOUNCEMENT_CREATE_KEY,
       postGeneration: () => state.generation
     },
     '@/store/modules/platformIdentity': { usePlatformIdentityStore: () => identity },
@@ -128,7 +137,7 @@ function view(overrides = {}) {
       })
     },
     './model': model
-  }).default
+  }, { sessionStorage: overrides.storage || tabStorage() }).default
   return {
     page: component.setup({}, { expose() {} }),
     state,
@@ -550,4 +559,66 @@ test('request IDs use secure random bytes if randomUUID is unavailable (intranet
   assert.equal(intranetModel.createRequestId(), 'abababab-abab-4bab-abab-abababababab')
   const unsupported = load('views/platform/announcements/model.ts', {}, { crypto: {} })
   assert.throws(() => unsupported.createRequestId(), /安全生成/)
+})
+
+test('reloading in the same tab and revalidating the same post resumes the exact pending create', async () => {
+  const storage = tabStorage()
+  const attempts = []
+  const api = {
+    saveAnnouncement: async (input, existing, requestId) => {
+      attempts.push({ input: plain(input), requestId })
+      if (attempts.length === 1) throw Error('服务端已落草稿，回执丢失')
+      return record(input)
+    }
+  }
+  const before = view({ storage, api })
+  await before.page.load()
+  before.page.createDraft()
+  Object.assign(before.page.form, { title: '待确认草稿', content: '只保存一次的测试正文' })
+  await before.page.save()
+  before.hooks.unmount()
+  const after = view({ storage, api, scope: { generation: 2 } })
+  await after.page.load()
+  assert.equal(attempts.length, 1, '重新打开页面不会自动提交')
+  after.page.createDraft()
+  assert.equal(after.page.form.title, '待确认草稿')
+  await after.page.save()
+  assert.deepEqual(attempts[1], attempts[0])
+  const again = view({ storage, api, scope: { generation: 3 } })
+  await again.page.load()
+  again.page.createDraft()
+  assert.equal(again.page.form.title, '', '确认后清理，不恢复历史正文')
+})
+
+test('a new actor, tenant or read-only post cannot restore old announcement content', async () => {
+  for (const change of [{ scope: { actor: '102' } }, { scope: { tenant: '2' } },
+    { scope: { post: '202' } }, { api: { announcementOptions: async () => choices(false) } }]) {
+    const storage = tabStorage()
+    const before = view({ storage, api: { saveAnnouncement: async () => { throw Error('回执丢失') } } })
+    await before.page.load()
+    before.page.createDraft()
+    Object.assign(before.page.form, { title: '旧身份草稿', content: '原内容' })
+    await before.page.save()
+    before.hooks.unmount()
+    const after = view({ storage, ...change })
+    await after.page.load()
+    after.page.createDraft()
+    assert.equal(after.page.form.title, '')
+    assert.equal(storage.getItem(platform.PENDING_ANNOUNCEMENT_CREATE_KEY), null)
+    assert.equal(after.calls.length, 0)
+  }
+})
+
+test('platform identity removes temporary announcement state on real post change and sign-out', () => {
+  const storage = tabStorage()
+  const session = load('utils/platformIdentity.ts', {}, { sessionStorage: storage, localStorage: tabStorage() })
+  session.beginPostSwitch('201')
+  storage.setItem(session.PENDING_ANNOUNCEMENT_CREATE_KEY, 'same authorized tab')
+  session.beginPostSwitch('201')
+  assert.equal(storage.getItem(session.PENDING_ANNOUNCEMENT_CREATE_KEY), 'same authorized tab')
+  session.beginPostSwitch('202')
+  assert.equal(storage.getItem(session.PENDING_ANNOUNCEMENT_CREATE_KEY), null)
+  storage.setItem(session.PENDING_ANNOUNCEMENT_CREATE_KEY, 'cleared on logout')
+  session.clearPlatformIdentity()
+  assert.equal(storage.getItem(session.PENDING_ANNOUNCEMENT_CREATE_KEY), null)
 })
