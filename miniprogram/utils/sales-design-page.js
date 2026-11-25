@@ -1,4 +1,4 @@
-// AI 设计入口（纯平台态）：三类设计岗位从 B 读取 A 已发布的公开户型；收藏与业务数据仍归 B。
+// 历史设计入口：保留公开户型、快速预算和历史成果读取。
 const ENTRY_ROLES = ['sales', 'sales-lead', 'hq-design-admin'];
 const auth = require('../api/auth');
 const http = require('../api/http');
@@ -16,8 +16,6 @@ module.exports=()=>({
   data: {
     entries: [
       { title: '灵感库', view: 'inspiration', icon: 'home-design-icon', hint: '从优秀方案找灵感' },
-      { title: 'AI平面', view: 'ai-config', icon: 'plan-file', hint: '按家庭需求做布局' },
-      { title: 'AI立面', view: 'ai-facade', icon: 'house', hint: '探索建筑外观方案' },
       { title: '快速预算', view: 'budget', icon: 'contract', hint: '快速估算建造投入' }
     ],
     recentTasks:[],recentCount:0,recentRunning:0,recentLoading:false,recentError:'',

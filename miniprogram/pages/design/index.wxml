@@ -1,9 +1,9 @@
 <view class="page design-page workbench-page sales-page">
-  <view class="workbench-header"><brand-header divider="{{true}}" title="AI设计" /></view>
+  <view class="workbench-header"><brand-header divider="{{true}}" title="设计资料" /></view>
   <view class="content">
-    <view class="design-hero"><image class="design-hero-picture" src="/pages/design/assets/biz-case-1.jpg" mode="aspectFill"/><view class="design-hero-veil"/><view class="design-hero-copy"><view class="design-hero-title"><text>把建房想法</text><text>变成方案</text></view><button wx:if="{{entranceEnabled}}" class="primary" data-view="ai-config" bindtap="open">开始AI设计</button></view></view>
+    <view class="design-hero"><image class="design-hero-picture" src="/pages/design/assets/biz-case-1.jpg" mode="aspectFill"/><view class="design-hero-veil"/><view class="design-hero-copy"><view class="design-hero-title"><text>浏览户型资料</text><text>记录建房需求</text></view><button wx:if="{{entranceEnabled}}" class="primary" data-view="inspiration" bindtap="open">查看户型灵感</button></view></view>
     <view wx:if="{{entranceEnabled}}" class="design-quick"><button wx:for="{{entries}}" wx:key="view" class="design-entry" data-view="{{item.view}}" bindtap="open"><image src="/assets/{{item.icon}}.png" mode="aspectFit"/><view><text>{{item.title}}</text></view><view class="chevron"/></button></view>
-    <text wx:if="{{!entranceEnabled}}" class="sales-note">请使用平台账号登录 AI 设计</text>
+    <text wx:if="{{!entranceEnabled}}" class="sales-note">请使用平台账号查看设计资料</text>
     <view wx:if="{{entranceEnabled}}" class="design-recent">
       <view class="section-heading recent-heading"><view class="recent-heading-title"><text class="section-title">最近任务</text><text wx:if="{{recentRunning}}" class="recent-count">{{recentRunning}}项进行中</text></view><button class="text-link" bindtap="{{recentError?'retryRecent':'openAllTasks'}}">{{recentError?'重试':'全部任务'}} <image src="/assets/creation-chevron.png"/></button></view>
       <view wx:if="{{recentLoading && recentCount === 0}}" class="design-catalog-state">正在读取最近任务…</view>
