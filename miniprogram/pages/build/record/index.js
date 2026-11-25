@@ -12,10 +12,10 @@ Page({
  ...baseHandlers,
  ...ManagerTransfer.handlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
- input(e){if(this.data.busy||this.data.paymentUncertain)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
- data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',externalHandoverUrl:'',externalHandoverVersion:0},
+ input(e){if(this.data.busy||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
+ data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',expenseSaveState:'',expenseSaveLabel:'',externalHandoverUrl:'',externalHandoverVersion:0},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'start');this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id)this.refresh();
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__expenseSave=null;this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,expenseSaveState:'',expenseSaveLabel:'',docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id&&!this.showExpenseResult())this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length&&(this.data.node?.status!=='已完成'||this.data.expanded.nodeEdit)?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -73,10 +73,10 @@ Page({
   }catch(err){if(alive())this.fail((err&&err.msg)||(err&&err.message)||'授权查看失败，请重试');}
  },
  onHide(){this.__inactive=true;this.__previewClosed=true;this.__externalPreview=null;this.setData({playbackUrl:'',playingCameraId:''});},
- onUnload(){this.__disposed=true;this.__previewClosed=true;this.__externalPreview=null;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;},
+ onUnload(){this.__disposed=true;this.__previewClosed=true;this.__externalPreview=null;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;this.__expenseSave=null;},
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){
-   if(this.data.paymentUncertain||this.__paymentPending)return;
+   if(this.data.paymentUncertain||this.__paymentPending||this.__expenseSave)return;
    const paymentRead=this.__paymentRead=(this.__paymentRead||0)+1; // API 态：详情聚合+recordView 同构视图（fields/actions/form/各区块键）；失败只显示错误态
    const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
    const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post)&&paymentRead===this.__paymentRead&&(this.__accessEpoch||0)===epoch;
@@ -134,7 +134,8 @@ Page({
    }
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
-   if(this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(action==='expense-register')return this.saveExpense(f||this.data.form);
    if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
    this.__paymentRead=(this.__paymentRead||0)+1;
    const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
@@ -164,17 +165,68 @@ Page({
     if(!alive())return;
     delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同目标同内容重试复用同键（指纹匹配时）
     wx.showToast({title:result&&result.stageStatus==='PENDING_CONFIRMATION'?'已提交，待财务核实':'已在线保存',icon:result&&result.stageStatus==='PENDING_CONFIRMATION'?'none':'success'});
-    // Codex R1 P2-1：费用登记成功后清空表单（防旧名称/金额残留一键重复计成本）
     if(action==='camera-save')this.setData({cameraFormOpen:false,playbackUrl:'',playingCameraId:''});
-    if(action==='expense-register')this.setData({'form.expenseName':'','form.expenseAmount':'','form.note':''});
     await this.refreshOnline(true);
    }catch(e){if(!alive())return;const msg=P.errorText(e&&e.data?e.data.data||e.data:e);
     this.setData({error:msg});wx.showToast({title:msg,icon:'none'});}
    finally{if(alive())this.setData({busy:false});}
   },
+  saveExpense(f){
+   if(this.__inactive||this.__disposed||this.__expenseSave)return;
+   const http=require('../../../api/http'),current=http.sessionGuard(),post=String(http.currentPostId());
+   const id=this.id,view=this.data.view,epoch=this.__accessEpoch||0;
+   const form={expenseName:f.expenseName,expenseAmount:f.expenseAmount,purposeCode:f.purposeCode,note:f.note};
+   const ticket={form,id:String(id),key:'eng-expense-'+Date.now()+'-'+Math.floor(Math.random()*1e8),
+    valid:()=>current()&&!this.__disposed&&id===this.id&&view===this.data.view&&String(http.currentPostId())===post&&(this.__accessEpoch||0)===epoch,
+    state:'sending'};
+   this.__expenseSave=ticket;
+   this.__paymentRead=(this.__paymentRead||0)+1;
+   this.setData({error:'',expenseSaveState:'sending',expenseSaveLabel:String(form.expenseName||'费用')+' · '+String(form.expenseAmount||'')+'元'});
+   return this.sendExpense(ticket);
+  },
+  async sendExpense(ticket){
+   if(this.__expenseSave!==ticket||!ticket.valid())return;
+   this.setData({expenseSaveState:'sending',error:''});
+   ticket.state='sending';
+   try{
+    await P.perform('expense-register',ticket.id,ticket.form,null,ticket.key);
+    if(this.__expenseSave!==ticket||!ticket.valid())return;
+    ticket.state='saved';
+   }catch(e){
+    if(this.__expenseSave!==ticket||!ticket.valid())return;
+    const code=Number(e?.code);
+    ticket.state=!Number.isFinite(code)||code===-1||code>=500&&code<600||code===1099000000?'unknown':'failed';
+    ticket.error=P.errorText(e?.data?.data||e?.data||e);
+   }
+   if(!this.__inactive)return this.showExpenseResult();
+  },
+  showExpenseResult(){
+   const ticket=this.__expenseSave;
+   if(!ticket)return false;
+   if(!ticket.valid()){
+    this.__expenseSave=null;this.setData({expenseSaveState:'',expenseSaveLabel:''});return false;
+   }
+   if(ticket.state==='sending'||ticket.state==='unknown'){
+    this.setData({expenseSaveState:ticket.state});return true;
+   }
+   this.__expenseSave=null;
+   this.setData({expenseSaveState:'',expenseSaveLabel:'',
+    ...(ticket.state==='saved'?{'form.expenseName':'','form.expenseAmount':'','form.note':''}:{error:ticket.error})});
+   if(ticket.state==='saved'){
+    wx.showToast({title:'费用已保存',icon:'success'});
+    return this.refreshOnline(true);
+   }
+   wx.showToast({title:ticket.error,icon:'none'});
+   return true;
+  },
+  retryExpense(){
+   const ticket=this.__expenseSave;
+   if(this.__inactive||!ticket?.valid()||ticket.state!=='unknown')return;
+   return this.sendExpense(ticket);
+  },
   retryPayment(){return Payments.retry(this);},
   reloadPayment(){if(!this.data.busy&&!this.data.paymentUncertain)return this.refreshOnline(false);},
-  perform(e){if(this.data.busy||this.data.paymentUncertain||this.data.paymentConflict||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
+  perform(e){if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.paymentConflict||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
   const action=e.currentTarget.dataset.action,f={...this.data.form};
    if(['node','site','node-correct','node-reopen'].includes(action))f.nodeId=this.data.node&&this.data.node.id;
    if(action==='material-terms')f.file=f.termsFile;
@@ -189,11 +241,11 @@ Page({
   const idx=Number(e.detail.value),opts=(this.data.form&&this.data.form.supplyOptions)||[];
   if(opts[idx])this.setData({'form.supplyId':opts[idx].id,'form.supplyLabel':opts[idx].label});
  },
- pickPurpose(e){ // 费用用途枚举 picker（LABOR/TRAVEL/OTHER——Codex R2 P2：code 与显示 label 同步更新）
+ pickPurpose(e){if(this.__expenseSave)return; // 费用用途枚举 picker（LABOR/TRAVEL/OTHER——Codex R2 P2：code 与显示 label 同步更新）
   const i=Number(e.detail.value),p=(this.data.purposes||[])[i];
   if(p)this.setData({'form.purposeCode':p.code,purposeLabel:p.label});
  },
- expenseMode(e){ // 费用四模式切换（register 默认/terms 挂应付/revise 修订/cancel 取消——行内选定目标后重建 fields）
+ expenseMode(e){if(this.__expenseSave)return; // 费用四模式切换（register 默认/terms 挂应付/revise 修订/cancel 取消——行内选定目标后重建 fields）
   const d=e.currentTarget.dataset,mode=d.mode||'register',row=(this.data.expenseRows||[]).find(r=>r.id===d.id);
   this.setData({expenseMode:mode,error:'','form.expenseId':row?row.id:'','form.expenseName':row?row.name:'',
    'form.supplier':'','form.basis':'','form.newAmount':'','form.note':'','form.cancelReason':''});

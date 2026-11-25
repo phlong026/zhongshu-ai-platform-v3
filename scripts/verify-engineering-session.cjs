@@ -113,3 +113,64 @@ test('a file-picker callback from the previous post cannot populate the new draf
   selected.success({tempFiles:[{name:'A.pdf',path:'/private/A.pdf'}]});
   assert.equal(f.page.data.form.file,undefined);
 });
+
+function expenseSaveFixture(perform){
+ const f=fixture('pages/build/record/index.js',{perform,errorText:e=>e.message||String(e)});
+ const p=f.page;let reloads=0;
+ p.id='original-project';p.data.view='expenses';p.refresh=()=>{};
+ p.onShow();p.refreshOnline=async reset=>{assert.equal(reset,true);reloads++;};
+ p.data.form={expenseName:'卸货费',expenseAmount:'200',purposeCode:'OTHER',note:'今天。'};
+ p.setData=function(patch){for(const [key,value] of Object.entries(patch)){
+  if(key.startsWith('form.'))this.data.form[key.slice(5)]=value;else this.data[key]=value;
+ }};
+ const submit=()=>p.perform({currentTarget:{dataset:{action:'expense-register'}}});
+ return{...f,p,submit,reloads:()=>reloads};
+}
+test('a WeChat switch while expense is saving cannot create a second payment entry',async()=>{
+ const a=deferred(),calls=[],f=expenseSaveFixture((...args)=>{calls.push(args);return a.promise;});
+ const first=f.submit();f.p.onHide();f.p.onShow();f.p.data.busy=false;
+ await f.submit();assert.equal(f.p.data.expenseSaveState,'sending');assert.equal(calls.length,1);
+ a.resolve({expenseId:'receipt-1'});await first;
+ assert.equal(f.p.data.expenseSaveState,'');assert.equal(f.p.data.form.expenseAmount,'');
+ assert.equal(f.reloads(),1);assert.equal(f.notices.at(-1).title,'费用已保存');
+});
+test('a hidden successful expense is acknowledged on return, then a real second expense gets a new key',async()=>{
+ const a=deferred(),calls=[],f=expenseSaveFixture((...args)=>{calls.push(args);return calls.length===1?a.promise:Promise.resolve({expenseId:'receipt-2'});});
+ const first=f.submit();f.p.onHide();a.resolve({expenseId:'receipt-1'});await first;
+ assert.equal(f.notices.length,0);f.p.onShow();
+ assert.equal(f.p.data.form.expenseName,'');assert.equal(f.p.data.form.note,'');assert.equal(f.reloads(),1);
+ f.p.data.form={expenseName:'卸货费',expenseAmount:'200',purposeCode:'OTHER',note:'另一次'};
+ await f.submit();assert.equal(calls.length,2);assert.notEqual(calls[0][4],calls[1][4]);
+});
+test('lost expense result only permits checking frozen input under the original key',async()=>{
+ const calls=[],rows=new Map(),f=expenseSaveFixture((...args)=>{
+  calls.push(args);if(!rows.has(args[4]))rows.set(args[4],Number(args[2].expenseAmount));
+  return calls.length===1?Promise.reject({code:-1,message:'offline after save'}):Promise.resolve({expenseId:'same-receipt'});
+ });
+ await f.submit();assert.equal(f.p.data.expenseSaveState,'unknown');assert.equal(f.p.data.expenseSaveLabel,'卸货费 · 200元');
+ f.p.onHide();f.p.onShow();f.p.data.form.note='改过的标点';await f.submit();assert.equal(calls.length,1);
+ await f.p.retryExpense();assert.deepEqual(calls[0],calls[1]);assert.equal(calls[1][2].note,'今天。');
+ assert.deepEqual([...rows.values()],[200]);assert.equal(f.p.data.form.expenseAmount,'');assert.equal(f.reloads(),1);
+});
+test('an explicit expense rejection restores editing; a pending record is cleared on post change',async()=>{
+ const a=deferred(),calls=[],f=expenseSaveFixture((...args)=>{calls.push(args);return calls.length===1?Promise.reject({code:400,message:'请填金额'}):a.promise;});
+ await f.submit();assert.equal(f.p.data.expenseSaveState,'');assert.equal(f.p.data.form.expenseName,'卸货费');assert.equal(f.p.data.error,'请填金额');
+ const save=f.submit();f.p.onHide();f.switchPost();f.p.onShow();
+ a.resolve({expenseId:'old-receipt'});await save;
+ assert.equal(f.p.data.expenseSaveState,'');assert.equal(f.p.data.expenseSaveLabel,'');assert.equal(f.reloads(),0);
+ assert.deepEqual(f.notices.map(x=>x.title),['请填金额']);
+});
+test('expense form and write actions stay hidden until the original save can be checked',()=>{
+ const {render}=require('./role-page-runtime.cjs');
+ const file=path.join(__dirname,'../miniprogram/pages/build/record/index.wxml');
+ const flatten=n=>[n,...(n.children||[]).flatMap(flatten)];
+ const read=expenseSaveState=>{
+  const tree=render(file,{view:'expenses',p:{id:'project'},own:true,expanded:{},expenseSaveState,
+   expenseSaveLabel:'卸货费 · 200元',expenseMode:'register',expenseRows:[{id:'item',name:'劳务',canTerms:true}],
+   fields:[{key:'expenseName',label:'费用名称'}],form:{},actions:[{action:'expense-register',label:'登记费用'}]});
+  return (Array.isArray(tree)?tree.flatMap(flatten):flatten(tree)).filter(n=>n.tag==='button');
+ };
+ assert.equal(read('sending').some(x=>['retryExpense','expenseMode','perform'].includes(x.attrs.bindtap)),false);
+ assert.deepEqual(read('unknown').filter(x=>['retryExpense','expenseMode','perform'].includes(x.attrs.bindtap)).map(x=>x.attrs.bindtap),['retryExpense']);
+ assert.equal(read('').some(x=>x.attrs.bindtap==='perform'),true);
+});
