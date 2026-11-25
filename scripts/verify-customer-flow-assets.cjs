@@ -93,3 +93,54 @@ test('上传票据响应损坏后重试能重新取票，不陷入无效票据�
   assert.equal(pending.ticket, undefined); assert.equal((await h.api.run(pending, h.alive)).assetId, '88');
   assert.equal(ticketAttempts, 2);
 });
+
+test('业务资料PUT已存储但响应丢失时核对原资产，不重复消费票据', async () => {
+  const h = uploadHarness({ put: async () => { throw { code: -1, message: 'PUT timeout after storage' }; } });
+  const pending = { file: { path: '/file.pdf', name: '现场测量.pdf' } };
+  const result = await h.api.run(pending, h.alive);
+  assert.equal(result.assetId, '900719925474099999');
+  assert.equal(pending.putAttempted, true); assert.equal(pending.uploaded, undefined);
+  assert.deepEqual(h.counts(), { reads: 1, puts: 1 });
+  assert.equal(h.posts.filter(p => p.url.endsWith('/complete')).length, 1);
+});
+
+test('业务资料真正未上传时明确换票重传，未知结果不自动重发PUT且保留原字节', async () => {
+  let tickets = 0, received = false;
+  const h = uploadHarness({
+    put: async () => { if (!received) throw { code: -1, message: 'offline before upload' }; },
+    post: async url => {
+      if (url.endsWith('upload-tickets')) return { assetId: String(++tickets), uploadUrl: 'https://upload.test/' + tickets };
+      if (!received) throw { code: 1071000001, msg: '资产尚未上传完成，请重试' };
+      return { uploadStatus: 'ACCEPTED' };
+    }
+  });
+  const pending = { file: { path: '/file.pdf' } };
+  await assert.rejects(h.api.run(pending, h.alive));
+  assert.equal(pending.restartRequired, true);
+  await assert.rejects(h.api.run(pending, h.alive));
+  assert.deepEqual(h.counts(), { reads: 1, puts: 1 }); assert.equal(tickets, 1);
+  received = true;
+  const restarted = { file: pending.file, bytes: pending.bytes, mimeType: pending.mimeType };
+  const result = await h.api.run(restarted, h.alive);
+  assert.equal(result.assetId, '2'); assert.deepEqual(h.counts(), { reads: 1, puts: 2 });
+});
+
+test('验收中仅重试complete，明确拒绝后不能反复验收，PUT异常中切岗不继续complete', async () => {
+  let completed = 0;
+  const checking = uploadHarness({ post: async url => url.endsWith('upload-tickets')
+    ? { assetId: '88', uploadUrl: 'https://upload.test/file' }
+    : (++completed === 1 ? { uploadStatus: 'VALIDATING' } : { uploadStatus: 'ACCEPTED' }) });
+  const pending = { file: { path: '/file.pdf' } };
+  await assert.rejects(checking.api.run(pending, checking.alive), /正在验收/);
+  assert.equal((await checking.api.run(pending, checking.alive)).assetId, '88');
+  assert.equal(checking.counts().puts, 1);
+  const rejected = uploadHarness({ post: async url => url.endsWith('upload-tickets')
+    ? { assetId: '99', uploadUrl: 'https://upload.test/file' } : { uploadStatus: 'REJECTED' } });
+  const bad = { file: { path: '/file.pdf' } };
+  await assert.rejects(rejected.api.run(bad, rejected.alive), /未通过/);
+  await assert.rejects(rejected.api.run(bad, rejected.alive), /重新选择/);
+  assert.equal(rejected.posts.filter(p => p.url.endsWith('/complete')).length, 1);
+  const stale = uploadHarness({ put: async () => { stale.switchSession(); throw Error('network failure'); } });
+  await assert.rejects(stale.api.run({ file: { path: '/file.pdf' } }, stale.alive), /身份/);
+  assert.equal(stale.posts.filter(p => p.url.endsWith('/complete')).length, 0);
+});

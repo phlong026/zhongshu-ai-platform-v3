@@ -65,7 +65,7 @@
           <text wx:if="{{!form.attachments.length&&!step.canWrite}}" class="flow-muted">暂无资料</text>
           <view wx:if="{{step.canWrite&&form.attachments.length<10}}" class="flow-inline-actions"><button class="flow-secondary" bindtap="chooseFile" disabled="{{busy||uploading||uncertain||conflict}}">上传文件</button><button class="flow-secondary" bindtap="choosePhoto" disabled="{{busy||uploading||uncertain||conflict}}">拍照／相册</button></view>
           <text wx:if="{{step.canWrite}}" class="flow-file-hint">PDF、JPG、PNG，单个不超过30MB</text>
-          <view wx:if="{{uploading||uploadFailed}}" class="flow-upload-state"><text>{{uploading?'正在上传：':'上传未完成：'}}{{uploadName}}</text><view wx:if="{{uploadFailed}}" class="flow-inline-actions"><button class="flow-link" bindtap="retryUpload">重试上传</button><button class="flow-link" bindtap="discardUpload">取消</button></view></view>
+          <view wx:if="{{uploading||uploadFailed}}" class="flow-upload-state"><text>{{uploading?'正在上传：':'上传未完成：'}}{{uploadName}}</text><view wx:if="{{uploadFailed}}" class="flow-inline-actions"><button wx:if="{{uploadRetryable}}" class="flow-link" bindtap="retryUpload">重试核对</button><button wx:if="{{uploadRestartAllowed}}" class="flow-link" bindtap="restartUpload">重新上传</button><button class="flow-link" bindtap="discardUpload">取消</button></view></view>
         </view>
         <view wx:if="{{step.completionErrors.length&&step.canWrite&&!dirty}}" class="flow-requirements"><text wx:for="{{step.completionErrors}}" wx:key="*this">{{item}}</text></view>
         <button wx:if="{{step.canReopen}}" class="flow-secondary flow-reopen" bindtap="reopen" disabled="{{busy||uncertain}}">更正／重新办理</button>

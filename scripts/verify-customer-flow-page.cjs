@@ -250,3 +250,27 @@ test('客户列表使用批量内联摘要，旧详情仍保留，按钮携带�
   assert.equal(row.workflow.progressPercent, 37.5); assert.equal(row.flowUrl, '/pages/customer-flow/index?customerId=900719925474099999');
   assert.match(row.url, /pages\/workflow\/index\?view=customer/);
 });
+
+test('明确未上传后页面允许换票重传，保留文件字节并清除原票据；切岗后不能重传', async () => {
+  let attempts = 0, original;
+  const bytes = new ArrayBuffer(4);
+  const h = harness({ upload: async pending => {
+    if (++attempts === 1) {
+      original = pending;
+      Object.assign(pending, { bytes, mimeType: 'application/pdf', ticket: { assetId: '811' }, putAttempted: true, restartRequired: true });
+      throw { code: 1071000001, msg: '资产尚未上传完成，请重试' };
+    }
+    assert.notEqual(pending, original); assert.equal(pending.bytes, bytes); assert.equal(pending.file, original.file);
+    assert.equal(pending.ticket, undefined); assert.equal(pending.putAttempted, undefined);
+    return { assetId: '812', title: '现场测量.pdf', mimeType: 'application/pdf' };
+  } });
+  await h.open(); await h.page.startUpload({ path: '/file.pdf', name: '现场测量.pdf' });
+  assert.equal(h.page.data.uploadFailed, true); assert.equal(h.page.data.uploadRestartAllowed, true);
+  await h.page.restartUpload();
+  assert.equal(attempts, 2); assert.equal(h.page.data.form.attachments[0].assetId, '812');
+  assert.equal(h.page.data.uploadRestartAllowed, false); assert.equal(h.page.data.uploadFailed, false);
+  h.page._pendingFile = original; h.switchSession(); await h.page.restartUpload(); assert.equal(attempts, 2);
+  const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), 'utf8');
+  assert.match(wxml, /wx:if="\{\{uploadRestartAllowed\}\}"[^>]+bindtap="restartUpload"/);
+  assert.match(wxml, /wx:if="\{\{uploadRetryable\}\}"[^>]+bindtap="retryUpload"/);
+});

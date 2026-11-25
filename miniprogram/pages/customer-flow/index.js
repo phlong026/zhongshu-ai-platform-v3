@@ -11,7 +11,7 @@ const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 
 
 Page({
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
-    error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false,
+    error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
     uploadName: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null },
   onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || ''; this._drafts = {}; this._localFiles = {}; },
   onShow() { this._visible = true; return this.load(); },
@@ -20,7 +20,7 @@ Page({
   clear(error = '') {
     this._request = null; this._historyRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
-      busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadName: '',
+      busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
       showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null, error });
   },
   validPost() {
@@ -181,7 +181,7 @@ Page({
   async retryUpload() {
     const pending = this._pendingFile;
     if (!pending || !this.alive(pending.scope) || pending.code !== this.selectedCode || this.data.uploading) return;
-    this.setData({ uploading: true, uploadFailed: false, uploadName: pending.file.name || '现场照片', error: '' });
+    this.setData({ uploading: true, uploadFailed: false, uploadRestartAllowed: false, uploadName: pending.file.name || '现场照片', error: '' });
     const alive = () => this.alive(pending.scope) && this._pendingFile === pending && this.selectedCode === pending.code;
     try {
       const file = await require('./upload').run(pending, alive);
@@ -190,11 +190,17 @@ Page({
       const form = clone(this.data.form);
       if (!form.attachments.some(item => item.assetId === file.assetId)) form.attachments.push(file);
       this._pendingFile = null;
-      this.setData({ uploading: false, uploadFailed: false, uploadName: '' });
+      this.setData({ uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '' });
       this.change(form);
-    } catch (error) { if (alive()) this.setData({ uploading: false, uploadFailed: true, error: model.errorText(error) }); }
+    } catch (error) { if (alive()) this.setData({ uploading: false, uploadFailed: true, uploadRetryable: !pending.rejected, uploadRestartAllowed: !!pending.restartRequired, error: model.errorText(error) }); }
   },
-  discardUpload() { if (!this.data.uploading) { this._pendingFile = null; this.setData({ uploadFailed: false, uploadName: '', error: '' }); } },
+  restartUpload() {
+    const pending = this._pendingFile;
+    if (!this.editable() || !pending?.restartRequired || !this.alive(pending.scope) || pending.code !== this.selectedCode) return;
+    this._pendingFile = { file: pending.file, bytes: pending.bytes, mimeType: pending.mimeType, scope: pending.scope, code: pending.code };
+    return this.retryUpload();
+  },
+  discardUpload() { if (!this.data.uploading) { this._pendingFile = null; this.setData({ uploadFailed: false, uploadRestartAllowed: false, uploadName: '', error: '' }); } },
   removeFile(event) {
     if (!this.editable()) return;
     const form = clone(this.data.form); form.attachments = form.attachments.filter(f => f.assetId !== String(event.currentTarget.dataset.id)); this.change(form);
