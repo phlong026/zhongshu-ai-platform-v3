@@ -419,3 +419,42 @@ test('quote requires footprint and building area before compilation or API write
   assert.equal(compiled, 0);
   assert.equal(h.quoteCreates.length, 0);
 });
+
+test('new contract never copies the newest estimate or sets a full first installment', async () => {
+  const h=harness(),page=h.page;
+  page.setData({view:'contract',requirementsStatus:'ready',salesQuotes:[
+    {id:'22',totalText:'520000.00',date:'2026-11-25',priceVersion:'试算'},
+    {id:'21',totalText:'480000.00',date:'2026-11-24',priceVersion:'报价'}
+  ]});
+  page.openContractForm();
+  assert.equal(page.data.contractForm.total,'');
+  assert.equal(page.data.contractForm.signAfter,'');
+  page.platformSubmitContract();
+  assert.equal(h.contractCreates.length,0);
+  page.useContractQuote({currentTarget:{dataset:{quoteId:'21'}}});
+  assert.equal(page.data.contractForm.total,'480000.00');
+  assert.equal(page.data.contractForm.signAfter,'');
+  assert.match(page.data.contractForm.quoteLabel,/2026-11-24.*480000/);
+  page.setData({salesQuotes:[{id:'23',totalText:'540000.00'}]});
+  page.platformSubmitContract();
+  assert.equal(h.contractCreates.length,0,'first payment must be supplied separately');
+  for(const [key,value] of Object.entries({signAfter:'180000',baseDone:'200000',capDone:'100000'}))
+    page.contractInput({currentTarget:{dataset:{key}},detail:{value}});
+  page.platformSubmitContract();await flush();
+  const body=h.contractCreates[0];
+  assert.equal(body.totalCents,48000000);
+  assert.equal(body.signAfterCents,18000000);
+  assert.equal(body.baseDoneCents,20000000);
+  assert.equal(body.capDoneCents,10000000);
+});
+
+test('a contract can be recorded without a quote and the salesperson can explicitly enter a full first installment',async()=>{
+  const h=harness(),page=h.page;
+  page.setData({view:'contract',requirementsStatus:'ready',salesQuotes:[]});
+  page.openContractForm();
+  for(const [key,value] of Object.entries({total:'390000',signAfter:'390000'}))
+    page.contractInput({currentTarget:{dataset:{key}},detail:{value}});
+  page.platformSubmitContract();await flush();
+  assert.equal(h.contractCreates[0].signAfterCents,39000000);
+  assert.equal(h.contractCreates[0].totalCents,39000000);
+});
