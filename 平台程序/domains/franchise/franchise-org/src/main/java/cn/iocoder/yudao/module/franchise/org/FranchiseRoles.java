@@ -24,6 +24,7 @@ public final class FranchiseRoles {
     public static final String FINANCE_LEAD = "finance-lead";
     public static final String BOSS = "boss";
     public static final String OWNER = "owner";
+    public static final String HQ_ADMIN = "hq-admin";
     public static final String DESIGNER = "hq-designer";
     public static final String DESIGN_LEAD = "hq-design-lead";
     public static final String DESIGN_ADMIN = "hq-design-admin";

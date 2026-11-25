@@ -38,7 +38,9 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
             "boss franchise:commission:fee-decide",
             "hq-design-admin franchise:commission:design",
             "engineer franchise:commission:receive", "project-manager franchise:commission:receive",
-            "sales franchise:design:use", "sales-lead franchise:design:use", "hq-design-admin franchise:design:use");
+            "sales franchise:design:use", "sales-lead franchise:design:use", "hq-design-admin franchise:design:use",
+            "hq-admin platform:announcement:query", "hq-admin platform:announcement:manage",
+            "finance platform:announcement:query", "finance-lead platform:announcement:query");
 
     @Resource
     private JdbcTemplate jdbc;
@@ -81,6 +83,8 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
             // 尚未纳入 EXPECTED 锁定矩阵，属各业务域测试债（fin/content/engineering/performance 域任务补齐）。
             ScriptUtils.executeSqlScript(connection, new ClassPathResource(
                     "db/migration/franchise-system/V20261102.853__design_permissions.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource(
+                    "db/migration/franchise-system/V20261125.1033__announcement_permissions.sql"));
         }
     }
 

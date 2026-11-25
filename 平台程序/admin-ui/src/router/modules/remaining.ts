@@ -69,6 +69,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'platform-announcements',
+        component: () => import('@/views/platform/announcements/index.vue'),
+        name: 'PlatformAnnouncements',
+        meta: {
+          title: '公司公告',
+          icon: 'ep:notification',
+          hidden: true,
+          canTo: true,
+          noCache: true,
+          permission: 'platform:announcement:query'
+        }
+      },
+      {
         path: 'platform-task-ops',
         component: () => import('@/views/platform/operations/index.vue'),
         name: 'PlatformTaskOperations',
