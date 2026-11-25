@@ -162,6 +162,97 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         verify(settlement,never()).ensureTailPayable(anyLong(),anyInt(),any());
     }
 
+    @Test void pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject() throws Exception {
+        String client=System.getProperty("franchise.external-handover.client");
+        Assumptions.assumeTrue(client!=null && !client.isBlank(),"Run with the pinned mini program in paired-release");
+        assertThat(java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client))).isTrue();
+        long customer=customer(sales);
+        completeManualSix(customer,upload(sales,"BUSINESS_DOCUMENT"));
+        saveDraft(customer,0,100000);
+        var contract=signed(customer);
+        assertProgress(customer,7);
+        var input=new LinkedHashMap<String,Object>();
+        input.put("customerId",Long.toString(customer)); input.put("companyId",Long.toString(sales.orgId()));
+        input.put("today",today().toString()); input.put("sales",miniActor(sales)); input.put("engineer",miniActor(engineer));
+        for(String key:List.of("resultAssetId","drawingAssetId","reviewAssetId","confirmationAssetId"))
+            input.put(key,Long.toString(upload(sales,"BUSINESS_DOCUMENT")));
+
+        // Use the production date and safe-integer serializers, not an invented JSON contract.
+        var builder=org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
+                .featuresToDisable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration().ldtEpochMillisCustomizer().customize(builder);
+        var json=builder.build();
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
+                .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
+        var process=new ProcessBuilder("node",client,json.writeValueAsString(input))
+                .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        var io=Executors.newSingleThreadExecutor();
+        com.fasterxml.jackson.databind.JsonNode completed=null;
+        try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
+            try {
+                for(int n=0;n<40;n++) {
+                    String line=io.submit((Callable<String>)requests::readLine).get(15,TimeUnit.SECONDS);
+                    var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
+                    if(request.path("done").asBoolean()) { completed=request; break; }
+                    String role=request.path("actor").asText(), method=request.path("method").asText();
+                    assertThat(role).isIn("sales","engineer"); assertThat(method).isIn("GET","POST");
+                    currentPost.use("sales".equals(role)?sales:engineer);
+                    String response;
+                    try {
+                        var http=org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .request(org.springframework.http.HttpMethod.valueOf(method),request.path("path").asText());
+                        if(request.hasNonNull("body")) http.contentType("application/json").content(request.get("body").toString());
+                        if(request.hasNonNull("key")) http.header("Idempotency-Key",request.get("key").asText());
+                        var result=mvc.perform(http).andReturn();
+                        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+                        response=result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+                    } catch(jakarta.servlet.ServletException error) {
+                        if(!(error.getCause() instanceof ServiceException failure)) throw error;
+                        response=json.writeValueAsString(Map.of("code",failure.getCode(),"msg",failure.getMessage()));
+                    } finally { currentPost.clear(); }
+                    replies.write(response); replies.newLine(); replies.flush();
+                }
+                assertThat(completed).as("client must report its checked result").isNotNull();
+                assertThat(process.waitFor(10,TimeUnit.SECONDS)).isTrue(); assertThat(process.exitValue()).isZero();
+            } finally {
+                // Kill before closing BufferedReader: close would otherwise wait on a blocked readLine lock.
+                process.destroyForcibly(); io.shutdownNow();
+            }
+        } finally { process.destroyForcibly(); io.shutdownNow(); currentPost.clear(); }
+
+        long commission=Long.parseLong(completed.path("commissionId").asText());
+        long project=Long.parseLong(completed.path("projectId").asText());
+        assertThat(count("fr_commission","customer_id",customer)).isEqualTo(1);
+        assertThat(count("fr_eng_project","source_commission_id",commission)).isEqualTo(1);
+        assertThat(audit(commission,"external-packet-receive")).isEqualTo(1);
+        var accepted=as(engineer,()->handover.get(engineer,commission));
+        assertThat(accepted.projectId()).isEqualTo(Long.toString(project));
+        assertThat(accepted.currentPacket().status()).isEqualTo("ACCEPTED");
+        assertThat(accepted.currentPacket().paymentPlan().source()).isEqualTo("CONTRACT");
+        assertThat(accepted.currentPacket().paymentPlan().contractId()).isEqualTo(contract.getId());
+        assertThat(accepted.currentPacket().files()).extracting(File::assetId).containsExactlyInAnyOrder(
+                (String)input.get("resultAssetId"),(String)input.get("drawingAssetId"),
+                (String)input.get("reviewAssetId"),(String)input.get("confirmationAssetId"));
+        assertProgress(customer,7); // Receiving files alone must not invent an actual start.
+        prepare(project,engineer); collectBeforeStart(contract.getId());
+        long proof=upload(engineer,"ENG_DRAWING");
+        as(engineer,()->plans.start(engineer,project,new EngPlanService.NodeRecordCommand(today(),"配对验收实际开工",proof,true),key()));
+        assertProgress(customer,8);
+        assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).progressPercent()).isEqualByComparingTo("100");
+        assertThat(count("fr_commission_submission","commission_id",commission)).isZero();
+        assertThat(count("fr_commission_simulated_order","commission_id",commission)).isZero();
+        assertThat(count("pf_approval","subject_id",commission)).isZero();
+        verify(settlement,never()).ensureInitialPayable(anyLong(),anyInt(),any());
+        verify(settlement,never()).ensureTailPayable(anyLong(),anyInt(),any());
+    }
+
+    private static Map<String,Object> miniActor(PostSnapshot post) {
+        return Map.of("userId",Long.toString(post.userId()),"postId",Long.toString(post.postId()),
+                "orgId",Long.toString(post.orgId()),"orgType","store","roleCode",post.roleCode());
+    }
+
     @Test void getDoesNotCreateAndSubmitRequiresCurrentResultRealConfirmationAndCurrentReceiver() throws Exception {
         var ready=ready(customer(sales)); long commission=Long.parseLong(ready.commissionId());
         var view=as(sales,()->handover.get(sales,commission));

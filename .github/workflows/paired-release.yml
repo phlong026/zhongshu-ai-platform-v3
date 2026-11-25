@@ -92,6 +92,13 @@ jobs:
           mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test
           -Dtest=ContentMediaNormalizerTest,LocalAssetServiceTest
           -Dsurefire.failIfNoSpecifiedTests=false
+      - name: Verify external handover with the pinned mini program and real business services
+        run: |
+          test -s "$RUNNER_TEMP/mini/scripts/verify-paired-external-handover.cjs" || { echo "::error::Select the R22 frontend candidate containing the external handover client."; exit 1; }
+          mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test \
+            -Dtest=ExternalHandoverPgIntegrationTest#pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dfranchise.external-handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-external-handover.cjs"
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
       - name: Summarize accepted pair
