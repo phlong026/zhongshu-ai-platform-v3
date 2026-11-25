@@ -50,7 +50,8 @@ public class CustomerController {
                               String province, String city, String summary, String status,
                               long ownerUserId, String ownerName, java.time.LocalDate nextVisitDate,
                               java.time.OffsetDateTime lastFollowAt, long revision,
-                              java.time.OffsetDateTime createTime, String district, String town, String village, String regionCode, String addressDetail, String designStatus) {
+                              java.time.OffsetDateTime createTime, String district, String town, String village, String regionCode, String addressDetail, String designStatus,
+                              cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary workflow) {
     }
 
     public record UpdateReq(String name, String wechat, String province, String city, String summary, long revision,
@@ -86,7 +87,7 @@ public class CustomerController {
                 c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(), c.getProvince(),
                 c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                 ownerNames.getOrDefault(c.getOwnerUserId(), ""), c.getNextVisitDate(), c.getLastFollowAt(),
-                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus())).toList(), result.getTotal()));
+                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus(),c.getWorkflow())).toList(), result.getTotal()));
     }
 
     @GetMapping("/owner-options")
