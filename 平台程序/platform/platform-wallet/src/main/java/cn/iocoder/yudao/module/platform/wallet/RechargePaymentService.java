@@ -123,10 +123,9 @@ public class RechargePaymentService {
                 closeUnquotedOrders(wallet);
                 if (Boolean.TRUE.equals(jdbc.queryForObject("""
                         SELECT EXISTS(SELECT 1 FROM pf_recharge_order o WHERE o.tenant_id=? AND org_id=? AND actor_id=? AND post_id=?
-                          AND credit_target='COMPANY' AND ((payment_state IN ('CREATED','PENDING','UNKNOWN') AND EXISTS
-                            (SELECT 1 FROM pf_recharge_plan p WHERE p.tenant_id=o.tenant_id AND p.id=o.plan_id
-                             AND p.status='ACTIVE' AND p.version=(o.plan_snapshot->>'version')::bigint))
-                          OR (payment_state='SUCCEEDED' AND credit_state='PENDING')))
+                          AND credit_target='COMPANY' AND credit_state <> 'BLOCKED'
+                          AND (payment_state IN ('CREATED','PENDING','UNKNOWN')
+                               OR (payment_state='SUCCEEDED' AND credit_state='PENDING')))
                         """,Boolean.class,wallet.tenantId(),wallet.orgId(),wallet.actorId(),wallet.postId())))
                     throw new ServiceException(409,"已有待处理的充值订单，请刷新");
             }
@@ -293,6 +292,26 @@ public class RechargePaymentService {
             recordAnomaly(tenantId, walletId, orderId, "PAYMENT_FACT_REJECTED");
             throw failure;
         }
+    }
+
+    /** 只有可信渠道明确关闭同一未收款公司订单，才释放其充值入口。 */
+    boolean processClosedCompanyOrder(long tenantId, long walletId, long orderId, PaymentPort.ChannelQueryResult fact) {
+        requireNoTransaction();
+        requireChannel();
+        return transaction("paymentClosed", () -> {
+            lockWallet(tenantId, walletId);
+            var order = order(tenantId, walletId, orderId);
+            if (!order.company()) return false;
+            validator.validateClosed(order.identity(), fact);
+            jdbc.update("""
+                    UPDATE pf_recharge_order o SET payment_state='CLOSED', update_time=now()
+                    WHERE tenant_id=? AND wallet_id=? AND id=? AND credit_target='COMPANY'
+                      AND payment_state IN ('CREATED','PENDING','UNKNOWN') AND credit_state='NOT_READY'
+                      AND NOT EXISTS (SELECT 1 FROM pf_payment_transaction p WHERE p.tenant_id=o.tenant_id
+                          AND p.wallet_id=o.wallet_id AND p.order_id=o.id)
+                    """, tenantId, walletId, orderId);
+            return true;
+        });
     }
 
     /** 已验证支付事实的独立入账事务；原用户撤岗不阻断已付订单恢复。 */

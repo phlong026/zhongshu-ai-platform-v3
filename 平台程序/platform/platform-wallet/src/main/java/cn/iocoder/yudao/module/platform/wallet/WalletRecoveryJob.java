@@ -87,12 +87,15 @@ public class WalletRecoveryJob {
                     if (!done) done = transaction("creditBlocked", () -> "BLOCKED".equals(payment.order(task.tenant(), task.wallet(), task.order()).creditState()));
                 } else {
                     var order = transaction("paymentSnapshot", () -> payment.order(task.tenant(), task.wallet(), task.order()));
-                    if ("SUCCEEDED".equals(order.paymentState()) || "BLOCKED".equals(order.creditState())) done = true;
+                    if ("SUCCEEDED".equals(order.paymentState()) || "CLOSED".equals(order.paymentState())
+                            || "BLOCKED".equals(order.creditState())) done = true;
                     else {
                         var fact = channel().queryOrder(order.identity());
                         if (fact != null && "SUCCEEDED".equals(fact.state())) {
                             payment.processPaymentFact(task.tenant(), task.wallet(), task.order(), fact);
                             done = true;
+                        } else if (fact != null && "CLOSED".equals(fact.state()) && order.company()) {
+                            done = payment.processClosedCompanyOrder(task.tenant(), task.wallet(), task.order(), fact);
                         }
                     }
                 }

@@ -28,6 +28,20 @@ public class PaymentFactValidator {
         return fact;
     }
 
+    void validateClosed(PaymentPort.OrderIdentity order, PaymentPort.ChannelQueryResult fact) {
+        if (fact == null || !"CLOSED".equals(fact.state())
+                || fact.orderType() == null || (fact.orderType() != 0 && fact.orderType() != 7)
+                || fact.paidAt() != null || (fact.amountCents() != null && fact.amountCents() != 0)
+                || !Objects.equals(order.orderNo(), fact.orderNo())
+                || !Objects.equals(order.channel(), fact.channel())
+                || !Objects.equals(order.appid(), fact.appid())
+                || !Objects.equals(order.offerId(), fact.offerId())
+                || order.environment() != fact.environment()
+                || !Objects.equals(order.openid(), fact.openid())) {
+            throw new IllegalArgumentException("Closed payment query fact conflicts with the fixed order");
+        }
+    }
+
     public PaymentPort.ChannelRefundResult validateRefund(PaymentPort.RefundRequest request,
                                                            PaymentPort.ChannelRefundResult fact) {
         if (fact == null || !Objects.equals(request.order().orderNo(), fact.orderNo())

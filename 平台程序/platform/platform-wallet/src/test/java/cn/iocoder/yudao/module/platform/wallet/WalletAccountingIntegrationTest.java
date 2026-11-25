@@ -435,6 +435,92 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(pool.summary(post.orgId()).monthUsedTotal()).isZero();
     }
 
+    @Test
+    void revisedQuoteDoesNotHideOrReplaceAnUnconfirmedCompanyOrder() {
+        var gateway = mock(PaymentPort.class);
+        when(gateway.createPrepay(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(new PaymentPort.PrepayResult(java.util.Map.of(
+                "signData", "fixture", "signature", "fixture", "paySig", "fixture", "mode", "short_series_goods")));
+        var payment = paymentService(gateway);
+        long planId = paymentFixture();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var old = payment.createCompanyOrder(Long.toString(planId), "old-company", 1);
+        long walletId = jdbc.queryForObject("SELECT id FROM pf_wallet WHERE org_id=?", Long.class, post.orgId());
+        long oldId = Long.parseLong(old.id());
+        payment.payParams(old.id(), "fixture-code", "old-attempt", true);
+        jdbc.update("UPDATE pf_recharge_plan SET version=2, price_fen=200 WHERE id=?", planId);
+        var permissions = mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
+        when(permissions.has("platform:wallet:recharge")).thenReturn(true);
+        var catalog = new CompanyRechargeCatalog(jdbc, scope, permissions, payment);
+        var displayed = tx.execute(status -> catalog.read()).currentOrder();
+        assertThat(displayed.id()).isEqualTo(old.id());
+        assertThat(displayed.status()).isEqualTo("PROCESSING");
+        assertThat(displayed.quoteCurrent()).isFalse();
+        assertThatThrownBy(() -> payment.createCompanyOrder(Long.toString(planId), "replacement", 2))
+                .hasMessageContaining("已有待处理的充值订单");
+        assertThatThrownBy(() -> payment.payParams(old.id(), "new-code", "new-attempt", true))
+                .hasMessageContaining("套餐已调整");
+        String payer = "openid-" + post.userId();
+        var unrelated = new PaymentPort.ChannelQueryResult("CLOSED", "different-order", "XPAY", "wallet-app",
+                "wallet-offer", 0, payer, null, 0L, "FEN", null, 0);
+        assertThatThrownBy(() -> payment.processClosedCompanyOrder(tenant, walletId, oldId, unrelated))
+                .isInstanceOf(IllegalArgumentException.class);
+        var unknown = new PaymentPort.ChannelQueryResult("UNKNOWN", old.orderNo(), "XPAY", "wallet-app",
+                "wallet-offer", 0, payer, null, null, "UNVERIFIED", null, 0);
+        assertThatThrownBy(() -> payment.processClosedCompanyOrder(tenant, walletId, oldId, unknown))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_recharge_order WHERE wallet_id=?", Long.class, walletId)).isOne();
+        var latePayment = new PaymentPort.ChannelQueryResult("SUCCEEDED", old.orderNo(), "XPAY", "wallet-app",
+                "wallet-offer", 0, payer, "fixture-old-payment", 100L, "FEN", java.time.Instant.now(), 0);
+        payment.processPaymentFact(tenant, walletId, oldId, latePayment);
+        assertThatThrownBy(() -> payment.createCompanyOrder(Long.toString(planId), "replacement", 2))
+                .hasMessageContaining("已有待处理的充值订单");
+        assertThat(payment.fulfillOrder(tenant, walletId, oldId)).isTrue();
+        assertThat(payment.fulfillOrder(tenant, walletId, oldId)).isTrue();
+        var staleClose = new PaymentPort.ChannelQueryResult("CLOSED", old.orderNo(), "XPAY", "wallet-app",
+                "wallet-offer", 0, payer, null, 0L, "FEN", null, 0);
+        payment.processClosedCompanyOrder(tenant, walletId, oldId, staleClose);
+        assertThat(tx.execute(status -> catalog.read()).currentOrder().status()).isEqualTo("CREDITED");
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?", Long.class, post.orgId()))
+                .isEqualTo(20);
+        assertThat(payment.createCompanyOrder(Long.toString(planId), "replacement", 2).priceFen()).isEqualTo(200);
+    }
+
+    @Test
+    void channelClosedUnpaidCompanyOrderAllowsNewQuoteAndNeverCredits() {
+        var gateway = mock(PaymentPort.class);
+        when(gateway.createPrepay(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(new PaymentPort.PrepayResult(java.util.Map.of(
+                "signData", "fixture", "signature", "fixture", "paySig", "fixture", "mode", "short_series_goods")));
+        var payment = paymentService(gateway);
+        long planId = paymentFixture();
+        jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)", IdWorker.getId(), post.orgId());
+        var beforePay = payment.createCompanyOrder(Long.toString(planId), "old-unopened", 1);
+        jdbc.update("UPDATE pf_recharge_plan SET version=2, price_fen=200 WHERE id=?", planId);
+        var old = payment.createCompanyOrder(Long.toString(planId), "old-opened", 2);
+        payment.payParams(old.id(), "fixture-code", "attempt-2", true);
+        jdbc.update("UPDATE pf_recharge_plan SET version=3, price_fen=300 WHERE id=?", planId);
+        long walletId = jdbc.queryForObject("SELECT id FROM pf_wallet WHERE org_id=?", Long.class, post.orgId());
+        assertThat(jdbc.queryForObject("SELECT payment_state FROM pf_recharge_order WHERE id=?", String.class,
+                Long.parseLong(beforePay.id()))).isEqualTo("CLOSED");
+        assertThatThrownBy(() -> payment.createCompanyOrder(Long.toString(planId), "after-close", 3))
+                .hasMessageContaining("已有待处理的充值订单");
+        var closed = new PaymentPort.ChannelQueryResult("CLOSED", old.orderNo(), "XPAY", "wallet-app",
+                "wallet-offer", 0, "openid-" + post.userId(), null, 0L, "FEN", null, 0);
+        when(gateway.queryOrder(org.mockito.ArgumentMatchers.any())).thenReturn(closed);
+        var beans = new org.springframework.beans.factory.support.StaticListableBeanFactory();
+        beans.addBean("payment", gateway);
+        var refunds = new RefundPaymentService(dataSource, transactionManager, scope, points, payment, new PaymentFactValidator());
+        new WalletRecoveryJob(dataSource, transactionManager, payment, refunds, new WechatXPayProperties(),
+                beans.getBeanProvider(PaymentPort.class)).runOnce(100);
+        assertThat(jdbc.queryForObject("SELECT payment_state FROM pf_recharge_order WHERE id=?", String.class,
+                Long.parseLong(old.id()))).isEqualTo("CLOSED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_payment_transaction WHERE wallet_id=?", Long.class, walletId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=?", Long.class, post.orgId()))
+                .isEqualTo(8);
+        assertThat(payment.createCompanyOrder(Long.toString(planId), "after-close", 3).priceFen()).isEqualTo(300);
+    }
+
     private long paymentFixture() {
         jdbc.execute("CREATE TABLE IF NOT EXISTS pf_wechat_binding (id BIGINT PRIMARY KEY, appid VARCHAR(64), openid VARCHAR(128), user_id BIGINT, mobile_hash CHAR(64), status VARCHAR(16))");
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted SMALLINT NOT NULL DEFAULT 0");

@@ -106,11 +106,12 @@ public class VirtualPaymentAdapter implements PaymentPort {
             var info = result == null ? null : result.getOrder();
             if (info == null) return new ChannelQueryResult("UNKNOWN", null, order.channel(), order.appid(), order.offerId(),
                     order.environment(), order.openid(), null, null, "UNVERIFIED", null, null);
-            boolean paid = (Integer.valueOf(0).equals(info.getOrderType()) || Integer.valueOf(7).equals(info.getOrderType()))
-                    && info.getStatus() != null && info.getStatus() >= 2 && info.getStatus() <= 4;
+            boolean paymentOrder = Integer.valueOf(0).equals(info.getOrderType()) || Integer.valueOf(7).equals(info.getOrderType());
+            boolean paid = paymentOrder && info.getStatus() != null && info.getStatus() >= 2 && info.getStatus() <= 4;
+            boolean closed = paymentOrder && Integer.valueOf(6).equals(info.getStatus());
             // paid_fee 单位未取得官方证据。只有明确门禁设为FEN后才允许提供可被validator接受的金额。
             boolean verifiedUnit = "FEN".equals(properties.getPaidFeeUnit());
-            return new ChannelQueryResult(paid ? "SUCCEEDED" : "UNKNOWN", info.getOrderId(), order.channel(), order.appid(), order.offerId(),
+            return new ChannelQueryResult(paid ? "SUCCEEDED" : closed ? "CLOSED" : "UNKNOWN", info.getOrderId(), order.channel(), order.appid(), order.offerId(),
                     info.getEnvType() == null ? -1 : Math.toIntExact(info.getEnvType()), order.openid(), info.getWxpayOrderId(),
                     verifiedUnit ? info.getPaidFee() : null, verifiedUnit ? "FEN" : "UNVERIFIED",
                     info.getPaidTime() != null && info.getPaidTime() > 0 ? Instant.ofEpochSecond(info.getPaidTime()) : null, info.getOrderType());
