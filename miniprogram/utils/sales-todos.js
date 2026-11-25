@@ -32,7 +32,7 @@ function list(){
  }
  for(const w of S.works||[]){const records=(S.records||[]).filter(r=>r.workId===w.id),open=records.find(r=>['publishing','scheduled'].includes(r.status));
   if(open)add({id:'publish:'+open.id,triggeredAt:open.submittedAt||open.createdAt,name:w.title,state:open.status==='scheduled'?'等待计划发布':'待登记真实发布链接',action:open.status==='scheduled'?'查看发布计划':'登记发布链接',actionable:open.status!=='scheduled',url:'/pages/studio/index?view=receipt&record='+encodeURIComponent(open.id)});
-  else if(!records.some(r=>r.status==='published'))add({id:'work:'+w.id,triggeredAt:w.savedAt,name:w.title,state:'成品已保存，待回填链接',action:'回填发布链接',actionable:true,url:'/pages/studio/index?view=publish&work='+encodeURIComponent(w.id)});
+  else if(!records.some(r=>r.status==='published'))add({id:'work:'+w.id,triggeredAt:w.savedAt,name:w.title,state:'作品待补链接',action:'回填发布链接',actionable:true,url:'/pages/studio/index?view=publish&work='+encodeURIComponent(w.id)});
  }
  for(const c of customerRows){
   if(!X.workflow('follow',c,true))continue;

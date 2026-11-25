@@ -815,7 +815,12 @@ async refreshLinkStatus(recordId,flow) {
 try{
 const rows=await contentApi.publications.page();
 const row=P.rowsOf(rows).find(item=>item&&String(item.id!=null?item.id:item.publicationId)===String(recordId));
-if(row&&row.status){flow.status=String(row.status);return flow.status;}
+if(row&&row.status){
+flow.status=String(row.status);
+if(flow.status==='published')flow.publishedUrl=String(row.publishedUrl||'').trim();
+if(row.publisherAccountId!=null)flow.confirmedAccount=String(row.publisherAccountId);
+return flow.status;
+}
 }catch(_){}
 return String(flow.status||'');
 },
@@ -868,6 +873,10 @@ status=await this.refreshLinkStatus(recordId,flow);
 if(!alive())return;
 if(status==='failed'||status==='scheduled')throw Error('该发布记录当前状态不可回填链接，请到发布记录查看');
 }
+const sameInput=()=>!(flow.linkInput&&flow.linkInput!==url)
+  && !(flow.payload?.publisherAccountId&&flow.payload.publisherAccountId!==publisherAccountId)
+  && !(flow.confirmedAccount&&flow.confirmedAccount!==publisherAccountId);
+if(!sameInput())throw {code:400,message:'请用原链接和发布账号核对上一次提交'};
 if(!recordId){
 stage='create';
 const title=String(this.data.title||'').trim()||'未命名作品';
@@ -879,31 +888,44 @@ if(!alive())return;
 recordId=res&&(res.id||res.publicationId)?String(res.id||res.publicationId):'';
 if(!recordId)throw Error('发布记录创建失败，请稍后重试');
 status=String(res&&res.status||'');
-if(status==='published'&&res.publishedUrl&&String(res.publishedUrl)!==String(url))throw Error('该作品已登记过其他发布链接，请到发布记录查看');
+if(status==='published')flow.publishedUrl=String(res.publishedUrl||'').trim();
+if(res.publisherAccountId!=null)flow.confirmedAccount=String(res.publisherAccountId);
 flow.recordId=recordId;flow.status=status;this.setData({linkRecordId:recordId});this.saveLinkFlow(flow);
 this.contentDropKey('publication:'+workId);
 }
+stage='status';
+if(!sameInput())throw {code:400,message:'请用原链接和发布账号核对上一次提交'};
 stage='verify';
 if(status!=='verify'&&status!=='published'){
 await contentApi.publications.verify(recordId,flow.verifyKey);
 if(!alive())return;
 flow.status='verify';status='verify';this.saveLinkFlow(flow);
 }
+stage='status';
+if(status==='published'&&flow.publishedUrl!==url){
+  throw {code:400,message:'已登记的链接与当前输入不一致，请到发布记录核对'};
+}
 stage='link';
 if(status!=='published'){
+flow.linkInput=url;this.saveLinkFlow(flow);
 await contentApi.publications.link(recordId,url,flow.linkKey);
 if(!alive())return;
-flow.status='published';status='published';this.saveLinkFlow(flow);
+flow.publishedUrl=url;flow.status='published';status='published';this.saveLinkFlow(flow);
 this.contentDropKey('verify:'+workId);this.contentDropKey('link:'+workId);
+}
+stage='status';
+if(flow.leadInput&&JSON.stringify(flow.leadInput)!==JSON.stringify(lead)){
+  throw {code:400,message:'客资结果尚未确认，请恢复原客资后核对，不要重复登记'};
 }
 stage='lead';
 if(lead){
+flow.leadInput=lead;this.saveLinkFlow(flow);
 const res=await crm.leads.capture(Object.assign({},lead,{source:'内容发布:'+recordId}),flow.leadKey);
 if(!alive())return;
 const result=String(res&&res.result||''),customerId=res&&res.customerId!=null?String(res.customerId):'';
 if(result==='LINK_REQUIRED'||((result==='CREATED'||result==='LINKED')&&customerId)){
 this.clearLinkFlow();this.contentDropKey('capture:'+workId);
-this.setData({linkSubmitting:false,linkSaved:true,linkRecordId:recordId});this.__linkSubmitting=false;
+this.setData({linkSubmitting:false,linkSaved:true,linkRecordId:recordId,leadOpen:false,leadName:'',leadPhone:'',leadNeed:''});this.__linkSubmitting=false;
 try{this.persistEditor();}catch(_){}
 if(result==='LINK_REQUIRED'){wx.showToast({title:'已登记，待负责人关联原客户',icon:'none'});this.returnHome();}
 else{wx.showToast({title:'客资已登记',icon:'none'});wx.navigateTo({url:'/pages/workflow/index?view=customer&id='+encodeURIComponent(customerId)});}
@@ -912,7 +934,7 @@ return;
 if(result!=='CREATED'&&result!=='LINKED'&&result!=='LINK_REQUIRED')throw Error('客资登记结果待确认，请稍后到客资列表查看');
 }
 this.clearLinkFlow();this.contentDropKey('capture:'+workId);
-this.setData({linkSubmitting:false,linkSaved:true,linkRecordId:recordId});this.__linkSubmitting=false;
+this.setData({linkSubmitting:false,linkSaved:true,linkRecordId:recordId,leadOpen:false,leadName:'',leadPhone:'',leadNeed:''});this.__linkSubmitting=false;
 try{this.persistEditor();}catch(_){}
 wx.showToast({title:lead?'发布链接与客资已保存':'发布链接已保存',icon:'success'});
 this.returnHome();
@@ -920,7 +942,7 @@ this.returnHome();
 if(!alive())return;
 const code=Number(error&&error.code);
 const codeText=String((error&&error.code)||''),rawMessage=String((error&&error.message)||'');
-const duplicate=codeText==='1_114_000_003'||codeText==='1114000003'||/已登记|重复/.test(rawMessage);
+const duplicate=stage==='link'&&(codeText==='1_114_000_003'||codeText==='1114000003'||/已登记|重复/.test(rawMessage));
 const uncertain=!duplicate&&(!Number.isFinite(code)||code===-1||code===0||(code>=500&&code<600));
 let message=P.degradeMessage(error);
 if(duplicate)message='该发布链接已登记过，请核对后填写';
@@ -931,8 +953,8 @@ wx.showToast({title:message,icon:'none'});
 if(!uncertain){
 if(stage==='create'){this.contentDropKey('publication:'+workId);this.clearLinkFlow();}
 else if(stage==='verify'){flow.verifyKey='';this.saveLinkFlow(flow);}
-else if(stage==='link'){flow.linkKey='';this.saveLinkFlow(flow);}
-else if(stage==='lead'){flow.leadKey='';this.saveLinkFlow(flow);}
+else if(stage==='link'){flow.linkKey='';delete flow.linkInput;this.contentDropKey('link:'+workId);this.saveLinkFlow(flow);}
+else if(stage==='lead'){flow.leadKey='';delete flow.leadInput;this.contentDropKey('capture:'+workId);this.saveLinkFlow(flow);}
 }
 }finally{
 if(alive())this.setData({linkSubmitting:false});
