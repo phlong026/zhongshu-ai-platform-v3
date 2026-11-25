@@ -39,6 +39,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
     @Override
     public long stageCollectedCents(PostSnapshot post, long contractId, String stage) {
         Map<String, SalePaymentStageDO> byStage = stages.selectByContract(contractId).stream()
+                .filter(s -> !Boolean.TRUE.equals(s.getDeleted()) && s.getCompanyId()==post.orgId())
                 .collect(Collectors.toMap(SalePaymentStageDO::getStage, Function.identity(), (a, b) -> a));
         SalePaymentStageDO stageRow = byStage.get(stage);
         if (stageRow == null) {
@@ -50,6 +51,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
     @Override
     public StageCollectResult collectStage(PostSnapshot post, long contractId, String stage, CollectInput input) {
         SalePaymentStageDO stageRow = stages.selectByContract(contractId).stream()
+                .filter(s -> !Boolean.TRUE.equals(s.getDeleted()) && s.getCompanyId()==post.orgId())
                 .filter(t -> stage.equals(t.getStage())).findFirst().orElse(null);
         if (stageRow == null) {
             throw new IllegalStateException("统一合同缺少该期约定行: " + stage);
@@ -70,6 +72,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
                 String.valueOf(row.get("stage")), ((Number)row.get("amountCents")).longValue(),
                 ((Number)row.get("collectedCents")).longValue(),
                 (java.time.LocalDate) row.get("dueDate"), ((Number) row.get("stageId")).longValue(),
-                ((Number) row.get("refundedCents")).longValue())).toList();
+                ((Number) row.get("refundedCents")).longValue(),(String)row.get("label"),(String)row.get("trigger"),
+                (Integer)row.get("nodeIndex"),(Integer)row.get("planVersion"))).toList();
     }
 }

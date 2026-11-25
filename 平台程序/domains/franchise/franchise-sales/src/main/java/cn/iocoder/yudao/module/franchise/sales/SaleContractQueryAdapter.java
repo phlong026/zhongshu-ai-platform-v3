@@ -42,6 +42,7 @@ public class SaleContractQueryAdapter implements SaleContractQueryPort {
         }
         long signAfter = 0, baseDone = 0, capDone = 0;
         for (var stage : stages.selectByContract(active.getId())) {
+            if (Boolean.TRUE.equals(stage.getDeleted())) continue;
             long amount = stage.getAmountCents() == null ? 0 : stage.getAmountCents();
             switch (stage.getStage()) {
                 case "SIGN_AFTER" -> signAfter = amount;
@@ -51,5 +52,21 @@ public class SaleContractQueryAdapter implements SaleContractQueryPort {
             }
         }
         return new StageAmounts(signAfter, baseDone, capDone);
+    }
+
+    @Override
+    public PaymentPlan findPaymentPlan(PostSnapshot post, long customerId) {
+        var contractId=findActiveSignedId(post,customerId);
+        return contractId==null?null:findPaymentPlanById(post,contractId);
+    }
+
+    @Override
+    public PaymentPlan findPaymentPlanById(PostSnapshot post, long contractId) {
+        var contract=contracts.selectById(contractId);
+        if (contract==null || contract.getCompanyId()!=post.orgId() || !SaleContractDO.STATUS_SIGNED.equals(contract.getStatus())) return null;
+        var plan=stages.selectByContract(contractId).stream().filter(s -> !Boolean.TRUE.equals(s.getDeleted()))
+                .map(s -> new PaymentStage(s.getId(),s.getStage(),SaleContractService.displayLabel(s),s.getSequence(),
+                        s.getAmountCents(),s.getRatioBps(),s.getDueDate(),s.getTriggerType(),s.getTriggerNodeIndex())).toList();
+        return new PaymentPlan(contract.getId(),contract.getRevision(),contract.getPaymentPlanVersion(),contract.getTotalCents(),contract.getAssetId(),plan);
     }
 }
