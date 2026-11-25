@@ -3,8 +3,6 @@ package cn.iocoder.yudao.module.platform.identity;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
-import cn.iocoder.yudao.module.platform.org.AccountDisplay;
-import cn.iocoder.yudao.module.platform.org.FranchiseAccountNaming;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -27,21 +25,21 @@ import java.util.UUID;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.platform.identity.enums.PlatformIdentityErrorCodes.*;
 
-/** 加盟商账号检索与密码认证；认证主体始终是现有 system_users.id。 */
+/** 完整加盟商账号与密码认证；匿名入口不提供人员或账号候选。 */
 @Service
 @Slf4j
 public class FranchiseAccountAuthService {
 
-    private static final int MATCH_LIMIT = 20;
     private static final int MAX_FAILURES = 5;
     private static final Duration FAILURE_WINDOW = Duration.ofMinutes(15);
     private static final BCryptPasswordEncoder STRONG_ENCODER = new BCryptPasswordEncoder(10);
+    private static final String DUMMY_PASSWORD_HASH = STRONG_ENCODER.encode(UUID.randomUUID().toString());
     private static final String ACTIVE_ACCOUNT_SELECT = """
-            SELECT a.account_id,a.org_id,a.user_id,a.login_name,a.org_name,a.owner_name,
-              valid_post.preferred_post_id,valid_post.role_code,u.nickname,a.brand,a.province,a.city,a.area
+            SELECT a.account_id,a.org_id,a.user_id,a.login_name,a.org_name,valid_post.preferred_post_id
             FROM pf_franchise_account a
             JOIN system_users u ON u.id=a.user_id AND u.tenant_id=a.tenant_id AND u.status=0 AND u.deleted=0
-            JOIN pf_org_unit org ON org.dept_id=a.org_id AND org.kind='ORG' AND org.status='ACTIVE'
+            JOIN system_dept d ON d.id=a.org_id AND d.tenant_id=a.tenant_id AND d.status=0 AND d.deleted=0
+            JOIN pf_org_unit org ON org.dept_id=a.org_id AND org.org_id=a.org_id AND org.kind='ORG' AND org.status='ACTIVE'
             JOIN LATERAL (SELECT p.id AS preferred_post_id,p.role_code FROM pf_staff_post p
               WHERE p.user_id=a.user_id AND p.org_id=a.org_id AND p.status='ACTIVE'
               ORDER BY p.id LIMIT 1) valid_post ON TRUE
@@ -68,57 +66,37 @@ public class FranchiseAccountAuthService {
     public record LoginResult(boolean requirePasswordChange, Long userId, TokenIssuer.IssuedToken token,
                               Long preferredPostId, String accountId, String loginName, String orgName) {}
     private record AccountRow(String accountId, long orgId, long userId, String loginName, String orgName,
-                              String ownerName, long preferredPostId, AccountDisplay display) {}
+                              long preferredPostId) {}
     private static final RowMapper<AccountRow> ACCOUNT_ROW_MAPPER = (rs, row) -> new AccountRow(
             rs.getString("account_id"), rs.getLong("org_id"), rs.getLong("user_id"), rs.getString("login_name"),
-            rs.getString("org_name"), rs.getString("owner_name"), rs.getLong("preferred_post_id"),
-            AccountDisplay.of(rs.getString("nickname") == null || rs.getString("nickname").isBlank() ? rs.getString("owner_name") : rs.getString("nickname"),
-                    rs.getString("role_code"), rs.getString("brand"), rs.getString("province"), rs.getString("city"), rs.getString("area"), rs.getString("org_name")));
+            rs.getString("org_name"), rs.getLong("preferred_post_id"));
 
     public MatchResult matches(String query) {
-        String displayName = FranchiseAccountNaming.cleanDisplayName(query);
-        if (displayName.isBlank() || displayName.length() > 100 || displayName.indexOf('\0') >= 0) {
-            return new MatchResult(List.of(), false);
-        }
-        String normalized = AccountPasswordRules.normalizeQuery(displayName);
-        long tenantId = TenantContextHolder.getRequiredTenantId();
-        if (normalized != null) {
-            List<AccountRow> formal = jdbc.query(ACTIVE_ACCOUNT_SELECT
-                            + " WHERE a.tenant_id=? AND a.login_name=? ORDER BY a.login_name LIMIT 1",
-                    ACCOUNT_ROW_MAPPER, tenantId, normalized);
-            if (!formal.isEmpty()) return matchResult(formal);
-        }
-
-        List<AccountRow> exactAliases = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
-                        WHERE a.tenant_id=? AND ((a.account_type='BOSS' AND lower(btrim(a.org_name,?))=lower(?))
-                          OR lower(a.owner_name)=lower(?) OR EXISTS (SELECT 1 FROM pf_franchise_account_alias exact_alias
-                          WHERE exact_alias.tenant_id=a.tenant_id AND exact_alias.account_id=a.account_id
-                            AND exact_alias.alias=?))
-                        ORDER BY a.login_name LIMIT 21
-                        """, ACCOUNT_ROW_MAPPER, tenantId, FranchiseAccountNaming.DISPLAY_NAME_EDGE_SPACES, displayName, displayName, normalized);
-        if (normalized == null || !exactAliases.isEmpty()) return matchResult(exactAliases);
-
-        List<AccountRow> rows = jdbc.query(ACTIVE_ACCOUNT_SELECT + """
-                        WHERE a.tenant_id=? AND (a.login_name LIKE ? OR EXISTS (
-                          SELECT 1 FROM pf_franchise_account_alias prefix_alias
-                          WHERE prefix_alias.tenant_id=a.tenant_id AND prefix_alias.account_id=a.account_id
-                            AND prefix_alias.alias LIKE ?))
-                        ORDER BY a.login_name LIMIT 21
-                        """, ACCOUNT_ROW_MAPPER, tenantId, normalized + "%", normalized + "%");
-        return matchResult(rows);
-    }
-
-    private static MatchResult matchResult(List<AccountRow> rows) {
-        List<AccountMatch> visible = rows.stream().limit(MATCH_LIMIT)
-                .map(row -> new AccountMatch(row.accountId(), row.loginName(), row.orgName(), row.ownerName(), row.display().personName(), row.display().roleCode(), row.display().roleName(), row.display().shortOrgName())).toList();
-        return new MatchResult(visible, rows.size() > MATCH_LIMIT);
+        // Compatibility response for older clients; never query by name, alias, or prefix.
+        return new MatchResult(List.of(), false);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public LoginResult login(String accountId, String password, String newPassword) {
         long tenantId = TenantContextHolder.getRequiredTenantId();
-        AccountRow account = account(accountId, tenantId);
-        if (account == null) throw exception(ACCOUNT_CREDENTIAL_INVALID);
+        return authenticate(account(accountId, tenantId), tenantId, password, newPassword);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginResult loginByName(String loginName, String password, String newPassword) {
+        long tenantId = TenantContextHolder.getRequiredTenantId();
+        String normalized = AccountPasswordRules.normalizeQuery(loginName);
+        List<AccountRow> rows = normalized == null ? List.of() : jdbc.query(ACTIVE_ACCOUNT_SELECT
+                + " WHERE a.tenant_id=? AND a.login_name=?", ACCOUNT_ROW_MAPPER, tenantId, normalized);
+        return authenticate(rows.isEmpty() ? null : rows.get(0), tenantId, password, newPassword);
+    }
+
+    private LoginResult authenticate(AccountRow account, long tenantId, String password, String newPassword) {
+        if (account == null) {
+            // Missing and unusable accounts follow the same password work/error shape as invalid credentials.
+            if (AccountPasswordRules.validBcryptInput(password)) STRONG_ENCODER.matches(password, DUMMY_PASSWORD_HASH);
+            throw exception(ACCOUNT_CREDENTIAL_INVALID);
+        }
         ensureNotLocked(tenantId, account.userId());
         PasswordState policy = lockPasswordPolicy(tenantId, account.userId());
         // policy 行串行化同一 userId 的首次改密；加锁后重读 hash，防止并发覆盖新密码。
