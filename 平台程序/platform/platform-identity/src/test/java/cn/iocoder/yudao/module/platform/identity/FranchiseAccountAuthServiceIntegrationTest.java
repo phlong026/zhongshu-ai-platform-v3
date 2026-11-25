@@ -195,7 +195,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
-    void matchesExactFirstAndExcludesOtherTenantDisabledUserRevokedPost() {
+    void anonymousMatchingNeverEnumeratesExistingDisabledRevokedOrOtherTenantAccounts() {
         for (int i = 0; i < 22; i++) {
             long userId = IDS.incrementAndGet();
             Account account = createAccount(tenantId, userId, "hjmz-jxnc-gaoxin-" + String.format("%02d", i), 0,
@@ -215,23 +215,24 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
 
         FranchiseAccountAuthService.MatchResult result = service.matches("JXNC-GAO");
 
-        assertThat(result.items()).hasSize(20);
-        assertThat(result.hasMore()).isTrue();
-        assertThat(result.items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                .doesNotContain(disabled.accountId(), revoked.accountId(), otherTenant.accountId());
+        assertThat(result.items()).isEmpty();
+        assertThat(result.hasMore()).isFalse();
+        for (String query : List.of("jxnc-gaoxin", "李忠", "hjmz-jxnc-gaoxin-00", "unknown", disabled.accountId())) {
+            assertThat(service.matches(query)).isEqualTo(result);
+        }
         assertCode(() -> service.login(otherTenant.accountId(), "Initial2026Pwd!", null),
                 ACCOUNT_CREDENTIAL_INVALID.getCode());
     }
 
     @Test
-    void findsCurrentStoreAndOwnerNamesAfterAnEditWithoutChangingTheLogin() {
+    void editedStoreAndOwnerNamesNeverBecomeAnonymousLoginCandidates() {
         Account account = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-profile-rename", 0, "ACTIVE", false);
         jdbc.update("UPDATE pf_franchise_account SET org_name=?, owner_name=? WHERE tenant_id=? AND account_id=?",
                 "青松建房中心", "方明", tenantId, account.accountId());
         for (String query : List.of("青松建房中心", "方明", "hjmz-profile-rename")) {
-            assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                    .containsExactly(account.accountId());
+            assertThat(service.matches(query).items()).isEmpty();
         }
+        assertThat(service.loginByName("hjmz-profile-rename","Initial2026Pwd!",null).orgName()).isEqualTo("青松建房中心");
     }
 
     @Test
@@ -249,6 +250,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             jdbc.update("""
                     INSERT INTO system_dept(id,tenant_id,name)
                     SELECT org_id,tenant_id,org_name FROM pf_franchise_account WHERE account_id=?
+                    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name
                     """, row.accountId());
         }
         when(currentPost.require()).thenReturn(new PostSnapshot(account.postId(), account.userId(), account.orgId(),
@@ -256,8 +258,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         var before = storeProfile.get().getData();
         String taken = jdbc.queryForObject("SELECT name FROM system_dept WHERE id=?", String.class, other.orgId());
         jdbc.update("UPDATE pf_franchise_account SET org_name=? WHERE account_id=?", "　"+taken+"　", other.accountId());
-        assertThat(service.matches(taken).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                .containsExactly(other.accountId());
+        assertThat(service.matches(taken).items()).isEmpty();
         var duplicate = new StoreProfileController.Update(before.orgId(), before.version(), "　"+taken+"　", before.ownerName(), address);
         assertCode(() -> storeProfile.update(duplicate), 1_101_000_025);
         // A retired department can still reserve its account name through the unique index.
@@ -272,9 +273,9 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(saved.version()).isEqualTo(before.version() + 1);
         assertThat(saved.name()).isEqualTo("青松建房（南宁店）");
         for (String query : List.of(saved.name(), "　"+saved.name()+"　", login)) {
-            assertThat(service.matches(query).items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                    .containsExactly(account.accountId());
+            assertThat(service.matches(query).items()).isEmpty();
         }
+        assertThat(service.loginByName(login,"Initial2026Pwd!",null).orgName()).isEqualTo(saved.name());
         assertCode(() -> storeProfile.update(duplicate), 409);
         assertThat(storeProfile.get().getData()).isEqualTo(saved);
         addAlias(other, "青松 建房");
@@ -283,29 +284,66 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         }
         var single = new StoreProfileController.Update(before.orgId(), saved.version(), "青", before.ownerName(), address);
         storeProfile.update(single);
-        assertThat(service.matches("青").items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                .containsExactly(account.accountId());
+        assertThat(service.matches("青").items()).isEmpty();
     }
 
     @Test
-    void formalExactWinsThenAliasExactCanReturnMultipleBeforePrefixSearch() {
+    void onlyCompleteFormalAccountWithPasswordCanResolveIdentity() {
         Account base = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-jxnc-gaoxin", 0, "ACTIVE", false);
         addAlias(base, "jxnc-gaoxin");
         Account owner = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-jxnc-gaoxin-lizhong", 0,
                 "ACTIVE", false);
         addAlias(owner, "jxnc-gaoxin");
-        // 无效正式账号不得抑制同名的有效简写候选。
+        // 相同简写与姓名不能用于选择另一公司的账号。
         createAccount(tenantId, IDS.incrementAndGet(), "jxnc-gaoxin", 1, "ACTIVE", false);
 
         FranchiseAccountAuthService.MatchResult formal = service.matches("hjmz-jxnc-gaoxin");
         assertThat(formal.hasMore()).isFalse();
-        assertThat(formal.items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                .containsExactly(base.accountId());
+        assertThat(formal.items()).isEmpty();
 
         FranchiseAccountAuthService.MatchResult aliases = service.matches("jxnc-gaoxin");
         assertThat(aliases.hasMore()).isFalse();
-        assertThat(aliases.items()).extracting(FranchiseAccountAuthService.AccountMatch::accountId)
-                .containsExactlyInAnyOrder(base.accountId(), owner.accountId());
+        assertThat(aliases.items()).isEmpty();
+        for (String incomplete : List.of("jxnc-gaoxin", "hjmz-jxnc", "李忠", "unknown-account")) {
+            assertCode(() -> service.loginByName(incomplete,"Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        }
+        assertCode(() -> service.loginByName("hjmz-jxnc-gaoxin","wrong-password",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        verifyNoInteractions(tokenIssuer);
+        var verified=service.loginByName("  HJMZ-JXNC-GAOXIN  ","Initial2026Pwd!",null);
+        assertThat(verified.accountId()).isEqualTo(base.accountId());
+        assertThat(verified.userId()).isEqualTo(base.userId());
+        assertThat(verified.preferredPostId()).isEqualTo(base.postId());
+        assertThat(verified.token()).isNotNull();
+    }
+
+    @Test
+    void exactLoginUsesCurrentTenantAndRejectsInvalidRealCompanyMembership() {
+        var own=createAccount(tenantId,IDS.incrementAndGet(),"same-formal-name",0,"ACTIVE",false);
+        var foreign=createAccount(tenantId+1,IDS.incrementAndGet(),"same-formal-name",0,"ACTIVE",false);
+        assertThat(service.loginByName("same-formal-name","Initial2026Pwd!",null).userId()).isEqualTo(own.userId());
+        TenantContextHolder.setTenantId(tenantId+1);
+        try {
+            assertThat(service.loginByName("same-formal-name","Initial2026Pwd!",null).userId()).isEqualTo(foreign.userId());
+            assertCode(() -> service.login(own.accountId(),"Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        } finally { TenantContextHolder.setTenantId(tenantId); }
+        jdbc.update("UPDATE system_dept SET tenant_id=? WHERE id=?",tenantId+1,own.orgId());
+        assertCode(() -> service.loginByName("same-formal-name","Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        assertCode(() -> service.login(own.accountId(),"Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        jdbc.update("UPDATE system_dept SET tenant_id=?,status=1 WHERE id=?",tenantId,own.orgId());
+        assertCode(() -> service.loginByName("same-formal-name","Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        jdbc.update("UPDATE system_dept SET status=0,deleted=1 WHERE id=?",own.orgId());
+        assertCode(() -> service.loginByName("same-formal-name","Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+    }
+
+    @Test
+    void completeLoginCannotBypassDisabledUsersOrRevokedPosts() {
+        createAccount(tenantId,IDS.incrementAndGet(),"disabled-formal",1,"ACTIVE",false);
+        createAccount(tenantId,IDS.incrementAndGet(),"revoked-formal",0,"REVOKED",false);
+        for (String login : List.of("disabled-formal","revoked-formal","absent-formal")) {
+            assertCode(() -> service.loginByName(login,"Initial2026Pwd!",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+            assertThat(service.matches(login).items()).isEmpty();
+        }
+        verifyNoInteractions(tokenIssuer);
     }
 
     @Test
@@ -313,7 +351,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         Account account = createAccount(tenantId, IDS.incrementAndGet(), "hjmz-jxnc-gaoxin-lizhong", 0,
                 "ACTIVE", true);
 
-        FranchiseAccountAuthService.LoginResult initial = service.login(account.accountId(), "Initial2026Pwd!", null);
+        FranchiseAccountAuthService.LoginResult initial = service.loginByName("hjmz-jxnc-gaoxin-lizhong", "Initial2026Pwd!", null);
         assertThat(initial.requirePasswordChange()).isTrue();
         assertThat(initial.token()).isNull();
         verifyNoInteractions(tokenIssuer);
@@ -466,8 +504,8 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         assertThat(account.aliases()).contains("zhangsan", "zs");
         assertThat(account.initialPassword()).hasSize(16).isNotEqualTo("zhangsan123");
         assertThat(BCRYPT.matches(account.initialPassword(), loadUser(imported.userId()).getPassword())).isTrue();
-        assertThat(service.matches(account.loginName()).items())
-                .extracting(FranchiseAccountAuthService.AccountMatch::accountId).contains(account.accountId());
+        assertThat(service.matches(account.loginName()).items()).isEmpty();
+        assertThat(service.loginByName(account.loginName(),account.initialPassword(),null).accountId()).isEqualTo(account.accountId());
         assertThat(service.login(account.accountId(), account.initialPassword(), null).requirePasswordChange()).isTrue();
         assertThat(service.login(single.accountId(), single.initialPassword(), null).requirePasswordChange()).isTrue();
         var post = staffPostService.findActivePost(imported.userId(), imported.postId()).orElseThrow();
@@ -668,7 +706,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
             assertThat(collision.loginName()).isEqualTo("lili22");
             assertThat(collision.initialPassword()).hasSize(16).isNotEqualTo("lili22123");
             assertThat(results).extracting(StaffAccountOnboardService.Result::initialPassword).doesNotHaveDuplicates();
-            assertThat(service.matches("李丽").items()).hasSize(2);
+            assertThat(service.matches("李丽").items()).isEmpty();
         } finally { pool.shutdownNow(); }
     }
 
@@ -1113,14 +1151,18 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
     }
 
     @Test
-    void accountSearchReturnsPersonRoleAndStructuredShortOrganization() {
+    void accountSearchDoesNotExposePersonOrOrganizationDisplayBeforePasswordAuthentication() {
         var account = createAccount(tenantId, IDS.incrementAndGet(), "peihuorong", 0, "ACTIVE", false);
         jdbc.update("UPDATE system_users SET nickname='裴火荣' WHERE id=?", account.userId());
         jdbc.update("UPDATE pf_staff_post SET role_code='boss' WHERE id=?", account.postId());
         jdbc.update("UPDATE pf_franchise_account SET area='高新区合家美宅',org_name='合家美宅-江西南昌-高新区合家美宅-裴火荣' WHERE account_id=?", account.accountId());
-        var result = service.matches("peihuorong").items().get(0);
-        assertThat(result.personName()).isEqualTo("裴火荣");assertThat(result.roleName()).isEqualTo("老板");
-        assertThat(result.shortOrgName()).isEqualTo("合家美宅 · 江西南昌高新区");assertThat(result.accountId()).isEqualTo(account.accountId());
+        assertThat(service.matches("peihuorong").items()).isEmpty();
+        assertThat(service.matches("裴火荣").items()).isEmpty();
+        assertCode(() -> service.loginByName("peihuorong","wrong-password",null),ACCOUNT_CREDENTIAL_INVALID.getCode());
+        verifyNoInteractions(tokenIssuer);
+        var result=service.loginByName("peihuorong","Initial2026Pwd!",null);
+        assertThat(result.accountId()).isEqualTo(account.accountId());
+        assertThat(result.orgName()).isEqualTo("合家美宅-江西南昌-高新区合家美宅-裴火荣");
     }
 
     @Test
@@ -1215,6 +1257,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         long orgId = IDS.incrementAndGet();
         long postId = IDS.incrementAndGet();
         String accountId = UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO system_dept(id,tenant_id,name,status,deleted) VALUES (?,?,?,0,0)",orgId,tenant,orgName);
         jdbc.update("INSERT INTO pf_org_unit(dept_id,kind,org_id,org_type,status) VALUES (?,'ORG',?,?,'ACTIVE')",
                 orgId, orgId, "franchise-auth-test");
         jdbc.update("INSERT INTO pf_staff_post(id,user_id,org_id,role_code,status) VALUES (?,?,?,?,'ACTIVE')",
@@ -1276,6 +1319,7 @@ class FranchiseAccountAuthServiceIntegrationTest extends PlatformPgIntegrationTe
         @Override
         public long createDept(Long parentDeptId, String name) {
             long id = deptIds.incrementAndGet();
+            jdbc.update("INSERT INTO system_dept(id,tenant_id,name,status,deleted) VALUES (?,?,?,0,0)",id,TenantContextHolder.getRequiredTenantId(),name);
             deptParents.put(id, parentDeptId == null ? 0L : parentDeptId);
             deptNames.put(id, name);
             deptTenants.put(id, TenantContextHolder.getRequiredTenantId());

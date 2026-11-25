@@ -72,21 +72,43 @@ class LoginConsentControllerTest {
                     .content(new ObjectMapper().writeValueAsString(payload))).andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.userId").value(7));
         }
     }
-    @Test void returnsServerPersonAndRoleDisplayFields() throws Exception {
+    @Test void anonymousCandidatesNeverExposeNamesRolesOrAccountIdentifiers() throws Exception {
         when(account.matches("lili")).thenReturn(new FranchiseAccountAuthService.MatchResult(List.of(new FranchiseAccountAuthService.AccountMatch(
                 ID,"lili","长公司名","李丽","李丽","sales","业务员","合家美宅 · 江西南昌高新区")),false));
         mvc.perform(post("/platform/auth/account/matches").contentType(MediaType.APPLICATION_JSON).content(new ObjectMapper().writeValueAsString(Map.of("query","lili"))))
-                .andExpect(jsonPath("$.data.items[0].personName").value("李丽")).andExpect(jsonPath("$.data.items[0].roleName").value("业务员"))
-                .andExpect(jsonPath("$.data.items[0].shortOrgName").value("合家美宅 · 江西南昌高新区"));
+                .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.hasMore").value(false));
+        verifyNoInteractions(account);
     }
 
-    @Test void acceptsFullStoreNamesForExactMatching() throws Exception {
-        for (String name : List.of("青松 建房（南宁店）", "青")) {
-            when(account.matches(name)).thenReturn(new FranchiseAccountAuthService.MatchResult(List.of(), false));
+    @Test void retiredCandidateEndpointReturnsSameEmptyResponseForEveryQuery() throws Exception {
+        for (String name : List.of("青松 建房（南宁店）", "青", "lili", "does-not-exist")) {
             mvc.perform(post("/platform/auth/account/matches").contentType(MediaType.APPLICATION_JSON)
                             .content(new ObjectMapper().writeValueAsString(Map.of("query", name))))
-                    .andExpect(jsonPath("$.code").value(0));
-            verify(account).matches(name);
+                    .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.items").isEmpty())
+                    .andExpect(jsonPath("$.data.hasMore").value(false));
         }
+        verifyNoInteractions(account);
+    }
+
+    @Test void completeAccountLoginReturnsIdentityOnlyFromPasswordAuthentication() throws Exception {
+        var token = new TokenIssuer.IssuedToken("verified-token","refresh",LocalDateTime.now().plusHours(1));
+        when(account.loginByName("lili2","123456",null)).thenReturn(new FranchiseAccountAuthService.LoginResult(false,7L,token,11L,ID,"lili2","门店"));
+        mvc.perform(post("/platform/auth/account/login").contentType(MediaType.APPLICATION_JSON)
+                .content(new ObjectMapper().writeValueAsString(Map.of("loginName","lili2","password","123456","loginVersion",2,"consent",CURRENT))))
+                .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.accountId").value(ID))
+                .andExpect(jsonPath("$.data.accessToken").value("verified-token")).andExpect(jsonPath("$.data.preferredPostId").value(11));
+        verify(account).loginByName("lili2","123456",null);
+        verify(account,never()).matches(any());
+        verify(account,never()).login(any(),any(),any());
+    }
+
+    @Test void missingOrAmbiguousAccountIsRejectedBeforeAuthentication() throws Exception {
+        for (Map<String,Object> identity : List.of(Map.<String,Object>of(),Map.<String,Object>of("accountId",ID,"loginName","lili"))) {
+            var payload = new LinkedHashMap<>(identity);payload.put("password","123456");payload.put("loginVersion",2);payload.put("consent",CURRENT);
+            mvc.perform(post("/platform/auth/account/login").contentType(MediaType.APPLICATION_JSON)
+                    .content(new ObjectMapper().writeValueAsString(payload))).andExpect(jsonPath("$.code").value(400));
+        }
+        verifyNoInteractions(account);
     }
 }

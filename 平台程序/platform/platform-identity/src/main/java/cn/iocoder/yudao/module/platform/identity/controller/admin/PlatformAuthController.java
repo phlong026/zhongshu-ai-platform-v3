@@ -58,11 +58,9 @@ public class PlatformAuthController {
     @PostMapping("/account/matches")
     @PermitAll
     @ApiAccessLog(requestEnable = false, responseEnable = false)
-    @Operation(summary = "按正式账号或简写查找加盟商账号")
+    @Operation(summary = "兼容旧客户端：匿名账号候选已停用")
     public CommonResult<AccountMatchesRespVO> accountMatches(@Valid @RequestBody AccountMatchReqVO req) {
-        FranchiseAccountAuthService.MatchResult result = franchiseAccountAuthService.matches(req.getQuery());
-        return success(new AccountMatchesRespVO(result.items().stream().map(item -> new AccountMatchesRespVO.Item(
-                item.accountId(), item.loginName(), item.orgName(), item.ownerName(), item.personName(), item.roleCode(), item.roleName(), item.shortOrgName())).toList(), result.hasMore()));
+        return success(new AccountMatchesRespVO(java.util.List.of(), false));
     }
 
     @PostMapping("/account/login")
@@ -71,8 +69,9 @@ public class PlatformAuthController {
     @Operation(summary = "加盟商账号密码登录；初始密码首次使用时强制修改")
     public CommonResult<AccountLoginRespVO> accountLogin(@Valid @RequestBody AccountLoginReqVO req) {
         LoginPolicy.require(req.getConsent(), req.getLoginVersion());
-        FranchiseAccountAuthService.LoginResult result = franchiseAccountAuthService.login(
-                req.getAccountId(), req.getPassword(), req.getNewPassword());
+        FranchiseAccountAuthService.LoginResult result = req.getLoginName() != null && !req.getLoginName().isBlank()
+                ? franchiseAccountAuthService.loginByName(req.getLoginName(), req.getPassword(), req.getNewPassword())
+                : franchiseAccountAuthService.login(req.getAccountId(), req.getPassword(), req.getNewPassword());
         AccountLoginRespVO resp = new AccountLoginRespVO().setRequirePasswordChange(result.requirePasswordChange())
                 .setUserId(result.userId()).setPreferredPostId(result.preferredPostId()).setAccountId(result.accountId())
                 .setLoginName(result.loginName()).setOrgName(result.orgName());
