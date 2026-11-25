@@ -155,6 +155,23 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(boss,()->service.paymentPlanHistory(boss,c.getId()))).hasSize(1);
     }
 
+    @Test void editingLegacyPlanPreservesItsMilestonesWithoutInventingNodeNumbers() {
+        long customer=customer();
+        var c=as(sales,()->service.create(sales,new SaleContractService.ContractCommand(customer,100000,40000,30000,30000,null,null,requirement(customer)),key()));
+        var rows=as(boss,()->service.stageSummary(boss,c.getId()));
+        var retained=rows.stream().map(r->new PaymentPlanRules.Input(((Number)r.get("stageId")).longValue(),
+                (String)r.get("label"),((Number)r.get("amountCents")).longValue(),null,null,(String)r.get("trigger"),null)).toList();
+        as(boss,()->service.replacePaymentPlan(boss,c.getId(),new SaleContractService.PaymentPlanCommand(100000,retained,revision(c),"保留原里程碑"),key()));
+        assertThat(as(boss,()->service.stageSummary(boss,c.getId()))).extracting(r->r.get("stageId"))
+                .containsExactlyElementsOf(rows.stream().map(r->r.get("stageId")).toList());
+        var newContract=create(customer(),100000,List.of(input(null,"自定义节点",100000)));
+        long newId=((Number)as(boss,()->service.stageSummary(boss,newContract.getId())).get(0).get("stageId")).longValue();
+        var invalid=new PaymentPlanRules.Input(newId,"伪历史条件",100000L,null,null,"LEGACY_TOPPING",null);
+        assertThatThrownBy(()->as(boss,()->service.replacePaymentPlan(boss,newContract.getId(),
+                new SaleContractService.PaymentPlanCommand(100000,List.of(invalid),revision(newContract),"检查旧条件"),key())))
+                .hasMessageContaining("原合同节点");
+    }
+
     private SaleContractDO create(long customer,long total,List<PaymentPlanRules.Input> plan){return as(sales,()->service.create(sales,command(customer,total,plan),key()));}
     private SaleContractService.ContractCommand command(long customer,long total,List<PaymentPlanRules.Input> plan){return new SaleContractService.ContractCommand(customer,total,0,0,0,null,null,requirement(customer),plan);}
     private PaymentPlanRules.Input input(Long id,String name,long cents){return new PaymentPlanRules.Input(id,name,cents,null,null,"MANUAL",null);}

@@ -228,6 +228,10 @@ public class SaleContractService {
             if (row.stageId() != null) {
                 var previous = old.get(row.stageId());
                 if (previous == null || previous.getCompanyId() != post.orgId()) throw exception(REFERENCE_INVALID);
+                if (row.trigger().startsWith("LEGACY_") && !("BASE_DONE".equals(previous.getStage()) && "LEGACY_BASE_DONE".equals(row.trigger()))
+                        && !("CAP_DONE".equals(previous.getStage()) && "LEGACY_TOPPING".equals(row.trigger()))) {
+                    throw PaymentPlanRules.invalid("历史到期条件只能保留在原合同节点");
+                }
                 if (row.amountCents() < stageCollectedInTx(row.stageId())) throw PaymentPlanRules.invalid("节点金额不能小于已确认净收款，请先处理退款");
                 retained.add(row.stageId());
             }

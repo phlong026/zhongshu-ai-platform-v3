@@ -32,4 +32,10 @@ class PaymentPlanRulesTest {
         assertThatThrownBy(() -> PaymentPlanRules.normalize(1000,List.of(one,one))).hasMessageContaining("编号");
         assertThatThrownBy(() -> PaymentPlanRules.normalize(21000,java.util.Collections.nCopies(21,amount(1000)))).hasMessageContaining("20");
     }
+    @Test void legacyTriggersRequireAnExistingNodeIdentity() {
+        assertThat(PaymentPlanRules.normalize(1000,List.of(new PaymentPlanRules.Input(7L,"原封顶款",1000L,null,null,"LEGACY_TOPPING",null))))
+                .extracting(PaymentPlanRules.Stage::trigger).containsExactly("LEGACY_TOPPING");
+        assertThatThrownBy(()->PaymentPlanRules.normalize(1000,List.of(new PaymentPlanRules.Input(null,"新节点",1000L,null,null,"LEGACY_TOPPING",null))))
+                .hasMessageContaining("到期条件");
+    }
 }
