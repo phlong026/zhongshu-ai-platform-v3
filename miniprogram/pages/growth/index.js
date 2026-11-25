@@ -7,6 +7,7 @@ const http=require('../../api/http');
 const {makeFormHandlers}=require('../../utils/view-container');
 const DIRECT_SOURCE='直接来访／转介绍';
 const MANAGERS=['sales-lead','boss','owner'];
+const pendingAccessLost=error=>error?.postInvalid||[401,403,1103000002].includes(Number(error?.code));
 const currentPost=()=>{try{return http.token()?require('../../api/auth').currentApiPost():null;}catch(e){return null;}};
 const displayContent=content=>content?{...content,status:content.status==='演示已发布'?'已登记发布':content.status}:content;
 const totalOf=value=>{
@@ -183,7 +184,8 @@ async mutatePendingLead(e,action){
   }catch(error){
     if(!alive())return;
     command.busy=false;
-    this.setData({pendingLeads:this.data.pendingLeads.map(r=>r.leadId===id?{...r,busy:false}:r)});
+    if(pendingAccessLost(error))this.resetPendingState(true);
+    else this.setData({pendingLeads:this.data.pendingLeads.map(r=>r.leadId===id?{...r,busy:false}:r)});
     this.fail(P.degradeMessage(error));
   }
 },
@@ -204,7 +206,7 @@ async loadPendingLeads(){
     this.setData({pendingLeads:items,pendingError:''});
   }catch(error){
     if(!alive())return;
-    if(error?.postInvalid||[401,403,1103000002].includes(Number(error?.code)))this.resetPendingState(true);
+    if(pendingAccessLost(error))this.resetPendingState(true);
     this.setData({pendingError:P.degradeMessage(error)});
   }
 },

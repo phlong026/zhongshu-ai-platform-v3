@@ -390,6 +390,11 @@ async function submit(response, readError, requestError) {
   assert.deepEqual(Array.from(instance.data.pendingLeads, r=>r.leadId),['other']);
   console.log('PASS 处理成功立即从名单移除，早先的名单不会恢复；不会按行号操作错人');
 
+  invalidateImpl=async()=>{throw {code:403,message:'当前身份已不能办理'};};
+  await instance.onlineInvalidateLead({currentTarget:{dataset:{leadId:'other'}}});
+  assert.equal(instance.data.pendingLeads.length,0,'写入返回无权时也立即清理此前的名单');
+  console.log('PASS 办理返回撤权时立即清空旧名单');
+
   console.log('PASS CREATED 登记后进入 customerId 对应客户工作区');
   console.log('PASS LINKED 仅在当前岗位可读时进入客户工作区');
   console.log('PASS LINK_REQUIRED 保留负责人查重归属处理');
