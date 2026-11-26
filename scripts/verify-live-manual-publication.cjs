@@ -10,9 +10,8 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
-function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], work = async () => null, accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [] }) {
+function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], work = async () => null, accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [], studioState = {}, storage = new Map(), downloadUrl }) {
   let definition;
-  const storage=new Map();
   const studio = {
     title: '',
     publicationPlatforms: [
@@ -23,7 +22,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
     allowed() { return true; },
     scope,
     read() {
-      return { title: '', original: '', script: '', rewriteHistory: [], publishDrafts: {} };
+      return { title: '', original: '', script: '', rewriteHistory: [], publishDrafts: {}, ...studioState };
     },
     write(value) { writes.push(value); },
     imageFor() { return '/digital.jpg'; },
@@ -40,6 +39,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
     '../../utils/creation': { unavailable() {}, assets: [] },
     '../../utils/platform-content': {
       api: {
+        assets: { downloadUrl },
         publications: { create, page: list, verify, link },
         publisherAccounts: { list: accounts },
         drafts: { works, work },
@@ -61,6 +61,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
     },
     '../../api/franchise/crm': { leads: { capture: capture || (async () => ({ result: 'CREATED', customerId: 'customer-1' })) } },
     '../../api/http': {
+      base: () => 'https://fixture.example.test/admin-api',
       token() { return 'fixture-token'; }, currentUserId() { return '42'; },
       sessionGeneration() { return 1; }, tenantId() { return 1; },
       sessionGuard() { return alive; },
@@ -76,7 +77,6 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
       if(id==='./publication-pending')return require('../miniprogram/pages/studio/publication-pending');
       if(id==='./publication-accounts')return require('../miniprogram/pages/studio/publication-accounts');
       if(id==='./publication-cover')return require('../miniprogram/pages/studio/publication-cover');
-      if(id==='./publication-cover-templates')return require('../miniprogram/pages/studio/publication-cover-templates');
       if(id.endsWith("creation-keyboard"))return require("../miniprogram/utils/creation-keyboard");
       if(id.endsWith("creation-text-resize"))return require("../miniprogram/utils/creation-text-resize");
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
@@ -101,6 +101,38 @@ const basePublishData = {
   selectedAccount: 1, publisherAccountId: '201',
   publishedUrlInput: 'https://example.com/published/91'
 };
+
+test('旧生成任务不会恢复，只有本作品已应用的封面可以随外部发布链接登记', async () => {
+  for (const scenario of ['applied', 'foreign', 'candidate', 'unsafe', 'frozen']) {
+    const assetId = '900719925474099992', previews = [], created = [], reads = [];
+    const oldKey = 'zs-publication-cover-generation-v1:' + encodeURIComponent(JSON.stringify(['1','42','8','post-42'])) + ':8';
+    const storage = new Map([[oldKey, { workId:'8', key:'old-cover-job', result:{status:'READY',assetId:'903'} }]]);
+    const read = storage.get.bind(storage);
+    storage.get = key => { reads.push(key); return read(key); };
+    const draft = { ...basePublishData, workId:scenario==='foreign'?'9':'8', cover:'wxfile://expired.jpg',
+      coverTemplateId:'old', coverGeneratedAssetId:'903', sheet:'cover-templates' };
+    if (scenario !== 'candidate') draft.coverAssetId = scenario === 'unsafe' ? Number(assetId) : assetId;
+    const cached = { publishDrafts:{'8':draft} };
+    if (scenario === 'frozen') cached.linkFlows = { '8': { workId:'8', createKey:'unchanged', payload:{
+      workId:'8',title:'原草稿',publishText:'原正文',publisherAccountId:'201',platform:'channels'
+    } } };
+    const page = loadPage({storage,studioState:cached,create:async (body,key)=>{created.push({body,key});return {id:'91',status:'publishing'};},
+      list:async()=>[], work:async()=>({workId:'8',title:'本作品',script:'本作品正文'}),
+      accounts:async platform=>[{id:'201',platform,displayName:'门店账号',identifier:'store01',enabled:true}],
+      downloadUrl:async id=>{previews.push(id);return {downloadUrl:'https://assets.example.test/'+id+'.png'};} });
+    page.onLoad({view:'publish',work:'8'}); page.onShow(); await flush(); await flush();
+    assert.equal(page.data.workId,'8'); assert.notEqual(page.data.sheet,'cover-templates');
+    assert.equal(page.data.coverGeneratedAssetId,undefined);assert.equal(page.restoreCoverGeneration,undefined);
+    assert.equal(reads.includes(oldKey),false);
+    assert.deepEqual(previews,['applied','frozen'].includes(scenario)?[assetId]:[]);
+    page.setData({...basePublishData, publisherAccountsLoaded:true, publisherAccounts:[{id:'201',platform:'channels',enabled:true}]});
+    await page.submitLinkAndLead();
+    assert.equal(created.length,1);assert.equal(page.data.linkSaved,true);
+    assert.equal(Object.hasOwn(created[0].body,'coverAssetId'),scenario==='applied');
+    if(scenario==='applied') assert.equal(created[0].body.coverAssetId,assetId);
+    if(scenario==='frozen') assert.equal(created[0].key,'unchanged');
+  }
+});
 
 test('link backfill uses a registered account ID and captures the lead with the publication source', async () => {
   const calls = [];

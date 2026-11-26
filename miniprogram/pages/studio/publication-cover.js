@@ -41,7 +41,7 @@ async function restore(page, env) {
 }
 
 async function upload(page, env) {
-  if (page.__publicationCoverChoosing || page.data.coverUploading || page.data.coverGenerating) return;
+  if (page.__publicationCoverChoosing || page.data.coverUploading) return;
   let alive;
   try { alive = guard(page, env, 'publish'); } catch (_) { return; }
   page.__publicationCoverChoosing = true;
@@ -81,20 +81,6 @@ async function upload(page, env) {
   finally { if (current()) page.setData({ coverUploading: false, coverLoading: false }); }
 }
 
-async function useAsset(page, env, assetId) {
-  const alive = guard(page, env, 'publish');
-  const seq = page.__publicationCoverSeq = (page.__publicationCoverSeq || 0) + 1;
-  const current = () => alive() && seq === page.__publicationCoverSeq;
-  page.setData({ coverLoading: true });
-  try {
-    const url = await preview(env, assetId, current);
-    if (!current()) return false;
-    page.setData({ coverAssetId: id(assetId), cover: url, coverReady: true, coverError: '', sheet: '' });
-    page.persistEditor();
-    return true;
-  } finally { if (current()) page.setData({ coverLoading: false }); }
-}
-
 function clear(page) {
   if (page.data.coverUploading) return;
   page.__publicationCoverSeq = (page.__publicationCoverSeq || 0) + 1;
@@ -128,4 +114,4 @@ async function hydrate(page, env) {
   }));
 }
 
-module.exports = { preview, restore, upload, useAsset, clear, hydrate };
+module.exports = { preview, restore, upload, clear, hydrate };

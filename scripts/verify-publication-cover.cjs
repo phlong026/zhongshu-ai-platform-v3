@@ -86,17 +86,6 @@ test('an upload for a previous work cannot overwrite the current editor',async()
   assert.equal(f.page.data.coverAssetId,'302');assert.equal(f.drafts.length,0);
 });
 
-test('selecting a generated asset blocks submission until its matching preview is resolved',async()=>{
-  const f=fixture();let resolve;f.page.data.coverAssetId='300';f.page.data.coverReady=true;
-  f.env.api.assets.downloadUrl=()=>new Promise(done=>{resolve=done;});
-  const flight=cover.useAsset(f.page,f.env,'301');
-  assert.equal(f.page.data.coverLoading,true);await pending.submit(f.page,f.env);
-  assert.equal(f.calls.some(row=>row[0]==='publish'),false);
-  resolve({downloadUrl:'https://cdn.example.com/301.jpg'});await flight;
-  assert.equal(f.page.data.coverLoading,false);assert.equal(f.page.data.coverAssetId,'301');
-  assert.equal(f.page.data.cover,'https://cdn.example.com/301.jpg');
-});
-
 test('published records and receipts use their stored cover asset rather than a fixed image',async()=>{
   const f=fixture();f.page.data.view='records';f.page.data.records=[{id:'91',coverAssetId:'301',cover:''},{id:'92',coverAssetId:'',cover:''}];
   await cover.hydrate(f.page,f.env);
