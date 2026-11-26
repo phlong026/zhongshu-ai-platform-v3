@@ -202,8 +202,13 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
-        var process=new ProcessBuilder("node",client,json.writeValueAsString(input))
-                .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        // The pinned client expects JSON in argv[2]. Passing it through the environment preserves
+        // embedded quotes on Windows as well as Linux, including for previously released clients.
+        String runClient = "process.argv.push(process.env.FRANCHISE_HANDOVER_FIXTURE);require(process.argv[1])";
+        var clientProcess = new ProcessBuilder("node", "-e", runClient,
+                java.nio.file.Path.of(client).toAbsolutePath().toString()).redirectError(ProcessBuilder.Redirect.INHERIT);
+        clientProcess.environment().put("FRANCHISE_HANDOVER_FIXTURE", json.writeValueAsString(input));
+        var process = clientProcess.start();
         var io=Executors.newSingleThreadExecutor();
         com.fasterxml.jackson.databind.JsonNode completed=null;
         try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
