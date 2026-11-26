@@ -42,17 +42,17 @@ public class EngCollectionController {
     @PreAuthorize("@post.has('" + EngineeringPermissions.QUERY + "')")
     public CommonResult<Map<String, Object>> summary(@PathVariable long id) {
         return success(Map.of("stages", collections.summary(post(), id),
-                "records", collections.list(post(), id)));
+                "records", collections.list(post(), id),"declarations",collections.declarations(post(),id)));
     }
 
     @PostMapping("/{id}/collections")
     @Operation(summary = "收款登记（collect 码；TOPPING 须封顶完成；本期累计≤应收 006；写通 finance）")
-    @PreAuthorize("@post.has('" + EngineeringPermissions.COLLECT + "')")
+    @PreAuthorize("@post.has('" + EngineeringPermissions.COLLECT + "') or @post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> register(@PathVariable long id, @RequestBody Map<String, Object> body,
                                                       @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(collections.register(post(), id, new EngCollectionService.CollectCommand(
                 str(body.get("stage")), decimal(body.get("amount")), str(body.get("transactionNo")),
-                localDate(body.get("occurredAt")), longOrNull(body.get("fileAssetId"))), requireIdem(idem)));
+                localDate(body.get("occurredAt")), longOrNull(body.get("fileAssetId")),longOrNull(body.get("stageId")),longOrNull(body.get("planVersion"))), requireIdem(idem)));
     }
 
     @PostMapping("/{id}/dunning")

@@ -122,7 +122,7 @@ public class LocalAssetService implements AssetAccessPort {
     @Override
     public UploadTicketView createUploadTicket(Actor actor, String type, String mime, long size, String sha) {
         long tenant = authorize(actor);
-        requireChannel(actor, type);
+        requireUpload(actor,type,null);
         if (!mimeAllowed(type, mime) || size <= 0 || size > MAX_BYTES.getOrDefault(type, 0L)
                 || !isSha256(sha)) throw invalid("上传类型、大小或 SHA-256 无效");
         long id = IdUtil.getSnowflakeNextId();
@@ -172,7 +172,7 @@ public class LocalAssetService implements AssetAccessPort {
     public void receiveUpload(Actor actor, long id, String token, InputStream input) {
         long tenant = authorize(actor);
         Asset asset = owned(tenant, actor, id);
-        requireChannel(actor, asset.type());
+        requireUpload(actor,asset.type(),asset);
         if (!"PENDING".equals(asset.status())) throw exception(RESOURCE_FORBIDDEN);
         if (!validUploadTicket(tenant, actor, id, token)) throw exception(RESOURCE_FORBIDDEN);
         try (var reservation = spool.reserve(asset.size()); var file = reservation.file()) {
@@ -216,7 +216,7 @@ public class LocalAssetService implements AssetAccessPort {
     public AssetCompleted completeUpload(Actor actor, long id) {
         long tenant = authorize(actor);
         Asset original = owned(tenant, actor, id);
-        requireChannel(actor, original.type());
+        requireUpload(actor,original.type(),original);
         if ("ACCEPTED".equals(original.status()) || "REJECTED".equals(original.status())) return completed(original);
         String validation = UUID.randomUUID().toString();
         int claimed = db("claim-validation", id, () -> tx.execute(status -> {
@@ -632,6 +632,19 @@ public class LocalAssetService implements AssetAccessPort {
             throw exception(RESOURCE_FORBIDDEN);
         }
         return tenant();
+    }
+
+    @Override public boolean isOwnAcceptedUpload(Actor actor,long id,String type) {
+        Asset row=load(authorize(actor),actor,id);
+        return row!=null && row.user()==actor.userId() && row.post()==actor.postId()
+                && "ACCEPTED".equals(row.status()) && type.equals(row.type());
+    }
+    private void requireUpload(Actor actor,String type,Asset existing) {
+        if (AssetAccessService.engineeringVoucher(type,posts.require().roleCode())) {
+            if (existing!=null && (existing.user()!=actor.userId() || existing.post()!=actor.postId())) throw exception(RESOURCE_FORBIDDEN);
+            return;
+        }
+        requireChannel(actor,type);
     }
 
     private void requireChannel(Actor actor, String type) {

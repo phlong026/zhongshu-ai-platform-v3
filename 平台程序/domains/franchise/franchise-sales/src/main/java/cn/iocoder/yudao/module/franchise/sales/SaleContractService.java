@@ -359,12 +359,26 @@ public class SaleContractService {
         LocalDate date = cmd == null || cmd.signedDate() == null ? contract.getSignedDate() : cmd.signedDate();
         Long asset = cmd == null || cmd.assetId() == null ? contract.getAssetId() : cmd.assetId();
         requireSignedEvidence(post, date, asset);
+        var agreed=stages.selectByContract(contractId).stream().filter(row -> !Boolean.TRUE.equals(row.getDeleted())).toList();
+        if (agreed.stream().mapToLong(SalePaymentStageDO::getAmountCents).sum()!=contract.getTotalCents()
+                || agreed.stream().anyMatch(row -> row.getAmountCents()>0 && !hasAgreedTrigger(row))) {
+            throw PaymentPlanRules.invalid("签约前请核对分期总额，并为各期约定付款日期或工程节点");
+        }
         contract.setSignedDate(date).setAssetId(asset);
         contract.setStatus(STATUS_SIGNED);
         RevisionsUpdate(contract);
         commands.record(post, "fr-sale-contract", contract.getId(), contract.getRevision(),
                 "sale-contract-sign", input, idempotencyKey);
         return contract;
+    }
+
+    private static boolean hasAgreedTrigger(SalePaymentStageDO row) {
+        if (row.getDueDate()!=null) return true;
+        return switch (java.util.Objects.toString(row.getTriggerType(),"")) {
+            case "ON_SIGN","BEFORE_START","ON_FINISH","LEGACY_BASE_DONE","LEGACY_TOPPING" -> true;
+            case "NODE_COMPLETED" -> row.getTriggerNodeIndex()!=null && row.getTriggerNodeIndex()>0;
+            default -> false;
+        };
     }
 
     /** Restores real evidence on old SIGNED rows without replaying signing or rebuilding the payment plan. */

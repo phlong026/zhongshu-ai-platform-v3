@@ -63,7 +63,7 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
         return new StageCollectResult(((Number) result.get("receiptId")).longValue(),
                 ((Number) result.getOrDefault("collectedCents", 0)).longValue(),
                 String.valueOf(result.get("stageStatus")),
-                Boolean.TRUE.equals(result.get("replayed")));
+                Boolean.TRUE.equals(result.get("replayed")),result.get("declarationId") instanceof Number id?id.longValue():null);
     }
 
     @Override

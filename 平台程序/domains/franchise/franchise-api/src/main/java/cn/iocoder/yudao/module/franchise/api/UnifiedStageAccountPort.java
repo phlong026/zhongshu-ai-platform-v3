@@ -56,6 +56,9 @@ public interface UnifiedStageAccountPort {
                         LocalDate occurredAt, Long fileAssetId) {
     }
 
-    record StageCollectResult(long receiptId, long collectedCents, String stageStatus, boolean replayed) {
+    record StageCollectResult(long receiptId, long collectedCents, String stageStatus, boolean replayed, Long declarationId) {
+        public StageCollectResult(long receiptId,long collectedCents,String stageStatus,boolean replayed) {
+            this(receiptId,collectedCents,stageStatus,replayed,null);
+        }
     }
 }

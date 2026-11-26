@@ -966,6 +966,12 @@ public class EngPlanService {
      * 假 ID/跨组织/未验收/错误类型全部拒绝；不再只判 assetId 非空。
      */
     // M09-T01：package-visible——EngClosureService.deliver 交付凭据复用同一校验（同包）
+    void requireOwnCollectionProof(PostSnapshot post,long fileId) {
+        var actor=new cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor(post.orgId(),
+                serviceAccounts.requireServiceAccount(post.orgId()),post.userId(),post.postId());
+        if (!assets.isOwnAcceptedUpload(actor,fileId,"FIN_VOUCHER")) throw exception(ENGINEERING_INPUT_INVALID,"请上传本人经办的本笔收款凭据");
+    }
+
     void requireValidAsset(PostSnapshot post, Long assetId, java.util.Set<String> allowedTypes, String usage) {
         if (assetId == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请上传有效的" + usage + "凭据");

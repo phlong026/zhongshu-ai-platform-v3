@@ -7,7 +7,14 @@ import java.util.List;
 /** Sales owns the proposal; an entrustment freezes this value without creating receivables. */
 public interface CustomerPaymentPlanDraftPort {
     record Stage(String label, long amountCents, Integer ratioBps, LocalDate dueDate,
-                 String trigger, Integer nodeIndex, int sequence) {}
+                 String trigger, Integer nodeIndex, int sequence,
+                 @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                 Long collectedCents) {
+        public Stage(String label, long amountCents, Integer ratioBps, LocalDate dueDate,
+                     String trigger, Integer nodeIndex, int sequence) {
+            this(label, amountCents, ratioBps, dueDate, trigger, nodeIndex, sequence, null);
+        }
+    }
     record Snapshot(long customerId, long companyId, String source, long revision, long totalCents,
                     Long contractId, Integer contractPlanVersion, List<Stage> stages) {}
     /** Signed contract first, otherwise the latest proposal; null means no agreement recorded yet. */
