@@ -11,7 +11,7 @@
         <view class="customer-row-copy">
           <view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge">{{item.stageName}}</text><text class="customer-cue {{item.cueTone}}">{{item.cue}}</text></view>
           <text class="hint">{{item.brief}}<text wx:if="{{item.workflow}}"> · {{item.workflow.completedCount}}/8步 · {{item.workflow.progressPercent}}%</text></text>
-          <view class="customer-row-foot"><text class="customer-next">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{intent==='commission'&&canRegister?'提交委托':item.flowUrl?'八步跟进':item.canFollow?'写跟进':'看记录'}}</button></view>
+          <view class="customer-row-foot"><text class="customer-next">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{intent==='commission'&&canRegister?'提交委托':item.flowUrl?'客户跟进':item.canFollow?'写跟进':'看记录'}}</button></view>
         </view>
       </view>
       <view wx:if="{{platformMode&&platformStatus==='loading'}}" class="sales-empty">正在加载客户…</view>

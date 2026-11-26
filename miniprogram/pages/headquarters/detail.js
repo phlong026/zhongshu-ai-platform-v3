@@ -34,7 +34,7 @@ Page({
       const context = await api.context();
       if (!S.context(this, ticket, context)) return;
       const catalog = M.context(context), register = this.registerFile.bind(this);
-      this.setData({ kind, title: kind === 'customers' ? '客户八步跟进' : kind === 'projects' ? '工程详情' : kind === 'ledger' ? '账本明细' : M.title(kind) + '详情' });
+      this.setData({ kind, title: kind === 'customers' ? '客户跟进' : kind === 'projects' ? '工程详情' : kind === 'ledger' ? '账本明细' : M.title(kind) + '详情' });
       if (kind === 'ledger') {
         const company = catalog.companies.find(row => row.id === recordId);
         if (!company) throw { code: 403, message: '公司不属于当前可读范围' };
