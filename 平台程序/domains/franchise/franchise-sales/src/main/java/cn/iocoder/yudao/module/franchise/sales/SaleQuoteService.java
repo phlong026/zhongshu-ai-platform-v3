@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 import cn.iocoder.yudao.module.franchise.sales.dal.*;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
+import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowQuotePort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
 import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
@@ -26,7 +27,7 @@ import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorC
  * 抬头快照（客户名/电话/地址）与尺寸在创建时冻结；导出=规范票据 JSON。
  */
 @Service
-public class SaleQuoteService {
+public class SaleQuoteService implements CustomerWorkflowQuotePort {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     public record QuoteCommand(long customerId, Long schemeId, Map<String, Object> items,
@@ -141,6 +142,21 @@ public class SaleQuoteService {
             throw exception(REFERENCE_INVALID);
         }
         return quote;
+    }
+
+    @Override
+    public Quote requireCustomerQuote(PostSnapshot post, long customerId, long quoteId) {
+        access.requireOrgCustomer(post, customerId);
+        SaleQuoteDO quote = requireOfOrg(post, quoteId);
+        if (!java.util.Objects.equals(quote.getCustomerId(), customerId)
+                || quote.getTotalCents() == null || quote.getTotalCents() <= 0) {
+            throw exception(REFERENCE_INVALID);
+        }
+        String version = quote.getPriceVersion();
+        if (quote.getBudgetVersion() != null && quote.getBudgetVersion() > 0) {
+            version = "V" + quote.getBudgetVersion() + (version == null || version.isBlank() ? "" : " · " + version);
+        }
+        return new Quote(quote.getTotalCents(), version == null || version.isBlank() ? "报价 #" + quoteId : version);
     }
 
     /** B4：规范票据 JSON（字段对齐 v3 quote-export sheet；全部取自创建时冻结快照） */

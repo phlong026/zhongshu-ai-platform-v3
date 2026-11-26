@@ -25,17 +25,21 @@ public final class CustomerWorkflowRules {
             Step.HOUSE_SELECTION, Set.of("referenceCaseId", "referenceCaseName", "selectionResult", "versionLabel", "confirmed"),
             Step.SITE_VISIT, Set.of("siteName", "address", "feedback"),
             Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "checked"),
-            Step.QUOTATION, Set.of("amountCents", "scope", "versionLabel", "communicated", "result"));
+            Step.QUOTATION, Set.of("quoteId", "amountCents", "scope", "versionLabel", "communicated", "result"));
     private static final Set<String> BOOLEAN_FIELDS = Set.of("confirmed", "checked", "communicated");
     private static final Set<String> DECIMAL_FIELDS = Set.of("width", "depth", "area");
+    private static final Set<String> QUOTE_SNAPSHOT_FIELDS = Set.of("amountCents", "scope", "versionLabel");
 
     public static SaveCommand normalize(Step step, SaveCommand input) {
         if (!step.manual() || input == null || input.revision() < 0) throw invalid("跟进记录参数无效");
         if (input.occurredOn() != null && input.occurredOn().isAfter(today())) throw invalid("发生日期不能晚于今天");
         Map<String, Object> fields = new TreeMap<>();
-        for (var entry : (input.fields() == null ? Map.<String, Object>of() : input.fields()).entrySet()) {
+        Map<String, Object> source = input.fields() == null ? Map.of() : input.fields();
+        boolean linkedQuote = step == Step.QUOTATION && present(source, "quoteId");
+        for (var entry : source.entrySet()) {
             String key = entry.getKey();
             if (!FIELDS.get(step).contains(key)) throw invalid("不支持的步骤字段：" + key);
+            if (linkedQuote && QUOTE_SNAPSHOT_FIELDS.contains(key)) continue;
             Object value = entry.getValue();
             if (value == null || value instanceof String text && text.isBlank()) continue;
             if (BOOLEAN_FIELDS.contains(key)) {
@@ -46,8 +50,9 @@ public final class CustomerWorkflowRules {
                 if (decimal.signum() < 0 || decimal.compareTo(new BigDecimal("1000000")) > 0 || decimal.scale() > 2)
                     throw invalid("尺寸或面积超出允许范围");
                 fields.put(key, decimal.stripTrailingZeros().toPlainString());
-            } else if ("amountCents".equals(key) || "floors".equals(key) || "referenceCaseId".equals(key)) {
+            } else if ("amountCents".equals(key) || "floors".equals(key) || "referenceCaseId".equals(key) || "quoteId".equals(key)) {
                 long number = integer(value, key);
+                if ("quoteId".equals(key) && number <= 0) throw invalid("报价原单编号无效");
                 if (number < 0 || "amountCents".equals(key) && number > 9_000_000_000_000L
                         || "floors".equals(key) && number > 200) throw invalid("数值超出允许范围");
                 fields.put(key, Long.toString(number));
@@ -106,10 +111,13 @@ public final class CustomerWorkflowRules {
                 if (attachments.isEmpty()) errors.add("请上传测量资料");
             }
             case QUOTATION -> {
-                positive(errors, fields, "amountCents", "报价金额"); required(errors, fields, "scope", "报价范围");
+                positive(errors, fields, "amountCents", "报价金额");
                 required(errors, fields, "versionLabel", "报价版本"); required(errors, fields, "result", "沟通结果");
-                if (!Boolean.TRUE.equals(fields.get("communicated"))) errors.add("向客户说明报价后才能完成本步");
-                if (attachments.isEmpty()) errors.add("请上传正式报价文件");
+                if (!Boolean.TRUE.equals(fields.get("communicated"))) errors.add("向客户发送或说明正式报价后才能完成本步");
+                if (!present(fields, "quoteId")) {
+                    required(errors, fields, "scope", "报价范围");
+                    if (attachments.isEmpty()) errors.add("请关联正式报价原单，或上传外部正式报价文件");
+                }
             }
             default -> throw invalid("该步骤由正式业务事实更新");
         }
