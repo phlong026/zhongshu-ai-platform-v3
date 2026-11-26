@@ -143,19 +143,49 @@ const entry = {
   version: 7
 }
 
-test('public map name edits a linked record independently without sending internal account fields', async () => {
+test('public map display saves an independently authorized address without sending internal account fields', async () => {
   const writes = []
-  const item = { ...entry, linkedOrgId: '998', publicName: '原公开店名' }
+  const item = { ...entry, recordType: 'FRANCHISE', linkedOrgId: '998', publicName: '原公开店名',
+    publicAddress: '武汉市黄陂区旧地址', publicAddressAuthorized: true }
   const env = loadView('FranchiseDirectoryPanel.vue', {
     updateDirectoryMapDisplay: async (id, payload) => { writes.push({ id, payload }); return item }
   })
   env.state.openMapEditor(item)
   assert.equal(env.state.mapEditVisible.value, true)
+  assert.equal(env.state.mapPublicAddress.value, item.publicAddress)
+  assert.equal(env.state.mapPublicAddressAuthorized.value, true)
   env.state.mapPublicName.value = ' 测试品牌 · 武汉门店 '
+  env.state.mapPublicAddress.value = ' 武汉市黄陂区前川街道公开门店路88号 '
   await env.state.saveMapDisplay()
-  assert.deepEqual(plain(writes), [{ id: item.id, payload: { publicName: '测试品牌 · 武汉门店', expectedVersion: 7 } }])
+  assert.deepEqual(plain(writes), [{
+    id: item.id,
+    payload: {
+      publicName: '测试品牌 · 武汉门店',
+      publicAddress: '武汉市黄陂区前川街道公开门店路88号',
+      publicAddressAuthorized: true,
+      expectedVersion: 7
+    }
+  }])
   assert.equal(item.name, entry.name)
   assert.equal(env.state.mapEditVisible.value, false)
+})
+
+test('revoking public address authorization clears the address from the next map projection', async () => {
+  const writes = []
+  const item = { ...entry, recordType: 'FRANCHISE', publicAddress: '原公开地址', publicAddressAuthorized: true }
+  const env = loadView('FranchiseDirectoryPanel.vue', {
+    updateDirectoryMapDisplay: async (id, payload) => { writes.push({ id, payload }); return item }
+  })
+  env.state.openMapEditor(item)
+  env.state.mapPublicAddress.value = ''
+  env.state.mapPublicAddressAuthorized.value = false
+  await env.state.saveMapDisplay()
+  assert.deepEqual(plain(writes[0].payload), {
+    publicName: '',
+    publicAddress: '',
+    publicAddressAuthorized: false,
+    expectedVersion: 7
+  })
 })
 
 test('public map name save cannot repopulate a deactivated directory or display a late success', async () => {
