@@ -14,11 +14,13 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.jdbc.Sql;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.*;
 
 @Import({OrgDirectoryService.class,OrgAccountAdminService.class,OrgServiceImpl.class,OrgDirectoryIntegrationTest.Config.class})
+@Sql("/system-users-fixture.sql")
 class OrgDirectoryIntegrationTest extends PlatformPgIntegrationTest {
     @TestConfiguration static class Config {
         @Bean FakeSystemDirectoryForOnboard directory() { return new FakeSystemDirectoryForOnboard(); }
@@ -43,9 +45,6 @@ class OrgDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted int2 DEFAULT 0");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigserial PRIMARY KEY,user_id bigint,role_id bigint,deleted int2 DEFAULT 0)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_oauth2_refresh_token(id bigserial PRIMARY KEY,tenant_id bigint,user_id bigint,user_type int)");
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,nickname text,mobile text,username text,status int DEFAULT 0,deleted int2 DEFAULT 0,tenant_id bigint)");
-        jdbc.execute("ALTER TABLE system_users ADD COLUMN IF NOT EXISTS password text");
-        jdbc.execute("ALTER TABLE system_users ADD COLUMN IF NOT EXISTS update_time timestamptz");
         jdbc.execute("CREATE TABLE IF NOT EXISTS org_point_account(org_id bigint PRIMARY KEY,balance bigint,status text)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS org_point_ledger(id bigint,org_id bigint,operation_id text,type text,available_delta bigint,billing_month text,subject text,actor_user_id bigint,note text,create_time timestamptz DEFAULT now())");
         jdbc.execute("CREATE TABLE IF NOT EXISTS org_point_hq_adjustment(id bigint,org_id bigint,status text)");

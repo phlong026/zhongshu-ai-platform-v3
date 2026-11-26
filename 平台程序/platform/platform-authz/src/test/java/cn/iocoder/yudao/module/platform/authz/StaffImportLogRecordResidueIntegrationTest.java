@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,6 +65,7 @@ import static org.mockito.Mockito.verify;
         YudaoOperateLogConfiguration.class,
         StaffImportLogRecordResidueIntegrationTest.Config.class})
 @TestPropertySource(properties = "platform.legacy-design-bridge.enabled=false")
+@Sql("/system-users-fixture.sql")
 class StaffImportLogRecordResidueIntegrationTest extends PlatformPgIntegrationTest {
 
     private static final String ORG_TYPE = "imp-aud-store";
@@ -173,16 +175,6 @@ class StaffImportLogRecordResidueIntegrationTest extends PlatformPgIntegrationTe
 
     @BeforeEach
     void setUp() {
-        // system_users 最小真实表（列集合按 AdminUserDO 映射；非生产 schema，仅测试库）
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users ("
-                + "id bigserial PRIMARY KEY, username varchar(64), nickname varchar(64),"
-                + "mobile varchar(16), dept_id bigint, password varchar(100), status int2 DEFAULT 0,"
-                + "post_ids varchar(255), email varchar(64), sex int2, avatar varchar(512),"
-                + "login_ip varchar(64), login_date timestamp, remark varchar(255),"
-                + "creator varchar(64), create_time timestamp DEFAULT now(),"
-                + "updater varchar(64), update_time timestamp DEFAULT now(),"
-                + "deleted int2 DEFAULT 0, tenant_id bigint DEFAULT 0)");
-        jdbc.execute("CREATE SEQUENCE IF NOT EXISTS system_users_seq");
         jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES (?, 'test', '门店') ON CONFLICT DO NOTHING",
                 ORG_TYPE);
         jdbc.update("INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code) "

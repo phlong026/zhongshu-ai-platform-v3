@@ -11,13 +11,19 @@ import sys
 DIRECTORY = Path(__file__).resolve().parent
 MANIFEST_FORMAT = "zhongshu-platform-ownership/v1"
 FIXTURE_FORMAT = "zhongshu-platform-synthetic/v1"
+STANDALONE_MODULES = ("yudao-platform-server", "yudao-module-infra", "yudao-platform-operations")
 LOCATIONS = (
     "platform-bootstrap", "platform", "pf", "franchise", "franchise-system",
     "platform-wallet", "franchise-asset", "franchise-design-remote",
 )
 CREATE_TABLE = re.compile(r"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)", re.I)
 CREATE_SEQUENCE = re.compile(r"\bCREATE\s+SEQUENCE\s+([A-Za-z0-9_]+)", re.I)
-IDENTITY_COLUMN = re.compile(r"\bid\s+BIGINT\s+GENERATED\s+BY\s+DEFAULT\s+AS\s+IDENTITY", re.I)
+IMPLICIT_SEQUENCE_COLUMN = re.compile(
+    r"[(,]\s*([A-Za-z_][A-Za-z0-9_]*)\s+"
+    r"(?:SMALLSERIAL|BIGSERIAL|SERIAL(?:2|4|8)?|"
+    r"(?:SMALLINT|INTEGER|BIGINT|INT(?:2|4|8)?)\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY)\b",
+    re.I,
+)
 STRATEGIES = {"filtered-copy", "rebuild", "retain-source", "transform", "subset-review"}
 WRITERS = {
     "platform-http", "franchise-http", "legacy-session", "identity-provision",
@@ -47,7 +53,7 @@ def digest(path):
 
 def migration_paths(root):
     """Only source modules shipped in B; yudao-server's same-name location is excluded."""
-    modules = [root / "yudao-platform-server", root / "yudao-module-infra"]
+    modules = [root / name for name in STANDALONE_MODULES]
     modules += list((root / "platform").glob("*"))
     modules += list((root / "domains/franchise").glob("*"))
     paths = []
@@ -64,8 +70,8 @@ def valid_migration_path(value, location):
     demand(not path.is_absolute() and ".." not in parts and path.suffix == ".sql", "MIGRATION_PATH_INVALID")
     demand("/src/main/resources/db/migration/" in value and path.parent.name == location,
            "MIGRATION_PATH_INVALID")
-    demand(value.startswith(("platform/", "domains/franchise/", "yudao-module-infra/",
-                             "yudao-platform-server/")), "MIGRATION_PATH_INVALID")
+    demand(parts[0] in STANDALONE_MODULES or value.startswith(("platform/", "domains/franchise/")),
+           "MIGRATION_PATH_INVALID")
 
 
 def validate_manifest(manifest, source_root=None):
@@ -99,13 +105,13 @@ def validate_manifest(manifest, source_root=None):
         sequence_names.add(sequence["name"])
     if source_root is not None:
         root = source_root.resolve(strict=True)
-        actual = migration_paths(root)
-        demand({str(path.relative_to(root)) for path in actual} == set(expected), "MIGRATION_SET_CHANGED")
+        actual = {path.relative_to(root).as_posix(): path for path in migration_paths(root)}
+        demand(actual.keys() == expected.keys(), "MIGRATION_SET_CHANGED")
         found_tables, found_sequences = set(), set()
-        for path in actual:
+        for relative, path in actual.items():
             demand(path.resolve().is_relative_to(root), "MIGRATION_PATH_INVALID")
             data = path.read_bytes()
-            demand(hashlib.sha256(data).hexdigest() == expected[str(path.relative_to(root))],
+            demand(hashlib.sha256(data).hexdigest() == expected[relative],
                    "MIGRATION_HASH_CHANGED")
             text = re.sub(r"--[^\n]*", "", data.decode("utf-8"))
             text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
@@ -114,8 +120,8 @@ def validate_manifest(manifest, source_root=None):
             found_sequences.update(name.lower() for name in CREATE_SEQUENCE.findall(text))
             for index, match in enumerate(table_matches):
                 end = table_matches[index + 1].start() if index + 1 < len(table_matches) else len(text)
-                if IDENTITY_COLUMN.search(text[match.end():end]):
-                    found_sequences.add(match.group(1).lower() + "_id_seq")
+                for column in IMPLICIT_SEQUENCE_COLUMN.findall(text[match.end():end]):
+                    found_sequences.add(f"{match.group(1)}_{column}_seq".lower())
         demand(tables == found_tables, "TABLE_COVERAGE_CHANGED")
         demand(sequence_names == found_sequences, "SEQUENCE_COVERAGE_CHANGED")
 
@@ -200,7 +206,8 @@ def validate_coverage(coverage, source_root=None):
     demand(writers.keys() == WRITERS, "WRITER_SET_CHANGED")
     root = source_root.resolve(strict=True) if source_root is not None else None
     for writer in writers.values():
-        demand(writer.get("status") == "NOT_WIRED", "STATIC_COVERAGE_ONLY")
+        # The registry tracks source wiring. Runtime readiness is checked separately above.
+        demand(writer.get("status") in ("NOT_WIRED", "WIRED"), "WRITER_STATUS_INVALID")
         demand(bool(writer["candidate_paths"]) and bool(writer["required_evidence"]), "WRITER_EVIDENCE_MISSING")
         for value in writer["candidate_paths"]:
             path = Path(value)

@@ -15,6 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.Set;
+
 import static cn.iocoder.yudao.module.platform.org.enums.PlatformOrgErrorCodes.ORG_TYPE_NOT_REGISTERED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,9 +49,11 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
     private JdbcTemplate jdbc;
 
     private java.util.Map<String, Object> originalBossTemplate;
+    private Set<Long> usersBeforeTest;
 
     @BeforeEach
     void registerOrgTypesAndTemplates() {
+        usersBeforeTest = Set.copyOf(directory.users);
         jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店') ON CONFLICT DO NOTHING");
         // The shared PostgreSQL test database may already contain a production/other-suite boss template.
         // Capture it, temporarily install the test contract, and restore it after each method.
@@ -70,6 +74,12 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
     @AfterEach
     void restoreBossTemplate() {
         if (originalBossTemplate == null) {
+            // Remove only the boss assignments this test created before restoring an absent template.
+            directory.users.stream().filter(userId -> !usersBeforeTest.contains(userId)).forEach(userId ->
+                    jdbc.update("""
+                            DELETE FROM pf_staff_post WHERE role_code='boss' AND user_id=?
+                            AND org_id IN (SELECT dept_id FROM pf_org_unit WHERE org_type IN ('t-hq','t-store'))
+                            """, userId));
             jdbc.update("DELETE FROM pf_post_template WHERE role_code='boss'");
             return;
         }
