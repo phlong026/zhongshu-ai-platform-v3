@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
+import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowAssetPolicy;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel;
@@ -15,6 +16,10 @@ import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowSupplement
 import cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowSupplementController;
 import cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.sales.SaleQuoteService;
+import cn.iocoder.yudao.module.franchise.sales.SaleRequirementService;
+import cn.iocoder.yudao.module.franchise.sales.SalesAccess;
+import cn.iocoder.yudao.module.franchise.sales.controller.admin.CustomerWorkflowQuotesController;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
@@ -55,6 +60,7 @@ import static org.assertj.core.api.Assertions.*;
 @Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
         CustomerWorkflowService.class, CustomerWorkflowReadService.class, CustomerWorkflowAssetPolicy.class,CustomerWorkflowSupplementService.class,
         cn.iocoder.yudao.module.franchise.sales.SaleWorkflowFactsAdapter.class,cn.iocoder.yudao.module.franchise.engineering.EngWorkflowFactsAdapter.class,
+        CustomerSchemeAdapter.class, SaleQuoteService.class, SaleRequirementService.class, SalesAccess.class,
         AssetAccessService.class, CustomerWorkflowAssetPgIntegrationTest.Config.class})
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/franchise-asset")
 class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest {
@@ -65,6 +71,7 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
     @Resource AssetAccessService channel;
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowSupplementService supplements;
+    @Resource SaleQuoteService quotes;
     @Resource LeadService leads;
     @Resource MemoryStorage storage;
     private PostSnapshot sales, colleague, lead, boss, other;
@@ -228,7 +235,8 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
         new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration().ldtEpochMillisCustomizer().customize(builder);
         var json=builder.build();
         var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
-                new CustomerWorkflowController(workflow,currentPost),new CustomerWorkflowSupplementController(supplements,currentPost))
+                new CustomerWorkflowController(workflow,currentPost),new CustomerWorkflowSupplementController(supplements,currentPost),
+                new CustomerWorkflowQuotesController(quotes,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
         var actors=Map.of("sales",sales,"readonly",boss,"otherPost",other);
         Map<String,Object> input=new java.util.LinkedHashMap<>();
