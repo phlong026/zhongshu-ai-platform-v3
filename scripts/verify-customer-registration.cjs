@@ -386,3 +386,17 @@ for(const action of ['update','transfer']){
     calls[1].ack();await next;
   });
 }
+
+test('customer reminders open the matching customer follow-up tab on a cold entry',()=>{
+  const id='90071992547409971', post={postId:'sales',roleCode:'sales'};
+  const http={sessionGeneration:()=>1};
+  for(const [options,expected] of [
+    [{view:'customer',id,tab:'1'},1],[{view:'customer',id},0],
+    [{view:'customer',id,tab:'2'},0],[{view:'customers',tab:'1'},0]
+  ]){
+    const {page}=pageHarness(http);
+    page.platformLoad(options,post);
+    assert.equal(page.data.activeCustomerTab,expected);
+    if(options.id)assert.equal(page.id,id);
+  }
+});
