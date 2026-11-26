@@ -52,6 +52,47 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
                 customer, sales.orgId(), sales.userId(), "138" + String.format("%08d", Math.floorMod(customer,100_000_000L)));
     }
 
+    @Test void workflowQuoteReadsFollowCurrentCustomerAssignmentAndDoNotExposeDetailsInThePicker() {
+        var original = as(() -> quotes.create(sales, command("12", "客户报价"), key()));
+        long id = original.getId();
+        var peer = fixture.post(sales.orgId(), SALES, sales.teamId());
+        var boss = fixture.post(sales.orgId(), cn.iocoder.yudao.module.franchise.org.FranchiseRoles.BOSS, null);
+        var lead = fixture.post(sales.orgId(), cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES_LEAD, sales.teamId());
+        var otherStore = fixture.store();
+        var outsider = fixture.post(otherStore.orgId(), SALES, otherStore.salesTeamA());
+        jdbc.update("UPDATE fr_customer SET team_id=? WHERE id=?", sales.teamId(), customer);
+        long another = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbc.update("INSERT INTO fr_customer (id,company_id,owner_user_id,name,phone,source,status) VALUES (?,?,?,'另一位客户',?,'业务登记','REGISTERED')",
+                another, sales.orgId(), sales.userId(), "139" + String.format("%08d", Math.floorMod(another,100_000_000L)));
+        currentPost.use(sales);
+        try {
+            assertThat(quotes.workflowOptions(sales, customer)).singleElement().satisfies(option -> {
+                assertThat(option.id()).isEqualTo(id);
+                assertThat(option.totalCents()).isEqualTo(original.getTotalCents());
+                assertThat(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(option)).doesNotContain("customerName", "customerPhone", "address", "items");
+            });
+            assertThat(quotes.workflowSheet(sales, customer, id)).containsEntry("customerId", Long.toString(customer)).containsEntry("quoteId", Long.toString(id));
+            assertThatThrownBy(() -> quotes.workflowSheet(sales, another, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(peer);
+            assertThatThrownBy(() -> quotes.workflowOptions(peer, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(peer, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(outsider);
+            assertThatThrownBy(() -> quotes.workflowOptions(outsider, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(outsider, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(lead);
+            assertThat(quotes.workflowOptions(lead, customer)).hasSize(1);
+            assertThat(quotes.workflowSheet(lead, customer, id)).containsEntry("quoteId", Long.toString(id));
+            currentPost.use(boss);
+            assertThat(quotes.workflowSheet(boss, customer, id)).containsEntry("quoteVersionLabel", "V1 · 客户报价");
+            jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", peer.userId(), customer);
+            currentPost.use(sales);
+            assertThatThrownBy(() -> quotes.workflowOptions(sales, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(sales, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(peer);
+            assertThat(quotes.workflowSheet(peer, customer, id)).containsEntry("quoteId", Long.toString(id));
+        } finally { currentPost.clear(); }
+    }
+
     @Test void quoteCreatesFrozenBudgetAndReplayDoesNotCreateAnotherVersion() {
         String key = key();
         SaleQuoteDO first = as(() -> quotes.create(sales, command("12", "sales-v1"), key));

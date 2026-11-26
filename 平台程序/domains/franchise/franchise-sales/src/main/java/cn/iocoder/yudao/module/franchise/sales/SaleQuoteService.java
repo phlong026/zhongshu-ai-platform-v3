@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -136,6 +137,24 @@ public class SaleQuoteService implements CustomerWorkflowQuotePort {
         return quotes.selectByCustomer(customerId);
     }
 
+    public record WorkflowOption(Long id, Long customerId, Long companyId, Long totalCents,
+                                 Integer budgetVersion, String priceVersion, OffsetDateTime createTime) { }
+
+    public List<WorkflowOption> workflowOptions(PostSnapshot post, long customerId) {
+        customerSchemes.requireDocumentReadable(post, customerId);
+        return quotes.selectWorkflowOptions(post.orgId(), customerId).stream()
+                .map(row -> new WorkflowOption(row.getId(), row.getCustomerId(), row.getCompanyId(), row.getTotalCents(),
+                        row.getBudgetVersion(), row.getPriceVersion(), row.getCreateTime())).toList();
+    }
+
+    public Map<String, Object> workflowSheet(PostSnapshot post, long customerId, long quoteId) {
+        SaleQuoteDO quote = requireWorkflowQuote(post, customerId, quoteId);
+        Map<String, Object> sheet = frozenSheet(quote);
+        sheet.put("customerId", Long.toString(customerId));
+        sheet.put("quoteId", Long.toString(quoteId));
+        return sheet;
+    }
+
     public SaleQuoteDO requireOfOrg(PostSnapshot post, long quoteId) {
         SaleQuoteDO quote = quotes.selectById(quoteId);
         if (quote == null || quote.getCompanyId() != post.orgId()) {
@@ -146,13 +165,18 @@ public class SaleQuoteService implements CustomerWorkflowQuotePort {
 
     @Override
     public Quote requireCustomerQuote(PostSnapshot post, long customerId, long quoteId) {
-        access.requireOrgCustomer(post, customerId);
+        SaleQuoteDO quote = requireWorkflowQuote(post, customerId, quoteId);
+        return new Quote(quote.getTotalCents(), quoteVersionLabel(quote));
+    }
+
+    private SaleQuoteDO requireWorkflowQuote(PostSnapshot post, long customerId, long quoteId) {
+        customerSchemes.requireDocumentReadable(post, customerId);
         SaleQuoteDO quote = requireOfOrg(post, quoteId);
         if (!java.util.Objects.equals(quote.getCustomerId(), customerId)
                 || quote.getTotalCents() == null || quote.getTotalCents() <= 0) {
             throw exception(REFERENCE_INVALID);
         }
-        return new Quote(quote.getTotalCents(), quoteVersionLabel(quote));
+        return quote;
     }
 
     private static String quoteVersionLabel(SaleQuoteDO quote) {
@@ -165,7 +189,10 @@ public class SaleQuoteService implements CustomerWorkflowQuotePort {
 
     /** B4：规范票据 JSON（字段对齐 v3 quote-export sheet；全部取自创建时冻结快照） */
     public Map<String, Object> exportSheet(PostSnapshot post, long quoteId) {
-        SaleQuoteDO quote = requireOfOrg(post, quoteId);
+        return frozenSheet(requireOfOrg(post, quoteId));
+    }
+
+    private static Map<String, Object> frozenSheet(SaleQuoteDO quote) {
         Map<String, Object> sheet = new LinkedHashMap<>();
         sheet.put("kind", "budget");
         sheet.put("version", quote.getId());
