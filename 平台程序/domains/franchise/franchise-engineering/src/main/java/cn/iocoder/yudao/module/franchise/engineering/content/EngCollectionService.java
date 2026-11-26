@@ -164,6 +164,14 @@ public class EngCollectionService {
         } else throw exception(ENGINEERING_INPUT_INVALID,"收款节点不合法，请刷新合同付款计划");
 
         String transactionNo = StrUtil.trim(cmd.transactionNo());
+        if (StrUtil.isBlank(transactionNo) || cmd.fileAssetId() == null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请填写收款流水并留存凭据");
+        }
+        LocalDate date = cmd.occurredAt() == null ? LocalDate.now() : cmd.occurredAt();
+        if (date.isAfter(LocalDate.now())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
+        }
+        long amount = EngGuard.requirePositiveCents(cmd.amount());
 
         Map<String, Object> legacyPayload = new LinkedHashMap<>();
         legacyPayload.put("stage", cmd.stage());
@@ -221,14 +229,6 @@ public class EngCollectionService {
                 && !EngGuard.toppingDone(planNodesForGate(post, projectId))) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先完成主体封顶");
         }
-        if (StrUtil.isBlank(cmd.transactionNo()) || cmd.fileAssetId() == null) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请填写收款流水并留存凭据");
-        }
-        LocalDate date = cmd.occurredAt() == null ? LocalDate.now() : cmd.occurredAt();
-        if (date.isAfter(LocalDate.now())) {
-            throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
-        }
-        long amount = EngGuard.requirePositiveCents(cmd.amount());
         // 行锁串行化并发登记（评审十三 P2-1 保留）
         projectService.projects().lockById(projectId);
         // M07-T06/I05（R1 P1-1）：统一链收款——资金事实唯一在 fr_fin_receipt + fr_sale_stage_receipt
