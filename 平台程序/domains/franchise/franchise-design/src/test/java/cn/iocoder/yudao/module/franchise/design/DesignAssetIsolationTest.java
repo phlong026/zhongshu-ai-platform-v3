@@ -82,17 +82,21 @@ class DesignAssetIsolationTest {
     }
 
     @Test
-    void retiredProjectWritesCannotUploadReferencesOrCreateAServiceAccount() {
+    void projectUsesOnlyTranslatedReferencesAndKeepsItsBusinessKey() {
         var remote=mock(RemoteDesignGateway.class);var assets=mock(AssetAccessPort.class);
-        var accounts=mock(StoreServiceAccountPort.class);
+        var accounts=mock(StoreServiceAccountPort.class);when(accounts.requireServiceAccount(33L)).thenReturn(777L);
+        var reader=mock(cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader.class);
         var service=new DesignAccessService(mock(DesignServicePort.class),mock(CustomerSchemePort.class),accounts,
                 mock(FranchiseCommands.class),mock(CurrentPost.class),mock(PlatformTransactionManager.class),mock(DataSource.class));
-        service.setRemoteGateway(remote);service.setLocalAssets(assets);
+        service.setRemoteGateway(remote);service.setLocalAssets(assets);service.setReferenceReader(reader);
         var original=new DesignServicePort.DesignProjectCreate("SELF_UPLOAD",null,null,java.util.Map.of("referenceAssetIds",java.util.List.of("123")),"ELEVATION","project-key");
-        assertThatThrownBy(()->service.createProject(POST,original))
-                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                        error->assertThat(error.getCode()).isEqualTo(DesignGenerationPolicy.RETIRED));
-        verifyNoInteractions(remote,assets,accounts);
+        var translated=new DesignServicePort.DesignProjectCreate("SELF_UPLOAD",null,null,java.util.Map.of("referenceAssetIds",java.util.List.of("901")),"ELEVATION","project-key");
+        when(reader.translate(POST,original,assets,ACTOR)).thenReturn(translated);
+        when(remote.call(POST,cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_PROJECT,"project-key",translated))
+                .thenReturn(new DesignServicePort.ProjectCreated(501,false));
+        assertThat(service.createProject(POST,original).projectId()).isEqualTo(501);
+        verify(remote).call(POST,cn.iocoder.yudao.module.franchise.api.capability.DesignCapabilityContract.Operation.CREATE_PROJECT,"project-key",translated);
+        verifyNoMoreInteractions(remote);
     }
 
     @Test

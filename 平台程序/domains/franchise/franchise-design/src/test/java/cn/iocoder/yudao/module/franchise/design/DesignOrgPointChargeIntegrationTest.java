@@ -16,6 +16,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -206,6 +207,36 @@ class DesignOrgPointChargeIntegrationTest {
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type IN ('SETTLE','RELEASE')", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=21", Long.class)).isEqualTo(reservedBalance);
+    }
+
+    @Test
+    void permittedStoreBudgetsChargeTheCompanyOncePerConfirmedIndependentOrProjectEstimate() {
+        var sales = new PostSnapshot(41, 51, 21, "store", "sales", null, false, Set.of());
+        var flow = new DesignFlowAccessService(null, org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.franchise.design.remote.RemoteDesignGateway.class), null, null, null, points);
+        String subject = "budget_estimate";
+        points.setMemberPermission(sales.orgId(), sales.userId(), List.of(), 1);
+        assertThatThrownBy(() -> flow.quote(sales, subject, 1))
+                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(1_072_000_015));
+        points.setMemberPermission(sales.orgId(), sales.userId(), List.of(subject), 1);
+        var price = flow.quote(sales, subject, 1);
+        var confirmation = Map.of("subject", subject, "quantity", price.quantity(),
+                "credits", price.credits(), "priceVersion", price.priceVersion());
+        long commandId = 300;
+        for (String path : List.of("/budget-drafts/7/estimates", "/design-projects/9/budget-estimates/itemized")) {
+            long id = ++commandId;
+            var call = new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall("POST", path,
+                    Map.of(), Map.of("companyPrice", confirmation), "budget-" + id);
+            assertThat(call.operation()).isEqualTo(Operation.FLOW_BUDGET);
+            var accepted = transaction.execute(status -> charges.quote(sales, call.operation(), call));
+            transaction.executeWithoutResult(status -> charges.reserve(id, sales, accepted));
+            transaction.executeWithoutResult(status -> charges.completeSynchronous(id, sales, accepted, call.operation()));
+            transaction.executeWithoutResult(status -> charges.completeSynchronous(id, sales, accepted, call.operation()));
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM org_point_ledger WHERE type='SETTLE'", Long.class)).isEqualTo(2L);
+        assertThat(jdbc.queryForObject("SELECT balance FROM org_point_account WHERE org_id=21", Long.class))
+                .isEqualTo(1000L - 2 * price.credits());
     }
 
     @Test
