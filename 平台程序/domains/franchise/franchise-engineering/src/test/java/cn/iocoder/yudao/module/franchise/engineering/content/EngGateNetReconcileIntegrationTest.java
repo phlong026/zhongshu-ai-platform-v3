@@ -312,8 +312,19 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         LocalDate yesterday = LocalDate.now().minusDays(1);
         var dated = new EngCollectionService.CollectCommand(
                 SIGN_AFTER, new java.math.BigDecimal("100.00"), transactionNo, yesterday, 9002L);
-        // An explicit date creates the same fingerprint as the preceding release's resolved day.
         var first = as(finance, () -> collectionService.register(finance, projectId, dated, key));
+        var old = new java.util.LinkedHashMap<String, Object>();
+        old.put("projectId", projectId);
+        old.put("stage", SIGN_AFTER);
+        old.put("amountCents", 10_000L);
+        old.put("transactionNo", transactionNo);
+        old.put("occurredAt", yesterday.toString());
+        old.put("fileAssetId", 9002L);
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        jdbc.update("UPDATE pf_command_event SET occurred_at=?,payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-collect'",
+                yesterday.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), first.get("collectionId"));
         var original = new EngCollectionService.CollectCommand(
                 SIGN_AFTER, dated.amount(), transactionNo, null, 9002L);
         var replay = as(finance, () -> collectionService.register(finance, projectId, original, key));
@@ -327,6 +338,38 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                 .isInstanceOf(ServiceException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?",
                 Long.class, signStageId)).isEqualTo(1L);
+    }
+
+    @Test
+    void legacyCollectionReplayChecksTheOriginalReceiptFacts() {
+        String key = idem();
+        String txn = txn();
+        LocalDate date = LocalDate.now().minusDays(1);
+        var command = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), txn, date, 9002L);
+        var first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        String legacy = "{\"stage\":\"SIGN_AFTER\",\"amount\":\"100.00\",\"transactionNo\":\"" + txn + "\"}";
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-collect'",
+                legacy, cn.hutool.crypto.digest.DigestUtil.sha256Hex(legacy), first.get("collectionId"))).isOne();
+        var replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        assertThat(replay).containsEntry("collectionId", first.get("collectionId"))
+                .containsEntry("receiptId", first.get("receiptId")).containsEntry("replayed", true);
+        var changed = new EngCollectionService.CollectCommand(SIGN_AFTER, command.amount(), txn, date, 9003L);
+        assertError(() -> as(finance, () -> collectionService.register(finance, projectId, changed, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    @Test
+    void retryCannotRemoveAnExplicitCollectionDate() {
+        String key = idem();
+        var original = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), LocalDate.now().minusDays(1), 9002L);
+        as(finance, () -> collectionService.register(finance, projectId, original, key));
+        var omitted = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, original.amount(), original.transactionNo(), null, 9002L);
+        assertError(() -> as(finance, () -> collectionService.register(finance, projectId, omitted, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
     }
 
     @Test
