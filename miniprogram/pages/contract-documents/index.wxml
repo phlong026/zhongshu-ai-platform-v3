@@ -1,5 +1,5 @@
 <view class="evidence-page">
-  <business-header title="{{context.status==='WAIT_SIGN'?'合同签约':'合同凭证'}}"/>
+  <business-header title="{{context.status==='WAIT_SIGN'?'施工合同签约':'合同凭证'}}"/>
   <view wx:if="{{!ready}}" class="evidence-empty"><text>{{loading?'正在加载合同…':error||'合同暂不可用'}}</text><view wx:if="{{!loading}}" class="evidence-actions"><button class="evidence-secondary" bindtap="load">重新加载</button><button class="evidence-secondary" bindtap="chooseIdentity">登录／切换身份</button></view></view>
   <view wx:else class="evidence-body">
     <view class="evidence-card"><view class="evidence-heading"><text>{{context.customerName||'客户合同'}}</text><text class="evidence-badge">{{context.statusLabel}}</text></view><view class="evidence-total">¥ {{context.totalText}}</view><view class="evidence-fact"><text>合同编号</text><text>{{context.contractId}}</text></view><button class="evidence-link" bindtap="openPlan" disabled="{{busy||uploading}}">查看付款计划 ›</button></view>
