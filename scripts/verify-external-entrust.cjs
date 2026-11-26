@@ -209,6 +209,70 @@ test('unknown mutation result freezes exact key/body, prevents edits/leave and r
   await h.page.runPending(); const commands = h.callsFor('register'); assert.deepEqual(commands[0].args, commands[1].args); assert.equal(h.page.data.uncertain, false);
 });
 
+test('a lost receipt never exposes a measurement while customer access is being rechecked on return', async () => {
+  for (const decision of ['transfer', 'offline', 'retry']) {
+    const source = measured('8123456789123456001', 3, '901');
+    const h = harness({ api: {
+      measurements: async () => ({customerId: '42', list: [source], nextBeforeId: null}),
+      register: async () => { throw Error('lost receipt'); }
+    } });
+    await h.open(); h.fill(); await h.page.loadMeasurements();
+    h.page.chooseMeasurement({currentTarget: {dataset: {id: source.eventId}}});
+    await h.page.submit();
+    assert.equal(h.page.data.uncertain, true);
+    const original = h.callsFor('register')[0].args;
+    h.page.onHide();
+    const access = deferred();
+    h.overrides.get = () => access.promise;
+    const returning = h.page.onShow();
+    assert.equal(h.callsFor('get').length, 2);
+    assert.equal(h.page.data.form, null);
+    assert.equal(h.page.data.context, null);
+    assert.equal(h.controls().some(n => n.attrs?.bindtap === 'runPending'), false);
+    await h.page.runPending();
+    assert.equal(h.callsFor('register').length, 1);
+    if (decision === 'transfer') {
+      access.reject({code: 1110000000, msg: '客户已转交'}); await returning;
+      assert.equal(h.page._pending, null);
+      assert.equal(h.page.data.form, null);
+      assert.equal(h.page.data.uncertain, false);
+      assert.doesNotMatch(JSON.stringify(h.page.data), /实测现场|原测量图|陈师傅/);
+      await h.page.runPending();
+      assert.equal(h.callsFor('register').length, 1);
+    } else {
+      if (decision === 'offline') {
+        access.reject(Error('offline')); await returning;
+        assert.equal(h.page.data.form, null); assert.equal(h.page.data.context, null);
+        await h.page.runPending(); assert.equal(h.callsFor('register').length, 1);
+        delete h.overrides.get; await h.page.load();
+      } else { access.resolve(state()); await returning; }
+      assert.equal(h.page.data.uncertain, true);
+      assert.equal(h.page.data.form.measurementRef.eventId, source.eventId);
+      await h.page.runPending();
+      assert.deepEqual(h.callsFor('register')[1].args, original);
+    }
+  }
+});
+
+test('late write and upload receipts cannot restore a draft after a same-post transfer', async () => {
+  for (const operation of ['write', 'upload']) {
+    const reply = deferred(), access = deferred();
+    const h = harness({api: {register: () => reply.promise}, upload: () => reply.promise});
+    await h.open(); h.fill();
+    const pending = operation === 'write' ? h.page.submit() : h.page.startUpload({path: '/原测量附件.pdf', name: '原测量附件.pdf'});
+    h.page.onHide(); h.overrides.get = () => access.promise;
+    const returning = h.open();
+    assert.equal(h.page.data.form, null);
+    assert.equal(h.page.data.context, null);
+    reply.resolve(operation === 'write' ? state('pending') : {assetId: '98', fileName: '敏感.pdf', mimeType: 'application/pdf'});
+    await pending;
+    assert.equal(h.page.data.form, null); assert.equal(h.toasts.length, 0);
+    access.reject({code: 403, msg: '客户已转交'}); await returning;
+    assert.equal(h.page._pendingFile, null); assert.equal(h.page._pending, null); assert.deepEqual(copy(h.page._localFiles), {});
+    assert.doesNotMatch(JSON.stringify(h.page.data), /原测量附件|敏感/);
+  }
+});
+
 test('revision and payment-plan conflicts preserve form, require explicit reload; old GET cannot roll back saved request', async () => {
   const h = harness(); await h.open(); h.fill(); const read = deferred(); h.overrides.get = () => read.promise; const loading = h.page.load();
   await h.page.submit(); read.resolve(state()); await loading; assert.equal(h.page.data.context.revision, 1); assert.equal(h.page.data.context.request.data.text, '三房两厅，带老人房');
