@@ -52,7 +52,7 @@
 | 09 | 工程成本与项目账本 | 材料、项目账本、质量整改与施工延期已合并，待现场验收 | 实际收货、分次补发、领用和成本可追到原单。质量整改兼容旧版登记再分派。施工延期分别显示原工期和修订排期，保留原因、措施、恢复日和办理历史。撤岗、失效链接与弱网重试已复验。 | [#215](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/215)、[#219](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/219)、[#217](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/217)、[#225](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/225)、[#224](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/224)、[#226](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/226)、[#231](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/231)、[#232](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/232)、[#237](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/237)、[#242](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/242)、[#243](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/243)、[#244](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/244) |
 | 10 | 客户、委托、合同至开工 | 八步办理、外部委托、签约及工程开工的代码均已合并，待用户排期验收 | 同一客户贯穿内容咨询、八步跟进、正式报价、施工签约、指定工程负责人接收和实际开工。有原因的免带看计入进度，实际带看单独留存。设计合同可归设计委托，正式施工合同签署后才完成第 07 步。各期付款条件和实收可追到同一合同和原始凭据。施工签约时锁定付款计划，按期实收和退款可继续核对。 | [#221](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/221)、[#222](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/222)、[#249](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/249)、[#250](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/250)、[#251](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/251)、[#252](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/252)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#254](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/254)、[#255](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/255)、[#256](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/256)、[#257](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/257)、[#258](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/258)、[#259](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/259)、[#262](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/262)、[#263](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/263)、[#264](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/264)、[#265](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/265)、[#266](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/266)、[#267](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/267)、[#268](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/268)、[#270](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/270)、[#271](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/271)、[#272](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/272)、[#273](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/273)、[#274](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/274)、[#275](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/275)、[#277](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/277)、[#278](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/278) |
 | 11 | 绩效、公告、培训与公司额度 | 绩效基础、工资实付、公司共享积分及充值开关已合并 | 超级管理员为门店所属公司添加共享积分。新充值默认关闭，历史订单、既有订单到账核对及退款继续可用，原支付代码可按配置恢复。正式薪酬公式待用户提供。 | [#157](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/157)、[#160](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/160)、[#220](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/220)、[#228](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/228)、[#229](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/229)、[#230](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/230)、[#235](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/235)、[#240](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/240)、[#241](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/241)、[#245](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/245)、[#246](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/246) |
-| 12 | 迁移、配对与上线 | 159 份制品迁移清单已合并，目标环境待验 | Windows 与 LF 检出按统一门槛验包。实际制品和已合入的清单共 159 份迁移、234 张表和 61 条序列，隔离 PostgreSQL 17 已执行全部正向 SQL 并与实物表和序列核对。31 张待补证或定界。 | [#149](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/149)、[#161](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/161)、[#163](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/163)、[#169](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/169)、[#223](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/223)、[#233](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/233)、[#236](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/236)、[#238](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/238)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#260](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/260) |
+| 12 | 迁移、配对与上线 | 制品迁移与隔离恢复已验，目标环境待验 | Windows 与 LF 检出按统一门槛验包。SQL 清单有 159 份。同一制品另含 1 个 Java 数据迁移，隔离源库及恢复库核实 160 条历史、234 张表和 61 条序列。31 张待补证或定界。 | [#149](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/149)、[#161](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/161)、[#163](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/163)、[#169](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/169)、[#223](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/223)、[#233](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/233)、[#236](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/236)、[#238](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/238)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#260](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/260) |
 
 ### 子任务与待补资料
 
@@ -69,7 +69,7 @@
 | CRM-04 | 10 | 同客户端到端已通过隔离配对 | 一件作品，两次咨询产生同一客户档案，用该客户的外部委托版本及自定义付款约定走完八步、施工签约、指定工程接收与实收后开工。已覆盖选本客户报价、上传外部报价、换版重新沟通和转交后重新授权。同时验过原实测单朝向及高差在外部委托和总部历史的回读。 |
 | CRM-05 | 10、12 | 历史路径已回归，待历史样本 | 六类在途委托的原号、费用及版本可追溯，实际旧客户证据映射待环境验收。 |
 | CRM-06 | 10 | 双端已合并，隔离配对通过 | #221/#222 按上海业务日期提醒。原生页面以 19 位原始客户编号打开跟进页，转交后新负责人收到唯一待办，办结后移除。 |
-| CONTENT-01、CONTENT-02 | 04 | 已合并，自动化通过 | 发布回填、实际链接 A/B 核对、重复操作及回执丢失已回归，待手机弱网。 |
+| CONTENT-01、CONTENT-02 | 04 | 发布登记及链接回填已合并，模板生成封面按最新决定退役中 | 视频在视频号、抖音等外部平台手动发布，回小程序保留发布记录和外部链接。发布回填、链接、重复操作及回执丢失已回归，待手机弱网。 |
 | CONTENT-03、CONTENT-04 | 04 | 已合并，待业务验收 | 咨询来源、待关联及任务标题分别接续 #155、#84。旧作品与历史发布见节点 06。 |
 | CONTENT-06、CONTENT-06A | 06 | 双端已合并，待业务验收 | #216/#218 接入权威作品编号、版本与可管理标记，兼容旧文本作品。 |
 | CONTENT-06B、CONTENT-06C | 06 | 双端已合并，待业务验收 | 验证作者权限、回收及恢复、原任务结果、已有发布可播放并保留客户来源。 |
@@ -109,7 +109,7 @@
 | WALLET-06 | 05 | 历史差异核查已完成 | #106/#107 关闭，当前公司额度沿用 #142/#143，旧模拟收银不进入正式渠道。 |
 | QA-01 | 12 | 159 份制品迁移清单已合并，31 张表待审 | 清单随 #223/#233/#238/#260 合入。#253 新增附加资料与受控文件票据范围，实际制品 159 份 SQL、234 张表、61 条序列。203 条表归属已登记。27 张需现场证据，4 张需业务定界。 |
 | QA-02 | 12 | 待 B05 | 待项目负责人提供清理与保留名单和恢复范围。 |
-| QA-03 | 12 | 159 份脚本已在隔离库执行，目标环境待恢复演练 | Linux 迁移恢复专项 11 项。干净 PG17 实际顺序执行 159 份正向迁移，核对 234 张表、61 条序列和同公司客户组合外键。两个反向脚本均在写入并发中等待并拒绝撤销已有业务数据。现场备份的恢复时点和范围待 B05。 |
+| QA-03 | 12 | 隔离 PG、Redis 和附件恢复通过，现场恢复待排期 | Linux 迁移恢复专项 11 项。干净 PG17 实际顺序执行 159 份正向迁移，核对 234 张表、61 条序列和同公司客户组合外键。两个反向脚本均在写入并发中等待并拒绝撤销已有业务数据。本轮实际还原 160 条 Flyway 历史（159 份 SQL 和 1 个 Java 迁移），财务原单、冻结点和 3 份附件校验通过。现场备份时点与范围待 B05。 |
 | QA-04 | 12 | 客户跟进固定配对已验，待目标环境发布 | 已核对本节所列两条功能主线及逐项提交。最终功能组合通过 46 组 519 项后端回归，另有小程序 33 组 1,662 项和 148 项岗位首页检查。目标环境、恢复和试点资料见 B05、B06。 |
 | QA-05、QA-06 | 12 | 待真机与 B06 | 需公网 HTTPS 后端及文件接口、微信真机、三家门店账号和岗位。 |
 | QA-07 | 12 | 已验证 CI 的迁移恢复与回滚，目标环境待演练 | 冻结和配对选择 21 项通过。固定案例的打包、迁移失败恢复和健康回滚已由 CI 演练。用部署现场备份验证 Flyway 升级、恢复及回滚仍需 B05。 |
@@ -117,7 +117,7 @@
 | B01 | 10 | 两项业务决定均已确认 | 有原因的主动跳过计入第 04 步进度，保留跳过事实。第 07 步只在正式施工合同已签署后完成。单独签设计合同可归入设计委托档案，施工签约待办。 |
 | B02、B04 | 11 | 两项规则暂缓 | 后续由项目负责人提供正式薪酬公式及公共费用分摊口径。 |
 | B03 | 03、10 | 签约即锁定付款计划已确认，双端已合并验收 | 签约前由业务与客户确认期次及条件，签约时锁定同版。签后所有岗位只读期数、金额、日期和工程节点。工程申报实际收款，财务照常核对入账。 |
-| B05、B06 | 12 | 现场资料与排期待项目负责人 | 备份及恢复范围待补。用户负责部署，三家门店试点账号、岗位和时间由用户后续安排。 |
+| B05、B06 | 12 | 隔离恢复已验，实际资料与排期待项目负责人 | 品牌、未绑定门店与覆盖地区按已确认规则处理。实际价目差异、现场备份和恢复范围待补。用户负责部署，三家门店试点账号、岗位和时间由用户后续安排。 |
 
 ### 本轮代码与配对验收
 
@@ -270,17 +270,21 @@
 
 </details>
 
-#### B05 需要项目负责人确认的三件事
+#### B05 的积分价目例外与已确认的品牌、门店处理规则
 
-本次在固定后端逐份比对 159 份正向迁移及其摘要，得到 234 张表、61 条序列。234 张表扣除已有归属条件的 203 张，余下表与下方 4 张定界、27 张取证逐张一致。另有 25 项离线归属校验通过，覆盖余额缺失、重复归属、在途款项和孤立附件引用。
+本次在固定后端逐份比对 159 份正向迁移及其摘要，得到 234 张表、61 条序列。运行时另执行 1 个 Java 数据迁移。234 张表扣除已有归属条件的 203 张，余下表与下方 4 张定界、27 张取证逐张一致。另有 25 项离线归属校验通过，覆盖余额缺失、重复归属、在途款项和孤立附件引用。
 
-现场按同一核对时点提供源、目标脱敏差异，注明时区、租户及版本或导入批次。尚未收到现场对照，具体冲突价目、品牌、门店及其数量待盘点后列出。负责人只需在差异行上确认下列三件事，可直接用业务编号、门店名称及地区答复。比对为零时登记范围、时间和零行结果即可。
+现场按同一核对时点提供源、目标脱敏差异，注明时区、租户及版本或导入批次。尚未收到现场对照，具体冲突价目、品牌、门店及其数量待盘点后列出。积分价目只有发现冲突时才请负责人选择版本。项目负责人已确认品牌、未绑定门店和服务区按证据判定去向，只有仍有歧义的个案才单列复核。比对为零时登记范围、时间和零行结果即可。
 
-| 请确认 | 涉及的表 | 现场先提供 | 负责人答复方式 |
+| 事项与状态 | 涉及的表 | 现场先提供 | 负责人答复方式 |
 |---|---|---|---|
-| 哪版积分价目生效，哪些旧版须保留 | `org_point_subject_price` | 财务列源、目标的科目、单价、计价单位、最低计费量、ACTIVE 版本、生效或停用时间及价格来源。无 ACTIVE 行时核对程序默认价 | 对冲突科目选定依据和版本，核实原生效时间、注明保留的历史版本。已有流水保留原计价依据。 |
-| 哪些归属不清的品牌属于众墅之家 | `pf_map_brand` | 总部运营列出品牌编号、名称、已关联门店及目录，标出无门店引用或跨范围的记录 | 按品牌编号标记「纳入本次」「留在原侧」或「暂缓核实」。 |
-| 哪些未绑定门店及服务地区应随迁 | `pf_franchise_directory`、`pf_franchise_directory_region` | 运营列出未绑定账号、跨品牌或仅在导入表内出现的门店，附来源行和覆盖地区 | 按门店确认归属和服务范围。地区随同租户内已确认的门店，仅对有歧义的覆盖区核对区县名称和六位代码。 |
+| 待确认 · 积分价目冲突时采用哪版 | `org_point_subject_price` | 财务列源、目标的科目、单价、计价单位、最低计费量、ACTIVE 版本、生效或停用时间及价格来源。无 ACTIVE 行时核对程序默认价 | 对冲突科目选定依据和版本，核实原生效时间、注明保留的历史版本。已有流水保留原计价依据。 |
+| 已确认处理原则 · 加盟商品牌归属 | `pf_map_brand` | 总部运营列出品牌编号、名称、已关联门店及目录，标出无门店引用或跨范围的记录 | 按租户及品牌编号核对。能证明属于众墅之家的纳入 V3，已有明确原系统归属的留在原系统，证据不足的暂缓并保留原记录。 |
+| 已确认处理原则 · 未绑定门店及其服务区 | `pf_franchise_directory`、`pf_franchise_directory_region` | 运营列出未绑定账号、跨品牌或仅在导入表内出现的门店，附来源行和覆盖地区 | 可核实属于众墅之家的门店及已确认服务区一同随迁。地区随同租户的父门店。证据不足时保留原记录，只把仍有歧义的门店或区县列入例外清单。 |
+
+原「模板生成封面」供内容创作人员在准备发布作品时制作封面，项目负责人已确认取消该功能。视频在外部平台手动发布，小程序保留发布记录及链接回填。历史封面请求 `fr_content_cover_request` 按原请求和服务商回执取证。现有公司积分目录未单列封面生成。核价使用「文案改写」「数字人口播」「快速预算」等实际科目。加盟商品牌记录用于总部加盟商名录、门店地图的品牌筛选和覆盖统计，也供总部公告按品牌选择受众。
+
+**示例答复（虚构编号）**　「科目 P01 用目标库 V3，源库 V2 留档。品牌 B07 仅留原系统。门店 D12 随迁，服务甲区、乙区。」服务区指门店承接业务的覆盖区域，地区归属按原门店核对。
 
 27 张取证表由六组岗位按下表提供凭据。逐表字段与核对条件在下方明细中。
 
@@ -417,13 +421,28 @@ PostgreSQL 17.11 以固定提交的原始 SQL 验证了整改主单、历史事�
 
 重复验收时先在固定小程序目录执行 `npm ci`。从固定后端的 `平台程序` 目录用 Maven Wrapper 运行 `-pl domains/franchise/franchise-asset -am test`，以 `-Dtest=ExternalHandoverPgIntegrationTest#pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation` 选择用例、`-Dsurefire.failIfNoSpecifiedTests=false` 允许无匹配用例的依赖模块。指定隔离 PostgreSQL 的 `platform.test.jdbc.url`、`platform.test.jdbc.username`，以及指向配套小程序 `scripts/verify-paired-external-handover.cjs` 的 `franchise.external-handover.client`。核对 Surefire 的失败、错误和跳过均为 0，输出中的 `CUSTOMER_JOURNEY` 可串起同次运行的全部原单。
 
-### 后续工作怎样并行
+#### 在空目标中恢复一份独立备份
+
+恢复组从固定后端 `f356e76e2b7498474526706b765090abfad195e8` 构建服务 JAR，在隔离的 PostgreSQL 17.11、Redis 7.4.11 和本地附件目录上演练。源库使用实际 Flyway 入口建库，冻结点为 2026-11-26 21:10:32（北京时间）。该次迁移历史有 **160 条**，包含 159 份版本化 SQL 和 1 个 Java 数据迁移 `V20261122.989`。新增的一条计数来自对既有 Java 迁移的核实，31 张待审表仍按原清单取证。[Java 迁移源码](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/f356e76e2b7498474526706b765090abfad195e8/%E5%B9%B3%E5%8F%B0%E7%A8%8B%E5%BA%8F/platform/platform-org/src/main/java/db/migration/pf/V20261122_989__preserve_changed_staff_passwords.java)
+
+| 实测顺序 | 恢复后的核对结果 |
+|---|---|
+| 生成与核验备份 | 保存 PostgreSQL 自定义格式备份、Redis RDB 和三份 PDF，独立留存清单摘要。备份完成后，在隔离源环境另改一条备注、一个 Redis 键及一个附件，供对照恢复时点。 |
+| 恢复到新的空目标 | 使用仓库 `ops.py` 校验备份并将 PostgreSQL 单事务还原，再从 RDB 启动独立 Redis，恢复附件副本。160 条 Flyway 历史一致，复跑同一 JAR 新增 0 条。234 张表、61 条序列的名称一致，备注、Redis 键和附件均回到冻结点。 |
+| 抽查业务记录 | 恢复样本客户 `81001`、已签合同 `81020`、付款计划 V1 和工程 `81030` 仍互相关联。本合同首期 400 元按 2026-12-05 到期，开工前必付 0 元。两笔实收 100 和 150 元均对上原凭据，合同余 750 元，首期余 150 元、二期余 600 元。公司积分 80 分与流水相符。3 份 PDF 的实际字节数与 SHA-256 均匹配。 |
+| 复验错误情形 | 错误的受信清单摘要、被改过的 PG 备份、已有对象的目标数据库、字节被改动的附件分别被识别。本次核对结果和备份摘要已留存。 |
+
+该次 JAR 的 SHA-256 为 `6aceedbeac054eab1d76206a97a3f95d18e8bacbf51f0f1987c2bab09b9c8edd`。前后业务核对文件具有相同摘要 `6a5f0d3b9dead9334ca7ad135bcb3cf9c9449e9e6ebe7108910d31795a7a8974`。本机从开始恢复到核对完毕用时 19.05 秒，现场的可接受恢复点和最长停机时间仍由项目负责人确定。开发机复跑脚本为 `E:/_zs_build/v3-b05-isolated-20261126/rehearse.py`，本次原始结果在同目录 `run-f3e6c5f032/evidence.json`。
+
+现场演练待排期。准备同一冻结时点的可信备份、镜像摘要、COS 对象版本及校验清单、独立的恢复资源和业务核对人。同机全栈方案还须恢复设计服务的 PostgreSQL、Redis 和运行日志（Runtime journal），验证云端原件和授权后再核实能否开放写入。生产部署和三家门店试点由项目负责人另行安排。[仓库备份与恢复操作手册](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/f356e76e2b7498474526706b765090abfad195e8/%E5%B9%B3%E5%8F%B0%E7%A8%8B%E5%BA%8F/deploy/platform/CAPABILITY_DEPLOYMENT.md#L293)
+
+### 后续现场验收
 
 首项现场验收采用试点公司的一份真实脱敏案例，从实际外部发布链接与咨询建档，走完选型、实测、报价、施工签约、工程接收和实际开工。业务、工程和财务分别核原单，再用同一客户编号、委托版本和合同编号对账。节点 03 的材料到货、补发、收款与交付回执可并行抽验。
 
 部署由用户安排。先核对在用小程序是否已包含 #266 的第 03 步兼容处理，必要时先让该兼容版本可用，再启用 #267 的后端保护。第 04 步跳过及本轮其他新增接口先在目标后端就绪，并核验公网 HTTPS 和文件传输，随后发布对应小程序。发布签约锁版时先部署 #277 后端，使各版本小程序调用签后写入口均受约束，再发布 #278 的只读及重试处理。正式部署与试点日期待用户安排。
 
-另一组可同时准备 B05 的备份和表归属证据。B01 的免带看与施工签约、B03 的施工签约时锁定付款计划均已确认。业务方后续提供正式薪酬公式和公共费用分摊口径。三家门店名单和时间由用户另行提供，正式部署由用户负责。图纸及报价接口待设计软件方提供样本、接口说明和测试条件，现行手动上传继续可用。
+隔离恢复已通过。现场可并行提取同一时点的源、目标差异，并由各岗位准备 B05 所需证据。B01 的免带看与施工签约、B03 的施工签约时锁定付款计划均已确认。业务方后续提供正式薪酬公式和公共费用分摊口径。三家门店名单和时间由用户另行提供，正式部署由用户负责。图纸及报价接口待设计软件方提供样本、接口说明和测试条件，现行手动上传继续可用。
 
 ### 已确认事项与待补资料
 
@@ -433,7 +452,7 @@ PostgreSQL 17.11 以固定提交的原始 SQL 验证了整改主单、历史事�
 | B02 绩效薪酬 | 项目负责人后续提供正式薪酬公式、适用月份、计提及退款处理规则，该规则实现暂缓。 | PERF-01、PERF-02、PERF-04 |
 | B03 付款计划 | 已确认。正式施工合同签署时锁定付款计划版本。签署后任何岗位均不得修改期数、每期金额、付款日期或触发工程节点。工程按签约版本收款，财务核对实收。两种签后写入口、签约并发、旧版页面重试和收款核对均已验证。 | ENG-01、FIN-01 |
 | B04 成本分摊 | 公共费用分摊规则暂缓实现，待用户提供口径和能与项目直接成本区分的样例。 | FIN-04、FIN-06、FIN-07 |
-| B05 迁移与恢复 | 具体名单待源、目标同一时点的脱敏盘点。请按「B05 需要项目负责人确认的三件事」选择例外价目、品牌、门店及其覆盖地区。27 张表由相应岗位提供凭据。目标恢复时点、允许停机时长及现场备份仍待安排。 | QA-01、QA-02、QA-03、QA-07 |
+| B05 迁移与恢复 | 具体名单待源、目标同一时点的脱敏盘点。请按「B05 的积分价目例外与已确认的品牌、门店处理规则」核对积分价目冲突。品牌、未绑定门店及其服务区按已确认的证据范围处理，仅在原始记录不能解决歧义时提交个案。27 张表由相应岗位提供凭据。目标恢复时点、允许停机时长及现场备份仍待安排。 | QA-01、QA-02、QA-03、QA-07 |
 | B06 三家公司与真机 | 用户负责部署，三家门店的名单、时间、岗位、账号与真机由用户另排。上线前核验公网 HTTPS 后端及文件传输。试点核对存量订单到账、退款与共享积分。真实新充值验收随将来重新启用安排。 | QA-05、QA-06、WALLET-02、WALLET-04、WALLET-05 |
 | 外部设计图纸与报价接口 | 现阶段由用户导出并手动上传同一客户委托下的成果、施工图和专业审核依据。自动接口需软件方提供样本、接口说明和测试条件。 | DESIGN-04、ENTRUST-02、CRM-01 |
 | 成交归因 | 业务负责人确认成交事件，以及同一客户有多个内容触点时的分配规则。现有签约和净实收指标可分别核对。 | CONTENT-05、CONTENT-07 |
