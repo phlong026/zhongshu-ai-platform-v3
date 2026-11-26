@@ -203,21 +203,15 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(contracts.stageCollected(finance,stage)).isEqualTo(50000);
     }
     @Test
-    void confirmedChangeAddsAfterDeliveryTailWithoutCopyingReceipts(){
+    void legacyChangeCannotCreateAnAfterDeliveryTailOrDuplicateReceipts(){
         long customerId=newCustomer();var c=as(salesA1,()->contracts.create(salesA1,contract(customerId,100000,100000,0,0),idem()));
         as(salesA1,()->contracts.sign(salesA1,c.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(c.getId()),idem()));
-        contracts.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(80000,0,0,30000,java.time.LocalDate.now().plusMonths(1),"业主确认增项及尾款约定"),idem());
-        assertThat(contracts.financialStages(finance)).anySatisfy(r->{assertThat(r.get("stage")).isEqualTo("tail");assertThat(r.get("after_delivery")).isEqualTo(true);});
-        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_sale_contract WHERE id=?",Long.class,c.getId())).isEqualTo(110000);
+        var proposed=new SaleContractService.ContractChange(80000,0,0,30000,java.time.LocalDate.now().plusMonths(1),"业主提交变更");
+        assertThatThrownBy(()->contracts.changeAmounts(finance,c.getId(),proposed,idem())).hasMessageContaining("付款计划已锁定");
+        assertThat(contracts.financialStages(finance)).noneMatch(r->"tail".equals(r.get("stage")));
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_sale_contract WHERE id=?",Long.class,c.getId())).isEqualTo(100000);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE contract_id=?",Long.class,c.getId())).isZero();
-        assertThat(jdbc.queryForObject("""
-            SELECT h.amount_cents FROM fr_sale_stage_before_change h JOIN fr_sale_payment_stage s ON s.id=h.stage_id
-            WHERE s.contract_id=? AND s.stage='SIGN_AFTER'
-            """,Long.class,c.getId())).isEqualTo(100000);
-        assertThat(jdbc.queryForObject("""
-            SELECT h.deleted FROM fr_sale_stage_before_change h JOIN fr_sale_payment_stage s ON s.id=h.stage_id
-            WHERE s.contract_id=? AND s.stage='tail'
-            """,Boolean.class,c.getId())).isTrue();
+        assertThat(contracts.paymentPlanHistory(finance,c.getId())).hasSize(1);
     }
 
     // ========== 三期创建 ==========

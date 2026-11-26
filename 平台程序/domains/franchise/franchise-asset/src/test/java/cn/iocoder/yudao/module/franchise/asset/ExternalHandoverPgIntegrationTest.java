@@ -567,33 +567,63 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(secondEngineer,()->collections.declarations(secondEngineer,project))).isEmpty();
     }
 
-    @Test void engineeringDeclarationWaitingForAPlanAmendmentCannotApplyOldTermsToTheNewVersion() throws Exception {
-        long customer=customer(sales); var contract=signed(customer);
-        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
-        var stages=as(sales,()->contracts.stageSummary(sales,contract.getId()));
-        long first=(long)stages.get(0).get("stageId"),last=(long)stages.get(1).get("stageId");
-        long proof=upload(engineer,"FIN_VOUCHER");
-        var original=new EngCollectionService.CollectCommand((String)stages.get(0).get("stage"),new BigDecimal("1.00"),
-                key(),today(),proof,first,1L);
-        var changed=new SaleContractService.PaymentPlanCommand(100000,List.of(
-                new PaymentPlanRules.Input(first,"调整后的开工前款",35000L,null,null,"BEFORE_START",null),
-                new PaymentPlanRules.Input(last,"完工时",65000L,null,null,"ON_FINISH",null)),contract.getRevision(),"门店已经确认新计划");
-        var writing=new CountDownLatch(1); var release=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
+    @Test void signingWinsAgainstAnEditThatIsWaitingOnTheSameContract() throws Exception {
+        long customer=customer(sales);
+        var draft=as(sales,()->contracts.create(sales,new SaleContractService.ContractCommand(customer,100000,0,0,0,null,null,null,List.of(
+                new PaymentPlanRules.Input(null,"开工前付清",100000L,null,null,"BEFORE_START",null))),key()));
+        long file=upload(sales,"CONTRACT_ATTACHMENT");
+        long revision=jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,draft.getId());
+        var change=new SaleContractService.PaymentPlanCommand(100000,List.of(
+                new PaymentPlanRules.Input(null,"工程节点",100000L,null,null,"NODE_COMPLETED",2)),revision,"调整约定");
+        var signing=new CountDownLatch(1); var release=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
         try {
-            var amendment=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+            var signed=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
                 return new TransactionTemplate(transactions).execute(tx -> {
-                    var updated=as(finance,()->contracts.replacePaymentPlan(finance,contract.getId(),changed,key()));
-                    writing.countDown(); await(release); return updated;
+                    var frozen=as(sales,()->contracts.sign(sales,draft.getId(),new SaleContractService.SignCommand(today(),file),revision,key()));
+                    signing.countDown(); await(release); return frozen;
                 });
             } finally {TenantContextHolder.clear();}});
-            assertThat(writing.await(8,TimeUnit.SECONDS)).isTrue();
-            var submitting=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
-                return as(engineer,()->collections.register(engineer,project,original,key()));
+            assertThat(signing.await(8,TimeUnit.SECONDS)).isTrue();
+            var edit=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return as(finance,()->contracts.replacePaymentPlan(finance,draft.getId(),change,key()));
             } finally {TenantContextHolder.clear();}});
-            assertThatThrownBy(()->submitting.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
-            release.countDown(); assertThat(amendment.get(8,TimeUnit.SECONDS).getPaymentPlanVersion()).isEqualTo(2);
-            assertThatThrownBy(()->submitting.get(8,TimeUnit.SECONDS)).rootCause().isInstanceOf(ServiceException.class).hasMessageContaining("付款计划已有变化，请刷新核对本期");
-            assertThat(count("fr_sale_collection_declaration","stage_id",first)).isZero();
+            assertThatThrownBy(()->edit.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); assertThat(signed.get(8,TimeUnit.SECONDS).getPaymentPlanVersion()).isEqualTo(1);
+            assertThatThrownBy(()->edit.get(8,TimeUnit.SECONDS)).rootCause().isInstanceOf(ServiceException.class)
+                    .hasMessageContaining("付款计划已锁定");
+            assertThat(as(finance,()->contracts.stageSummary(finance,draft.getId()))).singleElement()
+                    .satisfies(row->assertThat(row).containsEntry("trigger","BEFORE_START").containsEntry("amountCents",100000L));
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void signingCannotFreezeAnOlderVersionWhileADraftEditCommits() throws Exception {
+        long customer=customer(sales);
+        var draft=as(sales,()->contracts.create(sales,new SaleContractService.ContractCommand(customer,100000,0,0,0,null,null,null,List.of(
+                new PaymentPlanRules.Input(null,"一次付清",100000L,null,null,"ON_SIGN",null))),key()));
+        long file=upload(sales,"CONTRACT_ATTACHMENT");
+        long revision=jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,draft.getId());
+        var change=new SaleContractService.PaymentPlanCommand(100000,List.of(
+                new PaymentPlanRules.Input(null,"签约时",40000L,null,null,"ON_SIGN",null),
+                new PaymentPlanRules.Input(null,"节点二",60000L,null,null,"NODE_COMPLETED",2)),revision,"签前核对");
+        var editing=new CountDownLatch(1); var release=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
+        try {
+            var edit=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return new TransactionTemplate(transactions).execute(tx -> {
+                    var updated=as(finance,()->contracts.replacePaymentPlan(finance,draft.getId(),change,key()));
+                    editing.countDown(); await(release); return updated;
+                });
+            } finally {TenantContextHolder.clear();}});
+            assertThat(editing.await(8,TimeUnit.SECONDS)).isTrue();
+            var sign=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return as(sales,()->contracts.sign(sales,draft.getId(),new SaleContractService.SignCommand(today(),file),revision,key()));
+            } finally {TenantContextHolder.clear();}});
+            assertThatThrownBy(()->sign.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); var updated=edit.get(8,TimeUnit.SECONDS);
+            assertThatThrownBy(()->sign.get(8,TimeUnit.SECONDS)).rootCause().isInstanceOf(ServiceException.class);
+            assertThat(updated.getStatus()).isEqualTo("WAIT_SIGN");
+            var frozen=as(sales,()->contracts.sign(sales,draft.getId(),new SaleContractService.SignCommand(today(),file),updated.getRevision(),key()));
+            assertThat(frozen.getPaymentPlanVersion()).isEqualTo(2); assertThat(frozen.getStatus()).isEqualTo("SIGNED");
+            assertThat(as(sales,()->contracts.stageSummary(sales,draft.getId()))).extracting(row->row.get("amountCents")).containsExactly(40000L,60000L);
         } finally {release.countDown();pool.shutdownNow();}
     }
 
@@ -629,7 +659,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Test void changedContractPlanRequiresReturningTheOriginalPacketBeforeAcceptance() throws Exception {
         long customer=customer(sales); var contract=signed(customer); var ready=ready(customer);
         var pending=submit(ready,upload(sales,"BUSINESS_DOCUMENT"),engineer);
-        // Simulate an independently approved later plan; acceptance must never silently substitute it.
+        // 历史上已有跨版本移交包，接收前仍需退回并核对当前合同。
         jdbc.update("UPDATE fr_sale_contract SET payment_plan_version=payment_plan_version+1 WHERE id=?",contract.getId());
         assertError(409,()->receive(pending,engineer,key()));
         assertThat(count("fr_eng_project","source_commission_id",Long.parseLong(ready.commissionId()))).isZero();

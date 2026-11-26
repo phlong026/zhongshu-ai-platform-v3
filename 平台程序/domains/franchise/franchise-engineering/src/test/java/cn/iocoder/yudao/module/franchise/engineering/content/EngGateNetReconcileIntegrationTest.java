@@ -201,27 +201,30 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         TenantContextHolder.setTenantId(store.orgId());
         engineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
         finance = fixture.post(engineer.orgId(), "finance", null);
-        // 客户 + 真实合同（68 万：40/18/10）并签约
+        seedProjectWithSignedPlan(null);
+    }
+
+    private void seedProjectWithSignedPlan(java.util.List<cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input> installments) {
         customerId = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_customer (id, company_id, owner_user_id, name, phone, source, status, create_time, update_time) "
                         + "VALUES (?, ?, ?, '陈先生', ?, '视频号咨询', 'REGISTERED', now(), now())",
                 customerId, store.orgId(), engineer.userId(), String.valueOf(IDS.incrementAndGet()));
         SaleContractDO created = as(engineer, () -> contracts.create(engineer,
                 new SaleContractService.ContractCommand(customerId, 68_000_000L, 40_000_000L, 18_000_000L,
-                        10_000_000L, null, null, null),
+                        10_000_000L, null, null, null, installments),
                 idem()));
         as(engineer, () -> contracts.sign(engineer, created.getId(),
                 new SaleContractService.SignCommand(LocalDate.now(), 9001L),
                 revisionOf(created.getId()), idem()));
-        signStageId = stageRowOf(created.getId(), SIGN_AFTER);
+        if (installments==null) signStageId = stageRowOf(created.getId(), SIGN_AFTER);
         // 工程项目：挂同一客户 + 冻结统一合同 id；约定行（term）SIGN_AFTER 40 万
         projectId = IDS.incrementAndGet();
         jdbc.update("INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status, "
                         + "manager_user_id, assigned_engineer_user_id, sale_contract_id, source_commission_id, source_type, "
                         + "revision, author_user_id, create_time, update_time) "
-                        + "VALUES (?, ?, ?, '陈先生', '陈先生 · 乡墅', 'PENDING_START', ?, ?, ?, ?, 'HANDOVER', "
+                        + "VALUES (?, ?, ?, '陈先生', ?, 'PENDING_START', ?, ?, ?, ?, 'HANDOVER', "
                         + "1, ?, now(), now())",
-                projectId, store.orgId(), customerId, engineer.userId(), engineer.userId(),
+                projectId, store.orgId(), customerId, "陈先生 · 乡墅" + customerId, engineer.userId(), engineer.userId(),
                 created.getId(), IDS.incrementAndGet(), engineer.userId());
         jdbc.update("INSERT INTO fr_eng_closure (id, company_id, project_id, create_time) "
                 + "VALUES (?, ?, ?, now())", IDS.incrementAndGet(), store.orgId(), projectId);
@@ -405,10 +408,15 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void collectionSummaryFollowsContractChangesIncludingTail() {
+    void existingAmendedContractIncludesItsOriginalTailInEngineeringBalances() {
         long contractId = jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,projectId);
-        asRun(finance, () -> contracts.changeAmounts(finance,contractId,
-                new SaleContractService.ContractChange(41_000_000L,18_000_000L,10_000_000L,500_000L,null,"已确认增项"),idem()));
+        // 已部署版本历史上保存的 V2 已签合同及尾款，不回溯重签。
+        jdbc.update("UPDATE fr_sale_contract SET total_cents=69500000,first_cents=41000000,payment_plan_version=2 WHERE id=?",contractId);
+        jdbc.update("UPDATE fr_sale_payment_stage SET plan_version=2,amount_cents=CASE WHEN stage='SIGN_AFTER' THEN 41000000 ELSE amount_cents END WHERE contract_id=?",contractId);
+        jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,stage,label,sequence,plan_version,amount_cents,after_delivery,trigger_type,status,deleted) VALUES (?,?,?,?, 'tail','历史尾款',4,2,500000,true,'ON_FINISH','PENDING',false)",IDS.incrementAndGet(),store.orgId(),customerId,contractId);
+        assertThatThrownBy(()->asRun(finance,()->contracts.changeAmounts(finance,contractId,
+                new SaleContractService.ContractChange(40_000_000L,18_000_000L,10_000_000L,0,null,"移除尾款"),idem())))
+                .hasMessageContaining("付款计划已锁定");
         var summary=as(finance,()->collectionService.summary(finance,projectId));
         assertThat(summary).hasSize(4);
         assertThat(as(finance,()->planService.termAmount(finance,projectId,SIGN_AFTER))).isEqualTo(41_000_000L);
@@ -457,15 +465,14 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
     @Test
     void deliveryUsesEachCustomInstallmentsNetAndIgnoresUnpaidTail() {
-        long contractId = contractsActiveId();
         var inputs = java.util.List.of(
                 installment("签约款", 10_000_000L, "ON_SIGN"),
                 installment("施工前款", 15_000_000L, "BEFORE_START"),
-                installment("主体进度款", 12_000_000L, "MANUAL"),
-                installment("交付前款", 8_000_000L, "MANUAL"),
+                new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null,"主体进度款",12_000_000L,null,null,"NODE_COMPLETED",2),
+                new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null,"交付前款",8_000_000L,null,LocalDate.now(),"DATE",null),
                 installment("交付后尾款", 23_000_000L, "ON_FINISH"));
-        as(finance, () -> contracts.replacePaymentPlan(finance, contractId,
-                new SaleContractService.PaymentPlanCommand(68_000_000L, inputs, revisionOf(contractId), "约定五期"), idem()));
+        seedProjectWithSignedPlan(inputs);
+        long contractId=contractsActiveId();
         var ids = jdbc.queryForList("""
                 SELECT id FROM fr_sale_payment_stage WHERE contract_id=? AND NOT deleted ORDER BY sequence
                 """, Long.class, contractId);
@@ -489,6 +496,11 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                 new SaleContractService.CollectCommand(10_000L, "bank", txn(), LocalDate.now()), idem()));
         assertThat(as(engineer, () -> closureService.deliver(engineer, projectId, command, idem()))).isNotEmpty();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?", Long.class, ids.get(4))).isZero();
+        var unchanged=as(finance,()->contracts.stageSummary(finance,contractId));
+        assertThatThrownBy(()->as(finance,()->contracts.replacePaymentPlan(finance,contractId,
+                new SaleContractService.PaymentPlanCommand(68_000_000L,inputs,revisionOf(contractId),"交付后重排"),idem())))
+                .hasMessageContaining("付款计划已锁定");
+        assertThat(as(finance,()->contracts.paymentPlanDetail(finance,contractId))).containsEntry("canEdit",false).containsEntry("stages",unchanged);
     }
 
     private static cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input installment(String label, long cents, String trigger) {

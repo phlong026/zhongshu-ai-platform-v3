@@ -172,7 +172,7 @@ public class SalesController {
     }
 
     @PostMapping("/contracts/{contractId}/payment-plan")
-    @Operation(summary = "按合同版本调整付款计划，已签约限公司负责人或财务")
+    @Operation(summary = "签约前核对付款计划，签署施工合同后锁定")
     @PreAuthorize("@post.has('franchise:sale:write') or @post.has('franchise:fin:register')")
     public CommonResult<?> paymentPlan(@PathVariable long contractId,
             @RequestHeader("Idempotency-Key") String key, @RequestBody SaleContractService.PaymentPlanCommand command) {

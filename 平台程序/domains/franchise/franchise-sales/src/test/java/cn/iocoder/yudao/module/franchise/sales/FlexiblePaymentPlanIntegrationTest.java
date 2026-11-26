@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.*;
         SaleContractThreeStageIntegrationTest.Config.class})
 class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
     @Resource SaleContractService service;
+    @Resource FranchiseCommands commands;
     @Resource SaleContractQueryAdapter query;
     @Resource JdbcTemplate jdbc;
     private Store store;
@@ -29,10 +30,14 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
 
     @BeforeEach void organization() {
         store=fixture.store();
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(store.orgId());
+        jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'付款约定测试',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id",store.orgId(),store.orgId());
         sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
         boss=fixture.post(store.orgId(),"boss",null);
         finance=fixture.post(store.orgId(),"finance",null);
     }
+
+    @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
 
     @Test void arbitraryPlansStayDraftUntilTheFormalContractIsSigned() {
         for(int count:List.of(2,3,5)) {
@@ -63,16 +68,18 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(boss,()->service.paymentPlanHistory(boss,first.getId()))).hasSize(1);
     }
 
-    @Test void changesKeepReceiptAndNodeIdentityAndRejectStaleRevision() {
+    @Test void draftChangeIsFrozenAtSigningAndItsOriginalRequestCanStillReplay() {
         var c=create(customer(),100000,List.of(input(null,"签约款",40000),input(null,"完工款",60000)));
-        signed(c);
         var old=as(finance,()->service.stageSummary(finance,c.getId()));
         long first=((Number)old.get(0).get("stageId")).longValue(),last=((Number)old.get(1).get("stageId")).longValue();
-        var receipt=as(finance,()->service.collect(finance,first,new SaleContractService.CollectCommand(20000,"bank",key(),LocalDate.now()),key()));
         String key=key();
         var cmd=new SaleContractService.PaymentPlanCommand(120000,List.of(input(first,"首笔约定",50000),input(last,"完工约定",50000),input(null,"质保款",20000)),revision(c),"客户确认补充约定");
         var changed=as(finance,()->service.replacePaymentPlan(finance,c.getId(),cmd,key));
         assertThat(as(finance,()->service.replacePaymentPlan(finance,c.getId(),cmd,key)).getRevision()).isEqualTo(changed.getRevision());
+        signed(c);
+        long signedRevision=revision(c);
+        assertThat(as(finance,()->service.replacePaymentPlan(finance,c.getId(),cmd,key)).getRevision()).isEqualTo(signedRevision);
+        var receipt=as(finance,()->service.collect(finance,first,new SaleContractService.CollectCommand(20000,"bank",key(),LocalDate.now()),key()));
         assertThat(as(boss,()->service.paymentPlanHistory(boss,c.getId()))).hasSize(2);
         var rows=as(finance,()->service.stageSummary(finance,c.getId()));
         assertThat(rows.get(0)).containsEntry("stageId",first).containsEntry("stage",old.get(0).get("stage"))
@@ -84,7 +91,7 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForMap("SELECT amount_cents,deleted FROM fr_sale_stage_before_change WHERE stage_id=? AND contract_revision=?",added,changed.getRevision()))
                 .containsEntry("amount_cents",0L).containsEntry("deleted",true);
         assertThatThrownBy(()->as(finance,()->service.replacePaymentPlan(finance,c.getId(),cmd,key()))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
-        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(100000,0,0,0,null,"旧端误写"),key());return true;})).hasMessageContaining("自定义付款计划");
+        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(100000,0,0,0,null,"旧端误写"),key());return true;})).hasMessageContaining("付款计划已锁定");
     }
 
     @Test void rejectsDeletingReceiptsReducingBelowCashOrBorrowingAnotherContractNode() {
@@ -92,8 +99,8 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         signed(c);
         long id=((Number)as(finance,()->service.stageSummary(finance,c.getId())).get(0).get("stageId")).longValue();
         as(finance,()->service.collect(finance,id,new SaleContractService.CollectCommand(30000,"bank",key(),LocalDate.now()),key()));
-        assertThatThrownBy(()->as(finance,()->service.replacePaymentPlan(finance,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(id,"原节点",10000),input(null,"新节点",90000)),revision(c),"金额调整"),key()))).hasMessageContaining("净收款");
-        assertThatThrownBy(()->as(finance,()->service.replacePaymentPlan(finance,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(null,"替换节点",100000)),revision(c),"节点调整"),key()))).hasMessageContaining("不能删除");
+        assertThatThrownBy(()->as(finance,()->service.replacePaymentPlan(finance,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(id,"原节点",10000),input(null,"新节点",90000)),revision(c),"金额调整"),key()))).hasMessageContaining("付款计划已锁定");
+        assertThatThrownBy(()->as(finance,()->service.replacePaymentPlan(finance,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(null,"替换节点",100000)),revision(c),"节点调整"),key()))).hasMessageContaining("付款计划已锁定");
         var another=create(customer(),50000,List.of(input(null,"另一客户",50000)));
         long foreign=((Number)as(boss,()->service.stageSummary(boss,another.getId())).get(0).get("stageId")).longValue();
         assertThatThrownBy(()->as(boss,()->service.replacePaymentPlan(boss,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(foreign,"外来节点",100000)),revision(c),"测试越权"),key()))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
@@ -101,25 +108,36 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(boss,()->service.paymentPlanHistory(boss,c.getId()))).hasSize(1);
     }
 
-    @Test void signedChangesRequireManagementAndCrossCompanyReadsFail() {
+    @Test void allPositionsCannotAlterSignedTermsAndCrossCompanyReadsFail() {
         var c=create(customer(),100000,List.of(input(null,"付款",100000)));
         signed(c);
         long id=((Number)as(boss,()->service.stageSummary(boss,c.getId())).get(0).get("stageId")).longValue();
-        assertThatThrownBy(()->as(sales,()->service.replacePaymentPlan(sales,c.getId(),new SaleContractService.PaymentPlanCommand(100000,List.of(input(id,"付款",100000)),revision(c),"变更"),key()))).hasMessageContaining("负责人或财务");
+        var plan=new SaleContractService.PaymentPlanCommand(100000,List.of(
+                new PaymentPlanRules.Input(id,"新日期",50000L,null,LocalDate.now().plusDays(7),"DATE",null),
+                new PaymentPlanRules.Input(null,"新工程节点",50000L,null,null,"NODE_COMPLETED",2)),revision(c),"改期数和日期");
+        for(var actor:List.of(sales,boss,finance,fixture.post(store.orgId(),"sales-lead",null),fixture.post(store.orgId(),"finance-lead",null))) {
+            assertThatThrownBy(()->as(actor,()->service.replacePaymentPlan(actor,c.getId(),plan,key()))).hasMessageContaining("付款计划已锁定");
+            assertThat(as(actor,()->service.paymentPlanDetail(actor,c.getId()))).containsEntry("canEdit",false);
+        }
+        for(var actor:List.of(fixture.post(store.orgId(),"engineer",store.engineeringTeam()),
+                fixture.post(store.orgId(),"project-manager",store.engineeringTeam()),fixture.post(fixture.headquarters(),"hq-admin",null))) {
+            assertThatThrownBy(()->as(actor,()->service.replacePaymentPlan(actor,c.getId(),plan,key())))
+                    .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        }
         var other=fixture.store();var outsider=fixture.post(other.orgId(),"boss",null);
         assertThatThrownBy(()->as(outsider,()->service.paymentPlanHistory(outsider,c.getId()))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThatThrownBy(()->as(outsider,()->service.stageCollected(outsider,id))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThat(as(outsider,()->query.findPaymentPlanById(outsider,c.getId()))).isNull();
-        assertThat(as(finance,()->service.paymentPlanDetail(finance,c.getId()))).containsEntry("canEdit",true);
+        assertThat(as(finance,()->service.paymentPlanDetail(finance,c.getId()))).containsEntry("canEdit",false);
         assertThat(as(sales,()->service.paymentPlanDetail(sales,c.getId()))).containsEntry("canEdit",false);
     }
 
     @Test void retiredPaymentNodeCannotConsumeAnUnallocatedReceipt() {
         var contract=create(customer(),100000,List.of(input(null,"原付款节点",100000)));
-        signed(contract);
         long retired=((Number)as(finance,()->service.stageSummary(finance,contract.getId())).get(0).get("stageId")).longValue();
         as(finance,()->service.replacePaymentPlan(finance,contract.getId(),
                 new SaleContractService.PaymentPlanCommand(100000,List.of(input(null,"新付款节点",100000)),revision(contract),"改用新节点"),key()));
+        signed(contract);
         long active=((Number)as(finance,()->service.stageSummary(finance,contract.getId())).get(0).get("stageId")).longValue();
         long receipt=IdWorker.getId();
         jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,source_type,name,amount_cents,status,received_date,revision_version,registrar_user_id) VALUES(?,?,'manual','前期定金',20000,'已登记',CURRENT_DATE,1,?)",
@@ -137,7 +155,7 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receipt)).isEqualTo(1);
     }
 
-    @Test void oldWholeStageEvidenceSurvivesAnIncreaseAndTailTriggersFollowDateChanges() {
+    @Test void legacyConfirmedWholeStageKeepsItsReceiptEvidenceWhenTermsAreLocked() {
         long customer=customer();
         var c=as(sales,()->service.create(sales,new SaleContractService.ContractCommand(customer,100000,100000,0,0,null,null,requirement(customer)),key()));
         signed(c);
@@ -145,13 +163,12 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         var cash=as(finance,()->service.collect(finance,id,new SaleContractService.CollectCommand(100000,"bank",key(),LocalDate.now()),key()));
         long receipt=((Number)cash.get("receiptId")).longValue();
         jdbc.update("UPDATE fr_sale_payment_stage SET paid_receipt_id=?,paid_at=now(),pay_fingerprint='historical-whole-stage' WHERE id=?",receipt,id);
-        as(finance,()->{service.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(120000,0,0,10000,LocalDate.now().plusDays(90),"增加约定"),key());return true;});
-        assertThat(jdbc.queryForMap("SELECT status,paid_receipt_id,pay_fingerprint FROM fr_sale_payment_stage WHERE id=?",id))
-                .containsEntry("status","OPEN").containsEntry("paid_receipt_id",receipt).containsEntry("pay_fingerprint","historical-whole-stage");
-        assertThat(jdbc.queryForObject("SELECT trigger_type FROM fr_sale_payment_stage WHERE contract_id=? AND stage='tail'",String.class,c.getId())).isEqualTo("DATE");
-        as(finance,()->{service.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(120000,0,0,10000,null,"改为竣工到期"),key());return true;});
-        assertThat(jdbc.queryForObject("SELECT trigger_type FROM fr_sale_payment_stage WHERE contract_id=? AND stage='tail'",String.class,c.getId())).isEqualTo("ON_FINISH");
-        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),new SaleContractService.ContractChange(90000,0,0,0,null,"不可少于已收"),key());return true;})).hasMessageContaining("净收款");
+        var legacy=new SaleContractService.ContractChange(120000,0,0,10000,LocalDate.now().plusDays(90),"新增尾款");
+        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),legacy,key());return true;}))
+                .hasMessageContaining("付款计划已锁定");
+        assertThat(jdbc.queryForMap("SELECT paid_receipt_id,pay_fingerprint FROM fr_sale_payment_stage WHERE id=?",id))
+                .containsEntry("paid_receipt_id",receipt).containsEntry("pay_fingerprint","historical-whole-stage");
+        assertThat(as(finance,()->service.financialStages(finance))).noneMatch(row->"tail".equals(row.get("stage")));
         assertThat(as(finance,()->service.stageCollected(finance,id))).isEqualTo(100000);
     }
 
@@ -178,6 +195,28 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(boss,()->service.paymentPlanHistory(boss,c.getId()))).hasSize(1);
     }
 
+    @Test void legacyAmendmentAlreadyInTheLedgerReplaysExactlyAndNeverChangesItsOriginalCash() {
+        var c=create(customer(),100000,List.of(input(null,"签约款",100000)));
+        signed(c);
+        var old=new SaleContractService.ContractChange(100000,0,0,0,null,"原存量约定");
+        var payload=new java.util.LinkedHashMap<String,Object>();
+        payload.put("change",old); payload.put("contractId",c.getId());
+        String sameKey=key();
+        as(finance,()->{commands.record(finance,"sale-contract",c.getId(),1,"sale-contract-change",payload,sameKey);return true;});
+        long stage=((Number)as(finance,()->service.stageSummary(finance,c.getId())).get(0).get("stageId")).longValue();
+        var collection=as(finance,()->service.collect(finance,stage,new SaleContractService.CollectCommand(12345,"bank",key(),LocalDate.now()),key()));
+        var version=as(finance,()->service.paymentPlanDetail(finance,c.getId())).get("stages");
+        as(finance,()->{service.changeAmounts(finance,c.getId(),old,sameKey);return true;});
+        var other=new SaleContractService.ContractChange(90000,0,0,10000,LocalDate.now(),"修改原请求");
+        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),other,sameKey);return true;}))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->as(finance,()->{service.changeAmounts(finance,c.getId(),other,key());return true;}))
+                .hasMessageContaining("付款计划已锁定");
+        assertThat(as(finance,()->service.paymentPlanDetail(finance,c.getId()))).containsEntry("stages",version).containsEntry("canEdit",false);
+        assertThat(jdbc.queryForObject("SELECT receipt_id FROM fr_sale_stage_receipt WHERE stage_id=?",Long.class,stage))
+                .isEqualTo(((Number)collection.get("receiptId")).longValue());
+    }
+
     @Test void editingLegacyPlanPreservesItsMilestonesWithoutInventingNodeNumbers() {
         long customer=customer();
         var c=as(sales,()->service.create(sales,new SaleContractService.ContractCommand(customer,100000,40000,30000,30000,null,null,requirement(customer)),key()));
@@ -197,9 +236,9 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
 
     private SaleContractDO create(long customer,long total,List<PaymentPlanRules.Input> plan){return as(sales,()->service.create(sales,command(customer,total,plan),key()));}
     private SaleContractService.ContractCommand command(long customer,long total,List<PaymentPlanRules.Input> plan){return new SaleContractService.ContractCommand(customer,total,0,0,0,null,null,requirement(customer),plan);}
-    private PaymentPlanRules.Input input(Long id,String name,long cents){return new PaymentPlanRules.Input(id,name,cents,null,null,"MANUAL",null);}
+    private PaymentPlanRules.Input input(Long id,String name,long cents){return new PaymentPlanRules.Input(id,name,cents,null,null,"ON_SIGN",null);}
     private PaymentPlanRules.Input ratio(int bps){return new PaymentPlanRules.Input(null,"比例付款",null,bps,null,"MANUAL",null);}
-    private void signed(SaleContractDO c){jdbc.update("UPDATE fr_sale_contract SET status='SIGNED',signed_date=CURRENT_DATE WHERE id=?",c.getId());}
+    private void signed(SaleContractDO c){as(sales,()->service.sign(sales,c.getId(),new SaleContractService.SignCommand(LocalDate.now(),9001L),revision(c),key()));}
     private long revision(SaleContractDO c){return jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,c.getId());}
     private long customer(){long id=IdWorker.getId();jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status,create_time,update_time) VALUES(?,?,?,'计划测试',?,'登记','REGISTERED',now(),now())",id,store.orgId(),sales.userId(),String.valueOf(id%10000000000L+10000000000L));return id;}
     private long requirement(long customer){var ids=jdbc.queryForList("SELECT id FROM fr_sale_requirement WHERE customer_id=?",Long.class,customer);if(!ids.isEmpty())return ids.get(0);long id=IdWorker.getId();jdbc.update("INSERT INTO fr_sale_requirement(id,company_id,customer_id,author_user_id,version) VALUES(?,?,?,?,1)",id,store.orgId(),customer,sales.userId());return id;}

@@ -85,11 +85,11 @@ class CustomerPaymentPlanDraftIntegrationTest extends FranchisePgIntegrationTest
                     new SaleContractService.PaymentPlanCommand(12000,List.of(new PaymentPlanRules.Input(stage,"新计划",12000L,null,null,"MANUAL",null)),jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,contract.getId()),"客户改约"),key());}finally{cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}});
             assertThat(writerStarted.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             assertThatThrownBy(()->write.get(300,java.util.concurrent.TimeUnit.MILLISECONDS)).isInstanceOf(java.util.concurrent.TimeoutException.class);
-            release.countDown();var frozen=snapshot.get(10,java.util.concurrent.TimeUnit.SECONDS);write.get(10,java.util.concurrent.TimeUnit.SECONDS);
+            release.countDown();var frozen=snapshot.get(10,java.util.concurrent.TimeUnit.SECONDS);
+            assertThatThrownBy(()->write.get(10,java.util.concurrent.TimeUnit.SECONDS)).rootCause().hasMessageContaining("付款计划已锁定");
             assertThat(frozen.contractPlanVersion()).isEqualTo(1);assertThat(frozen.totalCents()).isEqualTo(10000);
             assertThat(frozen.stages()).extracting(s->s.amountCents()).containsExactly(10000L);
-            var latest=drafts.snapshotForEntrust(boss,customer);assertThat(latest.contractPlanVersion()).isEqualTo(2);assertThat(latest.totalCents()).isEqualTo(12000);
-            assertThat(latest.stages()).extracting(s->s.amountCents()).containsExactly(12000L);
+            assertThat(drafts.snapshotForEntrust(boss,customer)).isEqualTo(frozen);
         }finally{release.countDown();pool.shutdownNow();currentPost.clear();}
     }
     private long customer(PostSnapshot p){long id=IdWorker.getId();jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status,create_time,update_time) VALUES(?,?,?,'草案测试',?,'登记','REGISTERED',now(),now())",id,p.orgId(),p.userId(),String.valueOf(id%10000000000L+10000000000L));return id;}
