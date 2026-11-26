@@ -98,6 +98,7 @@ function paged(all, calls, failure) {
   assert.equal(page.data.bossBiz.following, 120, '跟进数不得只算前50条');
   assert.equal(page.data.bossBiz.leads, 200);
   assert.equal(page.data.bossBiz.signed, 12);
+  assert.deepEqual(Array.from(page.data.bossBiz.funnel.slice(3), row => row.label), ['关联客户已签约', '关联客户有净实收']);
   assert.deepEqual(Array.from(page.data.bossBiz.funnel, row => row.value), [30, 200, 80, 12, 6]);
   assert.equal(page.data.bossBiz.commissionCount, 125, '本月委托数不得只算前50条');
   assert.equal(page.data.bossBiz.commission.value, '1.25', '本月委托金额应基于完整结果');
