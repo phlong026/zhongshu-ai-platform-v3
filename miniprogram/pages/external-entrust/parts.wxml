@@ -16,6 +16,9 @@
   <view class="entrust-fact"><text>测量人</text><text>{{source.fields.measurer}}</text></view>
   <view class="entrust-fact"><text>面宽 / 进深 / 面积</text><text>{{source.fields.width}} m / {{source.fields.depth}} m / {{source.fields.area}} ㎡</text></view>
   <view wx:if="{{source.fields.floors}}" class="entrust-fact"><text>实测层数</text><text>{{source.fields.floors}}</text></view>
+  <view wx:if="{{source.fields.orientation}}" class="entrust-fact"><text>实测朝向</text><text>{{source.fields.orientation}}</text></view>
+  <view wx:if="{{source.fields.siteElevationNote}}" class="entrust-fact"><text>影响设计的现场高差或说明</text><text>{{source.fields.siteElevationNote}}</text></view>
+  <block wx:if="{{source.note}}"><text class="entrust-label">原测量说明</text><text class="entrust-copy">{{source.note}}</text></block>
   <text wx:for="{{source.attachments}}" wx:key="assetId" class="entrust-muted">{{item.title || '测量原件'}}</text>
 </template>
 <template name="request">

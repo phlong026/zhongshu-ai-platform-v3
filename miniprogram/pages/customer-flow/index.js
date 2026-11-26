@@ -114,6 +114,10 @@ Page({
       if (previous.fields.selectionMode !== form.fields.selectionMode) this._referenceRequest = null;
       model.houseSelection.update(previous, form);
     }
+    if (this.selectedCode === 'MEASUREMENT' && previous.fields.checked
+        && (previous.fields.orientation !== form.fields.orientation || previous.fields.siteElevationNote !== form.fields.siteElevationNote)) {
+      form.fields.checked = false;
+    }
     this._drafts[this.selectedCode] = { form: clone(form), revision: this._formRevision };
     this.setData({ form, fields: model.fieldRows(this.selectedCode, form), dirty: true, error: '' });
   },

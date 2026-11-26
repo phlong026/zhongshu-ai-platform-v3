@@ -7,12 +7,13 @@ const STATUS = { DRAFT: '草稿', PENDING: '待处理', NOT_STARTED: '未开始'
   SIGNED: '已签约', ACTIVE: '进行中', OPEN: '进行中', CLOSED: '已关闭', VOID: '已作废', VOIDED: '已作废', CANCELLED: '已取消',
   PAID: '已付清', UNPAID: '未付款', PARTIAL: '部分完成', PARTIALLY_PAID: '部分付款', RECEIVED: '已收款', CONFIRMED: '已确认',
   APPROVED: '已通过', REJECTED: '已退回', ARCHIVED: '已归档', DELIVERED: '已交付', SETTLED: '已结算', NEW: '新客户', FOLLOWING: '跟进中', LOST: '已流失' };
+const SITE_OBSERVATIONS = { orientation: '实测朝向', siteElevationNote: '影响设计的现场高差或说明' };
 const FIELD_NAMES = {
   contactMethod: '联系渠道', invitationResult: '邀约结果', appointmentAt: '预约到店时间', nextContactOn: '下次联系日期',
   receptionist: '接待人员', requirements: '建房需求', feedback: '客户反馈', referenceCaseId: '参考户型编号', referenceCaseName: '参考户型',
   selectionMode: '选型方式', customDirection: '定制方向', selectionResult: '户型选择说明',
   versionLabel: '方案 / 报价版本', confirmed: '客户已确认', siteName: '参观工地', address: '地址',
-  measurer: '测量人员', width: '开间（米）', depth: '进深（米）', area: '面积（平方米）', floors: '层数', checked: '已复核测量',
+  measurer: '测量人员', width: '开间（米）', depth: '进深（米）', area: '面积（平方米）', floors: '层数', ...SITE_OBSERVATIONS, checked: '已复核测量',
   amountCents: '报价金额', scope: '报价范围', communicated: '已向客户讲解', result: '报价沟通结果',
   contractId: '合同编号', signedDate: '签约日期', totalCents: '合同金额', projectId: '工程编号', actualStartAt: '实际开工日期',
   managerUserId: '工程负责人编号', status: '来源状态', sourceRevision: '来源版本'
@@ -31,9 +32,10 @@ const title = kind => SECTIONS.concat(FINANCE).find(item => item.key === kind)?.
 function fields(row, names) {
   return Object.entries(names).filter(([key]) => row[key] !== null && row[key] !== undefined && row[key] !== '').map(([key, label]) => ({
     label, value: key.endsWith('Cents') ? money(row[key]) : typeof row[key] === 'boolean' ? row[key] ? '是' : '否'
-      : key === 'customDirection' ? text(row[key]) : key === 'status' ? status(row[key]) : ENUM[row[key]] || date(row[key])
+      : key === 'customDirection' || SITE_OBSERVATIONS[key] ? text(row[key]) : key === 'status' ? status(row[key]) : ENUM[row[key]] || date(row[key])
   }));
 }
+const measurementObservations = row => fields(row, SITE_OBSERVATIONS);
 function context(value) {
   if (!Array.isArray(value.brands) || !Array.isArray(value.companies)) throw Error('总部筛选数据格式不完整');
   return {
@@ -158,4 +160,4 @@ function ledger(value,scope) {
     entries: value.entries.map((row, index) => ({ id: api.id(row.id), key: row.type + ':' + row.id + ':' + index, kind: kinds[row.type] || '', type: types[row.type] || text(row.type),
       name: text(row.name), date: date(row.date), amount: money(row.amount_cents), status: status(row.status), note: row.note || '', counterparty: row.counterparty || '' })) };
 }
-module.exports = { SECTIONS, FINANCE, STEP_NAMES, context, page, card, customer, records, documents, siteRecords, project, finance, books, ledger, title, text, money };
+module.exports = { SECTIONS, FINANCE, STEP_NAMES, context, page, card, customer, records, documents, siteRecords, project, finance, books, ledger, title, text, money, measurementObservations };
