@@ -93,7 +93,7 @@ public class CustomerWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public View save(PostSnapshot post, long customerId, String code, SaveCommand request, String key) {
         Step step = manual(code);
-        SaveCommand normalized = CustomerWorkflowRules.normalize(step, request);
+        SaveCommand normalized = CustomerWorkflowRules.normalizeForReplay(step, request);
         Map<String, Object> inputFields = new LinkedHashMap<>(normalized.fields());
         inputFields.remove("referenceCaseName"); // the catalog, not the caller, supplies the persisted display name
         // 只有请求里明确的 nextFollowOn 才改客户的下次跟进日期。第 1 步升级前的“下次联系”是八步自己的日期，
@@ -102,6 +102,7 @@ public class CustomerWorkflowService {
         var fingerprint = new Mutation("SAVE", customerId, step.name(), input);
         CustomerDO customer = lockWritable(post, customerId, key);
         if (commands.replayed(post, key, fingerprint).isPresent()) return reads.read(post, refreshed(customer));
+        CustomerWorkflowRules.validateSaveDates(input, CustomerWorkflowRules.today());
         var workflow = requireWorkflow(customer, input.revision(), true);
         requireActive(workflow);
         var previous = reads.step(workflow.tenantId(), workflow.companyId(), workflow.id(), step);
@@ -233,16 +234,30 @@ public class CustomerWorkflowService {
             nextFollowOn = null;
         } else if (status.equals("PAUSED")) {
             if (reason.isBlank()) throw invalid("请填写暂缓原因");
-            if (nextFollowOn == null || !nextFollowOn.isAfter(today)) throw invalid("请选择晚于今天的再联系日期");
+            if (nextFollowOn == null) throw invalid("请选择晚于今天的再联系日期");
             code = null;
         } else {
             code = null;
-            nextFollowOn = today;
+            nextFollowOn = null;
         }
-        StatusCommand input = new StatusCommand(request.revision(), status, code, reason, nextFollowOn);
-        var fingerprint = new Mutation("STATUS", customerId, null, input);
+        StatusCommand submitted = new StatusCommand(request.revision(), status, code, reason, nextFollowOn);
+        var fingerprint = new Mutation("STATUS", customerId, null, submitted);
         CustomerDO customer = lockWritable(post, customerId, key);
-        if (commands.replayed(post, key, fingerprint).isPresent()) return reads.read(post, refreshed(customer));
+        if (commands.replayed(post, key, fingerprint, null, event -> {
+            // Older ACTIVE requests fingerprinted the server-selected date. Compare using that
+            // original date and the current submitted facts, never reconstruct a different request.
+            if (!"ACTIVE".equals(status) || !"fr-customer-workflow".equals(event.getAggregateType())
+                    || !"workflow-status".equals(event.getCommand())) return null;
+            var recorded = JsonUtils.parseTree(event.getPayload());
+            if (recorded == null || !recorded.path("body").isObject() || !recorded.path("body").hasNonNull("nextFollowOn")) return null;
+            var previous = JsonUtils.parseObject(recorded.path("body").toString(), StatusCommand.class);
+            if (previous == null || previous.nextFollowOn() == null) return null;
+            return new Mutation("STATUS", customerId, null,
+                    new StatusCommand(submitted.revision(), status, submitted.reasonCode(), submitted.reason(), previous.nextFollowOn()));
+        }).isPresent()) return reads.read(post, refreshed(customer));
+        if ("PAUSED".equals(status) && !submitted.nextFollowOn().isAfter(today)) throw invalid("请选择晚于今天的再联系日期");
+        StatusCommand input = "ACTIVE".equals(status)
+                ? new StatusCommand(submitted.revision(), status, submitted.reasonCode(), submitted.reason(), today) : submitted;
         var workflow = requireWorkflow(customer, input.revision(), true);
         if (workflow.status().equals(input.status())) throw conflict("流程已处于该状态");
         jdbc.update("UPDATE fr_customer_workflow SET status=?,status_reason_code=?,status_reason=?,reconsulted_at=NULL WHERE id=? AND tenant_id=? AND company_id=?",
