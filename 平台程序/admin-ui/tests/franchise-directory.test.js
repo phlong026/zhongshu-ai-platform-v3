@@ -177,8 +177,9 @@ test('revoking public address authorization clears the address from the next map
     updateDirectoryMapDisplay: async (id, payload) => { writes.push({ id, payload }); return item }
   })
   env.state.openMapEditor(item)
-  env.state.mapPublicAddress.value = ''
-  env.state.mapPublicAddressAuthorized.value = false
+  env.state.togglePublicAddressAuthorization(false)
+  assert.equal(env.state.mapPublicAddress.value, '')
+  assert.equal(env.state.mapPublicAddressAuthorized.value, false)
   await env.state.saveMapDisplay()
   assert.deepEqual(plain(writes[0].payload), {
     publicName: '',
