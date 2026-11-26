@@ -642,7 +642,8 @@ test('客户列表使用批量内联摘要，旧详情仍保留，按钮携带�
   const crm = require('../miniprogram/utils/platform-crm');
   const row = crm.customerRow({ id: '900719925474099999', name: '客户', createTime: 0, nextVisitDate: [2026, 12, 1],
     workflow: { completedCount: 3, totalSteps: 8, progressPercent: 37.5, currentStepName: '带看工地', nextContactOn: '2026-11-27' } }, { canWrite: true, today: '2026-11-25' });
-  assert.equal(row.stageName, '带看工地'); assert.equal(row.appointment, '2026-11-27'); assert.match(row.detail, /11-27/);
+  assert.equal(row.stageName, '带看工地'); assert.equal(row.appointment, '2026-12-01'); assert.match(row.detail, /12-01/);
+  assert.equal(row.workflow.nextContactOn, '2026-11-27', '八步邀约日期保持在原摘要');
   assert.equal(row.workflow.progressPercent, 37.5); assert.equal(row.flowUrl, '/pages/customer-flow/index?customerId=900719925474099999');
   assert.match(row.url, /pages\/workflow\/index\?view=customer/);
 });
