@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowFactsPort;
+import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowQuotePort;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowReferencePort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
@@ -64,6 +65,9 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         @Bean AssetAccessPort assets() { return mock(AssetAccessPort.class); }
         @Bean StoreServiceAccountPort accounts() { return mock(StoreServiceAccountPort.class); }
         @Bean SourceFacts facts() { return new SourceFacts(); }
+        @Bean CustomerWorkflowQuotePort quotes() {
+            return (post, customerId, quoteId) -> new CustomerWorkflowQuotePort.Quote(1_234_500L, "V1 · 原价目");
+        }
         @Bean CustomerWorkflowReferencePort references() {
             return (post, id) -> {
                 if (id != 7001) throw new ServiceException(404, "户型未公开");
@@ -138,6 +142,34 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(history.getList().get(0).note()).isEqualTo("到店时间需要更正");
         assertThat(history.getList().get(1).fields()).containsEntry("invitationResult", "CONFIRMED");
         assertThat(count("fr_customer_workflow", id)).isEqualTo(1);
+    }
+
+    @Test
+    void legacyQuotationSaveCannotSilentlyRemoveALinkedFormalQuote() {
+        long id = customer();
+        String quoteId = "1234567890123456789";
+        View saved = as(sales, () -> workflow.save(sales, id, "QUOTATION",
+                new SaveCommand(0, today(), "原备注",
+                        Map.of("quoteId", quoteId, "communicated", true, "result", "已发给客户"), List.of()), "linked-quote"));
+        var before = saved.steps().get(5);
+        var old = new SaveCommand(saved.revision(), today(), "只改备注",
+                Map.of("amountCents", "1234500", "versionLabel", "V1 · 原价目", "scope", "", "communicated", true), List.of());
+        assertThatThrownBy(() -> as(sales, () -> workflow.save(sales, id, "QUOTATION", old, "old-save")))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
+        View unchanged = as(sales, () -> workflow.get(sales, id));
+        assertThat(unchanged.revision()).isEqualTo(saved.revision());
+        assertThat(unchanged.steps().get(5)).isEqualTo(before);
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(1);
+
+        var external = new SaveCommand(saved.revision(), null, "", Map.of("quoteId", "", "communicated", false), List.of());
+        View switched = as(sales, () -> workflow.save(sales, id, "QUOTATION", external, "external-quote"));
+        assertThat(switched.steps().get(5).fields()).doesNotContainKey("quoteId").containsEntry("communicated", false);
+        assertThat(switched.steps().get(5).canComplete()).isFalse();
+        assertThat(as(sales, () -> workflow.save(sales, id, "QUOTATION", external, "external-quote")).revision())
+                .isEqualTo(switched.revision());
+        var history = as(sales, () -> workflow.records(sales, id, 1, 20)).getList();
+        assertThat(history).hasSize(2);
+        assertThat(history.get(1).fields()).containsEntry("quoteId", quoteId);
     }
 
     @Test
