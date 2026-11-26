@@ -5,6 +5,9 @@
  * 留空 = 未配置：所有 API 请求将显式失败（「API 基址未配置」），绝不静默回落本地地址。
  * 本地联调：仅微信开发者工具可经 storage key `zs-api-base` 覆写（见 api/http.js）；真机固定使用 B 地址。
  *
+ * ADMIN_WEB_BASE：独立的浏览器管理台根地址（包括部署路径，不从 API_BASE 推断）。
+ * 管理台使用独立域名的部署应配置其网页根地址；留空会提示未配置，不复制接口地址。
+ *
  * FR_HOST：/fr Web 门户根地址（仅 scheme+host，不含路径/查询/凭据；小程序「在浏览器打开」复制链接用）。
  * 仓内此前无 Web 门户基址配置，故新增本项；留空 = 未配置：复制动作显式提示，绝不硬编码生产域名。
  * 本地/联调开发：经 storage key `zs-fr-host` 覆写（见 utils/fr-web-link.js），不改本文件。
@@ -12,6 +15,8 @@
 module.exports = {
   // B 赋能平台独立公网入口；不复用 A 的 api/api2 站点与后端。
   API_BASE: 'https://platform.zszhj.com/admin-api',
+  // 当前同域部署的管理台；独立域名部署使用 https://platform-admin.zszhj.com（无 /admin 前缀）。
+  ADMIN_WEB_BASE: 'https://platform.zszhj.com/admin',
   // /fr Web 门户根地址（如 'https://fr.zszhj.com'）；留空时小程序只提示未配置，不内置任何生产域名
   FR_HOST: '',
 };

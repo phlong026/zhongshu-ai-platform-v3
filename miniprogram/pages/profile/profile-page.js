@@ -200,9 +200,12 @@ module.exports = function (tabIndex) {
 function openAdmin(label) {
   const scope = profileScope(), post = auth.currentApiPost();
   if (!scope || !canViewAllStores(post) || post.roleCode !== 'hq-admin' || !Object.hasOwn(ADMIN_LINKS,label)) return;
-  const origin = require('../../config/env').API_BASE.replace(/\/admin-api\/?$/, '');
-  if (!origin.startsWith('https://')) return;
-  wx.showModal({ title:label, content:label === '加盟商名录' ? '请在浏览器登录平台管理台，打开「加盟商名录」标签。' : '请在浏览器登录平台管理台办理公告发布和下架。', confirmText:'复制地址',
-    success:res => { if (res.confirm && scope === profileScope()) wx.setClipboardData({data:origin + '/admin' + ADMIN_LINKS[label]}); }
+  const raw = require('../../config/env').ADMIN_WEB_BASE;
+  const parts = typeof raw === 'string' && /^(https:\/\/[A-Za-z0-9.-]+(?::[0-9]+)?)((?:\/[A-Za-z0-9_-]+)*)(?:\/)?$/.exec(raw.trim());
+  const origin = parts && require('../../utils/fr-web-link').normalizeHost(parts[1]);
+  if (!origin) return wx.showToast({title:'管理台地址未配置，请联系平台管理员',icon:'none'});
+  const address = origin + parts[2] + ADMIN_LINKS[label];
+  wx.showModal({ title:label, content:label === '加盟商名录' ? '请在浏览器使用有加盟商名录权限的管理台账号登录，再打开「加盟商名录」标签。' : '请在浏览器登录平台管理台办理公告发布和下架。', confirmText:'复制地址',
+    success:res => { if (res.confirm && scope === profileScope()) wx.setClipboardData({data:address}); }
   });
 }

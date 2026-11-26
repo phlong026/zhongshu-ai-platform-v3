@@ -644,3 +644,35 @@ test('老板客户与创作独立页保持原路由，不错误映射成业务�
   nav.open('/pages/creation/index?editor=1');
   assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/pages/creation/index?editor=1' }]);
 });
+
+test('管理入口按独立的管理台配置复制，未配置时不拼接口地址', () => {
+  reset('hq-admin');
+  auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:'hq-admin'}]);
+  auth.switchPost(42);
+  const env=require('../miniprogram/config/env'), original=env.ADMIN_WEB_BASE;
+  const profile=require('../miniprogram/pages/profile/profile-page')(4);
+  const copies=[];
+  wx.showModal=options => options.success({confirm:true});
+  wx.setClipboardData=options => copies.push(options.data);
+  try {
+    for (const [base, expected] of [
+      ['https://same.example/admin/','https://same.example/admin'],
+      ['https://admin.example','https://admin.example']
+    ]) {
+      env.ADMIN_WEB_BASE=base;
+      for (const [label,suffix] of [['公告管理','/platform-announcements'],['加盟商名录','/platform-org/onboard']]) {
+        profile.open({currentTarget:{dataset:{admin:label}}});
+        assert.equal(copies.at(-1),expected+suffix);
+      }
+    }
+    assert.equal(copies.length,4);
+    env.ADMIN_WEB_BASE='';
+    profile.open({currentTarget:{dataset:{admin:'公告管理'}}});
+    assert.equal(copies.length,4);
+    assert.match(toasts.at(-1),/管理台地址未配置/);
+  } finally {
+    env.ADMIN_WEB_BASE=original;
+    delete wx.showModal;
+    delete wx.setClipboardData;
+  }
+});
