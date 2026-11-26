@@ -45,11 +45,11 @@ const tasks = {
 
 const cycles = {
   /** 提交复核（本人或 manage 代交；冻结签名+submission） */
-  submit: (period, userId, note, key) =>
-    http.post('/franchise/performance/cycles/submit', { period, userId, note }, idem(key, 'csubmit')),
+  submit: (period, userId, note, key, expectedRevision) =>
+    http.post('/franchise/performance/cycles/submit', { period, userId, note, expectedRevision }, idem(key, 'csubmit')),
   /** 复核（manage；不能复核本人 000；签名变化须退回） */
-  review: (period, userId, approve, note, key) =>
-    http.post('/franchise/performance/cycles/review', { period, userId, approve, note: note || '' }, idem(key, 'creview')),
+  review: (period, userId, approve, note, key, expectedRevision) =>
+    http.post('/franchise/performance/cycles/review', { period, userId, approve, note: note || '', expectedRevision }, idem(key, 'creview')),
   /** 申诉裁决（manage=另一位老板；采纳→adjustments 生效） */
   appealResolve: (period, userId, adopt, sourceKey, personUserId, excluded, note, key) =>
     http.post('/franchise/performance/cycles/appeal-resolve',

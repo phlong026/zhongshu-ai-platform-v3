@@ -1,0 +1,35 @@
+<view class="task-page">
+  <owner-header title="{{team?'团队周期复核':'我的绩效周期'}}" back="{{true}}"/>
+  <view class="task-content">
+    <view class="period-row"><text>考核月份</text><picker mode="date" fields="month" value="{{period}}" bindchange="month" disabled="{{saving}}"><view class="period-picker">{{period}}<image src="/assets/creation-chevron.png" mode="aspectFit"/></view></picker></view>
+    <text wx:if="{{notice}}" class="hint cycle-notice">{{notice}}</text>
+    <view wx:if="{{error}}" class="error">{{error}}<button wx:if="{{!current && !loading}}" class="secondary" bindtap="refresh">重新读取</button></view>
+    <text wx:if="{{loading}}" class="hint">正在读取本月周期…</text>
+    <view wx:elif="{{team && members.length}}" class="card"><view class="heading">成员周期</view>
+      <button wx:for="{{members}}" wx:key="userId" data-user="{{item.userId}}" bindtap="selectMember" disabled="{{saving}}" class="cycle-member {{current.userId===item.userId?'selected':''}}"><text>{{item.name}}</text><text>{{item.statusLabel}}</text></button>
+    </view>
+    <text wx:elif="{{team && !error}}" class="hint">本月暂无可查看的成员周期</text>
+    <view wx:if="{{current}}" class="card">
+      <view class="list-head"><text>{{team?'成员周期':'本人周期'}}</text><text>{{current.statusLabel}}</text></view>
+      <text class="meta" selectable>成员编号 {{current.userId}}</text>
+      <picker wx:if="{{versionLabels.length>1}}" range="{{versionLabels}}" value="{{versionIndex}}" bindchange="selectVersion" disabled="{{saving}}"><view class="picker">{{versionLabels[versionIndex]}}　切换版本</view></picker>
+      <text wx:elif="{{snapshot}}" class="hint">{{snapshot.label}}</text>
+      <block wx:if="{{snapshot}}">
+        <view class="cycle-section"><view class="heading">提交说明</view><text selectable>{{snapshot.note||'原记录未填写'}}</text><text wx:if="{{snapshot.at}}" class="meta">{{snapshot.at}}</text></view>
+        <view wx:if="{{snapshot.review.result||snapshot.review.reason}}" class="cycle-section"><view class="heading">复核意见</view><text>{{snapshot.review.result}} {{snapshot.review.reason}}</text><text wx:if="{{snapshot.review.reviewerUserId}}" class="meta" selectable>复核人 {{snapshot.review.reviewerUserId}}　{{snapshot.review.at}}</text></view>
+        <view wx:if="{{snapshot.goals.length}}" class="cycle-section"><view class="heading">提交时目标</view><text wx:if="{{snapshot.goalVersion}}" class="meta">目标版本 {{snapshot.goalVersion}}</text><view wx:for="{{snapshot.goals}}" wx:key="key" class="cycle-value"><text>{{item.label}}</text><text>{{item.value}}</text></view></view>
+        <view wx:if="{{snapshot.actuals.length}}" class="cycle-section"><view class="heading">提交时实绩</view><view wx:for="{{snapshot.actuals}}" wx:key="key" class="cycle-value"><text>{{item.label}}</text><text>{{item.value}}</text></view></view>
+        <view class="cycle-section"><view class="heading">提交时的业务原单</view>
+          <text wx:if="{{!snapshot.hasSources}}" class="hint">旧版未保存逐单依据</text>
+          <text wx:elif="{{!snapshot.sources.length}}" class="hint">本次提交没有业务原单</text>
+          <view wx:for="{{snapshot.sources}}" wx:key="key" class="cycle-source"><view class="cycle-value"><text>{{item.name}}</text><text>{{item.valueText}}</text></view><text class="meta" selectable>原单 {{item.sourceId}}　{{item.date}}</text><button wx:if="{{item.url}}" class="secondary" data-index="{{index}}" bindtap="openSource">查看原单</button></view>
+          <view wx:if="{{sourcePages>1}}" class="cycle-pages"><button disabled="{{sourcePage===0}}" data-step="previous" bindtap="pageSources">上一页</button><text>{{sourcePage+1}} / {{sourcePages}}</text><button disabled="{{sourcePage+1>=sourcePages}}" data-step="next" bindtap="pageSources">下一页</button></view>
+        </view>
+      </block>
+    </view>
+    <view wx:if="{{canSubmit||canReview}}" class="card"><label class="task-field"><text class="task-label">{{canSubmit?'提交说明':'复核意见'}}</text><textarea class="task-textarea" value="{{note}}" maxlength="500" disabled="{{saving}}" bindinput="inputNote" placeholder="{{canSubmit?'填写本周期工作说明':'退回时请填写原因'}}"/></label>
+      <button wx:if="{{canSubmit}}" class="primary" disabled="{{saving}}" bindtap="submit">{{saving?'正在提交':'提交复核'}}</button>
+      <block wx:if="{{canReview}}"><button class="primary" data-action="approve" disabled="{{saving}}" bindtap="review">复核通过</button><button class="secondary" data-action="return" disabled="{{saving}}" bindtap="review">退回补充</button></block>
+    </view>
+  </view>
+</view>

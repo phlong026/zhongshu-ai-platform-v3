@@ -79,6 +79,12 @@ Page({
     if (P.online()) return this.refreshOnline();
     this.setData({ ready: true, error: '请先登录后端账号', rows: [], taskCount: 0, tabs: [], staff: [] });
   },
+  openCycle() {
+    const view = this.data.view;
+    if (!P.online() || !['mine','team'].includes(view)) return;
+    if (view === 'team' && !['boss','owner'].includes(P.apiPost()?.roleCode)) return;
+    wx.navigateTo({url:'/pages/admin/tasks/cycle?scope=' + view + '&period=' + encodeURIComponent(this.data.period)});
+  },
   writable() { if (this.data.view === 'member') { this.fail('成员绩效仅供查看'); return false; } return true; },
   manageTasks() { const post=P.apiPost();if(!post||!['boss','owner'].includes(post.roleCode)){this.fail('当前岗位无任务派发权限');return false;}return this.writable(); },
   displayArchive(summary, staff) {

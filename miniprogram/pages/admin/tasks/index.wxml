@@ -9,6 +9,8 @@
     </view>
     <view wx:if="{{tabs.length>1}}" class="tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{view===item.id?'active':''}}" data-view="{{item.id}}" bindtap="tab">{{item.label}}</button></view>
 
+    <button wx:if="{{ready&&(view==='mine'||(view==='team'&&canManage))}}" class="secondary" bindtap="openCycle">{{view==='team'?'团队周期复核':'我的周期复核'}}</button>
+
     <view wx:if="{{(view==='mine'||view==='member')&&goalRows.length}}" class="card performance-goals">
       <view class="heading">{{myName}}的绩效目标</view>
       <text class="hint">{{period}} · {{view==='member'?'负责人只读查看':'老板下发'}}</text>

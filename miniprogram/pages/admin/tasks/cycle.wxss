@@ -1,0 +1,12 @@
+@import "./index.wxss";
+.cycle-notice { margin-bottom: 18rpx; }
+.cycle-member,.cycle-value { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
+.cycle-member { width: 100%; min-height: 88rpx; padding: 12rpx 16rpx; background: var(--zs-bg); color: var(--zs-text); text-align: left; }
+.cycle-member.selected { color: var(--zs-brand); font-weight: 600; }
+.cycle-value { padding: 6rpx 0; overflow-wrap: anywhere; }
+.cycle-section { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid var(--zs-line); }
+.cycle-source { padding: 12rpx 0; }
+.cycle-section text { overflow-wrap: anywhere; }
+.cycle-pages { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; }
+.cycle-pages button { min-height: 88rpx; padding: 10rpx 18rpx; color: var(--zs-brand); }
+.cycle-pages button[disabled] { color: var(--zs-text-3); }
