@@ -5,7 +5,7 @@ const path = require('node:path');
 const { selectPair } = require('./resolve-paired-release.cjs');
 
 const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
 
 test('老板入口保留当前在线客户与工程路由', async () => {
   const home = read('miniprogram/pages/admin/home/index.wxml');
