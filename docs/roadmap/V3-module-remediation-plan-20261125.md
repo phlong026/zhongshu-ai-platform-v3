@@ -24,6 +24,8 @@
 
 **第 07 步施工签约。** 同一客户把已签设计服务合同作为原委托附件上传后，施工签约仍待办，正式施工合同原单数为零。签署该客户的施工合同后，第 07 步自动完成并显示合同编号与已签附件，第 08 步仍待办，设计服务合同可从原委托下载。门店与总部显示「施工签约」。固定配对为后端 `c7b91109e3364fecfad6b4f3f68d81c37e4b6bc6`、小程序 `78b747503602b1f6485190e7e1c7a65bf048bd1f`。三类 PG 回归 44 项，小程序完整检查 1,655 项，岗位首页 148 项，均通过。后端 [#270](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/270)，小程序 [#271](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/271)。
 
+**公司积分与充值。** [#245](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/245) 的后端及管理台提交 `95dac66fe58cfe287ad90acafb6d670673b2e0e8` 配套 [#246](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/246) 的小程序提交 `433d5f454ab6903466c2cec8c4dfd2ff15e8e4fd`。平台超级管理员可给门店所属公司的共享积分池加分。服务端配置 `platform.wallet.payment.online-recharge-enabled` 默认为 false，保留原支付渠道、建单、签名及唤起代码。关闭时阻止新充值，既有订单继续接收到款通知、核对及办理退款。小程序显示本岗位的当前订单，授权管理台的「历史充值订单」可按组织分页查询旧钱包与公司积分的订单。八类后端测试 103 项、管理台 45 项、小程序 1,653 项和岗位首页 148 项通过。微信开发者工具分别验证关闭、开启、已选套餐后关闭，以及原单从支付确认到到账及退款。现场真实支付待用户排期。
+
 **客户跟进页及入口。** [#268](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/268) 已合入小程序，合并提交 `fdfab70fe4ac1ce51c1e898c8cee171bcc61a85c`。微信开发者工具验证进度轨和展开列表各八项，支持从第 08 步切回第 02 步。列表、办理页、工作流及总部只读页统一使用「客户跟进」。
 
 ### 13 个执行节点
