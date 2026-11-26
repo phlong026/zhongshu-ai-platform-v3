@@ -286,17 +286,7 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
                                                                  Long expectedJobId, long candidateId, String key) {
-        if (remote != null) return remote.call(post, Operation.CONFIRM_FLAT_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var saved = designService.confirmFlatCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
-            if (!saved.replayed()) {
-                audit(post, "flat-selection", projectId,
-                        Map.of("projectId", projectId, "candidateId", candidateId,
-                                "versionId", saved.resultVersionId() == null ? 0L : saved.resultVersionId()));
-            }
-            return saved;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
@@ -306,17 +296,7 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
                                                                      Long expectedJobId, long candidateId, String key) {
-        if (remote != null) return remote.call(post, Operation.SELECT_ELEVATION_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var saved = designService.selectElevationCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
-            if (!saved.replayed()) {
-                audit(post, "elevation-selection", projectId,
-                        Map.of("projectId", projectId, "candidateId", candidateId,
-                                "versionId", saved.resultVersionId() == null ? 0L : saved.resultVersionId()));
-            }
-            return saved;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.RevisionSubmitted createRevisionRequest(PostSnapshot post, long projectId,
