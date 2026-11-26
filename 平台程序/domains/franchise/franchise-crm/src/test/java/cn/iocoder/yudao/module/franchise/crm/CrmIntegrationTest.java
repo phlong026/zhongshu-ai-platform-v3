@@ -49,6 +49,8 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     private LeadImportService imports;
     @Resource
     private CustomerService customers;
+    @Resource
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private Store store;
     private PostSnapshot salesA1;
@@ -72,6 +74,28 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         engineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
         Store other = fixture.store();
         otherStoreSales = fixture.post(other.orgId(), SALES, other.salesTeamA());
+    }
+
+    @Test
+    void aLegacyFollowAddsHistoryWithoutErasingAPausedCustomersScheduledReminder() {
+        long id = capture(salesA1, phone()).customerId();
+        long tenant = salesA1.orgId(); // This CRM fixture uses a synthetic shop without setting a request tenant.
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), resumeOn = today.plusDays(5);
+        jdbc.update("INSERT INTO fr_customer_workflow(id,tenant_id,company_id,customer_id,status,status_reason) VALUES(?,?,?,?,'PAUSED','等审批')",
+                id, tenant, salesA1.orgId(), id);
+        jdbc.update("UPDATE fr_customer SET next_visit_date=? WHERE id=?", resumeOn, id);
+        var oldNote = new FollowCommand("旧版来电补记", null);
+        as(salesA1, () -> customers.follow(salesA1, id, oldNote, "mixed-old-note"));
+        as(salesA1, () -> customers.follow(salesA1, id, oldNote, "mixed-old-note"));
+        var detail = as(salesA1, () -> customers.get(salesA1, id));
+        assertThat(detail.customer().getNextVisitDate()).isEqualTo(resumeOn);
+        assertThat(detail.follows()).filteredOn(row -> "旧版来电补记".equals(row.getNote())).hasSize(1);
+        assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn.minusDays(1)))).isEmpty();
+        assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn))).extracting(CustomerDO::getId).containsExactly(id);
+
+        jdbc.update("UPDATE fr_customer_workflow SET status='ACTIVE' WHERE id=?", id);
+        as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("旧版取消回访", null), "mixed-active-clear"));
+        assertThat(as(salesA1, () -> customers.get(salesA1, id)).customer().getNextVisitDate()).isNull();
     }
 
     // ===================== 客资 =====================
