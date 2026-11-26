@@ -103,6 +103,19 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
     }
     @AfterEach void clearTenant() { storage.beforeRead = null; TenantContextHolder.clear(); }
 
+    @Test void optionalMaterialsHaveTheirOwnHttpCollectionForEveryStep() throws Exception {
+        long id=customer();
+        var controller=new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController(workflow,currentPost);
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        for (var step:CustomerWorkflowModel.Step.values()) {
+            var response=mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/franchise/customers/"+id+"/workflow/steps/"+step.name()+"/supplements").param("pageNo","1").param("pageSize","20")).andReturn().getResponse();
+            assertThat(response.getStatus()).as(step.name()).isEqualTo(200);
+            assertThat(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(response.getContentAsString()).at("/data/total").asLong(-1)).isZero();
+        }
+        assertThat(workflow.get(sales,id).revision()).isZero();
+    }
+
     @Test void acceptedDocumentIsPrivateBeforeAttachmentAndFollowsCustomerVisibilityAfterward() throws Exception {
         long id = upload(PDF, "application/pdf"), customer = customer();
         denied(() -> as(colleague, () -> channel.createDownloadUrl(colleague, id)));
