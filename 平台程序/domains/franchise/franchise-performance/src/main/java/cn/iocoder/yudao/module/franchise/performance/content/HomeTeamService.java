@@ -26,12 +26,17 @@ public class HomeTeamService {
             WHERE (c.last_follow_at IS NULL OR c.next_visit_date<=cfg.today) AND %NOT_LOST%
           UNION ALL SELECT DISTINCT x.member,'visitCustomers',c.id::text,c.name,'本月登记接待',c.id::text,NULL,NULL
           FROM (
-            SELECT e.actor_user_id member,w.customer_id FROM fr_customer_workflow_event e JOIN fr_customer_workflow w ON w.id=e.workflow_id AND w.company_id=e.company_id
-            WHERE e.step_code='INTRODUCTION' AND e.action IN ('SAVE','COMPLETE') AND e.occurred_on>=cfg.begin_date AND e.occurred_on<cfg.end_date
+            SELECT e.actor_user_id member,w.customer_id,w.company_id
+            FROM fr_customer_workflow_event e
+            JOIN fr_customer_workflow w ON w.id=e.workflow_id AND w.company_id=e.company_id
+            CROSS JOIN cfg
+            WHERE w.company_id=cfg.org AND e.step_code='INTRODUCTION' AND e.action IN ('SAVE','COMPLETE')
+              AND e.occurred_on>=cfg.begin_date AND e.occurred_on<cfg.end_date
             UNION ALL
-            SELECT f.author_user_id,f.customer_id FROM fr_customer_follow f
-            WHERE f.contact_kind='VISIT' AND f.occurred_on>=cfg.begin_date AND f.occurred_on<cfg.end_date
-          ) x JOIN customers c ON c.id=x.customer_id,cfg)
+            SELECT f.author_user_id,f.customer_id,f.company_id FROM fr_customer_follow f CROSS JOIN cfg
+            WHERE f.company_id=cfg.org AND f.contact_kind='VISIT'
+              AND f.occurred_on>=cfg.begin_date AND f.occurred_on<cfg.end_date
+          ) x JOIN customers c ON c.id=x.customer_id AND c.company_id=x.company_id)
         """;
     private static final String PROJECTS="""
         projects AS (SELECT * FROM fr_eng_project WHERE company_id=(SELECT org FROM cfg)),
