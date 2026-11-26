@@ -1129,6 +1129,46 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
     @Test
     @SuppressWarnings("unchecked")
+    void materialSummarySeparatesUsageReturnAndOpenReshipByOriginalLineAndScope() {
+        long proof = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, new EngMaterialService.ArrivalCommand(
+                null, new BigDecimal("4"), new BigDecimal("3"), "OK", "FLOW-" + supplyId, proof, null, null, null), idem()));
+        long rejected = insertArrivalForCorrection("0.500");
+        jdbc.update("UPDATE fr_eng_supply_receipt SET quality='REJECTED' WHERE id=?", rejected);
+        for (String kind : java.util.List.of("CONSUME", "RETURN")) {
+            as(engineer, () -> materialsService.movement(engineer, projectId, new EngMaterialService.MovementCommand(
+                    materialId, kind, new BigDecimal("0.250"), "原单 " + kind, engineer.userId()), idem()));
+        }
+        var row = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) row.get("consumedQuantity")).isEqualByComparingTo("0.250");
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("2.500");
+        var history = (java.util.List<java.util.Map<String, Object>>) row.get("movements");
+        assertThat(history).extracting(m -> m.get("kind")).containsExactly("RETURN", "CONSUME");
+        assertThat(history.get(0)).containsEntry("settlementStatus", "PENDING_SETTLE").containsEntry("note", "原单 RETURN")
+                .containsEntry("authorUserId", Long.toString(engineer.userId())).containsEntry("receiverUserId", Long.toString(engineer.userId()));
+        assertThat(history.get(0).get("id")).isInstanceOf(String.class);
+        assertThat(history.get(0).get("occurredAt")).isNotNull();
+        var pending = (java.util.List<java.util.Map<String, Object>>) row.get("pendingReships");
+        assertThat(pending).hasSize(1);
+        assertThat((BigDecimal) pending.get(0).get("expectedQuantity")).isEqualByComparingTo("1.000");
+        long reship = Long.parseLong((String) pending.get(0).get("id"));
+        assertThat(pending.get(0).get("parentReceiptId")).isInstanceOf(String.class);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, new EngMaterialService.ArrivalCommand(
+                reship, null, BigDecimal.ONE, "OK", "REPLACE-" + supplyId, proof, null, null, null), idem()));
+        row = onlyMaterialSummaryLine();
+        assertThat((java.util.List<?>) row.get("pendingReships")).isEmpty();
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("3.500");
+
+        var sales = fixture.post(store.orgId(), "sales", null);
+        var plans = (java.util.List<java.util.Map<String, Object>>) materialsService.summary(sales, projectId, null).get("plans");
+        var limited = (java.util.List<java.util.Map<String, Object>>) plans.get(0).get("lines");
+        assertThat(limited.get(0)).doesNotContainKeys("consumedQuantity", "availableQuantity", "movements", "pendingReships");
+        var foreign = fixture.post(fixture.store().orgId(), "finance", null);
+        assertThatThrownBy(() -> materialsService.summary(foreign, projectId, null)).isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void pendingReshipIsNotAnArrivalUntilItIsActuallyReceived() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 10 WHERE id = ?", materialId);
         jdbc.update("UPDATE fr_eng_supply SET quantity = 10 WHERE id = ?", supplyId);
