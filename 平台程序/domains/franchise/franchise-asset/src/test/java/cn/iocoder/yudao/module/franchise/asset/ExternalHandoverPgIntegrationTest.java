@@ -129,6 +129,38 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
     @AfterEach void clear() { storage.beforeRead=null; TenantContextHolder.clear(); }
 
+    @Test void designServiceContractStaysInCommissionAndOnlySignedConstructionContractCompletesStepSeven() throws Exception {
+        long id = customer(sales);
+        long designFile = upload(sales, "BUSINESS_DOCUMENT");
+        var designAgreement = new Attachment(Long.toString(designFile), "已签设计服务合同.pdf");
+        var initial = as(sales, () -> external.get(sales, id));
+        var request = new RequestCommand(initial.revision(), today(), "外部建筑设计服务方", "SJ-07",
+                "客户与设计方已签订设计服务合同", "建筑方案与设计服务", new BigDecimal("180"), 2,
+                List.of(designAgreement), initial.currentPaymentPlanRef(), "归档已签设计服务合同");
+        var design = as(sales, () -> external.register(sales, id, request, key()));
+        var beforeSigning = as(sales, () -> workflow.get(sales, id));
+        var pending = beforeSigning.steps().get(6);
+        assertThat(pending.code()).isEqualTo("CONTRACT");
+        assertThat(pending.name()).isEqualTo("施工签约");
+        assertThat(pending.status()).isEqualTo("TODO");
+        assertThat(pending.fields()).doesNotContainKey("contractId");
+        assertThat(beforeSigning.completedCount()).isZero();
+        assertThat(count("fr_sale_contract", "customer_id", id)).isZero();
+
+        var construction = signed(id);
+        var afterSigning = as(sales, () -> workflow.get(sales, id));
+        var completed = afterSigning.steps().get(6);
+        assertThat(completed.status()).isEqualTo("COMPLETED");
+        assertThat(completed.source()).isEqualTo("CONTRACT");
+        assertThat(completed.fields()).containsEntry("contractId", construction.getId().toString())
+                .containsEntry("assetId", construction.getAssetId().toString());
+        assertThat(afterSigning.completedCount()).isEqualTo(1);
+        assertThat(afterSigning.steps().get(7).status()).isEqualTo("TODO");
+        assertThat(as(sales, () -> external.get(sales, id)).currentRequest().data().attachments()).containsExactly(designAgreement);
+        var ticket = as(sales, () -> external.download(sales, id, "requests", design.currentRequest().version(), designFile));
+        assertThat(as(sales, () -> assets.readDownload(actor(sales), designFile, token(ticket.downloadUrl()))).bytes()).isEqualTo(PDF);
+    }
+
     @Test void existingCustomerCanListSavedMeasurementVersionsBeforeAnyCommission() throws Exception {
         long customerId = customer(sales);
         var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
