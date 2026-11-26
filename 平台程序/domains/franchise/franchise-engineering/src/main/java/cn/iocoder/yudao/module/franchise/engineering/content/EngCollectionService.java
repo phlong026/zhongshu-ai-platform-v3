@@ -150,6 +150,9 @@ public class EngCollectionService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> register(PostSnapshot post, long projectId, CollectCommand cmd, String idempotencyKey) {
+        // A concurrent request may have recorded this receipt while we waited for the project.
+        jdbcTemplate.queryForList("SELECT id FROM fr_eng_project WHERE company_id=? AND id=? FOR UPDATE",
+                Long.class, post.orgId(), projectId);
         FrEngProjectDO project = projectService.requireProject(post, projectId);
         EngGuard.requireActionAllowed(projectService.closureOf(post, projectId), "collect");
         // Normalize every business fact before replay lookup. Keep the old payload only as a
@@ -249,8 +252,6 @@ public class EngCollectionService {
                 && !EngGuard.toppingDone(planNodesForGate(post, projectId))) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先完成主体封顶");
         }
-        // 行锁串行化并发登记（评审十三 P2-1 保留）
-        projectService.projects().lockById(projectId);
         // M07-T06/I05（R1 P1-1）：统一链收款——资金事实唯一在 fr_fin_receipt + fr_sale_stage_receipt
         //（限额/幂等/审计/财务登记全在 sales 统一侧，本域不再自建财务收据镜像）；
         // 无活跃统一合同 → 拒绝（I05 规则从严：同一甲方建房必须有统一合同才能收款）
