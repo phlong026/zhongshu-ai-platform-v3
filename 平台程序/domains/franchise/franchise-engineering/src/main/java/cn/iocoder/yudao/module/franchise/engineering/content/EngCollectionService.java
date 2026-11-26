@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngClosureDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionDO;
@@ -186,8 +187,23 @@ public class EngCollectionService {
         // Keep an omitted input stable across midnight. Only the posted receipt needs the default date.
         payload.put("occurredAt", cmd.occurredAt() == null ? null : cmd.occurredAt().toString());
         payload.put("fileAssetId", cmd.fileAssetId());
+        payload.put("dateProvided", cmd.occurredAt() != null);
 
-        var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload);
+        var replayed = commands.replayedWithLegacy(post, idempotencyKey, payload, event -> {
+            if (!AGGREGATE.equals(event.getAggregateType()) || !"eng-collect".equals(event.getCommand())) return null;
+            var stored = JsonUtils.parseTree(event.getPayload());
+            if (!stored.has("projectId")) return legacyPayload;
+            if (stored.has("dateProvided")) return null;
+            // The intermediate version stored the resolved date even when the caller omitted it.
+            // Only the posting day could have been assigned by that default.
+            var resolved = new LinkedHashMap<>(payload);
+            resolved.remove("dateProvided");
+            if (cmd.occurredAt() == null) {
+                resolved.put("occurredAt", event.getOccurredAt().atZoneSameInstant(java.time.ZoneId.systemDefault())
+                        .toLocalDate().toString());
+            }
+            return resolved;
+        });
         if (replayed.isPresent()) {
             var event = replayed.get();
             if (!AGGREGATE.equals(event.getAggregateType()) || !"eng-collect".equals(event.getCommand())) {

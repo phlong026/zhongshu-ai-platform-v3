@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.Objects;
+import java.util.function.Function;
 
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
@@ -42,17 +43,21 @@ public class FranchiseCommands {
      */
     public Optional<CommandEventDO> replayed(PostSnapshot post, String idempotencyKey,
                                              Object input, Object legacyInput) {
+        return replayedWithLegacy(post, idempotencyKey, input, event -> legacyInput);
+    }
+
+    /** Select a historical request format only after locating the original event in this organization. */
+    public Optional<CommandEventDO> replayedWithLegacy(PostSnapshot post, String idempotencyKey, Object input,
+                                                       Function<CommandEventDO, Object> legacyInputFor) {
         if (StrUtil.isBlank(idempotencyKey)) {
             return Optional.empty();
         }
         return commandLog.findByIdempotencyKey(scopedKey(post, idempotencyKey)).map(existing -> {
             // Preserve historical key format, but never replay a fact from another organization.
-            String currentHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(input));
-            String legacyHash = legacyInput == null ? null
-                    : DigestUtil.sha256Hex(JsonUtils.toJsonString(legacyInput));
-            if (!java.util.Objects.equals(existing.getOrgId(), post.orgId())
-                    || (!currentHash.equals(existing.getPayloadHash())
-                    && !java.util.Objects.equals(legacyHash, existing.getPayloadHash()))) {
+            if (!Objects.equals(existing.getOrgId(), post.orgId())) throw exception(IDEMPOTENCY_KEY_REUSED);
+            if (DigestUtil.sha256Hex(JsonUtils.toJsonString(input)).equals(existing.getPayloadHash())) return existing;
+            Object legacyInput = legacyInputFor.apply(existing);
+            if (legacyInput == null || !DigestUtil.sha256Hex(JsonUtils.toJsonString(legacyInput)).equals(existing.getPayloadHash())) {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             return existing;
