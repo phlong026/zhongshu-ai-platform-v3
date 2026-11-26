@@ -256,6 +256,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                 () -> collectionService.register(finance, projectId, changedEvidence, key)))
                 .isInstanceOf(ServiceException.class);
 
+        // Same actor and command shape on another project must never replay the first project's collection.
         long anotherProjectId = IDS.incrementAndGet();
         jdbc.update("""
                 INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status,
