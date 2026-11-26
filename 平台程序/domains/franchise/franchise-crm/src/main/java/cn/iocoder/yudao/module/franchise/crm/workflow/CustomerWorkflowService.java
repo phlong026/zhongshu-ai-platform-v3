@@ -86,6 +86,12 @@ public class CustomerWorkflowService {
         requireActive(workflow);
         var previous = reads.step(workflow.tenantId(), workflow.companyId(), workflow.id(), step);
         if (previous != null && "COMPLETED".equals(previous.status())) throw conflict("请先重开已完成步骤，再补充或更正资料");
+        // Pre-link mini programs omit quoteId entirely. The current external-quote form sends an explicit blank.
+        if (step == Step.QUOTATION && previous != null && previous.fields().containsKey("quoteId")
+                && !input.fields().containsKey("quoteId")
+                && !(request.fields() != null && request.fields().get("quoteId") instanceof String submitted && submitted.isBlank())) {
+            throw invalid("本步骤已关联正式报价，请更新小程序后再修改");
+        }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
         validateAttachments(post, customerId, input.attachments());
         long stepRevision = previous == null ? 1 : previous.revision() + 1;
