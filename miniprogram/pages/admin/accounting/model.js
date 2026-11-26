@@ -15,7 +15,8 @@ const version = value => Number.isSafeInteger(Number(value)) && Number(value) >=
 const hash = value => /^[0-9a-f]{64}$/.test(String(value || ''));
 const definitions = [
   ['contractRevenueCents', '已签合同金额'], ['confirmedCostCents', '已确认项目费用'],
-  ['netReceivedCents', '客户净收款'], ['companyNetPaidCents', '公司净付款'], ['receivableCents', '合同待收款']
+  ['netReceivedCents', '客户净收款'], ['companyNetPaidCents', '公司净付款'],
+  ['receivableCents', '合同待收款'], ['payableOutstandingCents', '项目待付款']
 ];
 function amounts(row) {
   if (!row || row.basisCode !== 'CONTRACT_CONFIRMED_COST_V1') throw Error('核算口径尚未确认，请重新加载');
@@ -23,8 +24,10 @@ function amounts(row) {
     if (money(row[key]) === '—') throw Error('项目核算金额无效，请重新加载');
   }
   for (const key of ['contractRevenueCents', 'grossProfitCents']) if (row[key] != null && money(row[key]) === '—') throw Error('项目核算金额无效，请重新加载');
+  const outstandingText = money(row.payableOutstandingCents);
+  if (row.payableOutstandingCents !== undefined && (outstandingText === '—' || outstandingText.startsWith('-'))) throw Error('项目待付款金额无效，请重新加载');
   return { cashText: money(row.cashNetCents), profitText: money(row.grossProfitCents), costText: money(row.confirmedCostCents),
-    metrics: definitions.map(([key, label]) => ({ key, label, value: money(row[key]) })), basis: String(row.basisLabel || '') };
+    outstandingText, metrics: definitions.map(([key, label]) => ({ key, label, value: money(row[key]) })), basis: String(row.basisLabel || '') };
 }
 function snapshot(row, projectId) {
   if (!row || !id(row.id) || version(row.version) < 1 || !hash(row.sourceHash) || id(row.snapshot?.projectId) !== projectId

@@ -145,7 +145,8 @@ function accounting(value,scope) {
   if(latest && (api.id(latest.snapshot?.projectId)!==api.id(value.projectId) || latest.snapshot.sourceHash!==latest.sourceHash)) throw Error('核算确认记录不匹配');
   return { profit:exact(value.grossProfitCents),cash:exact(value.cashNetCents),cost:exact(value.confirmedCostCents),basis:text(value.basisLabel),
     status:{UNCONFIRMED:'尚未确认',CURRENT:'已确认',STALE:'账目有变化，待复核'}[value.state],
-    latest:latest?{version:latest.version,date:date(latest.confirmedAt),note:text(latest.note),profit:exact(latest.snapshot.grossProfitCents),cash:exact(latest.snapshot.cashNetCents)}:null };
+    latest:latest?{version:latest.version,date:date(latest.confirmedAt),note:text(latest.note),profit:exact(latest.snapshot.grossProfitCents),
+      cash:exact(latest.snapshot.cashNetCents),outstanding:exact(latest.snapshot.payableOutstandingCents)}:null };
 }
 function ledger(value,scope) {
   if (!value || !value.summary || !Array.isArray(value.entries)) throw Error('账本数据不完整');
