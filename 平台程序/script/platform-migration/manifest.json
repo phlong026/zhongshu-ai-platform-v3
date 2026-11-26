@@ -922,6 +922,1111 @@
         "resource": "db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql",
         "sha256": "09892e8a2ca064b9772241e8e501e4c05499c900d446afa9682897327db4c0fb"
       }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.911__org_point_pool.sql",
+      "location": "platform-wallet",
+      "version": "20261114.911",
+      "source_sha256": "f12f28dc667ae9a6c5431a5c32fac77dcb2387de4ff58e98a708648d10435904",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.911__org_point_pool.sql",
+        "sha256": "f12f28dc667ae9a6c5431a5c32fac77dcb2387de4ff58e98a708648d10435904"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.912__design_billing_binding.sql",
+      "location": "platform-wallet",
+      "version": "20261114.912",
+      "source_sha256": "18cd82e989b6f7b567021b1f9019ab5b48c941c40a0e19bd1bf64c3875bb681e",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.912__design_billing_binding.sql",
+        "sha256": "18cd82e989b6f7b567021b1f9019ab5b48c941c40a0e19bd1bf64c3875bb681e"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.913__design_prompt_receipt.sql",
+      "location": "platform-wallet",
+      "version": "20261114.913",
+      "source_sha256": "d0c9d4f04cad009f1f95e5a2eb8c24df454dd920a58407c926055a9525f2d90d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.913__design_prompt_receipt.sql",
+        "sha256": "d0c9d4f04cad009f1f95e5a2eb8c24df454dd920a58407c926055a9525f2d90d"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.914__org_point_subject_price.sql",
+      "location": "platform-wallet",
+      "version": "20261114.914",
+      "source_sha256": "4bedefe90172ce8c3d7a9e0ccd63fc512622e7744a1dc8e79b64b9291812caea",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.914__org_point_subject_price.sql",
+        "sha256": "4bedefe90172ce8c3d7a9e0ccd63fc512622e7744a1dc8e79b64b9291812caea"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261114.915__local_public_case_favorites.sql",
+      "location": "franchise-design-remote",
+      "version": "20261114.915",
+      "source_sha256": "baadf18606cd7402f5db472e4559f518a8512a30b7502633ed0eea0eed5d5ff1",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-design-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-design-remote/V20261114.915__local_public_case_favorites.sql",
+        "sha256": "baadf18606cd7402f5db472e4559f518a8512a30b7502633ed0eea0eed5d5ff1"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261114.916__fr_content_pool_biz_key.sql",
+      "location": "franchise",
+      "version": "20261114.916",
+      "source_sha256": "5f1992d0fecf4d35445ba92da532c07b69e30cf684336d6645a06b6718adaa18",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261114.916__fr_content_pool_biz_key.sql",
+        "sha256": "5f1992d0fecf4d35445ba92da532c07b69e30cf684336d6645a06b6718adaa18"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.917__org_point_headquarters_admin.sql",
+      "location": "platform-wallet",
+      "version": "20261114.917",
+      "source_sha256": "e88e91a8fd3aed660d176fe8950501ddde205c1c1879fc93c6dd7564bb8258c4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.917__org_point_headquarters_admin.sql",
+        "sha256": "e88e91a8fd3aed660d176fe8950501ddde205c1c1879fc93c6dd7564bb8258c4"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.918__org_point_hq_price_idempotency.sql",
+      "location": "platform-wallet",
+      "version": "20261114.918",
+      "source_sha256": "ce221688f5c9791de6bebe5ffca54f17f7ebdd1dfd149b1c129d8a99132ce062",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261114.918__org_point_hq_price_idempotency.sql",
+        "sha256": "ce221688f5c9791de6bebe5ffca54f17f7ebdd1dfd149b1c129d8a99132ce062"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261114.920__design_reference_asset.sql",
+      "location": "franchise-asset",
+      "version": "20261114.920",
+      "source_sha256": "52eb2b75624bdf9da28eab0a6ce6cdff375a7ed5f3e59c8f62d23d8920ca95c4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261114.920__design_reference_asset.sql",
+        "sha256": "52eb2b75624bdf9da28eab0a6ce6cdff375a7ed5f3e59c8f62d23d8920ca95c4"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261115.710__pf_franchise_account.sql",
+      "location": "pf",
+      "version": "20261115.710",
+      "source_sha256": "574bc95e328f238550232f78dd27f0236dca4d59cd0c6262898ac4ea8a67154d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261115.710__pf_franchise_account.sql",
+        "sha256": "574bc95e328f238550232f78dd27f0236dca4d59cd0c6262898ac4ea8a67154d"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261115.711__pf_org_admin_audit.sql",
+      "location": "pf",
+      "version": "20261115.711",
+      "source_sha256": "d88c249f9f3d634a6867584af4f998cd0cb432cb9a6ec89b293fe28beb3096bf",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261115.711__pf_org_admin_audit.sql",
+        "sha256": "d88c249f9f3d634a6867584af4f998cd0cb432cb9a6ec89b293fe28beb3096bf"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261115.712__pf_org_directory_menu.sql",
+      "location": "pf",
+      "version": "20261115.712",
+      "source_sha256": "f7281b3377bb231400cf99747a751fc714de8ee4e116fe332944a50ae3cf77d5",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261115.712__pf_org_directory_menu.sql",
+        "sha256": "f7281b3377bb231400cf99747a751fc714de8ee4e116fe332944a50ae3cf77d5"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261115.713__pf_org_account_reset_audit.sql",
+      "location": "pf",
+      "version": "20261115.713",
+      "source_sha256": "892e5bcab577cb9a6cef89d80ba6537b000c63cb00ee5baa99ba7043c0c07b2a",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261115.713__pf_org_account_reset_audit.sql",
+        "sha256": "892e5bcab577cb9a6cef89d80ba6537b000c63cb00ee5baa99ba7043c0c07b2a"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261115.917__fr_content_digital_clones.sql",
+      "location": "franchise",
+      "version": "20261115.917",
+      "source_sha256": "535ec74862e82b5fba4ab2a8e30002bd284f760a99464def1fc85df68230bedc",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261115.917__fr_content_digital_clones.sql",
+        "sha256": "535ec74862e82b5fba4ab2a8e30002bd284f760a99464def1fc85df68230bedc"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261115.981__commission_fee_modes_pricing.sql",
+      "location": "franchise",
+      "version": "20261115.981",
+      "source_sha256": "fb25e2f29c7c0108f1e9e3c251c1c7c356eb9ce091f13915d2cdf4e8458e537f",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261115.981__commission_fee_modes_pricing.sql",
+        "sha256": "fb25e2f29c7c0108f1e9e3c251c1c7c356eb9ce091f13915d2cdf4e8458e537f"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261115.982__commission_dispatch_manifest.sql",
+      "location": "franchise",
+      "version": "20261115.982",
+      "source_sha256": "a44d67bda1c90693efdc0204c9c84ca77bb5e083be0025d4d95c41ab4341c398",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261115.982__commission_dispatch_manifest.sql",
+        "sha256": "a44d67bda1c90693efdc0204c9c84ca77bb5e083be0025d4d95c41ab4341c398"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261115.983__design_fee_sources.sql",
+      "location": "franchise",
+      "version": "20261115.983",
+      "source_sha256": "48af82d0e05fcf18bf035f800a50b623359c7e8510bae8fe7a1d8a4616b3b8d5",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261115.983__design_fee_sources.sql",
+        "sha256": "48af82d0e05fcf18bf035f800a50b623359c7e8510bae8fe7a1d8a4616b3b8d5"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261115.984__design_deliverables_scopes.sql",
+      "location": "franchise-asset",
+      "version": "20261115.984",
+      "source_sha256": "df5d8f16a4425c9afe8a549646c85116b0245bfc5adfa795677f1ca86170015b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261115.984__design_deliverables_scopes.sql",
+        "sha256": "df5d8f16a4425c9afe8a549646c85116b0245bfc5adfa795677f1ca86170015b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261115.985__quote_budget_basis.sql",
+      "location": "franchise",
+      "version": "20261115.985",
+      "source_sha256": "d3e2ec69a2a3bc60258232f3b40e3701824b03d5dcbffe3a234c3fac9b3a738b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261115.985__quote_budget_basis.sql",
+        "sha256": "d3e2ec69a2a3bc60258232f3b40e3701824b03d5dcbffe3a234c3fac9b3a738b"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.730__platform_operations.sql",
+      "location": "pf",
+      "version": "20261116.730",
+      "source_sha256": "0822696864e453bb8af236608100084b222381d7e7999c4dff3762112f9161ab",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.730__platform_operations.sql",
+        "sha256": "0822696864e453bb8af236608100084b222381d7e7999c4dff3762112f9161ab"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql",
+      "location": "pf",
+      "version": "20261116.731",
+      "source_sha256": "66d5f71cad57dcb505d5b897949588efb632edafce0f89cd585d556cdb32e30e",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.731__training_phase_one.sql",
+        "sha256": "66d5f71cad57dcb505d5b897949588efb632edafce0f89cd585d556cdb32e30e"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.732__training_legacy_catalog_drafts.sql",
+      "location": "pf",
+      "version": "20261116.732",
+      "source_sha256": "1d4fd7aada2c00d759a7f65f6807d76aff5c689ef46bc59851319b24474d749d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.732__training_legacy_catalog_drafts.sql",
+        "sha256": "1d4fd7aada2c00d759a7f65f6807d76aff5c689ef46bc59851319b24474d749d"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.733__training_material_management.sql",
+      "location": "pf",
+      "version": "20261116.733",
+      "source_sha256": "d68ae00962bf7296920b9c264ba80f7b94e3608615235f32a49c37d13faf2d02",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.733__training_material_management.sql",
+        "sha256": "d68ae00962bf7296920b9c264ba80f7b94e3608615235f32a49c37d13faf2d02"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.923__fr_content_persona_ip_profile.sql",
+      "location": "franchise",
+      "version": "20261116.923",
+      "source_sha256": "a8ea89aea58d053cd4bcbaf0b318cab5cb41d1de7241044ce63179e5da7a8c3d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261116.923__fr_content_persona_ip_profile.sql",
+        "sha256": "a8ea89aea58d053cd4bcbaf0b318cab5cb41d1de7241044ce63179e5da7a8c3d"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.924__fr_content_hifly_direct_upload.sql",
+      "location": "franchise",
+      "version": "20261116.924",
+      "source_sha256": "7cd546b42738de68fc885fe02aeff7f5ab4a0fb46f76c91c1239bc3deae31a91",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261116.924__fr_content_hifly_direct_upload.sql",
+        "sha256": "7cd546b42738de68fc885fe02aeff7f5ab4a0fb46f76c91c1239bc3deae31a91"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.925__training_material_categories.sql",
+      "location": "pf",
+      "version": "20261116.925",
+      "source_sha256": "a27d660016d6082c8a2e33a4c54faee52e17f8d89e1384ca3bc1ae3b0e232f1b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.925__training_material_categories.sql",
+        "sha256": "a27d660016d6082c8a2e33a4c54faee52e17f8d89e1384ca3bc1ae3b0e232f1b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.926__content_clone_defaults.sql",
+      "location": "franchise",
+      "version": "20261116.926",
+      "source_sha256": "26bf8bf0c0e70128298f3b0012cf743b7a11fe7730208550199d331b270f2ad8",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261116.926__content_clone_defaults.sql",
+        "sha256": "26bf8bf0c0e70128298f3b0012cf743b7a11fe7730208550199d331b270f2ad8"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261116.927__content_persona_self_permission.sql",
+      "location": "franchise-system",
+      "version": "20261116.927",
+      "source_sha256": "8e37a9f6018467bf42c374754308449268ce4692d782be1d9ed6d710629274e8",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261116.927__content_persona_self_permission.sql",
+        "sha256": "8e37a9f6018467bf42c374754308449268ce4692d782be1d9ed6d710629274e8"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261116.928__crm_customer_address.sql",
+      "location": "franchise",
+      "version": "20261116.928",
+      "source_sha256": "7dd2b35aa7ead1ad1f20452f1670bedc3d4a7daf78ffdb162fa0c86fd19dd439",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261116.928__crm_customer_address.sql",
+        "sha256": "7dd2b35aa7ead1ad1f20452f1670bedc3d4a7daf78ffdb162fa0c86fd19dd439"
+      }
+    },
+    {
+      "path": "platform/platform-workflow/src/main/resources/db/migration/pf/V20261116.941__business_message_delivery.sql",
+      "location": "pf",
+      "version": "20261116.941",
+      "source_sha256": "4220ebdf28e873c3a5900ba6ea7d4ec8b9dd4bfa21c221da109dcb4ec47fa6aa",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261116.941__business_message_delivery.sql",
+        "sha256": "4220ebdf28e873c3a5900ba6ea7d4ec8b9dd4bfa21c221da109dcb4ec47fa6aa"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261116.942__commission_simulated_payment.sql",
+      "location": "franchise",
+      "version": "20261116.942",
+      "source_sha256": "65cd3015046a8d932f99f2075e75adeb8e89214a3e3c3fe9ae72266038e0f6b0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261116.942__commission_simulated_payment.sql",
+        "sha256": "65cd3015046a8d932f99f2075e75adeb8e89214a3e3c3fe9ae72266038e0f6b0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261117.943__finance_workbench.sql",
+      "location": "franchise",
+      "version": "20261117.943",
+      "source_sha256": "23795a8bb15220bf62e67a19f95bd5aec6bc4c91a3e1005c9e30b58bad292106",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.943__finance_workbench.sql",
+        "sha256": "23795a8bb15220bf62e67a19f95bd5aec6bc4c91a3e1005c9e30b58bad292106"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261117.944__sale_finance_confirmation.sql",
+      "location": "franchise",
+      "version": "20261117.944",
+      "source_sha256": "08e7e2026aac35217d37cc424abb53ccee8b89e926854564a51e40eb3ef3249c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.944__sale_finance_confirmation.sql",
+        "sha256": "08e7e2026aac35217d37cc424abb53ccee8b89e926854564a51e40eb3ef3249c"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261117.945__content_persona_drafts.sql",
+      "location": "franchise",
+      "version": "20261117.945",
+      "source_sha256": "08fad4ec15b4f74b13444b2e5df55b16ff2ef8aba1f87dcedef7e1ec0d901c88",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.945__content_persona_drafts.sql",
+        "sha256": "08fad4ec15b4f74b13444b2e5df55b16ff2ef8aba1f87dcedef7e1ec0d901c88"
+      }
+    },
+    {
+      "path": "platform/platform-workflow/src/main/resources/db/migration/pf/V20261117.946__message_center_context.sql",
+      "location": "pf",
+      "version": "20261117.946",
+      "source_sha256": "f4dc533154c7e2a6d492db82383a2e14a274459aa7a2bd7c68c78e16f6f079e8",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261117.946__message_center_context.sql",
+        "sha256": "f4dc533154c7e2a6d492db82383a2e14a274459aa7a2bd7c68c78e16f6f079e8"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261117.960__persona_publication_version.sql",
+      "location": "franchise",
+      "version": "20261117.960",
+      "source_sha256": "35209b3fa4d9172aac940b855196c2245a03d1cf2ea50c9ca9e62f672010f5d3",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.960__persona_publication_version.sql",
+        "sha256": "35209b3fa4d9172aac940b855196c2245a03d1cf2ea50c9ca9e62f672010f5d3"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261117.961__content_result_delivery.sql",
+      "location": "franchise",
+      "version": "20261117.961",
+      "source_sha256": "56cf9ff1a8c1bf30774c05b98fa39ae36eb2695ff165dd7ed7b7878f65d0248e",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.961__content_result_delivery.sql",
+        "sha256": "56cf9ff1a8c1bf30774c05b98fa39ae36eb2695ff165dd7ed7b7878f65d0248e"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261117.962__video_draft_scope_revision.sql",
+      "location": "franchise",
+      "version": "20261117.962",
+      "source_sha256": "dbbfc8942a1a82b5b444f80e9acd6105f5df630436d790f3d2e417d729b36d78",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261117.962__video_draft_scope_revision.sql",
+        "sha256": "dbbfc8942a1a82b5b444f80e9acd6105f5df630436d790f3d2e417d729b36d78"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.950__fr_eng_progress_camera.sql",
+      "location": "franchise",
+      "version": "20261118.950",
+      "source_sha256": "ccff98372b55ea9afc609728d8d61c969c92e25cd62bd84ba349d9a7092ddb17",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.950__fr_eng_progress_camera.sql",
+        "sha256": "ccff98372b55ea9afc609728d8d61c969c92e25cd62bd84ba349d9a7092ddb17"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261118.963__content_material_library.sql",
+      "location": "franchise",
+      "version": "20261118.963",
+      "source_sha256": "9826ff1f2e2d79118c6f822fc96f8e66f525b1786299f3333d3d50495b0ff7d9",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.963__content_material_library.sql",
+        "sha256": "9826ff1f2e2d79118c6f822fc96f8e66f525b1786299f3333d3d50495b0ff7d9"
+      }
+    },
+    {
+      "path": "platform/platform-workflow/src/main/resources/db/migration/pf/V20261118.964__message_read_snapshots.sql",
+      "location": "pf",
+      "version": "20261118.964",
+      "source_sha256": "a9d9701e7c4f1ef5aaa2ea734e8c7b99741dffcb8e8a81c43462a62849945799",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-workflow-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261118.964__message_read_snapshots.sql",
+        "sha256": "a9d9701e7c4f1ef5aaa2ea734e8c7b99741dffcb8e8a81c43462a62849945799"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261118.965__close_void_advance_reimbursements.sql",
+      "location": "franchise",
+      "version": "20261118.965",
+      "source_sha256": "669b00c9253b8a39b6e30b71a1223e31b4875913e8563e38d0285625c87cdf95",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.965__close_void_advance_reimbursements.sql",
+        "sha256": "669b00c9253b8a39b6e30b71a1223e31b4875913e8563e38d0285625c87cdf95"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261118.966__sale_stage_as_of.sql",
+      "location": "franchise",
+      "version": "20261118.966",
+      "source_sha256": "4311ffa008e08fd425efe395d0001fec58361e73303e1ebb73e5cba3eec2b39e",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.966__sale_stage_as_of.sql",
+        "sha256": "4311ffa008e08fd425efe395d0001fec58361e73303e1ebb73e5cba3eec2b39e"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261118.971__home_business_facts.sql",
+      "location": "franchise",
+      "version": "20261118.971",
+      "source_sha256": "efb5f36af25ac907b42d1d3314b406e3cec6356a6361f9518607118cc371a591",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.971__home_business_facts.sql",
+        "sha256": "efb5f36af25ac907b42d1d3314b406e3cec6356a6361f9518607118cc371a591"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261118.972__content_result_delivery.sql",
+      "location": "franchise",
+      "version": "20261118.972",
+      "source_sha256": "36f4c27733239b4982af18a95ab4a308719f2e4daf384cf6aca288b46e12d1c0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.972__content_result_delivery.sql",
+        "sha256": "36f4c27733239b4982af18a95ab4a308719f2e4daf384cf6aca288b46e12d1c0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.974__site_rectification.sql",
+      "location": "franchise",
+      "version": "20261118.974",
+      "source_sha256": "737b9590a800d25a97291b0e038cca52655e56789f54fc8186c5f2d9257ece19",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.974__site_rectification.sql",
+        "sha256": "737b9590a800d25a97291b0e038cca52655e56789f54fc8186c5f2d9257ece19"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.986__engineering_owner_lookup.sql",
+      "location": "franchise",
+      "version": "20261118.986",
+      "source_sha256": "b04f2a5b5879e77d56c08def84aae669b0e156b214187a19e1e92463357f4143",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.986__engineering_owner_lookup.sql",
+        "sha256": "b04f2a5b5879e77d56c08def84aae669b0e156b214187a19e1e92463357f4143"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261118.987__hifly_file_upload.sql",
+      "location": "franchise",
+      "version": "20261118.987",
+      "source_sha256": "c1a800bd1248a70929743782e8ee536327858771290cf052480d25dcf8bfc048",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.987__hifly_file_upload.sql",
+        "sha256": "c1a800bd1248a70929743782e8ee536327858771290cf052480d25dcf8bfc048"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261118.988__franchise_store_map.sql",
+      "location": "pf",
+      "version": "20261118.988",
+      "source_sha256": "e7d5aced9ceb7be4d986e87c2f4b819dcbc10ab9c5b200fd4cf2ecc6f0fd869d",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261118.988__franchise_store_map.sql",
+        "sha256": "e7d5aced9ceb7be4d986e87c2f4b819dcbc10ab9c5b200fd4cf2ecc6f0fd869d"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261118.989__franchise_district_centers.sql",
+      "location": "pf",
+      "version": "20261118.989",
+      "source_sha256": "f60f8ecec1f4d057473e6179a9f8c1b9bc2b2b7662f19507af5f025e62386647",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261118.989__franchise_district_centers.sql",
+        "sha256": "f60f8ecec1f4d057473e6179a9f8c1b9bc2b2b7662f19507af5f025e62386647"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261118.990__isolated_simulated_package.sql",
+      "location": "platform-wallet",
+      "version": "20261118.990",
+      "source_sha256": "e217f6e5ad1aa011126da55a1b54604e31ad2cf47f906ae353f23ef1ad12c3f1",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261118.990__isolated_simulated_package.sql",
+        "sha256": "e217f6e5ad1aa011126da55a1b54604e31ad2cf47f906ae353f23ef1ad12c3f1"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261118.991__transfer_reviewed_simulated_points.sql",
+      "location": "platform-wallet",
+      "version": "20261118.991",
+      "source_sha256": "216d0f3b4ed09f82e5412b386924b3ed7be0b23e80e34f7af83f83dbb550c8fa",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261118.991__transfer_reviewed_simulated_points.sql",
+        "sha256": "216d0f3b4ed09f82e5412b386924b3ed7be0b23e80e34f7af83f83dbb550c8fa"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261118.992__payable_settlement_status.sql",
+      "location": "franchise",
+      "version": "20261118.992",
+      "source_sha256": "b86d287a990bba6f41f3ad227dcb9b162ab69bd7c3b7d5ae9c108d7fc54359d0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.992__payable_settlement_status.sql",
+        "sha256": "b86d287a990bba6f41f3ad227dcb9b162ab69bd7c3b7d5ae9c108d7fc54359d0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.993__link_verified_manual_contracts.sql",
+      "location": "franchise",
+      "version": "20261118.993",
+      "source_sha256": "98dc0d6cd0ba5365af893184485d411f42bb14aeadbc787aa1e95c5c1b00f7af",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261118.993__link_verified_manual_contracts.sql",
+        "sha256": "98dc0d6cd0ba5365af893184485d411f42bb14aeadbc787aa1e95c5c1b00f7af"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261118.994__company_recharge.sql",
+      "location": "platform-wallet",
+      "version": "20261118.994",
+      "source_sha256": "14eafa413544df6d3a4dd5fb1cef8454c03813eca60ea82d44162ae5e3b01cbc",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261118.994__company_recharge.sql",
+        "sha256": "14eafa413544df6d3a4dd5fb1cef8454c03813eca60ea82d44162ae5e3b01cbc"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261122.990__pf_initial_password_expiry.sql",
+      "location": "pf",
+      "version": "20261122.990",
+      "source_sha256": "8f355c526a50278e610735ce7194d7f41e9292901cc7852e2730d037a51173a9",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261122.990__pf_initial_password_expiry.sql",
+        "sha256": "8f355c526a50278e610735ce7194d7f41e9292901cc7852e2730d037a51173a9"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-performance/src/main/resources/db/migration/franchise/V20261123.996__fr_perf_reconciliation_snapshot.sql",
+      "location": "franchise",
+      "version": "20261123.996",
+      "source_sha256": "366f1ef338df3dcbb7369d06a5c1b24d311ac3fadd2e6c6a83860807548fe900",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-performance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261123.996__fr_perf_reconciliation_snapshot.sql",
+        "sha256": "366f1ef338df3dcbb7369d06a5c1b24d311ac3fadd2e6c6a83860807548fe900"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261123.1021__normalized_clone_asset_import.sql",
+      "location": "franchise",
+      "version": "20261123.1021",
+      "source_sha256": "292ae5879f8e614d9c6612f2908fa67b3f7718b519211e1eb7176192df7d18de",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261123.1021__normalized_clone_asset_import.sql",
+        "sha256": "292ae5879f8e614d9c6612f2908fa67b3f7718b519211e1eb7176192df7d18de"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261123.1022__content_task_personal_dismiss.sql",
+      "location": "franchise",
+      "version": "20261123.1022",
+      "source_sha256": "2149d01e1bbad9986e4b8fcab41fd78a613e4e74ec7701497383b0b4807be2c0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261123.1022__content_task_personal_dismiss.sql",
+        "sha256": "2149d01e1bbad9986e4b8fcab41fd78a613e4e74ec7701497383b0b4807be2c0"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261124.991__franchise_directory.sql",
+      "location": "pf",
+      "version": "20261124.991",
+      "source_sha256": "f765ea90e5a079e356b8ad60c75a7a21ce1c9212aae1ec4ef82bf0b0742aa393",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261124.991__franchise_directory.sql",
+        "sha256": "f765ea90e5a079e356b8ad60c75a7a21ce1c9212aae1ec4ef82bf0b0742aa393"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261124.1022__publication_platform_identity.sql",
+      "location": "franchise",
+      "version": "20261124.1022",
+      "source_sha256": "ffc1a0cee737e335eaa729e2411bd822e813b6575c12a4bc7ff4a716f9152aa7",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261124.1022__publication_platform_identity.sql",
+        "sha256": "ffc1a0cee737e335eaa729e2411bd822e813b6575c12a4bc7ff4a716f9152aa7"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261124.1023__content_publisher_accounts.sql",
+      "location": "franchise",
+      "version": "20261124.1023",
+      "source_sha256": "673996287fab5296e3c9b503908db66aee04cb887b0da36b040f29efcd7609e5",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261124.1023__content_publisher_accounts.sql",
+        "sha256": "673996287fab5296e3c9b503908db66aee04cb887b0da36b040f29efcd7609e5"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261124.1025__content_cover_requests.sql",
+      "location": "franchise",
+      "version": "20261124.1025",
+      "source_sha256": "ff2aede3e992805002d23cd5504e9714370c111834929cb78ed75745a02d222c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261124.1025__content_cover_requests.sql",
+        "sha256": "ff2aede3e992805002d23cd5504e9714370c111834929cb78ed75745a02d222c"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1031__platform_announcements.sql",
+      "location": "pf",
+      "version": "20261125.1031",
+      "source_sha256": "fab63354177089fd83de1260e73068a384d6aabb65e9f973cb9bbfb1dc29d1a0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261125.1031__platform_announcements.sql",
+        "sha256": "fab63354177089fd83de1260e73068a384d6aabb65e9f973cb9bbfb1dc29d1a0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261125.1032__hq_admin_announcement_post.sql",
+      "location": "franchise",
+      "version": "20261125.1032",
+      "source_sha256": "25eed8d6bfc209c74ea4daa3925b139e1231c5e3c9181eaf75bb2efc285bbe58",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1032__hq_admin_announcement_post.sql",
+        "sha256": "25eed8d6bfc209c74ea4daa3925b139e1231c5e3c9181eaf75bb2efc285bbe58"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261125.1033__announcement_permissions.sql",
+      "location": "franchise-system",
+      "version": "20261125.1033",
+      "source_sha256": "1711b431ceacb43694b94f21b864b3d753bdcc0b9ccc08a4c8b6867422bad710",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-system/V20261125.1033__announcement_permissions.sql",
+        "sha256": "1711b431ceacb43694b94f21b864b3d753bdcc0b9ccc08a4c8b6867422bad710"
+      }
+    },
+    {
+      "path": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1034__announcement_create_request.sql",
+      "location": "pf",
+      "version": "20261125.1034",
+      "source_sha256": "96c1c06ed34c429987a50af595dd15cf95a330b964ac35015c6e6810a61a0f9f",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-operations-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261125.1034__announcement_create_request.sql",
+        "sha256": "96c1c06ed34c429987a50af595dd15cf95a330b964ac35015c6e6810a61a0f9f"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql",
+      "location": "franchise",
+      "version": "20261125.1040",
+      "source_sha256": "ac7498d38e01d8d86daa7765c9275dd779caa2242eabe4e5c1e02a8dfc81759a",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql",
+        "sha256": "ac7498d38e01d8d86daa7765c9275dd779caa2242eabe4e5c1e02a8dfc81759a"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261125.1041__business_document_assets.sql",
+      "location": "franchise-asset",
+      "version": "20261125.1041",
+      "source_sha256": "58cba86001225ea7855a1c1a9b0c9ad1e3a12501ad6cfd7367f31b7ee190c250",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261125.1041__business_document_assets.sql",
+        "sha256": "58cba86001225ea7855a1c1a9b0c9ad1e3a12501ad6cfd7367f31b7ee190c250"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1042__customer_workflow_asset_lookup.sql",
+      "location": "franchise",
+      "version": "20261125.1042",
+      "source_sha256": "00bd79ae5a2abaf0a30d5560f87537e75f3748da23eef26c598fecd9031b8cff",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1042__customer_workflow_asset_lookup.sql",
+        "sha256": "00bd79ae5a2abaf0a30d5560f87537e75f3748da23eef26c598fecd9031b8cff"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261125.1043__workflow_download_scope.sql",
+      "location": "franchise-asset",
+      "version": "20261125.1043",
+      "source_sha256": "76ab01a552ab9151f1fbe7ebbe1a4bebf478729e1d94d1fe6ce0bab9d44bd420",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261125.1043__workflow_download_scope.sql",
+        "sha256": "76ab01a552ab9151f1fbe7ebbe1a4bebf478729e1d94d1fe6ce0bab9d44bd420"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1044__contract_evidence_history.sql",
+      "location": "franchise",
+      "version": "20261125.1044",
+      "source_sha256": "537574caa020bfa332298656c95bfbebe30083b0d3e6e42973bd4efeecfb9423",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1044__contract_evidence_history.sql",
+        "sha256": "537574caa020bfa332298656c95bfbebe30083b0d3e6e42973bd4efeecfb9423"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261125.1045__franchise_public_map_name.sql",
+      "location": "pf",
+      "version": "20261125.1045",
+      "source_sha256": "638f48f061a7906f2a0fb9e3bf15e61d34a3d2995c053264ad47e1faeb2c8fbb",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261125.1045__franchise_public_map_name.sql",
+        "sha256": "638f48f061a7906f2a0fb9e3bf15e61d34a3d2995c053264ad47e1faeb2c8fbb"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261125.1046__contract_download_scope.sql",
+      "location": "franchise-asset",
+      "version": "20261125.1046",
+      "source_sha256": "e871d7a8510e392f336c511b3717db0661644be9d4d50172dedc9aa3b3a2dc62",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261125.1046__contract_download_scope.sql",
+        "sha256": "e871d7a8510e392f336c511b3717db0661644be9d4d50172dedc9aa3b3a2dc62"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261125.1047__fr_project_accounting.sql",
+      "location": "franchise",
+      "version": "20261125.1047",
+      "source_sha256": "de12a06425a11897c4b4862a9fa8697482d1a0b13c7aa71df0b7ade1fadfc52b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1047__fr_project_accounting.sql",
+        "sha256": "de12a06425a11897c4b4862a9fa8697482d1a0b13c7aa71df0b7ade1fadfc52b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261125.1048__fr_payroll_ports.sql",
+      "location": "franchise",
+      "version": "20261125.1048",
+      "source_sha256": "a1d9926b000a055fc324604d31ffb43c76a27381a9dfbd280b2a5ef06c9fd3a0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1048__fr_payroll_ports.sql",
+        "sha256": "a1d9926b000a055fc324604d31ffb43c76a27381a9dfbd280b2a5ef06c9fd3a0"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1050__flexible_payment_plan.sql",
+      "location": "franchise",
+      "version": "20261125.1050",
+      "source_sha256": "2c1e09968b5408f9a6d64e5efb9aeabede62e827399e59fceb6b3db6e99ac79b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1050__flexible_payment_plan.sql",
+        "sha256": "2c1e09968b5408f9a6d64e5efb9aeabede62e827399e59fceb6b3db6e99ac79b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261125.1051__engineering_payment_plan.sql",
+      "location": "franchise",
+      "version": "20261125.1051",
+      "source_sha256": "3855f01af70f2a4e2017e5d8b7553305aa57b00a8650b202cac12428c5756165",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1051__engineering_payment_plan.sql",
+        "sha256": "3855f01af70f2a4e2017e5d8b7553305aa57b00a8650b202cac12428c5756165"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1052__customer_payment_plan_draft.sql",
+      "location": "franchise",
+      "version": "20261125.1052",
+      "source_sha256": "ad5fc32548e48f1cc0255d3c91be6e4a0aad8819b0e05f550f83f8104ab59860",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-sales-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1052__customer_payment_plan_draft.sql",
+        "sha256": "ad5fc32548e48f1cc0255d3c91be6e4a0aad8819b0e05f550f83f8104ab59860"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261125.1060__external_commission.sql",
+      "location": "franchise",
+      "version": "20261125.1060",
+      "source_sha256": "8d04ad75bfc6de3479e13bb0c6a272388d640705c27593147782b0f6cd723fc6",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1060__external_commission.sql",
+        "sha256": "8d04ad75bfc6de3479e13bb0c6a272388d640705c27593147782b0f6cd723fc6"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261125.1061__external_handover.sql",
+      "location": "franchise",
+      "version": "20261125.1061",
+      "source_sha256": "f2574dbf227157362c07e70033c0ed6a653dfd8e9ca94136c38909618d4bfc83",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-commission-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261125.1061__external_handover.sql",
+        "sha256": "f2574dbf227157362c07e70033c0ed6a653dfd8e9ca94136c38909618d4bfc83"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261125.1062__external_handover_download_scope.sql",
+      "location": "franchise-asset",
+      "version": "20261125.1062",
+      "source_sha256": "71ce9b0c47760d3a033b8ddf3128cb8bbe7917fe65ce4d32005638db2259e921",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise-asset/V20261125.1062__external_handover_download_scope.sql",
+        "sha256": "71ce9b0c47760d3a033b8ddf3128cb8bbe7917fe65ce4d32005638db2259e921"
+      }
+    },
+    {
+      "path": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261125.1100__org_point_pool_backfill.sql",
+      "location": "platform-wallet",
+      "version": "20261125.1100",
+      "source_sha256": "3e86dfe21d553d08f99ef342b71714fc7a43f9e70426209dbbfaa17020593bb0",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "platform-wallet-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/platform-wallet/V20261125.1100__org_point_pool_backfill.sql",
+        "sha256": "3e86dfe21d553d08f99ef342b71714fc7a43f9e70426209dbbfaa17020593bb0"
+      }
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261126.1001__franchise_public_map_address.sql",
+      "location": "pf",
+      "version": "20261126.1001",
+      "source_sha256": "34ffe7cd53187d6fbf37cb869c24d4bcf732517d2d9def00390dae06f263920c",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-platform-org-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/pf/V20261126.1001__franchise_public_map_address.sql",
+        "sha256": "34ffe7cd53187d6fbf37cb869c24d4bcf732517d2d9def00390dae06f263920c"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261126.1002__personal_work_trash.sql",
+      "location": "franchise",
+      "version": "20261126.1002",
+      "source_sha256": "3c29e97b33dbedfb06aa72e88795f0d511bf69fab8d7aa22f7537f73f773f1e3",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "source": "yudao-domain-franchise-content-2026.08-SNAPSHOT.jar",
+        "resource": "db/migration/franchise/V20261126.1002__personal_work_trash.sql",
+        "sha256": "3c29e97b33dbedfb06aa72e88795f0d511bf69fab8d7aa22f7537f73f773f1e3"
+      }
     }
   ],
   "tables": [
@@ -2515,6 +3620,436 @@
         "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261115.970__reference_asset_mirror.sql"
       ],
       "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_dispatch_manifest",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "无 company_id。用 commission_id、submission_version、design_org_id 回连委托；按原版本闭合成果文件。",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261115.982__commission_dispatch_manifest.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_external_result",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按委托原号、request_version、company 和客户闭合；核验成果归属、文件哈希及版本。",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261125.1060__external_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_external_version",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按原委托、公司、客户及版本，核被取代审批引用和已冻结付款计划。",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261125.1060__external_commission.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_clone_default",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、persona_id 与 clone_id、AVATAR/VOICE 类型一致；依赖 clone 归属已核实。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.926__content_clone_defaults.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_material",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 tenant、company、asset_id 及 parent_asset_id 追溯合法对象；保留作者、可见性和删除状态。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261118.963__content_material_library.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_persona_draft",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、user_id、draft_key；保留草稿与已发布人物的版本，保留旧空值。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261117.945__content_persona_drafts.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_publisher_account",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、owner_user_id、platform/identifier，对应历史发布账号；保留禁用状态。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261124.1023__content_publisher_accounts.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_task_hidden",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、author_user_id、task_id 对原作者与任务；个人可见性不影响任务本身。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261123.1022__content_task_personal_dismiss.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_payment_plan_draft",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、customer_id、revision 与作者；保留草案及原百分比和金额。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1052__customer_payment_plan_draft.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_payment_plan_draft_version",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按同客户和 revision 保留历史草案。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1052__customer_payment_plan_draft.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_workflow",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 tenant/company、customer_id 闭合八步流程；保留模板和修订。",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_workflow_event",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "同一 workflow/步骤及版本，保留操作者与更正前后历史附件。",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_customer_workflow_step",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "同租户同公司 workflow_id/step_code，核字段和附件 JSON 对应已接收的资产。",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_case_favorite",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "tenant_id、org_id、employee_user_id 对本组织员工。保留 A 发布库 external_case_id 的引用及授权，A 原图留在 A。",
+      "source_migrations": [
+        "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261114.915__local_public_case_favorites.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_design_pricing_policy",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "以 design_org_id 对审定设计组织，保留跨门店引用、定价版本、维护人及收款对象。",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261115.981__commission_fee_modes_pricing.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_rectification",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、工程、节点与发起人同范围，保留原整改状态。",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.974__site_rectification.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_rectification_event",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "无 company_id。按 issue_id 继承整改所属工程和组织，核经办人。",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.974__site_rectification.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_book",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id 对组织；按客户、委托、工程及原凭据闭合账本，资金事实仍在原收付表。",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261117.943__finance_workbench.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_payroll_record",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "公司、user_id、月份及可空 rule_id；保持原人工快照，与真实支付凭据分别对账。",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261125.1048__fr_payroll_ports.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_payroll_rule",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按公司、岗位组、有效月份和人工规则版本；保留已存规则与经办人。",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261125.1048__fr_payroll_ports.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_fin_project_accounting",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、project_id、version 及确认人，原样保留 source_hash 和确认快照。",
+      "source_migrations": [
+        "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261125.1047__fr_project_accounting.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_collection_declaration",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id 及 stage_id 对分期；申请人、凭证和已核实 receipt_id 对原单，保留申报状态。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261117.944__sale_finance_confirmation.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_contract_evidence_event",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、contract_id 及前后 revision，逐个核 before/after_evidence 文件与操作者。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1044__contract_evidence_history.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_payment_plan_version",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按公司、合同及付款版本核历史阶段 ID 和原收退单；保留已有阶段事实。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261125.1050__flexible_payment_plan.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_sale_stage_before_change",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "company_id、stage_id、contract_revision/effective_on 对原合同；保留变更前金额。",
+      "source_migrations": [
+        "domains/franchise/franchise-sales/src/main/resources/db/migration/franchise/V20261118.966__sale_stage_as_of.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_member_permission",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按组织和成员闭合已有业务科目权限。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.911__org_point_pool.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_member_quota",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id 与 B_ORG、user_id 与同组织在任或历史成员一致；保留月度额度。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.911__org_point_pool.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_pool_backfill",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 tenant/org、actor、请求键与 existed 保留零余额开户审计；登记历史无须重新建账。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261125.1100__org_point_pool_backfill.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_announcement_audit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "同租户 announcement_id 继承，保留发布、撤回、快照、版本及原岗位。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1031__platform_announcements.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_announcement_brand",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "由同租户已审定的公告和品牌两个外键闭合其交集。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1031__platform_announcements.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_franchise_account",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "tenant_id、org_id、user_id 与同组织既有账号闭合；保留 account_id、已停用/删除和账号类型差异。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261115.710__pf_franchise_account.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_franchise_account_alias",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "通过同 tenant_id 的 account_id 继承；别名唯一性与目标已有登录名核对。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261115.710__pf_franchise_account.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_map_region",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "地区 code、城市、省和坐标按 Git 固定源重建并核版本；人工修改单列核实。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261118.988__franchise_store_map.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_message_read_snapshot",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "含 expires_at，为批量已读操作短期快照；持久读态来自 pf_message，目标页面重新生成可操作快照。",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261118.964__message_read_snapshots.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_ops_action_audit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 org/tenant、操作者及 request_key/hash 保留操作及前后快照。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.730__platform_operations.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_admin_audit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "org_id 对 B_ORG、tenant 与 actor 对 B_ADMIN；保留开户、停用、恢复等原始审计。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261115.711__pf_org_admin_audit.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_capability_policy",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "同租户组织和原授权科目、版本闭合；新组织无记录时沿默认关闭规则。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.730__platform_operations.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_org_profile",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "tenant_id、org_id 归入审定组织，updated_by 追溯原操作者；联络和内部地址维持原权限。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.730__platform_operations.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_store_location",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "account_id 回连 B 组织，再按同租户品牌、地区闭合；坐标与公开地址授权分开。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261118.988__franchise_store_map.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_play",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "有 expires_at 的播放会话可以在目标重新建立，已登记的学习区间由 progress 承接。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_progress",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 tenant、org、user、course/lesson/version 核真实观看区间与完课状态；原进度留存。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_release",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "同 tenant 和已确认 course_id、release_no 继承课程，核发布人、课件版与目标访问资格。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_ticket",
+      "owner": "B",
+      "strategy": "rebuild",
+      "selector": "短期 token_hash 按到期和最新课程权限重新签发，保留原课件及持久学习进度。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
     }
   ],
   "sequences": [
@@ -3111,6 +4646,90 @@
       "last_value": null,
       "increment": null,
       "is_called": null
+    },
+    {
+      "name": "fr_design_remote_command_command_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "fr_design_remote_command",
+      "column": "command_id",
+      "source_migration": "domains/franchise/franchise-design/src/main/resources/db/migration/franchise-design-remote/V20261111.925__remote_design_commands.sql",
+      "catalog_verified": false,
+      "association": "GENERATED ALWAYS AS IDENTITY 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 fr_design_remote_command.command_id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_announcement_audit_id_seq",
+      "kind": "serial-name-candidate",
+      "table": "pf_announcement_audit",
+      "column": "id",
+      "source_migration": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1031__platform_announcements.sql",
+      "catalog_verified": false,
+      "association": "BIGSERIAL 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_announcement_audit.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_handover_audit_id_seq",
+      "kind": "serial-name-candidate",
+      "table": "pf_handover_audit",
+      "column": "id",
+      "source_migration": "platform/platform-org/src/main/resources/db/migration/pf/V20261104.709__pf_handover_audit.sql",
+      "catalog_verified": false,
+      "association": "BIGSERIAL 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_handover_audit.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_handover_pending_id_seq",
+      "kind": "serial-name-candidate",
+      "table": "pf_handover_pending",
+      "column": "id",
+      "source_migration": "platform/platform-org/src/main/resources/db/migration/pf/V20261104.708__pf_handover_pending.sql",
+      "catalog_verified": false,
+      "association": "BIGSERIAL 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_handover_pending.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_map_brand_id_seq",
+      "kind": "identity-name-candidate",
+      "table": "pf_map_brand",
+      "column": "id",
+      "source_migration": "platform/platform-org/src/main/resources/db/migration/pf/V20261118.988__franchise_store_map.sql",
+      "catalog_verified": false,
+      "association": "GENERATED ALWAYS AS IDENTITY 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_map_brand.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_training_audit_id_seq",
+      "kind": "serial-name-candidate",
+      "table": "pf_training_audit",
+      "column": "id",
+      "source_migration": "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql",
+      "catalog_verified": false,
+      "association": "BIGSERIAL 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_training_audit.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
+    },
+    {
+      "name": "pf_wallet_recovery_task_id_seq",
+      "kind": "serial-name-candidate",
+      "table": "pf_wallet_recovery_task",
+      "column": "id",
+      "source_migration": "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261111.906__pf_wallet_recovery.sql",
+      "catalog_verified": false,
+      "association": "BIGSERIAL 隐式序列。已在隔离 PostgreSQL 17.11 用原始建表语句确认归属 pf_wallet_recovery_task.id，目标库名称、归属及进度待核。",
+      "last_value": null,
+      "increment": null,
+      "is_called": null
     }
   ],
   "blocking_evidence": [
@@ -3122,7 +4741,8 @@
     "热停写和A连续服务",
     "通知恢复及唯一owner",
     "隔离导出导入恢复演练",
-    "925命令迁移专用undo缺失及现有undo非空数据限制，需核准回滚/恢复策略"
+    "925命令迁移专用undo缺失及现有undo非空数据限制，需核准回滚/恢复策略",
+    "完整源码包含尚待核准选择器的总部价格、品牌目录、培训内容、资金、外部资源及在途任务表。完整检查按源码表集继续阻断。"
   ],
   "a_retained_locations": [
     "identity",
@@ -3140,6 +4760,28 @@
   "migration_ready": false,
   "freeze_ready": false,
   "artifact_evidence": {
+    "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
+    "source_commit": "323e6106a61ef52bf8b45dd595025e43fa1e9df6",
+    "sha256": "47edd1edd66a41105cb8e04b4b19acc9e66150be22399e8cdc140e5de329e043",
+    "artifact_bytes": 190156903,
+    "resource_count": 155,
+    "location_counts": {
+      "franchise": 79,
+      "franchise-asset": 7,
+      "franchise-design-remote": 5,
+      "franchise-system": 10,
+      "pf": 30,
+      "platform": 5,
+      "platform-bootstrap": 2,
+      "platform-wallet": 17
+    },
+    "resource_index_sha256": "6aa122f5f1a6e4b3b763f7a1cd03650a6e2dd7ed888655c48b51178ce7f3654e",
+    "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
+    "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+    "database_history_verified": false,
+    "note": "核对 B 启动 JAR 的 BOOT-INF/classes 和所有内嵌依赖 JAR 中八个 Flyway 位置的正向资源。包括实际打包的 yudao-platform-operations 模块，生产 Flyway 历史、行级归属和回滚演练另行验收。"
+  },
+  "prior_artifact_evidence": {
     "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
     "sha256": "e1666eab32e0adf9c873db5e75a862904f4a808abf36af47e2e8f250ddd91bf3",
     "artifact_bytes": 182614479,
