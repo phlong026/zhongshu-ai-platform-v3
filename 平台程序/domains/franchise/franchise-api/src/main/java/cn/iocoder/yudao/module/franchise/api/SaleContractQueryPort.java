@@ -25,6 +25,14 @@ public interface SaleContractQueryPort {
 
     record PaymentPlan(long contractId, long revision, int version, long totalCents, Long assetId,
                        java.util.List<PaymentStage> stages) {}
+    static boolean hasAgreedDueCondition(String trigger,Integer nodeIndex,java.time.LocalDate dueDate) {
+        if (dueDate!=null) return true;
+        return switch (java.util.Objects.toString(trigger,"")) {
+            case "ON_SIGN","BEFORE_START","ON_FINISH","LEGACY_BASE_DONE","LEGACY_TOPPING" -> true;
+            case "NODE_COMPLETED" -> nodeIndex!=null && nodeIndex>0 && nodeIndex<=100;
+            default -> false;
+        };
+    }
     record PaymentStage(long id, String key, String label, int sequence, long amountCents,
                         Integer ratioBps, java.time.LocalDate dueDate, String trigger, Integer nodeIndex) {}
 

@@ -42,19 +42,20 @@ public class ExternalHandoverService {
     private final EngineeringProjectContextPort projects;
     private final SaleContractQueryPort contracts;
     private final AssetAccessPort assets;
+    private final UnifiedStageAccountPort stageAccounts;
     private final StoreServiceAccountPort accounts;
     private final ObjectProvider<AssetEvidenceQueryPort> evidence;
     public ExternalHandoverService(JdbcTemplate jdbc, ExternalHandoverAccess access, ExternalCommissionService external,
             CommissionHandoverMapper handovers, CustomerMapper customers, FranchiseCommands commands, StaffPostService staff,
             SystemDirectory directory, EngineeringPort engineering, EngineeringProjectContextPort projects,
-            SaleContractQueryPort contracts, AssetAccessPort assets, StoreServiceAccountPort accounts,
+            SaleContractQueryPort contracts, UnifiedStageAccountPort stageAccounts, AssetAccessPort assets, StoreServiceAccountPort accounts,
             ObjectProvider<AssetEvidenceQueryPort> evidence) {
         this.jdbc=jdbc; this.access=access; this.external=external; this.handovers=handovers; this.customers=customers;
         this.commands=commands; this.staff=staff; this.directory=directory; this.engineering=engineering; this.projects=projects;
-        this.contracts=contracts; this.assets=assets; this.accounts=accounts; this.evidence=evidence;
+        this.contracts=contracts; this.stageAccounts=stageAccounts; this.assets=assets; this.accounts=accounts; this.evidence=evidence;
     }
 
-    @Transactional(readOnly=true)
+    @Transactional(rollbackFor=Exception.class)
     public View get(PostSnapshot post,long commissionId) {
         var subject=access.readable(post,commissionId); var commission=subject.commission();
         var rows=access.packets(commissionId,post.orgId()).stream().filter(h -> access.canReadPacket(post,subject,h)).toList();
@@ -70,10 +71,26 @@ public class ExternalHandoverService {
         if (!rows.isEmpty()) directory.usersByIds(rows.stream().map(CommissionHandoverDO::getManagerUserId).distinct().toList())
                 .forEach(u -> names.put(u.userId(),u.name()));
         var packets=rows.stream().map(h -> packet(h,names.getOrDefault(h.getManagerUserId(),""))).toList();
+        Packet currentPacket=packets.stream().filter(h -> Objects.equals(h.version(),commission.getHandoverVersion())).findFirst().orElse(null);
+        CustomerPaymentPlanDraftPort.Snapshot currentTerms=null;
+        if (currentPacket!=null && currentPacket.paymentPlan()!=null && currentPacket.paymentPlan().contractId()!=null
+                && ("PENDING".equals(currentPacket.status()) || "ACCEPTED".equals(currentPacket.status()))
+                && (CustomerAccess.canWrite(post,subject.customer()) || currentPacket.managerUserId().equals(Long.toString(post.userId())))) {
+            var actual=terms(post,subject.customer().getId(),null);
+            if (ContractVersion.of(currentPacket.paymentPlan()).equals(ContractVersion.of(actual))) currentTerms=actual;
+        }
+        if (decide && !validConstructionTerms(currentTerms)) actions.remove("external-packet-receive");
+        SubmissionTerms submissionTerms=null;
+        if (submit) {
+            var request=external.requests(commissionId,post.orgId()).stream()
+                    .filter(r -> Objects.equals(r.version(),commission.getExternalRequestVersion())).findFirst()
+                    .orElseThrow(() -> conflict("当前委托版本不存在"));
+            submissionTerms=new SubmissionTerms(terms(post,subject.customer().getId(),request.paymentPlan()));
+        }
         return new View(Long.toString(commissionId),subject.customer().getId().toString(),subject.customer().getName(),
                 "EXTERNAL",commission.getStatus(),commission.getRevision(),commission.getExternalResultVersion(),
                 context==null?null:Long.toString(context.projectId()),submit,decide,List.copyOf(actions),
-                packets.stream().filter(h -> Objects.equals(h.version(),commission.getHandoverVersion())).findFirst().orElse(null),packets);
+                currentPacket,packets,submissionTerms,currentTerms);
     }
 
     @Transactional(rollbackFor=Exception.class)
@@ -94,6 +111,11 @@ public class ExternalHandoverService {
         external.requireHistoricalSettlement(post,commission);
         var files=new ArrayList<>(result.attachments()); files.add(new Attachment(input.confirmationAssetId(),"客户确认凭据"));
         external.validateFiles(post,subject.customer().getId(),files);
+        var plan=terms(post,subject.customer().getId(),request.paymentPlan());
+        // Older clients showed the frozen design request. Accept their confirmation only if it still
+        // identifies the same construction contract and installment version that will be handed over.
+        var checked=input.checkedContract()==null?ContractVersion.of(request.paymentPlan()):input.checkedContract();
+        if (!checked.equals(ContractVersion.of(plan))) throw conflict("施工合同或付款计划已变化，请重新核对后移交");
         Integer prior=handovers.selectMaxVersion(commissionId); int version=prior==null?1:prior+1;
         jdbc.update("""
                 INSERT INTO fr_commission_handover(id,company_id,commission_id,version,dispatch_seq,source_mode,
@@ -103,7 +125,7 @@ public class ExternalHandoverService {
                 """,IdWorker.getId(),post.orgId(),commissionId,version,input.resultVersion(),result.data().resultAssetId(),
                 result.data().drawingAssetId(),result.data().reviewAssetId(),input.confirmationAssetId(),Long.parseLong(input.confirmationAssetId()),
                 result.data().drawingVersion(),input.confirmationDate(),input.note(),Long.parseLong(input.managerUserId()),post.userId(),
-                request.paymentPlan()==null?null:JsonUtils.toJsonString(request.paymentPlan()));
+                plan==null?null:JsonUtils.toJsonString(plan));
         updateCommission(commission,STATUS_HANDOVER_SUBMITTED,version);
         commands.record(post,AGGREGATE,commissionId,commission.getRevision()+1,action,mutation,key);
         return get(post,commissionId);
@@ -140,10 +162,18 @@ public class ExternalHandoverService {
             var customer=subject.customer();
             var docs=files(packet).stream().map(f -> new EngineeringPort.HandoverDocument(f.title(),f.assetId(),
                     "DRAWING".equals(f.slot())?"DRAWING":"DOCUMENT",packet.getDrawingVersion())).toList();
+            var frozen=storedPlan(packet);
+            if (!validConstructionTerms(frozen)) throw conflict("请退回业务补齐已签施工合同及各期有效付款约定，再提交工程接收");
+            var expected=ContractVersion.of(frozen);
+            Long contractId=frozen==null?null:frozen.contractId();
+            requireCurrentContract(post,customer.getId(),expected);
             engineering.receiveFromHandover(post,new EngineeringPort.HandoverProject(commissionId,customer.getId(),customer.getName(),
                     customer.getCity(),customer.getPhone(),request.data().area(),request.data().floors(),packet.getManagerUserId(),
                     packet.getDrawingVersion(),packet.getDrawingFile(),docs,packet.getNote(),
-                    contracts.findActiveSignedId(post,customer.getId()),null));
+                    contractId,null));
+            // Engineering now holds the project lock followed by its contract lock. Recheck after
+            // any concurrent plan amendment and roll back the entire acceptance on disagreement.
+            requireCurrentContract(post,customer.getId(),expected);
         }
         commands.record(post,AGGREGATE,commissionId,commission.getRevision()+1,action,mutation,key);
         return get(post,commissionId);
@@ -195,10 +225,42 @@ public class ExternalHandoverService {
         var owners=query.acceptedOwners(ExternalCommissionService.tenant(),ids,Set.of("BUSINESS_DOCUMENT"));
         if (ids.stream().anyMatch(id -> !Objects.equals(owners.get(id),packet.getCompanyId()))) throw invalid("移交资料未验收或已失效，请退回业务补充");
     }
-    private Packet packet(CommissionHandoverDO row,String name) {
+    private void requireCurrentContract(PostSnapshot post,long customerId,ContractVersion expected) {
+        var current=contracts.findPaymentPlan(post,customerId);
+        var actual=current==null?new ContractVersion(null,null):new ContractVersion(Long.toString(current.contractId()),current.version());
+        if (current==null || !actual.equals(expected) || current.stages().isEmpty() || current.totalCents()<=0
+                || current.stages().stream().mapToLong(SaleContractQueryPort.PaymentStage::amountCents).sum()!=current.totalCents()
+                || current.stages().stream().anyMatch(s -> s.amountCents()<0 || s.amountCents()>0
+                    && !SaleContractQueryPort.hasAgreedDueCondition(s.trigger(),s.nodeIndex(),s.dueDate()))) {
+            throw conflict("本包的施工合同或付款计划已变化，请退回业务重新移交");
+        }
+    }
+    private static boolean validConstructionTerms(CustomerPaymentPlanDraftPort.Snapshot plan) {
+        return plan!=null && "CONTRACT".equals(plan.source()) && plan.contractId()!=null && plan.contractPlanVersion()!=null
+                && plan.contractPlanVersion()>0 && plan.stages()!=null && !plan.stages().isEmpty() && plan.totalCents()>0
+                && plan.stages().stream().mapToLong(CustomerPaymentPlanDraftPort.Stage::amountCents).sum()==plan.totalCents()
+                && plan.stages().stream().allMatch(s -> s.amountCents()>=0 && (s.amountCents()==0
+                    || SaleContractQueryPort.hasAgreedDueCondition(s.trigger(),s.nodeIndex(),s.dueDate())));
+    }
+    private CustomerPaymentPlanDraftPort.Snapshot terms(PostSnapshot post,long customerId,CustomerPaymentPlanDraftPort.Snapshot proposal) {
+        // Stabilize the signed version, its stage amounts and net receipts for this snapshot.
+        jdbc.queryForList("SELECT id FROM fr_sale_contract WHERE company_id=? AND customer_id=? AND NOT deleted AND status IN ('WAIT_SIGN','SIGNED') FOR UPDATE",
+                Long.class,post.orgId(),customerId);
+        var contract=contracts.findPaymentPlan(post,customerId);
+        if (contract==null) return proposal!=null && "DRAFT".equals(proposal.source())?proposal:null;
+        var stages=contract.stages().stream().map(stage -> new CustomerPaymentPlanDraftPort.Stage(stage.label(),
+                stage.amountCents(),stage.ratioBps(),stage.dueDate(),stage.trigger(),stage.nodeIndex(),stage.sequence(),
+                stageAccounts.stageCollectedCents(post,contract.contractId(),stage.key()))).toList();
+        return new CustomerPaymentPlanDraftPort.Snapshot(customerId,post.orgId(),"CONTRACT",contract.revision(),
+                contract.totalCents(),contract.contractId(),contract.version(),stages);
+    }
+    private CustomerPaymentPlanDraftPort.Snapshot storedPlan(CommissionHandoverDO row) {
         String plan=jdbc.queryForObject("SELECT payment_plan_snapshot::text FROM fr_commission_handover WHERE id=? AND company_id=?",String.class,row.getId(),row.getCompanyId());
+        return plan==null?null:JsonUtils.parseObject(plan,CustomerPaymentPlanDraftPort.Snapshot.class);
+    }
+    private Packet packet(CommissionHandoverDO row,String name) {
         return new Packet(row.getVersion(),row.getExternalResultVersion(),row.getStatus(),row.getDrawingVersion(),row.getConfirmationDate(),
-                row.getNote(),row.getManagerUserId().toString(),name,files(row),plan==null?null:JsonUtils.parseObject(plan,CustomerPaymentPlanDraftPort.Snapshot.class),
+                row.getNote(),row.getManagerUserId().toString(),name,files(row),storedPlan(row),
                 row.getSubmittedByUserId().toString(),row.getCreateTime(),row.getDecisionNote(),row.getDecidedByUserId()==null?null:row.getDecidedByUserId().toString(),row.getDecidedAt());
     }
     private static List<File> files(CommissionHandoverDO row) {
@@ -209,7 +271,7 @@ public class ExternalHandoverService {
         if (value==null || value.revision()==null || value.resultVersion()<1 || !value.confirmed()) throw invalid("请核对当前成果并确认提交移交");
         if (value.confirmationDate()==null || value.confirmationDate().isAfter(LocalDate.now(ZoneId.of("Asia/Shanghai")))) throw invalid("客户确认日期须为已发生的日期");
         return new Submit(value.revision(),value.resultVersion(),id(value.confirmationAssetId()),value.confirmationDate(),
-                text(value.note(),1000,true,"交底说明"),id(value.managerUserId()),true);
+                text(value.note(),1000,true,"交底说明"),id(value.managerUserId()),true,value.checkedContract());
     }
     private static String id(String value) {
         try { if (value==null || !value.matches("[1-9][0-9]{0,18}")) throw new NumberFormatException(); return Long.toString(Long.parseLong(value)); }

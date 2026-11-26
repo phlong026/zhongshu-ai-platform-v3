@@ -87,6 +87,9 @@ public interface AssetAccessPort {
         return type != null && allowedTypes.contains(type);
     }
 
+    /** The evidence must be an accepted file uploaded under this actor's own post. */
+    default boolean isOwnAcceptedUpload(Actor actor,long assetId,String type) { return false; }
+
     /** 只有不存在资产记录时才允许检查历史财务文件，拒绝用历史同 ID 覆盖资产类型/状态。 */
     default boolean legacyReferenceAllowed(Actor actor, long assetId) {
         return assetTypeOf(actor, assetId) == null;

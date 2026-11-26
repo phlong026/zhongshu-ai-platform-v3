@@ -65,12 +65,16 @@ import static org.mockito.Mockito.*;
         SaleContractQueryAdapter.class, SaleWorkflowFactsAdapter.class, ContractDocumentAccessPolicy.class,
         UnifiedStageAccountAdapter.class, CustomerPaymentPlanDraftService.class,
         EngProjectService.class, EngPlanService.class, EngineeringPortImpl.class,
-        EngineeringProjectContextAdapter.class, EngineeringOrgScope.class, EngWorkflowFactsAdapter.class,
+        EngineeringProjectContextAdapter.class, EngineeringOrgScope.class, EngWorkflowFactsAdapter.class, EngCollectionService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinReceiptService.class,
         FranchiseCommands.class, CommandLogImpl.class, ApprovalServiceImpl.class,
         SaleContractEvidencePgIntegrationTest.Config.class, ExternalHandoverPgIntegrationTest.Config.class})
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/franchise-asset")
 class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @TestConfiguration static class Config {
+        @Bean @Primary BusinessReceiptPort actualBusinessReceipts(cn.iocoder.yudao.module.franchise.finance.FinReceiptService receipts) {
+            return new cn.iocoder.yudao.module.franchise.finance.BusinessReceiptAdapter(receipts);
+        }
         @Bean ContentTaskService completedContentTasks() { return mock(ContentTaskService.class); }
         @Bean DesignFeeSettlementPort settlement() { return mock(DesignFeeSettlementPort.class); }
         @Bean @Primary StoreServiceAccountPort scopedAccounts(JdbcTemplate jdbc) {
@@ -101,6 +105,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource LeadService leads;
     @Resource SaleContractService contracts;
     @Resource EngProjectService projects;
+    @Resource EngCollectionService collections;
+    @Resource cn.iocoder.yudao.module.franchise.finance.FinReceiptService financeReceipts;
+    @Resource SalesAccess salesAccess;
+    @Resource cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper saleStages;
     @Resource EngPlanService plans;
     @Resource LocalAssetService assets;
     @Resource FranchiseCommands commands;
@@ -336,7 +344,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertProgress(customer,7);
         long confirmation=upload(sales,"BUSINESS_DOCUMENT");
         var pending=submit(ready,confirmation,engineer);
-        assertThat(pending.projectId()).isNull(); assertThat(pending.currentPacket().paymentPlan().source()).isEqualTo("DRAFT");
+        assertThat(pending.projectId()).isNull(); assertThat(pending.currentPacket().paymentPlan().source()).isEqualTo("CONTRACT");
         assertProgress(customer,7);
         var accepted=receive(pending,engineer,key()); long project=Long.parseLong(accepted.projectId());
         assertThat(accepted.status()).isEqualTo("ACCEPTED"); assertProgress(customer,7);
@@ -344,7 +352,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,project)).isEqualTo(contract.getId());
         var detail=as(engineer,()->projects.detail(engineer,project));
         assertThat(detail).containsEntry("handoverMode","EXTERNAL").containsEntry("externalHandoverVersion",1).containsEntry("canReadHandover",true);
-        assertThat(((CustomerPaymentPlanDraftPort.Snapshot)detail.get("handoverPaymentPlan")).source()).isEqualTo("DRAFT");
+        assertThat(((CustomerPaymentPlanDraftPort.Snapshot)detail.get("handoverPaymentPlan")).source()).isEqualTo("CONTRACT");
         assertThat(jdbc.queryForList("SELECT file_ref FROM fr_eng_document WHERE project_id=?",String.class,project))
                 .containsExactlyInAnyOrderElementsOf(accepted.currentPacket().files().stream().map(File::assetId).toList());
         prepare(project,engineer);
@@ -408,57 +416,11 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         for(String key:List.of("resultAssetId","drawingAssetId","reviewAssetId","confirmationAssetId"))
             input.put(key,Long.toString(upload(sales,"BUSINESS_DOCUMENT")));
 
-        // Use the production date and safe-integer serializers, not an invented JSON contract.
-        var builder=org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
-                .featuresToDisable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration().ldtEpochMillisCustomizer().customize(builder);
-        var json=builder.build();
-        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
+        var completed=runMini(client,input,
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
                 new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController(workflow,currentPost),
                 new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController(customers,currentPost,FakeSystemDirectory.INSTANCE),
-                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
-                .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
-        // The pinned client expects JSON in argv[2]. Passing it through the environment preserves
-        // embedded quotes on Windows as well as Linux, including for previously released clients.
-        String runClient = "process.argv.push(process.env.FRANCHISE_HANDOVER_FIXTURE);require(process.argv[1])";
-        var clientProcess = new ProcessBuilder("node", "-e", runClient,
-                java.nio.file.Path.of(client).toAbsolutePath().toString()).redirectError(ProcessBuilder.Redirect.INHERIT);
-        clientProcess.environment().put("FRANCHISE_HANDOVER_FIXTURE", json.writeValueAsString(input));
-        var process = clientProcess.start();
-        var io=Executors.newSingleThreadExecutor();
-        com.fasterxml.jackson.databind.JsonNode completed=null;
-        try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
-            try {
-                for(int n=0;n<50;n++) {
-                    String line=io.submit((Callable<String>)requests::readLine).get(15,TimeUnit.SECONDS);
-                    var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
-                    if(request.path("done").asBoolean()) { completed=request; break; }
-                    String role=request.path("actor").asText(), method=request.path("method").asText();
-                    assertThat(role).isIn("sales","engineer","boss"); assertThat(method).isIn("GET","POST","PUT");
-                    currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; default -> engineer; });
-                    String response;
-                    try {
-                        var http=org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                                .request(org.springframework.http.HttpMethod.valueOf(method),request.path("path").asText());
-                        if(request.hasNonNull("body")) http.contentType("application/json").content(request.get("body").toString());
-                        if(request.hasNonNull("key")) http.header("Idempotency-Key",request.get("key").asText());
-                        var result=mvc.perform(http).andReturn();
-                        assertThat(result.getResponse().getStatus()).isEqualTo(200);
-                        response=result.getResponse().getContentAsString(StandardCharsets.UTF_8);
-                    } catch(jakarta.servlet.ServletException error) {
-                        if(!(error.getCause() instanceof ServiceException failure)) throw error;
-                        response=json.writeValueAsString(Map.of("code",failure.getCode(),"msg",failure.getMessage()));
-                    } finally { currentPost.clear(); }
-                    replies.write(response); replies.newLine(); replies.flush();
-                }
-                assertThat(completed).as("client must report its checked result").isNotNull();
-                assertThat(process.waitFor(10,TimeUnit.SECONDS)).isTrue(); assertThat(process.exitValue()).isZero();
-            } finally {
-                // Kill before closing BufferedReader: close would otherwise wait on a blocked readLine lock.
-                process.destroyForcibly(); io.shutdownNow();
-            }
-        } finally { process.destroyForcibly(); io.shutdownNow(); currentPost.clear(); }
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost));
 
         long commission=Long.parseLong(completed.path("commissionId").asText());
         long project=Long.parseLong(completed.path("projectId").asText());
@@ -508,6 +470,222 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(count("pf_approval","subject_id",commission)).isZero();
         verify(settlement,never()).ensureInitialPayable(anyLong(),anyInt(),any());
         verify(settlement,never()).ensureTailPayable(anyLong(),anyInt(),any());
+    }
+
+    @Test void pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation() throws Exception {
+        String entry=System.getProperty("franchise.external-handover.client");
+        Assumptions.assumeTrue(entry!=null && !entry.isBlank(),"Run with the paired mini program");
+        var client=java.nio.file.Path.of(entry).toAbsolutePath().resolveSibling("paired-contract-installments.cjs");
+        Assumptions.assumeTrue(java.nio.file.Files.isRegularFile(client),"Older applications lack the engineering declaration action");
+        long customer=customer(sales);
+        saveDraft(customer,0,150000);
+        var request=ready(customer);
+        assertThat(request.currentRequest().paymentPlan().source()).isEqualTo("DRAFT");
+        long commission=Long.parseLong(request.commissionId());
+        long proof=upload(engineer,"FIN_VOUCHER");
+        long corrected=upload(engineer,"FIN_VOUCHER");
+        long otherProof=upload(finance,"FIN_VOUCHER");
+        assertThatThrownBy(()->as(engineer,()->assets.createDownloadUrl(actor(engineer),otherProof))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->as(secondEngineer,()->assets.completeUpload(actor(secondEngineer),proof))).isInstanceOf(ServiceException.class);
+        var input=new LinkedHashMap<String,Object>();
+        input.put("customer",Long.toString(customer)); input.put("commission",Long.toString(commission));
+        input.put("sales",miniActor(sales)); input.put("engineer",miniActor(engineer)); input.put("today",today().toString());
+        input.put("contractFile",Long.toString(upload(sales,"CONTRACT_ATTACHMENT")));
+        input.put("confirmationFile",Long.toString(upload(sales,"BUSINESS_DOCUMENT")));
+        input.put("engineeringProof",Long.toString(proof)); input.put("correctedProof",Long.toString(corrected)); input.put("prepaymentProof",Long.toString(otherProof));
+        var eng=new cn.iocoder.yudao.module.franchise.engineering.controller.admin.EngCollectionController();
+        org.springframework.test.util.ReflectionTestUtils.setField(eng,"currentPost",currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(eng,"collections",collections);
+        var fin=new cn.iocoder.yudao.module.franchise.finance.controller.admin.FinanceController();
+        org.springframework.test.util.ReflectionTestUtils.setField(fin,"currentPost",currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(fin,"receiptService",financeReceipts);
+        var checked=runMini(client.toString(),input,
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost),
+                new cn.iocoder.yudao.module.franchise.sales.controller.admin.SalesController(null,null,contracts,null,salesAccess,null,currentPost,saleStages),eng,fin);
+        long contract=Long.parseLong(checked.path("contract").asText());
+        long project=Long.parseLong(checked.path("project").asText());
+        long receipt=Long.parseLong(checked.path("receipt").asText());
+        long declaration=Long.parseLong(checked.path("declaration").asText());
+        assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,project)).isEqualTo(contract);
+        assertThat(jdbc.queryForObject("SELECT receipt_id FROM fr_sale_collection_declaration WHERE id=? AND status='CONFIRMED' AND voucher_file_id=?",Long.class,declaration,corrected)).isEqualTo(receipt);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE customer_id=?",Long.class,customer)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT sum(amount_cents) FROM fr_fin_receipt WHERE customer_id=?",Long.class,customer)).isEqualTo(25000);
+        assertThat(count("fr_sale_stage_receipt","contract_id",contract)).isEqualTo(2);
+        assertThat(count("fr_eng_collection","project_id",project)).isZero();
+        assertThat(audit(declaration,"eng-collection-declare")).isEqualTo(1);
+        var ticket=as(finance,()->assets.createDownloadUrl(actor(finance),corrected));
+        assertThat(as(finance,()->assets.readDownload(actor(finance),corrected,token(ticket.downloadUrl()))).bytes()).isEqualTo(PDF);
+    }
+
+    @Test void oneInstallmentRequiresAnAgreedDateOrEventAtSigningAndKeepsTheWholeContractTotal() throws Exception {
+        long customer=customer(sales);
+        var provisional=new PaymentPlanRules.Input(null,"一次付清",100000L,null,null,"MANUAL",null);
+        var contract=as(sales,()->contracts.create(sales,new SaleContractService.ContractCommand(customer,100000,0,0,0,null,null,null,List.of(provisional)),key()));
+        long evidence=upload(sales,"CONTRACT_ATTACHMENT");
+        long revision=jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,contract.getId());
+        var signature=new SaleContractService.SignCommand(today(),evidence);
+        assertError(400,()->as(sales,()->contracts.sign(sales,contract.getId(),signature,revision,key())));
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        var dated=new PaymentPlanRules.Input(stage.getId(),"一次付清",100000L,null,today().plusDays(3),"DATE",null);
+        var fixed=as(sales,()->contracts.replacePaymentPlan(sales,contract.getId(),
+                new SaleContractService.PaymentPlanCommand(100000,List.of(dated),revision,"客户确定一次付清日期"),key()));
+        assertThat(as(sales,()->contracts.sign(sales,contract.getId(),signature,fixed.getRevision(),key())).getStatus()).isEqualTo("SIGNED");
+        assertThat(as(sales,()->contracts.stageSummary(sales,contract.getId()))).singleElement()
+                .satisfies(s -> { assertThat(s.get("amountCents")).isEqualTo(100000L); assertThat(s.get("dueDate")).isEqualTo(dated.dueDate()); });
+    }
+
+    @Test void onlyTheAssignedSiteEngineerOrManagerCanSeeAndDeclareTheProjectsInstallment() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var first=as(sales,()->contracts.stageSummary(sales,contract.getId())).get(0);
+        String confirmedTransaction=key(); long registeredProof=upload(finance,"FIN_VOUCHER");
+        as(finance,()->collections.register(finance,project,new EngCollectionService.CollectCommand((String)first.get("stage"),
+                new BigDecimal("1.00"),confirmedTransaction,today(),registeredProof),key()));
+        long evidence=upload(secondEngineer,"FIN_VOUCHER");
+        var claim=new EngCollectionService.CollectCommand((String)first.get("stage"),new BigDecimal("35.00"),
+                key(),today(),evidence,(Long)first.get("stageId"),1L);
+        assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).doesNotContainKey("remainingCents");
+        assertThat(as(secondEngineer,()->collections.list(secondEngineer,project))).singleElement()
+                .satisfies(row->assertThat(row).doesNotContainKeys("transactionNo","amountCents","receiptId","fileAssetId"));
+        assertThatThrownBy(()->as(secondEngineer,()->collections.register(secondEngineer,project,claim,key()))).isInstanceOf(ServiceException.class);
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=?,sale_contract_id=NULL WHERE id=?",secondEngineer.userId(),project);
+        assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).containsEntry("remainingCents",39900L);
+        assertThat(as(secondEngineer,()->collections.list(secondEngineer,project))).singleElement()
+                .satisfies(row->assertThat(row).containsEntry("transactionNo",confirmedTransaction).containsEntry("fileAssetId",registeredProof));
+        long sitePhoto=upload(secondEngineer,"ENG_SITE_PHOTO");
+        var wrongEvidence=new EngCollectionService.CollectCommand(claim.stage(),claim.amount(),claim.transactionNo(),today(),
+                sitePhoto,claim.stageId(),claim.planVersion());
+        assertThatThrownBy(()->as(secondEngineer,()->collections.register(secondEngineer,project,wrongEvidence,key())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请上传本人经办的本笔收款凭据");
+        long declaration=(long)as(secondEngineer,()->collections.register(secondEngineer,project,claim,key())).get("declarationId");
+        assertThat(as(engineer,()->collections.declarations(engineer,project))).singleElement()
+                .satisfies(row->assertThat(row).containsEntry("id",Long.toString(declaration)).containsEntry("status","PENDING"));
+        long secondProject=manualProject(customer,engineer);
+        assertThat(secondProject).isNotEqualTo(project);
+        assertThat(as(engineer,()->collections.declarations(engineer,secondProject))).isEmpty();
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",engineer.userId(),project);
+        assertThat(as(secondEngineer,()->collections.declarations(secondEngineer,project))).isEmpty();
+    }
+
+    @Test void engineeringDeclarationWaitingForAPlanAmendmentCannotApplyOldTermsToTheNewVersion() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var stages=as(sales,()->contracts.stageSummary(sales,contract.getId()));
+        long first=(long)stages.get(0).get("stageId"),last=(long)stages.get(1).get("stageId");
+        long proof=upload(engineer,"FIN_VOUCHER");
+        var original=new EngCollectionService.CollectCommand((String)stages.get(0).get("stage"),new BigDecimal("1.00"),
+                key(),today(),proof,first,1L);
+        var changed=new SaleContractService.PaymentPlanCommand(100000,List.of(
+                new PaymentPlanRules.Input(first,"调整后的开工前款",35000L,null,null,"BEFORE_START",null),
+                new PaymentPlanRules.Input(last,"完工时",65000L,null,null,"ON_FINISH",null)),contract.getRevision(),"门店已经确认新计划");
+        var writing=new CountDownLatch(1); var release=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
+        try {
+            var amendment=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return new TransactionTemplate(transactions).execute(tx -> {
+                    var updated=as(finance,()->contracts.replacePaymentPlan(finance,contract.getId(),changed,key()));
+                    writing.countDown(); await(release); return updated;
+                });
+            } finally {TenantContextHolder.clear();}});
+            assertThat(writing.await(8,TimeUnit.SECONDS)).isTrue();
+            var submitting=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return as(engineer,()->collections.register(engineer,project,original,key()));
+            } finally {TenantContextHolder.clear();}});
+            assertThatThrownBy(()->submitting.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); assertThat(amendment.get(8,TimeUnit.SECONDS).getPaymentPlanVersion()).isEqualTo(2);
+            assertThatThrownBy(()->submitting.get(8,TimeUnit.SECONDS)).rootCause().isInstanceOf(ServiceException.class).hasMessageContaining("付款计划已有变化，请刷新核对本期");
+            assertThat(count("fr_sale_collection_declaration","stage_id",first)).isZero();
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void unsignedDesignMaterialsCanBeSentAndReturnedButOnlyAFreshSignedPacketCanCreateAProject() throws Exception {
+        long customer=customer(sales); saveDraft(customer,0,100000);
+        long designFile=upload(sales,"BUSINESS_DOCUMENT");
+        var initial=as(sales,()->external.get(sales,customer));
+        var design=new RequestCommand(initial.revision(),today(),"外部设计公司","SJ-PAY","已签设计服务合同",
+                "方案及施工图",new BigDecimal("180"),2,List.of(new Attachment(Long.toString(designFile),"已签设计服务合同.pdf")),
+                initial.currentPaymentPlanRef(),"留存设计合同原件");
+        var commissioned=as(sales,()->external.register(sales,customer,design,key()));
+        var ready=deliver(customer,commissioned); long commission=Long.parseLong(ready.commissionId()),evidence=upload(sales,"BUSINESS_DOCUMENT");
+        var pending=submit(ready,evidence,engineer);
+        var engineerView=as(engineer,()->handover.get(engineer,commission));
+        assertThat(engineerView.allowedActions()).contains("external-packet-return").doesNotContain("external-packet-receive");
+        assertError(409,()->receive(pending,engineer,key()));
+        assertThat(count("fr_eng_project","source_commission_id",commission)).isZero();
+        var contract=signed(customer);
+        assertError(409,()->receive(pending,engineer,key()));
+        as(engineer,()->handover.returnPacket(engineer,commission,new Decision(pending.revision(),1,"请按已签合同重新交接",false),key()));
+        var submitted=submit(ready,evidence,engineer);
+        assertThat(submitted.currentPacket().paymentPlan().contractId()).isEqualTo(contract.getId());
+        var accepted=receive(submitted,engineer,key());
+        assertThat(accepted.projectId()).isNotNull();
+        assertThat(accepted.packets()).extracting(Packet::version).containsExactly(2);
+        var history=as(sales,()->handover.get(sales,commission)).packets();
+        assertThat(history).extracting(Packet::version).containsExactly(2,1);
+        assertThat(history).anySatisfy(p->{assertThat(p.status()).isEqualTo("RETURNED");assertThat(p.paymentPlan().source()).isEqualTo("DRAFT");});
+        var ticket=as(sales,()->external.download(sales,customer,"requests",commissioned.currentRequest().version(),designFile));
+        assertThat(as(sales,()->assets.readDownload(actor(sales),designFile,token(ticket.downloadUrl()))).bytes()).isEqualTo(PDF);
+    }
+
+    @Test void changedContractPlanRequiresReturningTheOriginalPacketBeforeAcceptance() throws Exception {
+        long customer=customer(sales); var contract=signed(customer); var ready=ready(customer);
+        var pending=submit(ready,upload(sales,"BUSINESS_DOCUMENT"),engineer);
+        // Simulate an independently approved later plan; acceptance must never silently substitute it.
+        jdbc.update("UPDATE fr_sale_contract SET payment_plan_version=payment_plan_version+1 WHERE id=?",contract.getId());
+        assertError(409,()->receive(pending,engineer,key()));
+        assertThat(count("fr_eng_project","source_commission_id",Long.parseLong(ready.commissionId()))).isZero();
+        assertThat(as(engineer,()->handover.get(engineer,Long.parseLong(ready.commissionId()))).currentPacket().status()).isEqualTo("PENDING");
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode runMini(String client,Map<String,Object> input,Object... controllers) throws Exception {
+        // Use the production date and safe-integer serializers, not an invented JSON contract.
+        var builder=org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
+                .featuresToDisable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration().ldtEpochMillisCustomizer().customize(builder);
+        var json=builder.build();
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controllers)
+                .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
+        // The pinned client expects JSON in argv[2]. Passing it through the environment preserves
+        // embedded quotes on Windows as well as Linux, including for previously released clients.
+        String runClient = "process.argv.push(process.env.FRANCHISE_HANDOVER_FIXTURE);require(process.argv[1])";
+        var clientProcess = new ProcessBuilder("node", "-e", runClient,
+                java.nio.file.Path.of(client).toAbsolutePath().toString()).redirectError(ProcessBuilder.Redirect.INHERIT);
+        clientProcess.environment().put("FRANCHISE_HANDOVER_FIXTURE", json.writeValueAsString(input));
+        var process = clientProcess.start();
+        var io=Executors.newSingleThreadExecutor();
+        com.fasterxml.jackson.databind.JsonNode completed=null;
+        try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
+            try {
+                for(int n=0;n<60;n++) {
+                    String line=io.submit((Callable<String>)requests::readLine).get(15,TimeUnit.SECONDS);
+                    var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
+                    if(request.path("done").asBoolean()) { completed=request; break; }
+                    String role=request.path("actor").asText(), method=request.path("method").asText();
+                    assertThat(role).isIn("sales","engineer","secondEngineer","finance","boss"); assertThat(method).isIn("GET","POST","PUT");
+                    currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; case "finance" -> finance; case "secondEngineer" -> secondEngineer; default -> engineer; });
+                    String response;
+                    try {
+                        var http=org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .request(org.springframework.http.HttpMethod.valueOf(method),request.path("path").asText());
+                        if(request.hasNonNull("body")) http.contentType("application/json").content(request.get("body").toString());
+                        if(request.hasNonNull("key")) http.header("Idempotency-Key",request.get("key").asText());
+                        var result=mvc.perform(http).andReturn();
+                        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+                        response=result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+                    } catch(jakarta.servlet.ServletException error) {
+                        if(!(error.getCause() instanceof ServiceException failure)) throw error;
+                        response=json.writeValueAsString(Map.of("code",failure.getCode(),"msg",failure.getMessage()));
+                    } finally { currentPost.clear(); }
+                    replies.write(response); replies.newLine(); replies.flush();
+                }
+                assertThat(completed).as("client must report its checked result").isNotNull();
+                assertThat(process.waitFor(10,TimeUnit.SECONDS)).isTrue(); assertThat(process.exitValue()).isZero();
+            } finally {
+                // Kill before closing BufferedReader: close would otherwise wait on a blocked readLine lock.
+                process.destroyForcibly(); io.shutdownNow();
+            }
+        } finally { process.destroyForcibly(); io.shutdownNow(); currentPost.clear(); }
+
+        return completed;
     }
 
     private static Map<String,Object> miniActor(PostSnapshot post) {
@@ -579,7 +757,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void transferDuringStorageReadRevokesBusinessAndEngineeringTickets() throws Exception {
-        long customer=customer(sales); var pending=submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer);
+        long customer=signedCustomer(); var pending=submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer);
         long commission=Long.parseLong(pending.commissionId()),asset=Long.parseLong(pending.currentPacket().files().get(0).assetId());
         var business=as(sales,()->handover.download(sales,commission,1,"RESULT"));
         storage.beforeRead=()->jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?",colleague.userId(),customer);
@@ -601,7 +779,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void companyTenantAndRealPostAreRecheckedForReadsWritesAndDownloadConsumption() throws Exception {
-        var pending=submit(ready(customer(sales)),upload(sales,"BUSINESS_DOCUMENT"),engineer);
+        var pending=submit(ready(signedCustomer()),upload(sales,"BUSINESS_DOCUMENT"),engineer);
         long commission=Long.parseLong(pending.commissionId()),asset=Long.parseLong(pending.currentPacket().files().get(0).assetId());
         assertError(1099000002,()->as(colleague,()->handover.get(colleague,commission)));
         assertThat(as(lead,()->handover.get(lead,commission)).currentPacket()).isNotNull();
@@ -619,7 +797,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void acceptedMetadataAndStoredBytesMustStillMatchAtReceiveAndDownload() throws Exception {
-        var pending=submit(ready(customer(sales)),upload(sales,"BUSINESS_DOCUMENT"),engineer);
+        var pending=submit(ready(signedCustomer()),upload(sales,"BUSINESS_DOCUMENT"),engineer);
         long commission=Long.parseLong(pending.commissionId()),asset=Long.parseLong(pending.currentPacket().files().get(0).assetId());
         jdbc.update("UPDATE fr_asset SET accepted_sha256='bad' WHERE id=?",asset);
         assertError(400,()->as(engineer,()->handover.receive(engineer,commission,decision(pending),key())));
@@ -633,7 +811,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void receiveRollbackLeavesPacketCommissionProjectAndCommandLogUnchanged() throws Exception {
-        var pending=submit(ready(customer(sales)),upload(sales,"BUSINESS_DOCUMENT"),engineer);
+        var pending=submit(ready(signedCustomer()),upload(sales,"BUSINESS_DOCUMENT"),engineer);
         long commission=Long.parseLong(pending.commissionId()); String acceptKey=key();
         as(engineer,()->new TransactionTemplate(transactions).execute(tx->{
             var accepted=handover.receive(engineer,commission,decision(pending),acceptKey);
@@ -648,7 +826,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void concurrentSameKeySubmitAndReceiveCommitOneVersionAndOneProject() throws Exception {
-        var ready=ready(customer(sales)); long commission=Long.parseLong(ready.commissionId());
+        var ready=ready(signedCustomer()); long commission=Long.parseLong(ready.commissionId());
         var context=as(sales,()->handover.get(sales,commission)); var input=submitCommand(context,upload(sales,"BUSINESS_DOCUMENT"),engineer); String submitKey=key();
         var submitted=concurrently(sales,()->handover.submit(sales,commission,input,submitKey),()->handover.submit(sales,commission,input," "+submitKey+" "));
         assertThat(submitted.get(0).revision()).isEqualTo(submitted.get(1).revision());
@@ -664,7 +842,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test void competingAcceptAndReturnHaveExactlyOneWinnerAndNoOrphanProject() throws Exception {
-        var pending=submit(ready(customer(sales)),upload(sales,"BUSINESS_DOCUMENT"),engineer); long commission=Long.parseLong(pending.commissionId());
+        var pending=submit(ready(signedCustomer()),upload(sales,"BUSINESS_DOCUMENT"),engineer); long commission=Long.parseLong(pending.commissionId());
         var outcomes=concurrently(engineer,()->outcome(()->handover.receive(engineer,commission,decision(pending),key())),
                 ()->outcome(()->handover.returnPacket(engineer,commission,new Decision(pending.revision(),1,"需补图纸",false),key())));
         assertThat(outcomes).filteredOn(value->value instanceof View).hasSize(1);
@@ -868,6 +1046,9 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     private void saveDraft(long customer,long revision,long total) {
         as(sales,()->drafts.save(sales,customer,new CustomerPaymentPlanDraftService.Save(revision,total,List.of(new PaymentPlanRules.Input(null,"需求阶段约定",total,null,null,"MANUAL",null)),"先登记约定，正式合同另行签署"),key()));
     }
+    private long signedCustomer() throws Exception {
+        long customer=customer(sales); signed(customer); return customer;
+    }
     private SaleContractDO signed(long customer) throws Exception {
         var draft=as(sales,()->contracts.create(sales,new SaleContractService.ContractCommand(customer,100000,0,0,0,null,null,null,List.of(
                 new PaymentPlanRules.Input(null,"开工前",40000L,null,null,"BEFORE_START",null),
@@ -887,7 +1068,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         return as(sales,()->handover.submit(sales,commission,submitCommand(view,file,receiver),key()));
     }
     private Submit submitCommand(View view,long file,PostSnapshot receiver) {
-        return new Submit(view.revision(),view.resultVersion(),Long.toString(file),today(),"已核对客户确认、施工图及专业审核记录",Long.toString(receiver.userId()),true);
+        var plan=view.submissionTerms()==null?null:view.submissionTerms().plan();
+        var checked=new ContractVersion(plan==null || plan.contractId()==null?null:plan.contractId().toString(),
+                plan==null?null:plan.contractPlanVersion());
+        return new Submit(view.revision(),view.resultVersion(),Long.toString(file),today(),"已核对客户确认、施工图及专业审核记录",Long.toString(receiver.userId()),true,checked);
     }
     private static Decision decision(View view) { return new Decision(view.revision(),view.currentPacket().version(),"核查齐全，接收工程资料",true); }
     private View receive(View pending,PostSnapshot actor,String key) { return as(actor,()->handover.receive(actor,Long.parseLong(pending.commissionId()),decision(pending),key)); }
@@ -920,7 +1104,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     private void assertProgress(long customer,int completed) { assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).completedCount()).isEqualTo(completed); }
     private long upload(PostSnapshot post,String type) throws Exception {
         var image=new java.io.ByteArrayOutputStream();
-        boolean reference="DESIGN_REFERENCE".equals(type);
+        boolean reference=Set.of("DESIGN_REFERENCE","ENG_SITE_PHOTO").contains(type);
         if (reference) javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1,1,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
         byte[] bytes=reference?image.toByteArray():PDF;
         return as(post,()->{ var ticket=assets.createUploadTicket(actor(post),type,reference?"image/png":"application/pdf",bytes.length,sha(bytes));

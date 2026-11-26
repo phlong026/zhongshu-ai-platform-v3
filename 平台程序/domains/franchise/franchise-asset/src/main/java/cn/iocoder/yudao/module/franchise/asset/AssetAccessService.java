@@ -69,7 +69,7 @@ public class AssetAccessService {
 
     public AssetAccessPort.UploadTicketView uploadTicket(PostSnapshot post, String assetType,
                                                         String mimeType, long sizeBytes, String sha256) {
-        requireChannelPermission(post, assetType);
+        requireUploadPermission(post,assetType);
         var view = assets.createUploadTicket(actor(post), assetType, mimeType, sizeBytes, sha256);
         audit(post, "upload-ticket", view.assetId(), assetType);
         return view;
@@ -78,7 +78,7 @@ public class AssetAccessService {
     public AssetAccessPort.AssetCompleted completeUpload(PostSnapshot post, long assetId) {
         var actor = actor(post);
         String assetType = requireBEndAsset(actor, assetId);
-        requireChannelPermission(post, assetType);
+        requireUploadPermission(post,assetType);
         var completed = assets.completeUpload(actor, assetId);
         audit(post, "complete", assetId, assetType);
         return completed;
@@ -124,6 +124,12 @@ public class AssetAccessService {
      * dev 字节通道（DesignDevController PUT/GET，组织共享服务账号仅属主校验）复用同一矩阵，
      * 封闭「同组织跨岗覆盖/读取跨类资产」的横向面。未知类型保持放行（同上原语义）。
      */
+    static boolean engineeringVoucher(String type,String role) {
+        return "FIN_VOUCHER".equals(type) && ("engineer".equals(role) || "project-manager".equals(role));
+    }
+    private void requireUploadPermission(PostSnapshot post,String type) {
+        if (!engineeringVoucher(type,post.roleCode())) requireChannelPermission(post,type);
+    }
     public static boolean channelAllowed(String assetType, String roleCode) {
         var roles = assetType == null ? null : CHANNEL_ROLES.get(assetType);
         return roles == null || roles.contains(roleCode);

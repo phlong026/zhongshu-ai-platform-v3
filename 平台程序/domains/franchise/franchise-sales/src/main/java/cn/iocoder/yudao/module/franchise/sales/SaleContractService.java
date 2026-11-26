@@ -359,6 +359,12 @@ public class SaleContractService {
         LocalDate date = cmd == null || cmd.signedDate() == null ? contract.getSignedDate() : cmd.signedDate();
         Long asset = cmd == null || cmd.assetId() == null ? contract.getAssetId() : cmd.assetId();
         requireSignedEvidence(post, date, asset);
+        var agreed=stages.selectByContract(contractId).stream().filter(row -> !Boolean.TRUE.equals(row.getDeleted())).toList();
+        if (agreed.stream().mapToLong(SalePaymentStageDO::getAmountCents).sum()!=contract.getTotalCents()
+                || agreed.stream().anyMatch(row -> row.getAmountCents()>0 && !cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.hasAgreedDueCondition(
+                        row.getTriggerType(),row.getTriggerNodeIndex(),row.getDueDate()))) {
+            throw PaymentPlanRules.invalid("签约前请核对分期总额，并为各期约定付款日期或工程节点");
+        }
         contract.setSignedDate(date).setAssetId(asset);
         contract.setStatus(STATUS_SIGNED);
         RevisionsUpdate(contract);
@@ -596,7 +602,35 @@ public class SaleContractService {
             if(row==null || row.getCompanyId()!=post.orgId() || Boolean.TRUE.equals(row.getDeleted()))throw exception(STAGE_ALREADY_PAID);
             requireSIGNED(contracts.lockById(row.getContractId()));
             if(cmd.amountCents()<=0 || cmd.receivedDate()==null || cmd.receivedDate().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))))throw exception(STAGE_AMOUNT_INVALID);
-            jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='SUPERSEDED' WHERE company_id=? AND stage_id=? AND applicant_user_id=? AND status='RETURNED'",post.orgId(),stageId,post.userId());
+            boolean engineer=java.util.Set.of("engineer","project-manager").contains(post.roleCode());
+            if (engineer) {
+                // A fresh application may retry a returned transfer with corrected evidence. The
+                // same real transaction must still have only one pending or confirmed declaration.
+                jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,
+                        "engineering-payment:"+post.orgId()+":"+cmd.transactionNo());
+                var pending=jdbcTemplate.queryForList("""
+                        SELECT id,status,amount_cents,method,received_date,voucher_file_id,applicant_user_id,stage_id
+                        FROM fr_sale_collection_declaration WHERE company_id=? AND transaction_no=?
+                        AND status IN ('PENDING','CONFIRMED') ORDER BY id DESC LIMIT 1
+                        """,post.orgId(),cmd.transactionNo());
+                if (!pending.isEmpty()) {
+                    var existing=pending.get(0);
+                    if (!"PENDING".equals(existing.get("status"))) throw PaymentPlanRules.invalid("该流水已经财务核实");
+                    if (!java.util.Objects.equals(existing.get("stage_id"),stageId)
+                            || !java.util.Objects.equals(existing.get("applicant_user_id"),post.userId())
+                            || !java.util.Objects.equals(existing.get("amount_cents"),cmd.amountCents())
+                            || !java.util.Objects.equals(existing.get("method"),cmd.method())
+                            || !java.util.Objects.equals(existing.get("received_date"),java.sql.Date.valueOf(cmd.receivedDate()))
+                            || !java.util.Objects.equals(existing.get("voucher_file_id"),cmd.voucherFileId())) {
+                        throw PaymentPlanRules.invalid("该流水已有待核实的申报，请核对原单");
+                    }
+                    return Map.of("receiptId",0,"declarationId",existing.get("id"),"stageStatus","PENDING_CONFIRMATION","replayed",true);
+                }
+                jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='SUPERSEDED' WHERE company_id=? AND stage_id=? AND applicant_user_id=? AND transaction_no=? AND status='RETURNED'",
+                        post.orgId(),stageId,post.userId(),cmd.transactionNo());
+            } else {
+                jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='SUPERSEDED' WHERE company_id=? AND stage_id=? AND applicant_user_id=? AND status='RETURNED'",post.orgId(),stageId,post.userId());
+            }
             long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
             jdbcTemplate.update("INSERT INTO fr_sale_collection_declaration(id,company_id,stage_id,amount_cents,method,transaction_no,received_date,applicant_user_id,voucher_file_id,account_name) VALUES(?,?,?,?,?,?,?,?,?,?)",id,post.orgId(),stageId,cmd.amountCents(),cmd.method(),cmd.transactionNo(),cmd.receivedDate(),post.userId(),cmd.voucherFileId(),cmd.accountName());
             commands.record(post,"sale-collection-declaration",id,1,"sale-collection-declare",input,token);

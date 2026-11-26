@@ -68,7 +68,10 @@ public class EngCollectionService {
     }
 
     public record CollectCommand(String stage, BigDecimal amount, String transactionNo,
-                                 LocalDate occurredAt, Long fileAssetId) {
+                                 LocalDate occurredAt, Long fileAssetId, Long stageId, Long planVersion) {
+        public CollectCommand(String stage,BigDecimal amount,String transactionNo,LocalDate occurredAt,Long fileAssetId) {
+            this(stage,amount,transactionNo,occurredAt,fileAssetId,null,null);
+        }
     }
 
     // ===================== 汇总（两期 expected/confirmed/remaining/due） =====================
@@ -82,8 +85,7 @@ public class EngCollectionService {
         LocalDate toppingDue = nodes.stream()
                 .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
                 .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
-        boolean full = EngProjectService.isFinanceOrAbove(post)
-                || post.userId() == project.getManagerUserId();
+        boolean full = canViewProjectAmounts(post,project);
         List<Map<String, Object>> stages = new ArrayList<>();
         // M07-T06：三期遍历（存量两期值经迁移已映射；RUN 期旧值兼容保留遍历不删）
         // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口（fr_sale_stage_receipt 净口径）；
@@ -123,20 +125,34 @@ public class EngCollectionService {
         return stages;
     }
 
+    public List<Map<String,Object>> declarations(PostSnapshot post,long projectId) {
+        var project=projectService.requireProject(post,projectId);
+        if (!canViewProjectAmounts(post,project)) return List.of();
+        return jdbcTemplate.queryForList("""
+                SELECT d.id::text AS id,s.stage,d.amount_cents AS "amountCents",d.received_date::text AS "receivedDate",
+                    d.transaction_no AS "transactionNo",d.status,d.return_reason AS "returnReason",d.receipt_id::text AS "receiptId"
+                FROM fr_sale_collection_declaration d JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
+                WHERE d.company_id=? AND EXISTS (
+                    SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.aggregate_type='fr-eng-project'
+                    AND e.command='eng-collection-declare' AND e.org_id=d.company_id AND e.aggregate_id=d.id
+                    AND e.payload::jsonb->>'projectId'=?)
+                ORDER BY d.received_date DESC,d.id DESC
+                """,post.orgId(),Long.toString(projectId));
+    }
+
     public List<Map<String, Object>> list(PostSnapshot post, long projectId) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
-        boolean full = EngProjectService.isFinanceOrAbove(post)
-                || post.userId() == project.getManagerUserId();
+        boolean full = canViewProjectAmounts(post,project);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (FrEngCollectionDO c : collections.selectByProject(post.orgId(), projectId)) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", c.getId());
             row.put("stage", c.getStage());
             row.put("purpose", c.getPurpose());
-            row.put("transactionNo", c.getTransactionNo());
             row.put("occurredAt", c.getOccurredAt());
             row.put("registrarUserId", c.getRegistrarUserId());
             if (full) {
+                row.put("transactionNo", c.getTransactionNo());
                 row.put("amountCents", c.getAmountCents());
                 row.put("fileAssetId", c.getFileAssetId());
                 row.put("receiptId", c.getReceiptId());
@@ -154,6 +170,9 @@ public class EngCollectionService {
         jdbcTemplate.queryForList("SELECT id FROM fr_eng_project WHERE company_id=? AND id=? FOR UPDATE",
                 Long.class, post.orgId(), projectId);
         FrEngProjectDO project = projectService.requireProject(post, projectId);
+        boolean declaration="engineer".equals(post.roleCode()) || "project-manager".equals(post.roleCode());
+        if (declaration) EngGuard.requireOwner(project,post.userId());
+        else if (!java.util.Set.of("finance","finance-lead").contains(post.roleCode())) throw exception(ENGINEERING_INPUT_INVALID,"无权办理工程收款");
         EngGuard.requireActionAllowed(projectService.closureOf(post, projectId), "collect");
         // Normalize every business fact before replay lookup. Keep the old payload only as a
         // compatibility fingerprint; legacy hits are accepted only after checking the persisted row.
@@ -191,6 +210,9 @@ public class EngCollectionService {
         payload.put("occurredAt", cmd.occurredAt() == null ? null : date.toString());
         payload.put("fileAssetId", cmd.fileAssetId());
         payload.put("dateProvided", cmd.occurredAt() != null);
+        if (declaration) {
+            payload.put("stageId",cmd.stageId()); payload.put("planVersion",cmd.planVersion());
+        }
 
         var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload, event -> {
             // The previous version fingerprinted the resolved day. Recover only from a matching
@@ -212,6 +234,9 @@ public class EngCollectionService {
         });
         if (replayed.isPresent()) {
             var event = replayed.get();
+            if (declaration && AGGREGATE.equals(event.getAggregateType()) && "eng-collection-declare".equals(event.getCommand())) {
+                return Map.of("receiptId",0,"declarationId",event.getAggregateId(),"stageStatus","PENDING_CONFIRMATION","replayed",true);
+            }
             if (!AGGREGATE.equals(event.getAggregateType()) || !"eng-collect".equals(event.getCommand())) {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
@@ -232,7 +257,8 @@ public class EngCollectionService {
         }
         // M07-T04 批次#36：收款凭据资产域侧校验（填了即验——假 ID/跨组织/未 ACCEPTED/类型不符全拒；
         // 与 prepare/start/deliver 同款 requireValidAsset，十动作资产链收口）
-        if (cmd.fileAssetId() != null) {
+        if (declaration) planService.requireOwnCollectionProof(post,cmd.fileAssetId());
+        else if (cmd.fileAssetId() != null) {
             // R2 P1-2：收款凭据允许 FIN_VOUCHER（finance 岗在 FIN_VOUCHER 通道白名单内——ENG 类通道
             // 角色矩阵排除 finance，签票阶段即 403；v3 侧 collect 同步改传 FIN_VOUCHER）
             planService.requireValidAsset(post, cmd.fileAssetId(),
@@ -265,18 +291,36 @@ public class EngCollectionService {
         if (contractId == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先签订统一建房合同（统一实收账收款前提）");
         }
-        if (frozenContractId != null && activeContractId != null
-                && frozenContractId.longValue() != activeContractId.longValue()) {
+        // The unified stage read locks the contract until this registration commits. Recheck the
+        // customer's active contract under that same lock before accepting a branch's payment.
+        var balances=unifiedStages.stageBalances(post,contractId);
+        if (project.getCustomerId()!=null && !java.util.Objects.equals(contractId,unifiedStages.activeContractId(post,project.getCustomerId()))) {
             throw exception(ENGINEERING_INPUT_INVALID,
                     "统一建房合同已变更（作废重签），请先重新核对合同付款计划");
         }
-        var balances=unifiedStages.stageBalances(post,contractId);
         if(balances!=null && !balances.isEmpty() && balances.stream().noneMatch(b->stage.equals(b.stage())))
             throw exception(ENGINEERING_INPUT_INVALID,"合同付款节点不存在或已调整，请刷新后重试");
+        if (declaration && (balances==null || balances.stream().noneMatch(b -> stage.equals(b.stage())
+                && java.util.Objects.equals(b.stageId(),cmd.stageId()) && b.planVersion()!=null
+                && java.util.Objects.equals(b.planVersion().longValue(),cmd.planVersion())))) throw exception(ENGINEERING_INPUT_INVALID,"付款计划已有变化，请刷新核对本期");
+        if (declaration && balances.stream().noneMatch(b -> stage.equals(b.stage())
+                && amount<=b.expectedCents()-b.collectedCents())) throw exception(ENGINEERING_INPUT_INVALID,"本次登记超过该期余款，请刷新核对");
         var unified = unifiedStages.collectStage(post, contractId, stage,
                 new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
-                        amount, "bank", transactionNo, date, cmd.fileAssetId()));
-        if("PENDING_CONFIRMATION".equals(unified.stageStatus())) return Map.of("receiptId",0,"stageStatus","PENDING_CONFIRMATION","replayed",unified.replayed());
+                        amount, "bank", transactionNo, date, cmd.fileAssetId(),declaration?idempotencyKey:null));
+        if (declaration) {
+            if (!"PENDING_CONFIRMATION".equals(unified.stageStatus()) || unified.declarationId()==null)
+                throw new IllegalStateException("工程收款申报未返回待核实原单");
+            if (unified.replayed() && !Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type=?
+                    AND aggregate_id=? AND command='eng-collection-declare' AND org_id=? AND payload::jsonb->>'projectId'=?)
+                    """,Boolean.class,AGGREGATE,unified.declarationId(),post.orgId(),Long.toString(projectId)))) {
+                throw exception(ENGINEERING_INPUT_INVALID,"这笔流水已提交，请核对本工程原单");
+            }
+            commands.record(post,AGGREGATE,unified.declarationId(),com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),
+                    "eng-collection-declare",payload,idempotencyKey);
+            return Map.of("receiptId",0,"declarationId",unified.declarationId(),"stageStatus",unified.stageStatus(),"replayed",unified.replayed());
+        }
         // 工程留痕行：引用统一 receiptId（不参与余额累计——读侧经统一端口）
         FrEngCollectionDO collection = new FrEngCollectionDO().setCompanyId(post.orgId())
                 .setProjectId(projectId).setStage(stage).setAmountCents(amount)
@@ -298,6 +342,12 @@ public class EngCollectionService {
     /** M07-T06 三期门禁用节点读取 */
     private List<FrEngPlanNodeDO> planNodesForGate(PostSnapshot post, long projectId) {
         return planNodes.selectByProject(post.orgId(), projectId);
+    }
+
+    private static boolean canViewProjectAmounts(PostSnapshot post,FrEngProjectDO project) {
+        return EngProjectService.isFinanceOrAbove(post) || (java.util.Set.of("engineer","project-manager").contains(post.roleCode())
+                && (java.util.Objects.equals(project.getManagerUserId(),post.userId())
+                || java.util.Objects.equals(project.getAssignedEngineerUserId(),post.userId())));
     }
 
     private static String purposeOf(String stage) {
