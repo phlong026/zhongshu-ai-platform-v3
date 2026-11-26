@@ -87,6 +87,8 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                 """, Boolean.class, tenant, company, customerId, code, json);
         if (Boolean.TRUE.equals(supplement)) return;
         if (!CustomerWorkflowModel.Step.parse(code).manual()) throw exception(RESOURCE_FORBIDDEN);
+        // 专用槽位（05 设计合同、06 设计文件）把资产编号存在步骤 fields 里，与附件数组一样算“本步引用”。
+        String slot = Long.toString(assetId);
         Boolean exists = jdbc.queryForObject("""
                 SELECT EXISTS(
                   SELECT 1 FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
@@ -95,13 +97,34 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                   UNION ALL
                   SELECT 1 FROM fr_customer_workflow w JOIN fr_customer_workflow_event e
                     ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
-                    WHERE w.tenant_id=? AND w.company_id=? AND w.customer_id=? AND e.step_code=? AND e.attachments @> CAST(? AS jsonb))
-                """, Boolean.class, tenant, company, customerId, code, json, tenant, company, customerId, code, json);
+                    WHERE w.tenant_id=? AND w.company_id=? AND w.customer_id=? AND e.step_code=? AND e.attachments @> CAST(? AS jsonb)
+                  UNION ALL
+                  SELECT 1 FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
+                    ON s.workflow_id=w.id AND s.tenant_id=w.tenant_id AND s.company_id=w.company_id
+                    WHERE w.tenant_id=? AND w.company_id=? AND w.customer_id=? AND s.step_code=?
+                      AND (s.fields->>'designContractAssetId'=? OR s.fields->>'designFileAssetId'=?)
+                  UNION ALL
+                  SELECT 1 FROM fr_customer_workflow w JOIN fr_customer_workflow_event e
+                    ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
+                    WHERE w.tenant_id=? AND w.company_id=? AND w.customer_id=? AND e.step_code=?
+                      AND (e.fields->>'designContractAssetId'=? OR e.fields->>'designFileAssetId'=?))
+                """, Boolean.class, tenant, company, customerId, code, json, tenant, company, customerId, code, json,
+                tenant, company, customerId, code, slot, slot, tenant, company, customerId, code, slot, slot);
         if (!Boolean.TRUE.equals(exists)) throw exception(RESOURCE_FORBIDDEN);
+    }
+
+    /** fields 槽位引用在保存前与附件走同一约束：串行竞争，并拒绝已归属其他客户的资产。 */
+    public void requireSlotAttachable(PostSnapshot post, long customerId, long assetId) {
+        long tenant = CustomerWorkflowReadService.tenant();
+        long lock = FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("fr-workflow-asset", tenant), Long.toString(assetId));
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, lock);
+        if (owners(tenant, post.orgId(), assetId).stream().anyMatch(customer -> customer.getId() != customerId))
+            throw CustomerWorkflowRules.invalid("该资料已归属其他客户，请为当前客户重新上传");
     }
 
     private List<CustomerDO> owners(long tenant, long company, long asset) {
         String json = reference(asset);
+        String slot = Long.toString(asset);
         var owners = new java.util.ArrayList<>(jdbc.query("""
                 SELECT c.id,c.company_id,c.owner_user_id,c.team_id FROM fr_customer c WHERE c.company_id=? AND c.id IN (
                   SELECT w.customer_id FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
@@ -112,10 +135,19 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                     ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
                     WHERE w.tenant_id=? AND w.company_id=? AND e.attachments @> CAST(? AS jsonb)
                   UNION
-                  SELECT customer_id FROM fr_customer_step_supplement WHERE tenant_id=? AND company_id=? AND attachments @> CAST(? AS jsonb))
+                  SELECT customer_id FROM fr_customer_step_supplement WHERE tenant_id=? AND company_id=? AND attachments @> CAST(? AS jsonb)
+                  UNION
+                  SELECT w.customer_id FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
+                    ON s.workflow_id=w.id AND s.tenant_id=w.tenant_id AND s.company_id=w.company_id
+                    WHERE w.tenant_id=? AND w.company_id=? AND (s.fields->>'designContractAssetId'=? OR s.fields->>'designFileAssetId'=?)
+                  UNION
+                  SELECT w.customer_id FROM fr_customer_workflow w JOIN fr_customer_workflow_event e
+                    ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
+                    WHERE w.tenant_id=? AND w.company_id=? AND (e.fields->>'designContractAssetId'=? OR e.fields->>'designFileAssetId'=?))
                 """, (rs, n) -> new CustomerDO().setId(rs.getLong("id")).setCompanyId(rs.getLong("company_id"))
                         .setOwnerUserId(rs.getLong("owner_user_id")).setTeamId(rs.getObject("team_id", Long.class)),
-                company, tenant, company, json, tenant, company, json, tenant, company, json));
+                company, tenant, company, json, tenant, company, json, tenant, company, json,
+                tenant, company, slot, slot, tenant, company, slot, slot));
         var extra = references.orderedStream().flatMap(port -> port.customerIds(tenant, company, asset).stream())
                 .filter(id -> owners.stream().noneMatch(customer -> customer.getId().equals(id))).distinct().toList();
         if (!extra.isEmpty()) {

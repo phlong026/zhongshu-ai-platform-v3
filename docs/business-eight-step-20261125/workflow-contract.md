@@ -28,12 +28,14 @@
 | INTRODUCTION | receptionist,requirements,feedback | 发生日期、接待人、需求、反馈 |
 | HOUSE_SELECTION | referenceCaseId,referenceCaseName,selectionResult,versionLabel,confirmed | 发生日期、明确选择结果、confirmed=true，且有公开户型或附件 |
 | SITE_VISIT | siteName,address,feedback | 实际日期、工地名称、反馈 |
-| MEASUREMENT | address,measurer,width,depth,area,floors,checked | 实测日期、地址、测量人、正数尺寸/面积、checked=true、附件 |
-| QUOTATION | amountCents,scope,versionLabel,communicated,result | 日期、正数金额（分）、范围、版本、已沟通、结果、报价附件 |
+| MEASUREMENT | address,measurer,width,depth,area,floors,checked,designContractAssetId,designContractName | 实测日期、地址、测量人、正数尺寸/面积、checked=true、附件 |
+| QUOTATION | amountCents,scope,versionLabel,communicated,result,designFileAssetId,designFileName | 日期、正数金额（分）、范围、版本、已沟通、结果、报价附件 |
 | CONTRACT | contractId,signedDate,totalCents,assetId,status | 服务端正式签约事实及必要证据，只读 |
 | START | projectId,actualStartAt,managerUserId,status | 服务端实际开工及现场记录，只读 |
 
 `invitationResult=CONFIRMED/PENDING/DECLINED`；`appointmentAt` 为本地 ISO 日期时间；数值允许数字字符串，保存时规范化，ID 一律字符串。附件 ID 必须为当前调用人有权引用的受控资产，不接受外部 URL。未填完可以保存草稿。
+
+专用资料槽位（2026-11-27）：第 05 步 `designContractAssetId/designContractName` 存已签设计合同（选填），第 06 步 `designFileAssetId/designFileName` 存外部软件导出的设计文件（选填，是否作为完成条件待业务确认）。文件引用存在步骤 `fields` 里，与通用附件列表分开；保存时与附件走同一资产归属校验，下载票据同样接受 fields 引用。整字段替换会清掉未知键，已登记槽位的保存若漏发对应键会被拒绝（与 quoteId 守卫同款），只有显式空值才能清除；是否设为完成条件确定前，完成校验不检查槽位。
 
 ## 响应
 

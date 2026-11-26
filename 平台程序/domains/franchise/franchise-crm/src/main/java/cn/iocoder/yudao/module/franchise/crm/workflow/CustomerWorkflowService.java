@@ -118,8 +118,17 @@ public class CustomerWorkflowService {
                 && !(request.fields() != null && request.fields().get("selectionMode") instanceof String submitted && submitted.isBlank())) {
             throw invalid("本步骤已记录外部定制方向，请更新小程序后再修改");
         }
+        // 专用资料槽位（05 设计合同、06 设计文件）存在 fields 里；旧版小程序不知道这些键，
+        // 整字段替换会静默清掉已登记的文件引用，所以沿用 quoteId 的守卫：漏发即拒绝，只有显式空值才能清除。
+        for (String slotKey : CustomerWorkflowRules.SLOT_ASSET_FIELDS) {
+            if (!slotAssetStep(slotKey).equals(step) || previous == null
+                    || !previous.fields().containsKey(slotKey) || input.fields().containsKey(slotKey)
+                    || request.fields() != null && request.fields().get(slotKey) instanceof String submitted && submitted.isBlank()) continue;
+            throw invalid("本步骤已登记" + (slotKey.equals("designContractAssetId") ? "设计合同" : "设计文件") + "，请更新小程序后再修改");
+        }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
         validateAttachments(post, customerId, input.attachments());
+        validateSlotAssets(post, customerId, step, fields);
         if (step == Step.MEASUREMENT) {
             CustomerWorkflowRules.applyMeasurementSiteFields(fields, previous == null ? Map.of() : previous.fields());
         }
@@ -371,6 +380,29 @@ public class CustomerWorkflowService {
             if (!assetPort.validateReference(actor, Long.parseLong(attachment.assetId()), Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
                 throw invalid("附件不存在、未上传完成或无权引用");
         }
+    }
+
+    /** 专用槽位（05 设计合同、06 设计文件）的 fields 引用与通用附件同一套约束：先锁归属，再验资产可用。 */
+    private void validateSlotAssets(PostSnapshot post, long customerId, Step step, Map<String, Object> fields) {
+        boolean any = CustomerWorkflowRules.SLOT_ASSET_FIELDS.stream()
+                .anyMatch(key -> slotAssetStep(key).equals(step) && fields.get(key) != null);
+        if (!any) return;
+        var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
+        if (assetPort == null || accountPort == null) throw new ServiceException(503, "资料校验暂不可用，请稍后重试");
+        var actor = new AssetAccessPort.Actor(post.orgId(), accountPort.requireServiceAccount(post.orgId()), post.userId(), post.postId());
+        for (String key : CustomerWorkflowRules.SLOT_ASSET_FIELDS) {
+            if (!slotAssetStep(key).equals(step)) continue;
+            Object value = fields.get(key);
+            if (value == null) continue;
+            long assetId = Long.parseLong(String.valueOf(value));
+            attachmentPolicy.requireSlotAttachable(post, customerId, assetId);
+            if (!assetPort.validateReference(actor, assetId, Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
+                throw invalid("资料不存在、未上传完成或无权引用");
+        }
+    }
+
+    private static Step slotAssetStep(String slotKey) {
+        return "designContractAssetId".equals(slotKey) ? Step.MEASUREMENT : Step.QUOTATION;
     }
 
     @Transactional(rollbackFor = Exception.class)
