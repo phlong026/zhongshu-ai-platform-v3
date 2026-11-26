@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const {createRequire}=require('node:module');
+const MaterialFlow=require('../miniprogram/pages/build/material-flow/entry');
 function harness(hooks={}){
  const calls=[],filename=path.resolve(__dirname,'../miniprogram/utils/platform-engineering.js'),module={exports:{}},real=createRequire(filename);
  const storage=Object.create(null);
@@ -15,6 +16,26 @@ function harness(hooks={}){
  return{P:module.exports,calls,http,storage};
 }
 function bundle(){return{detail:{id:'91',nodes:[]},collections:{stages:[],records:[]},settle:{},materials:{plans:[{materialPlanId:'92',arrival:'待到货',lines:[{materialId:'93',supplyId:'94',name:'TEST ONLY 水泥',quantity:10,remaining:10,paidCents:0,totalCents:0,termsLocked:false}]}]},followups:[]};}
+
+test('正式材料计划逐行进入原材料流转，有权查看的原单才出现入口',()=>{
+ const {P}=harness(),data=bundle(),ctx={view:'material',planId:'92',writeRole:true,userId:'71'};
+ data.detail.managerUserId='71';
+ const line=data.materials.plans[0].lines[0];
+ const old=P.recordView(data,ctx);MaterialFlow.apply(old,data);assert.equal(old.plan.lines[0].flowUrl, '');
+ Object.assign(line,{availableQuantity:'0.000',consumedQuantity:'1.250',movements:[],pendingReships:[]});
+ const view=P.recordView(data,ctx);MaterialFlow.apply(view,data);
+ assert.equal(view.plan.lines[0].flowUrl,'/pages/build/material-flow/index?project=91&plan=92&material=93');
+ assert.ok(view.fields.some(f=>f.key==='batchExpected'));
+ assert.ok(view.fields.some(f=>f.key==='quality'));
+});
+
+test('到货可按供应凭据分别填本批应到与实到，并提交明确的质检结论',async()=>{
+ const {P,calls}=harness(),body={supplyId:'94',actual:'2.500',batchExpected:'3',quality:'不合格',transaction:'F-1',file:{path:'/tmp/proof.jpg'}};
+ await P.perform('arrival','91',body,null,'batch-1',MaterialFlow.expected(body.batchExpected));
+ const arrival=calls.find(x=>x.arrival);
+ assert.equal(arrival.body.expected,3);assert.equal(arrival.body.actual,2.5);assert.equal(arrival.body.quality,'REJECTED');
+ assert.throws(()=>MaterialFlow.expected('3.0001'),e=>/应到/.test(e.msg));
+});
 test('actual unpaid supply exposes procurement only to finance terms role, not engineer/read-only',()=>{
  const{P}=harness();assert.equal(P.recordView(bundle(),{view:'material',planId:'92',financeRole:true}).canTerms,true);
  assert.equal(P.recordView(bundle(),{view:'material',planId:'92',writeRole:true}).canTerms,false);
