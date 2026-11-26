@@ -106,9 +106,8 @@
       </el-tab-pane>
       <el-tab-pane label="积分账户" name="points">
         <DirectCreditControl
-          v-if="
-            tab === 'points' && organization.status === 'ACTIVE' && organization.orgType === 'store'
-          "
+          v-if="canCreditOrganization"
+          ref="directCredit"
           :org-id="String(organization.orgId)"
           :org-name="organization.orgName"
           @credited="refreshPoints"
@@ -140,6 +139,17 @@
             row.status === 0 ? '正常' : '已停用'
           }}</template></el-table-column
         >
+        <el-table-column v-if="canCreditOrganization" label="操作" width="132" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 0"
+              type="primary"
+              link
+              @click="directCredit?.open(row.name)"
+              >添加公司积分</el-button
+            >
+          </template>
+        </el-table-column>
       </el-table>
       <el-table
         native-scrollbar
@@ -271,6 +281,13 @@ const emit = defineEmits<{ changed: [value: OrganizationDetail] }>()
 const current = ref(props.detail)
 const organization = computed(() => current.value.organization)
 const canManage = computed(() => useUserStore().getRoles.includes('super_admin'))
+const canCreditOrganization = computed(
+  () =>
+    canManage.value &&
+    organization.value.status === 'ACTIVE' &&
+    organization.value.orgType === 'store'
+)
+const directCredit = ref<InstanceType<typeof DirectCreditControl> | null>(null)
 const region = computed(
   () =>
     [organization.value.province, organization.value.city, organization.value.area]
@@ -367,7 +384,7 @@ function changeTab() {
 }
 async function refreshPoints() {
   await loadSummary()
-  await loadTable('points')
+  if (tab.value === 'points') await loadTable('points')
 }
 async function loadTable(section: string) {
   if (!['members', 'points', 'generations', 'audits'].includes(section)) return

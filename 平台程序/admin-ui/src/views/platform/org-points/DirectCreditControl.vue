@@ -1,8 +1,8 @@
 <template>
-  <el-button v-if="isSuperAdmin" type="primary" @click="open">添加积分</el-button>
+  <el-button v-if="isSuperAdmin" type="primary" @click="open()">添加积分</el-button>
   <el-dialog
     v-model="visible"
-    title="添加组织积分"
+    title="添加公司积分"
     width="min(520px, 94vw)"
     append-to-body
     :close-on-click-modal="false"
@@ -10,7 +10,9 @@
     :show-close="!saving"
   >
     <el-form label-position="top" :disabled="saving || !!pending || blocked">
-      <el-form-item label="组织">{{ orgName }}</el-form-item>
+      <el-form-item v-if="memberName" label="所选成员">{{ memberName }}</el-form-item>
+      <el-form-item label="入账公司">{{ pending?.orgName || orgName }}</el-form-item>
+      <p>积分进入该公司的共享余额，员工可按业务权限使用。</p>
       <el-form-item label="增加积分"
         ><el-input-number
           v-model="credits"
@@ -41,7 +43,7 @@
   </el-dialog>
   <el-dialog v-model="receiptVisible" title="积分已添加" width="min(460px, 94vw)" append-to-body>
     <el-descriptions v-if="receipt" :column="1" border>
-      <el-descriptions-item label="组织">{{ orgName }}</el-descriptions-item>
+      <el-descriptions-item label="入账公司">{{ receiptOrgName }}</el-descriptions-item>
       <el-descriptions-item label="增加积分">{{
         formatInteger(receipt.credits)
       }}</el-descriptions-item>
@@ -51,7 +53,7 @@
       <el-descriptions-item label="现余额">{{
         formatInteger(receipt.afterBalance)
       }}</el-descriptions-item>
-      <el-descriptions-item label="流水编号">{{ receipt.id }}</el-descriptions-item>
+      <el-descriptions-item label="加分记录编号">{{ receipt.id }}</el-descriptions-item>
     </el-descriptions>
     <template #footer
       ><el-button type="primary" @click="receiptVisible = false">完成</el-button></template
@@ -74,6 +76,7 @@ const isSuperAdmin = computed(() => user.getRoles.includes('super_admin'))
 interface Pending {
   orgId: string
   orgName?: string
+  memberName?: string
   credits: number
   reason: string
   requestKey: string
@@ -89,14 +92,18 @@ const credits = ref(100),
   pending = ref<Pending | null>(null),
   receipt = ref<DirectCreditReceipt | null>(null)
 const blocked = ref(false)
+const memberName = ref('')
+const receiptOrgName = ref('')
 const actor = () => String(user.getUser.id)
 const tenant = () => String(getTenantId() || '')
 const key = () => `zs-org-direct-credit-v1:${tenant()}:${actor()}`
-function open() {
+function open(selectedMember = '') {
+  if (!isSuperAdmin.value || saving.value) return
   error.value = ''
   visible.value = true
   blocked.value = false
   pending.value = null
+  memberName.value = selectedMember
   try {
     const raw = localStorage.getItem(key())
     const saved = raw ? (JSON.parse(raw) as Pending) : null
@@ -117,6 +124,7 @@ function open() {
     )
       throw new Error('待确认请求异常，请联系管理员核对')
     pending.value = saved
+    if (saved) memberName.value = saved.memberName || ''
     credits.value = saved?.credits || 100
     reason.value = saved?.reason || ''
   } catch (e: any) {
@@ -125,6 +133,8 @@ function open() {
     visible.value = true
   }
 }
+defineExpose({ open })
+
 async function submit() {
   if (saving.value || blocked.value) return
   error.value = ''
@@ -135,6 +145,7 @@ async function submit() {
     const frozen = pending.value || {
       orgId: props.orgId,
       orgName: props.orgName,
+      memberName: memberName.value,
       credits: credits.value,
       reason: reason.value.trim(),
       requestKey: crypto.randomUUID(),
@@ -160,6 +171,7 @@ async function submit() {
     pending.value = null
     if (frozen.actor !== actor() || frozen.tenant !== tenant()) return
     receipt.value = result
+    receiptOrgName.value = frozen.orgName || frozen.orgId
     receiptVisible.value = true
     visible.value = false
     emit('credited')
