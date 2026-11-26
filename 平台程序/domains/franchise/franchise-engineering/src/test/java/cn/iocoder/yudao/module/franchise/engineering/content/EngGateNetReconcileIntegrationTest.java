@@ -63,6 +63,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                     org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
             org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
                     org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING")))).thenReturn(true);
+            org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
+                    org.mockito.ArgumentMatchers.eq(9003L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
             return port;
         }
 
@@ -227,6 +229,56 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test
+    void collectionRegistrationRejectsSameKeyWhenProjectDateOrEvidenceChanges() {
+        String key = idem();
+        String transactionNo = txn();
+        LocalDate occurredAt = LocalDate.now().minusDays(1);
+        var command = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), transactionNo, occurredAt, 9002L);
+
+        var first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        var replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        assertThat(replay.get("replayed")).isEqualTo(true);
+        assertThat(replay.get("collectionId")).isEqualTo(first.get("collectionId"));
+        assertThat(replay.get("receiptId")).isEqualTo(first.get("receiptId"));
+
+        var changedDate = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, command.amount(), transactionNo, occurredAt.plusDays(1), 9002L);
+        assertThatThrownBy(() -> as(finance,
+                () -> collectionService.register(finance, projectId, changedDate, key)))
+                .isInstanceOf(ServiceException.class);
+
+        var changedEvidence = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, command.amount(), transactionNo, occurredAt, 9003L);
+        assertThatThrownBy(() -> as(finance,
+                () -> collectionService.register(finance, projectId, changedEvidence, key)))
+                .isInstanceOf(ServiceException.class);
+
+        long anotherProjectId = IDS.incrementAndGet();
+        jdbc.update("""
+                INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status,
+                    manager_user_id, assigned_engineer_user_id, sale_contract_id, source_commission_id,
+                    source_type, revision, author_user_id, create_time, update_time)
+                SELECT ?, company_id, customer_id, customer_name, '同合同第二工程', status,
+                    manager_user_id, assigned_engineer_user_id, sale_contract_id, ?, source_type,
+                    1, author_user_id, now(), now()
+                FROM fr_eng_project WHERE id=?
+                """, anotherProjectId, IDS.incrementAndGet(), projectId);
+        jdbc.update("INSERT INTO fr_eng_closure (id, company_id, project_id, create_time) VALUES (?, ?, ?, now())",
+                IDS.incrementAndGet(), store.orgId(), anotherProjectId);
+        assertThatThrownBy(() -> as(finance,
+                () -> collectionService.register(finance, anotherProjectId, command, key)))
+                .isInstanceOf(ServiceException.class);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_collection WHERE project_id=?",
+                Long.class, projectId)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_collection WHERE project_id=?",
+                Long.class, anotherProjectId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?",
+                Long.class, signStageId)).isEqualTo(1L);
+    }
 
     @Test
     void collectionSummaryFollowsContractChangesIncludingTail() {
