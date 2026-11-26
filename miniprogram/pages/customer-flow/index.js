@@ -12,7 +12,7 @@ const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 
 Page({
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
-    uploadName: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null },
+    uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null },
   onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || ''; this._drafts = {}; this._localFiles = {}; },
   onShow() { this._visible = true; return this.load(); },
   onHide() { this._visible = false; this._request = null; this._historyRequest = null; },
@@ -21,7 +21,7 @@ Page({
     this._request = null; this._historyRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
-      showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null, error });
+      journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null, error });
   },
   validPost() {
     const post = auth.currentApiPost();
@@ -53,7 +53,7 @@ Page({
   },
   applyWorkflow(response, options = {}) {
     const workflow = model.workflow(response, this.customerId);
-    const code = model.definition(this.selectedCode)?.code || workflow.currentStepCode || 'INVITATION';
+    const code = model.definition(this.selectedCode)?.code || workflow.currentStepCode || (workflow.completedCount === 8 ? 'START' : 'INVITATION');
     if (options.replace) delete this._drafts[code];
     this.setData({ workflow, loading: false, refreshing: false, error: '' });
     this.select(code, options.replace);
@@ -65,13 +65,24 @@ Page({
     this.selectedCode = code;
     const form = draft ? clone(draft.form) : model.form(step);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
+    const workflow = this.data.workflow;
+    const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
+    const nextStep = model.definition(nextCode) || workflow.steps.find(item => item.code !== code && item.status !== 'COMPLETED');
     this.setData({ step: { ...step, canReadEngineering: this.canReadEngineering() }, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
-      conflict: !!draft && draft.revision !== this.data.workflow.revision, showHistory: false, activeRecord: null, error: '' });
+      nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null, error: '' });
   },
+  journeyLocked() { return this.data.busy || this.data.uploading || this.data.uploadFailed || this.data.uncertain; },
+  showJourney() {
+    if (this.journeyLocked()) return;
+    if (!this.alive()) return this.load();
+    this.setData({ journeyOpen: true });
+  },
+  hideJourney() { this.setData({ journeyOpen: false }); },
   selectStep(event) {
-    if (this.data.busy || this.data.uploading || this.data.uploadFailed || this.data.uncertain) return;
+    if (this.journeyLocked()) return;
     if (!this.alive()) return this.load();
     this.select(event.currentTarget.dataset.code);
+    this.hideJourney();
   },
   editable() { return this.alive() && this.data.step?.canWrite && !this.data.busy && !this.data.uploading && !this.data.uncertain && !this.data.conflict; },
   change(form) {
