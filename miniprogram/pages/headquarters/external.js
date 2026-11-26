@@ -6,6 +6,15 @@ const LABELS = {
 };
 const TRIGGERS = { ON_SIGN: '合同签约', BEFORE_START: '开工前', NODE_COMPLETED: '工程节点完成', ON_FINISH: '工程完工', DATE: '指定日期', MANUAL: '手动确认', LEGACY_BASE_DONE: '基础完工（原约定）', LEGACY_TOPPING: '主体封顶（原约定）' };
 
+function measurementFields(source, customerId) {
+  if (!source) return [];
+  if (api.id(source.customerId) !== api.id(customerId) || !Number.isSafeInteger(source.revision) || source.revision < 1) {
+    throw Error('测量原单所属客户或版本不匹配，请重新读取');
+  }
+  return [{ label: '引用测量记录', value: api.id(source.eventId) + ' · 流程版本 ' + source.revision },
+    ...M.measurementObservations(source.fields || {})];
+}
+
 function versions(rows, customerId, kind, register) {
   if (!LABELS[kind] || !Array.isArray(rows)) throw Error('委托版本数据不完整');
   return rows.map(row => {
@@ -18,7 +27,9 @@ function versions(rows, customerId, kind, register) {
       key: kind + ':' + row.version, version: row.version,
       title: (kind === 'requests' ? '委托需求' : '外部成果') + ' V' + row.version,
       date: M.text(row.createdAt).replace('T', ' '), actor: M.text(row.actorName),
-      fields: Object.entries(LABELS[kind]).filter(([key]) => data[key] != null && data[key] !== '').map(([key, label]) => ({ label, value: M.text(data[key]) })),
+      fields: Object.entries(LABELS[kind]).filter(([key]) => data[key] != null && data[key] !== '')
+        .map(([key, label]) => ({ label, value: M.text(data[key]) }))
+        .concat(kind === 'requests' ? measurementFields(data.measurementRef, customerId) : []),
       files: attachments.map(file => register({ type: 'external', id: api.id(customerId), kind, version: row.version, assetId: api.id(file.assetId) }, file.title || '委托附件')),
       payment: plan ? {
         source: plan.source === 'CONTRACT' ? '合同约定' : '客户付款草案', version: M.text(plan.source === 'CONTRACT' ? plan.contractPlanVersion : plan.revision), total: M.money(plan.totalCents),

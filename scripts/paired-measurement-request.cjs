@@ -46,6 +46,12 @@ module.exports = async function registerMeasurement(fixture, fields, api, transf
   page.chooseMeasurement({currentTarget:{dataset:{id:item.eventId}}});
   assert.equal(page.data.form.attachments.length,0);
   assert.equal(page.data.form.measurementRef.eventId,fixture.measurementEventId);
+  if (fixture.measurementSite) {
+    const selected = visibleText(render(template,page.data));
+    for (const [key,value] of Object.entries(fixture.measurementSite)) {
+      assert.equal(item.fields[key],value); assert.ok(selected.includes(value));
+    }
+  }
   await page.submit();
   if (fixture.transfer) {
     assert.equal(page.data.uncertain,true);
@@ -72,5 +78,9 @@ module.exports = async function registerMeasurement(fixture, fields, api, transf
   page.changeTab({currentTarget:{dataset:{tab:'history'}}});
   page.toggleHistory({currentTarget:{dataset:{key:'requests-1'}}});
   assert.ok(visibleText(render(template,page.data)).includes(item.eventId));
+  if (fixture.measurementSite) {
+    const history = visibleText(render(template,page.data));
+    for (const value of Object.values(fixture.measurementSite)) assert.ok(history.includes(value));
+  }
   return api.get(fixture.customerId);
 };

@@ -92,6 +92,31 @@ test('第03步外部定制由客户确认实际方向，标准户型和旧外部
   await old.open();assert.equal(old.page.data.form.attachments[0].assetId, '7002');assert.equal(old.page.data.form.fields.selectionMode, '');
 });
 
+test('现场测量可登记朝向和高差，已核对旧单保留空值，历史读取本版数据', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const h = harness({ step: 'MEASUREMENT' });
+  await h.open();
+  const page = h.page, template = path.join(root,'miniprogram/pages/customer-flow/index.wxml');
+  const flatten = nodes => nodes.flatMap(node => [node,...flatten(node.children || [])]);
+  const inputs = flatten(render(template,page.data));
+  assert.ok(inputs.some(node => node.tag === 'input' && node.attrs['data-key'] === 'orientation'));
+  assert.ok(inputs.some(node => node.tag === 'textarea' && node.attrs['data-key'] === 'siteElevationNote'));
+  assert.equal(page.data.form.fields.orientation,''); assert.equal(page.data.form.fields.siteElevationNote,'');
+  page.toggle(event('checked',true));
+  page.input(event('orientation','南偏东 15°')); page.input(event('siteElevationNote','屋后 T 形路口高 0.45 米'));
+  assert.equal(page.data.form.fields.checked,false);
+  page.toggle(event('checked',true));
+  await page.submit({currentTarget:{dataset:{action:'save'}}});
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.orientation,'南偏东 15°'); assert.equal(body.fields.siteElevationNote,'屋后 T 形路口高 0.45 米');
+  assert.equal(body.fields.checked,true);
+  page.setData({records:model.records([{id:'81',stepCode:'MEASUREMENT',type:'SAVE',fields:{orientation:'正南',siteElevationNote:'旧测北界高 0.20 米'}}])});
+  page.viewRecord({currentTarget:{dataset:{id:'81'}}});
+  assert.ok(page.data.activeRecord.details.some(row => row.value === '正南'));
+  assert.ok(page.data.activeRecord.details.some(row => row.value === '旧测北界高 0.20 米'));
+  assert.equal(h.callsFor('complete').length,0);
+});
+
 test('进度卡与全部步骤按原单状态显示，跨步补录与切换保留草稿', async () => {
   const { render } = require('./role-page-runtime.cjs');
   const h = harness();

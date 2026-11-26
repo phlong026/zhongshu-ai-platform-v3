@@ -21,6 +21,7 @@ async function request(method, path, body, headers = {}) {
 }
 http.get = path => request('GET', path);
 http.post = (path, body, headers) => request('POST', path, body, headers);
+http.put = (path, body, headers) => request('PUT', path, body, headers);
 
 const entrust = require('../miniprogram/pages/external-entrust/api');
 const Entrust = require('../miniprogram/pages/external-entrust/model');
@@ -61,7 +62,9 @@ async function verify() {
           {targetUserId, revision, reason: '客户委托资料办理期间责任转交'}, {'Idempotency-Key':key('transfer-' + revision)});
       } finally { actor = 'sales'; }
     };
-    context = readEntrust(await require('./paired-measurement-request.cjs')(fixture, requestFields, entrust, transferCustomer));
+    const selected = fixture.measurementSite
+      ? { ...fixture, measurementEventId: await require('./paired-measurement-site.cjs')(fixture) } : fixture;
+    context = readEntrust(await require('./paired-measurement-request.cjs')(selected, requestFields, entrust, transferCustomer));
   } else {
     const registerBody = Entrust.payload('register', { ...Entrust.requestForm(context), ...requestFields }, context, fixture.today);
     context = readEntrust(await entrust.register(customerId, registerBody, key('register')));

@@ -193,6 +193,30 @@ test('总部户型选择展示本次及历史版本各自确认的定制方向',
   assert.ok(env.reads().every(call => call.request.method === 'GET'));
 });
 
+test('总部区分本客户当前测量、历史原单和委托冻结版本的朝向与高差', async () => {
+  const env = await setup(), detail = customer();
+  detail.workflow.steps.find(step => step.code === 'MEASUREMENT').fields =
+    {orientation:'当前正南',siteElevationNote:'当前 T 形道路比地块高 0.32 米'};
+  const record = externalVersion(2);
+  record.data.measurementRef={customerId:LONG,eventId:'9113372036854775805',revision:9,
+    fields:{orientation:'委托南偏东',siteElevationNote:'委托 T 形道路高 0.28 米'}};
+  env.handler = route => {
+    if(route === PREFIX+'/customers/'+LONG) return detail;
+    if(route.endsWith('/workflow-records')) return pageResult([{id:'100',stepCode:'MEASUREMENT',type:'SAVE',
+      fields:{orientation:'历史正东',siteElevationNote:'旧版现场比路面高 0.40 米'},attachments:[]}]);
+    if(route.endsWith('/external-entrust/requests')) return pageResult([record]);
+  };
+  const page=await env.open(DETAIL+'?kind=customers&id='+LONG);
+  await page.expandStep({currentTarget:{dataset:{code:'MEASUREMENT'}}});
+  assert.ok(env.text(page).includes('当前 T 形道路比地块高 0.32 米'));
+  await page.toggleHistory(); await flush();
+  assert.ok(env.text(page).includes('历史正东') && env.text(page).includes('旧版现场比路面高 0.40 米'));
+  await page.toggleExternal();
+  assert.ok(env.text(page).includes('委托南偏东') && env.text(page).includes('委托 T 形道路高 0.28 米'));
+  assert.ok(env.text(page).includes('9113372036854775805 · 流程版本 9'));
+  assert.ok(env.reads().every(call=>call.request.method==='GET'));
+});
+
 test('总部外部委托需求与成果只读分页，保存的付款版本和附件均对应真实版本', async () => {
   const env = await setup();
   env.handler = (route, request) => /\/external-entrust\/(requests|results)$/.test(route)
