@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** 组织开通集成测试用系统目录（含部门树按名查重）；独立于 authz 既有 Stub 体系。 */
@@ -15,10 +16,10 @@ public class FakeSystemDirectoryForOnboard implements SystemDirectory {
     private final AtomicLong deptIds = new AtomicLong(System.nanoTime() % 1_000_000_000L);
     final Map<Long, Long> deptParent = new HashMap<>();
     final Map<Long, String> deptNames = new HashMap<>();
-    public final Map<String, Long> roleIdsByCode = new HashMap<>();
-    public final Set<Long> users = new HashSet<>();
-    public final Map<Long, String> userMobiles = new HashMap<>();
-    public final Map<Long, Boolean> userActive = new HashMap<>();
+    public final Map<String, Long> roleIdsByCode = new ConcurrentHashMap<>();
+    public final Set<Long> users = ConcurrentHashMap.newKeySet();
+    public final Map<Long, String> userMobiles = new ConcurrentHashMap<>();
+    public final Map<Long, Boolean> userActive = new ConcurrentHashMap<>();
     final Map<Long, Set<Long>> userRoles = new HashMap<>();
     private final AtomicLong userIds = new AtomicLong(System.nanoTime() % 1_000_000_000L);
 
