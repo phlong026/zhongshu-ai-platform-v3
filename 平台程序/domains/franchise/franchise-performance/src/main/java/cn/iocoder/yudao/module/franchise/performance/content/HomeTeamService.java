@@ -16,15 +16,22 @@ public class HomeTeamService {
     private final JdbcTemplate jdbc;
     public HomeTeamService(JdbcTemplate jdbc){this.jdbc=jdbc;}
     private static final String CFG="WITH cfg AS (SELECT ?::bigint org,?::date begin_date,?::date end_date,(now() AT TIME ZONE 'Asia/Shanghai')::date today), ";
+    /** 八步流程已标记流失的客户，不再进入负责人的待跟进名单。 */
+    private static final String NOT_LOST="NOT EXISTS(SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id=c.id AND w.company_id=c.company_id AND w.status='LOST')";
     private static final String CUSTOMERS="""
         customers AS (SELECT * FROM fr_customer WHERE company_id=(SELECT org FROM cfg)),
         facts AS (
           SELECT c.owner_user_id member,'customers' kind,c.id::text id,c.name title,c.summary note,c.id::text customer_id,NULL::text project_id,NULL::text node_id FROM customers c
           UNION ALL SELECT c.owner_user_id,'followups',c.id::text,c.name,c.summary,c.id::text,NULL,NULL FROM customers c,cfg
-            WHERE c.last_follow_at IS NULL OR c.next_visit_date<=cfg.today
-          UNION ALL SELECT DISTINCT f.author_user_id,'visitCustomers',c.id::text,c.name,'本月登记接待',c.id::text,NULL,NULL
-            FROM fr_customer_follow f JOIN customers c ON c.id=f.customer_id AND c.company_id=f.company_id,cfg
-            WHERE f.contact_kind='VISIT' AND f.occurred_on>=cfg.begin_date AND f.occurred_on<cfg.end_date)
+            WHERE (c.last_follow_at IS NULL OR c.next_visit_date<=cfg.today) AND %NOT_LOST%
+          UNION ALL SELECT DISTINCT x.member,'visitCustomers',c.id::text,c.name,'本月登记接待',c.id::text,NULL,NULL
+          FROM (
+            SELECT e.actor_user_id member,w.customer_id FROM fr_customer_workflow_event e JOIN fr_customer_workflow w ON w.id=e.workflow_id AND w.company_id=e.company_id
+            WHERE e.step_code='INTRODUCTION' AND e.action IN ('SAVE','COMPLETE') AND e.occurred_on>=cfg.begin_date AND e.occurred_on<cfg.end_date
+            UNION ALL
+            SELECT f.author_user_id,f.customer_id FROM fr_customer_follow f
+            WHERE f.contact_kind='VISIT' AND f.occurred_on>=cfg.begin_date AND f.occurred_on<cfg.end_date
+          ) x JOIN customers c ON c.id=x.customer_id,cfg)
         """;
     private static final String PROJECTS="""
         projects AS (SELECT * FROM fr_eng_project WHERE company_id=(SELECT org FROM cfg)),
@@ -53,7 +60,7 @@ public class HomeTeamService {
         if(!"store".equals(p.orgType())||!Set.of("boss","owner").contains(p.roleCode()))throw exception(PERFORMANCE_FORBIDDEN);
         if(!PerfMetrics.validPeriod(period))throw exception(PERF_PERIOD_INVALID);
         return CFG+switch(area){
-            case "business" -> CUSTOMERS;
+            case "business" -> CUSTOMERS.replace("%NOT_LOST%", NOT_LOST);
             case "engineering" -> PROJECTS;
             default -> throw exception(PERF_INPUT_INVALID,"无效团队范围");
         };
@@ -73,9 +80,15 @@ public class HomeTeamService {
         facts(p,area,period);
         if(page<1||page>100000)throw exception(PERF_INPUT_INVALID,"无效页码");
         String sql=area.equals("business")?"""
-            SELECT count(*) OVER() total,c.id::text,c.name title,u.nickname owner,coalesce((SELECT f.note FROM fr_customer_follow f WHERE f.company_id=c.company_id AND f.customer_id=c.id ORDER BY f.occurred_on DESC NULLS LAST,f.create_time DESC,f.id DESC LIMIT 1),c.summary) note,c.next_visit_date::text due
+            SELECT count(*) OVER() total,c.id::text,c.name title,u.nickname owner,coalesce((
+                SELECT x.note FROM (
+                  SELECT w.customer_id,e.note,e.created_at FROM fr_customer_workflow_event e JOIN fr_customer_workflow w ON w.id=e.workflow_id AND w.company_id=e.company_id WHERE e.action<>'STATUS'
+                  UNION ALL SELECT customer_id,note,created_at FROM fr_customer_step_supplement WHERE btrim(note)<>''
+                  UNION ALL SELECT customer_id,note,create_time FROM fr_customer_follow
+                ) x WHERE x.customer_id=c.id ORDER BY x.created_at DESC LIMIT 1),c.summary) note,c.next_visit_date::text due
             FROM fr_customer c LEFT JOIN system_users u ON u.id=c.owner_user_id
-            WHERE c.company_id=? ORDER BY c.next_visit_date NULLS LAST,c.create_time DESC,c.id LIMIT 11 OFFSET ?
+            WHERE c.company_id=? AND NOT EXISTS(SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id=c.id AND w.company_id=c.company_id AND w.status='LOST')
+            ORDER BY c.next_visit_date NULLS LAST,c.create_time DESC,c.id LIMIT 11 OFFSET ?
             """:"""
             SELECT count(*) OVER() total,p.id::text,p.name title,u.nickname owner,p.status note,p.area,
                 (SELECT json_agg(json_build_object('name',n.name,'done',n.status='DONE') ORDER BY n.node_index)::text

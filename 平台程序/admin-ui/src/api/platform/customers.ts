@@ -1,6 +1,16 @@
 import request from '@/config/axios'
 import type { PlatformId } from '@/utils/platformIdentity'
 
+/** 八步流程摘要（服务端内联在客资行上）；status 为 ACTIVE / PAUSED / LOST / COMPLETED。 */
+export interface CustomerWorkflowSummary {
+  status?: string | null
+  completedCount?: number | null
+  totalSteps?: number | null
+  currentStepName?: string | null
+  progressPercent?: string | number | null
+  statusReason?: string | null
+}
+
 /** 客资表格行（GET /franchise/customers，含负责人姓名映射）。 */
 export interface CustomerRow {
   id: PlatformId
@@ -16,6 +26,7 @@ export interface CustomerRow {
   ownerName?: string
   nextVisitDate?: string | null
   lastFollowAt?: string | null
+  workflow?: CustomerWorkflowSummary | null
   revision: number
   createTime?: string
 }

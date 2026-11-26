@@ -1252,7 +1252,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 Map.of("siteName","示范工地","feedback","了解施工情况"),
                 Map.of("address","实际宅基地","measurer","测量人员","width","10","depth","12","area","120","checked",true),
                 Map.of("amountCents","100000","scope","土建","versionLabel","V1","communicated",true,"result","客户接受"));
-        long revision=0;
+        // 客资再次关联到这位老客户时，流程里会多一条“再次咨询”并推进版本；从服务端当前版本开始，而不是假定 0。
+        long revision=as(sales,()->workflow.get(sales,customer).revision());
         for(int n=0;n<6;n++) {
             String code=CustomerWorkflowModel.Step.values()[n].name();
             String note = n == 4 ? "旧测量原文：东侧有台坎。\n当时未量落差。" : "已完成当次沟通与资料核对";

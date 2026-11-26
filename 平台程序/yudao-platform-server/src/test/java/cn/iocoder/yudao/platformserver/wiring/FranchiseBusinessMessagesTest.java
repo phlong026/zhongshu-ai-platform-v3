@@ -86,6 +86,53 @@ class FranchiseBusinessMessagesTest {
         tx.executeWithoutResult(s->service.deliverBusinessCommands());tx.executeWithoutResult(s->service.deliverBusinessCommands());
         assertThat(count()).isEqualTo(1);
     }
+    @Test void leadLinkedToAnExistingCustomerNotifiesOnlyItsOwner(){
+        jdbc.execute("CREATE TABLE fr_lead(id bigint,company_id bigint,customer_id bigint,need text,source text,status text)");
+        jdbc.execute("UPDATE fr_customer SET name='陈先生' WHERE id=100; INSERT INTO fr_customer VALUES(101,1,20,'钱女士')");
+        jdbc.execute("INSERT INTO fr_lead VALUES(500,1,100,'想了解两层报价','朋友介绍','CONVERTED')");
+        tx.executeWithoutResult(s -> service.onCommand(event(10,"lead",500,"lead-link")));
+        assertThat(count()).isEqualTo(1);
+        var message=jdbc.queryForMap("SELECT user_id,route,object_id,title,description,business_context FROM pf_message");
+        assertThat(message).containsEntry("user_id",10L).containsEntry("route","customer").containsEntry("object_id",100L)
+                .containsEntry("title","老客户有新的咨询登记");
+        assertThat(message.get("description").toString()).contains("陈先生");
+        assertThat(message.get("business_context").toString()).contains("想了解两层报价").contains("/pages/workflow/index?view=customer&id=100");
+    }
+    @Test void selfRegisteredLeadAndEventsBeforeTheRuleExistedStaySilent(){
+        jdbc.execute("CREATE TABLE fr_lead(id bigint,company_id bigint,customer_id bigint,need text,source text,status text)");
+        jdbc.execute("UPDATE fr_customer SET name='陈先生' WHERE id=100");
+        jdbc.execute("INSERT INTO fr_lead VALUES(500,1,100,'预算四十万','视频号','CONVERTED')");
+        tx.executeWithoutResult(s -> service.onCommand(event(10,"lead",500,"lead-capture")));
+        assertThat(count()).isEqualTo(1);
+        // 自己登记、归自己的客户不通知自己
+        jdbc.execute("INSERT INTO fr_customer VALUES(101,1,99,'自己登记'); UPDATE fr_lead SET customer_id=101 WHERE id=500");
+        tx.executeWithoutResult(s -> service.onCommand(event(11,"lead",500,"lead-capture")));
+        assertThat(count()).isEqualTo(1);
+        // 规则上线前的历史事件只补检查点，不补发
+        var old=new FranchiseCommandRecorded(new CommandEventDO().setId(12L).setAggregateType("lead").setAggregateId(500L).setCommand("lead-link")
+                .setOrgId(1L).setActorUserId(77L).setOccurredAt(OffsetDateTime.parse("2026-11-20T10:00:00+08:00")));
+        tx.executeWithoutResult(s -> service.onCommand(old));
+        assertThat(count()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_message_delivery_checkpoint WHERE event_id=12",Long.class)).isEqualTo(1L);
+        // 待关联的客资还没有客户，不产生通知
+        jdbc.execute("UPDATE fr_lead SET customer_id=NULL WHERE id=500");
+        tx.executeWithoutResult(s -> service.onCommand(event(13,"lead",500,"lead-capture")));
+        assertThat(count()).isEqualTo(1);
+    }
+    @Test void aStepCompletedBySomeoneElseNotifiesTheCustomerOwner(){
+        jdbc.execute("CREATE TABLE fr_customer_workflow(id bigint,company_id bigint,customer_id bigint,status text)");
+        jdbc.execute("UPDATE fr_customer SET name='陈先生' WHERE id=100; INSERT INTO fr_customer_workflow VALUES(900,1,100,'ACTIVE')");
+        java.util.function.Function<Long,FranchiseCommandRecorded> complete=actor -> new FranchiseCommandRecorded(new CommandEventDO()
+                .setId(20+actor).setAggregateType("fr-customer-workflow").setAggregateId(900L).setCommand("workflow-complete").setOrgId(1L).setActorUserId(actor)
+                .setPayload("{\"action\":\"COMPLETE\",\"customerId\":100,\"stepCode\":\"INTRODUCTION\",\"body\":{\"revision\":3}}"));
+        tx.executeWithoutResult(s -> service.onCommand(complete.apply(10L)));
+        assertThat(count()).isZero();
+        tx.executeWithoutResult(s -> service.onCommand(complete.apply(99L)));
+        assertThat(count()).isEqualTo(1);
+        var message=jdbc.queryForMap("SELECT user_id,route,object_id,title,business_context FROM pf_message");
+        assertThat(message).containsEntry("user_id",10L).containsEntry("route","customer").containsEntry("object_id",100L).containsEntry("title","客户跟进有新进展");
+        assertThat(message.get("business_context").toString()).contains("店面讲解").contains("/pages/workflow/index?view=customer&id=100");
+    }
     cn.iocoder.yudao.module.platform.org.PostSnapshot post(long user,long org,String role){
         return new cn.iocoder.yudao.module.platform.org.PostSnapshot(1L,user,org,"store",role,null,false,java.util.Set.of());
     }

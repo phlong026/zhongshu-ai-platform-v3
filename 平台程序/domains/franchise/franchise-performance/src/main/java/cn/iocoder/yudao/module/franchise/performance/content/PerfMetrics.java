@@ -185,14 +185,19 @@ public class PerfMetrics {
                         rs.getDate("pay_date").toLocalDate(), "fin-payment:" + rs.getLong("id"))), org, from, to);
 
         // 三组补充口径：effectiveCustomers（当月有跟进客户去重；归属=客户 owner）
-        jdbc.query("SELECT DISTINCT f.customer_id, c.owner_user_id, MIN(f.create_time) AS first_at "
-                        + "FROM fr_customer_follow f JOIN fr_customer c ON c.id = f.customer_id "
-                        + "WHERE f.company_id = ? AND f.create_time >= ?::timestamptz AND f.create_time < ?::timestamptz "
-                        + "GROUP BY f.customer_id, c.owner_user_id",
+        // 跟进事实 = 升级前的普通跟进 ∪ 八步的步骤记录与状态变更（再次咨询不是经办人的跟进）∪ 步骤补充记录。
+        jdbc.query("SELECT x.customer_id, c.owner_user_id, MIN(x.at) AS first_at FROM ("
+                        + "SELECT customer_id, create_time AS at FROM fr_customer_follow WHERE company_id = ? AND create_time >= ?::timestamptz AND create_time < ?::timestamptz "
+                        + "UNION ALL SELECT w.customer_id, e.created_at FROM fr_customer_workflow_event e JOIN fr_customer_workflow w ON w.id = e.workflow_id AND w.company_id = e.company_id "
+                        + "WHERE e.action <> 'CONSULT' AND e.created_at >= ?::timestamptz AND e.created_at < ?::timestamptz "
+                        + "UNION ALL SELECT customer_id, created_at FROM fr_customer_step_supplement WHERE company_id = ? AND created_at >= ?::timestamptz AND created_at < ?::timestamptz"
+                        + ") x JOIN fr_customer c ON c.id = x.customer_id "
+                        + "GROUP BY x.customer_id, c.owner_user_id",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("perf-follow-customer:" + rs.getLong("customer_id"),
                         "metric:effectiveCustomers", 100L, getLong(rs, "owner_user_id"),
                         rs.getDate("first_at").toLocalDate(),
-                        "perf-follow-customer:" + rs.getLong("customer_id"))), org, from + " 00:00:00", to + " 00:00:00");
+                        "perf-follow-customer:" + rs.getLong("customer_id"))), org, from + " 00:00:00", to + " 00:00:00",
+                from + " 00:00:00", to + " 00:00:00", org, from + " 00:00:00", to + " 00:00:00");
 
         return applyAdjustments(rows, adjustments);
     }

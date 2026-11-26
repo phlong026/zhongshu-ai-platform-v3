@@ -93,6 +93,8 @@ public class CustomerWorkflowSupplementService {
                 """, CustomerWorkflowSupplementService::entry, id, tenant, company, customerId, step.name(), input.note(),
                 JsonUtils.toJsonString(input.attachments()), post.userId(), post.postId(), actorName);
         commands.record(post, AGGREGATE, id, 1, "customer-step-supplement", fingerprint, key);
+        // 补充记录也是一次跟进：刷新客户的最近跟进时间，下次跟进日期不变。
+        workflows.touch(customer, null);
         return entry;
     }
 

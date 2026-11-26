@@ -86,8 +86,9 @@ public final class CustomerWorkflowRules {
             try { fields.put("nextContactOn", LocalDate.parse(String.valueOf(fields.get("nextContactOn"))).toString()); }
             catch (RuntimeException error) { throw invalid("下次联系日期格式无效"); }
         }
+        if (input.nextFollowOn() != null && input.nextFollowOn().isBefore(today())) throw invalid("下次跟进日期不能早于今天");
         return new SaveCommand(input.revision(), input.occurredOn(), text(input.note(), 4000),
-                new LinkedHashMap<>(fields), attachments(input.attachments()));
+                new LinkedHashMap<>(fields), attachments(input.attachments()), input.nextFollowOn());
     }
 
     static void applyMeasurementSiteFields(Map<String,Object> fields, Map<String,Object> previous) {
@@ -182,6 +183,6 @@ public final class CustomerWorkflowRules {
     private static void positive(List<String> errors, Map<String, Object> fields, String key, String label) {
         if (!present(fields, key) || decimal(fields.get(key), key).signum() <= 0) errors.add("请填写有效的" + label);
     }
-    private static LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Shanghai")); }
+    static LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Shanghai")); }
     public static ServiceException invalid(String message) { return new ServiceException(400, message); }
 }

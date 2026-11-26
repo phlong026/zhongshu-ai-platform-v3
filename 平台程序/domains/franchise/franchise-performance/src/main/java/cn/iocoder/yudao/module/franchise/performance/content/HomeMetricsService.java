@@ -24,6 +24,19 @@ public class HomeMetricsService {
     private static final String CUSTOMER="SELECT c.id::text id,c.name title,COALESCE(c.summary,'') subtitle,(c.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'customer' source_type,c.id::text source_id,c.id::text customer_id,NULL::text project_id FROM customers c WHERE ";
     private static final String PROJECT="SELECT p.id::text id,p.name title,COALESCE(p.customer_name,'') subtitle,(p.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'project' source_type,p.id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM projects p WHERE ";
     private static final String BASELINE_END="COALESCE(n.baseline_end_date,n.end_date)";
+    /** 八步流程已标记流失的客户：不再计入待跟进与跟进商机。 */
+    private static final String LOST=" EXISTS(SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id=c.id AND w.company_id=c.company_id AND w.status='LOST')";
+    /** 实际接待：第 2 步“店面讲解”的记录日期；升级前明确登记为“实际接待”的普通跟进同样计入。 */
+    private static final String VISITS="""
+            SELECT c.id::text id,c.name title,COALESCE(c.summary,'') subtitle,max(v.visited_on) date,0::bigint amount,'customer' source_type,c.id::text source_id,c.id::text customer_id,NULL::text project_id
+            FROM customers c JOIN (
+              SELECT w.customer_id,s.occurred_on AS visited_on FROM fr_customer_workflow_step s JOIN fr_customer_workflow w ON w.id=s.workflow_id AND w.company_id=s.company_id
+              WHERE s.step_code='INTRODUCTION' AND s.occurred_on>=(SELECT begin_date FROM cfg) AND s.occurred_on<(SELECT end_date FROM cfg)
+              UNION ALL
+              SELECT f.customer_id,f.occurred_on FROM fr_customer_follow f
+              WHERE f.contact_kind='VISIT' AND f.occurred_on>=(SELECT begin_date FROM cfg) AND f.occurred_on<(SELECT end_date FROM cfg)
+            ) v ON v.customer_id=c.id GROUP BY c.id,c.name,c.summary
+            """;
     private static final String NODE="SELECT n.id::text id,p.name title,n.name subtitle,%s date,0::bigint amount,'node' source_type,n.milestone milestone,n.id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM fr_eng_plan_node n JOIN projects p ON p.id=n.project_id AND p.company_id=n.company_id WHERE p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER') AND n.status<>'DONE' AND ";
     private static final String CONTRACT="SELECT s.id::text id,c.name title,'施工合同'::text subtitle,s.signed_date date,s.total_cents amount,'contract'::text source_type,s.id::text source_id,c.id::text customer_id,NULL::text project_id FROM fr_sale_contract s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id WHERE NOT s.deleted AND s.status='SIGNED' AND s.signed_date >= (SELECT begin_date FROM cfg) AND s.signed_date < (SELECT end_date FROM cfg)";
     private static final String COMMISSION="SELECT s.id::text id,c.name title,s.status subtitle,(s.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'commission' source_type,s.id::text source_id,c.id::text customer_id,NULL::text project_id FROM fr_commission s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id WHERE ";
@@ -40,14 +53,14 @@ public class HomeMetricsService {
             add(m,"signed","本月施工签约","元",true,"已签署且未作废的施工合同，按签署日期统计。",CONTRACT);
             add(m,"customerNet","本月净回款","元",true,"财务已登记客户收款减当月有效客户退款；退款按实际发生月扣减。",cash("RECEIPT",true)+" UNION ALL "+cash("REFUND",true));
             add(m,"newCustomers","本月新增","人",true,"本月登记的客户，每位客户只计一次。",CUSTOMER+month("c.create_time"));
-            add(m,"visits","实际接待","人",true,"本月明确登记为实际接待的客户去重；电话、预约和普通跟进不计入。","SELECT c.id::text id,c.name title,COALESCE(c.summary,'') subtitle,max(f.occurred_on) date,0::bigint amount,'customer' source_type,c.id::text source_id,c.id::text customer_id,NULL::text project_id FROM customers c JOIN fr_customer_follow f ON f.customer_id=c.id AND f.company_id=c.company_id WHERE f.contact_kind='VISIT' AND "+month("f.occurred_on")+" GROUP BY c.id,c.name,c.summary");
+            add(m,"visits","实际接待","人",true,"本月到店（店面讲解有记录）的客户去重；电话、预约和普通跟进不计入。",VISITS);
             String author=post.roleCode().equals("sales")?" AND author_user_id="+post.userId():post.roleCode().equals("sales-lead")&&post.teamId()!=null?" AND author_user_id IN (SELECT owner_user_id FROM customers)":"";
             add(m,"publications","发布内容","条",true,"已登记发布成功的内容，按实际发布时间统计。","SELECT id::text,title,platform subtitle,(published_at AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'publication' source_type,work_id::text source_id,NULL::text customer_id,NULL::text project_id FROM fr_content_publication WHERE company_id=(SELECT org FROM cfg) AND status='published' AND "+month("published_at")+author);
-            add(m,"opportunities","跟进商机","项",false,"有跟进记录且尚未签署施工合同的客户。",CUSTOMER+"c.last_follow_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.company_id=c.company_id AND s.customer_id=c.id AND s.status='SIGNED' AND NOT s.deleted)");
+            add(m,"opportunities","跟进商机","项",false,"有跟进记录、未流失且尚未签署施工合同的客户。",CUSTOMER+"c.last_follow_at IS NOT NULL AND NOT"+LOST+" AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.company_id=c.company_id AND s.customer_id=c.id AND s.status='SIGNED' AND NOT s.deleted)");
             add(m,"budgets","待确认预算","项",false,"每位客户最新的预算版本，尚未登记客户确认且未签施工合同。","SELECT b.id::text id,c.name title,b.title||' · V'||b.version subtitle,(b.create_time AT TIME ZONE 'Asia/Shanghai')::date date,COALESCE(b.total_cents,0) amount,'budget' source_type,b.id::text source_id,c.id::text customer_id,NULL::text project_id FROM customers c JOIN LATERAL (SELECT * FROM fr_customer_scheme b WHERE b.customer_id=c.id AND b.company_id=c.company_id AND b.kind='BUDGET' ORDER BY version DESC LIMIT 1) b ON true WHERE b.confirmed_at IS NULL AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.customer_id=c.id AND s.company_id=c.company_id AND s.status='SIGNED' AND NOT s.deleted)");
             add(m,"designs","设计办理中","单",false,"已提交、尚未完成工程接收的有效设计委托。",COMMISSION+"s.status NOT IN ('DRAFT','ACCEPTED','CANCELLED','VOID')");
             add(m,"commissions","设计委托","单",true,"本月首次提交的设计委托，每单计一次。","SELECT s.id::text id,c.name title,s.status subtitle,(v.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'commission' source_type,s.id::text source_id,s.customer_id::text customer_id,NULL::text project_id FROM fr_commission s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id JOIN fr_commission_submission v ON v.commission_id=s.id AND v.company_id=s.company_id AND v.version=1 WHERE "+month("v.create_time"));
-            add(m,"followups","待跟进","人",false,"未完成首次跟进，或约定回访日期已到的客户。",CUSTOMER.replace("(c.create_time AT TIME ZONE 'Asia/Shanghai')::date date","c.next_visit_date date")+"(c.last_follow_at IS NULL OR c.next_visit_date<=(SELECT today FROM cfg))");
+            add(m,"followups","待跟进","人",false,"尚未首次跟进，或约定的下次跟进日期已到（含今天）的客户；已流失不计入。",CUSTOMER.replace("(c.create_time AT TIME ZONE 'Asia/Shanghai')::date date","c.next_visit_date date")+"NOT"+LOST+" AND (c.last_follow_at IS NULL OR c.next_visit_date<=(SELECT today FROM cfg))");
             add(m,"handover","待移交","项",false,"设计成果已下发、待业务提交或重新提交工程移交的委托。",COMMISSION+"s.status IN ('DISPATCHED','HANDOVER_RETURNED')");
         }
         if(role.equals("engineering")||role.equals("owner")) {

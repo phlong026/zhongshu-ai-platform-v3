@@ -64,6 +64,8 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     private FranchiseTodoProvider todoProvider;
     @Resource
     private TodoServiceImpl todoService;
+    @Resource
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private Store store;
     private PostSnapshot salesA1;
@@ -115,17 +117,24 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     @Test
     void followupReminderOpensItsCustomerOnceAndMovesToTheNewOwner() {
         long id = capture(salesA1).customerId();
-        var path = "/pages/workflow/index?view=customer&id=" + id + "&tab=1";
+        // 客户跟进一律进八步页的当前步骤
+        var path = "/pages/customer-flow/index?customerId=" + id;
         var today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         var visitKey = "franchise:visit:" + id + ":" + today;
         assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:first-follow:" + id))
-                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+                .singleElement().satisfies(t -> {
+                    assertThat(t.appPath()).isEqualTo(path);
+                    assertThat(t.title()).isEqualTo("「陈先生」待首次跟进");
+                });
         var reminder = new FollowCommand("已联系，按约再访", today);
         String key = commandKey();
         var detail = as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
         as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
         assertThat(todos(salesA1)).filteredOn(t -> t.key().equals(visitKey))
-                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+                .singleElement().satisfies(t -> {
+                    assertThat(t.appPath()).isEqualTo(path);
+                    assertThat(t.title()).isEqualTo("「陈先生」约定跟进已到期");
+                });
         assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain("franchise:first-follow:" + id);
         as(boss, () -> customers.transfer(boss, id, new TransferCommand(
                 salesB.userId(), "由新负责人继续回访"), detail.customer().getRevision(), commandKey()));
@@ -135,6 +144,46 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
         as(salesB, () -> customers.follow(salesB, id,
                 new FollowCommand("本次回访已完成", null), commandKey()));
         assertThat(todos(salesB)).extracting(TodoItem::key).doesNotContain(visitKey);
+    }
+
+    @Test
+    void leadIsRemindedAboutStaleCustomersAndLostCustomersThatWereConsultedAgain() {
+        var lead = fixture.post(store.orgId(), SALES_LEAD, store.salesTeamA());
+        long fresh = capture(salesA1).customerId();
+        long untouched = capture(salesA1).customerId();
+        long dormant = capture(salesA1).customerId();
+        var today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        as(salesA1, () -> customers.follow(salesA1, dormant, new FollowCommand("电话已沟通", null), commandKey()));
+        jdbc.update("UPDATE fr_customer SET create_time=create_time-interval '3 days' WHERE id=?", untouched);
+        jdbc.update("UPDATE fr_customer SET last_follow_at=now()-interval '16 days' WHERE id=?", dormant);
+
+        // 超期提醒只给业务负责人，不给业务员本人，也不给只看不办的老板
+        assertThat(todos(lead)).filteredOn(t -> t.key().startsWith("franchise:stale:")).extracting(TodoItem::key)
+                .containsExactlyInAnyOrder("franchise:stale:" + untouched, "franchise:stale:" + dormant);
+        assertThat(todos(lead)).filteredOn(t -> t.key().equals("franchise:stale:" + untouched)).singleElement().satisfies(t -> {
+            assertThat(t.title()).isEqualTo("「陈先生」登记 2 天仍未首次跟进");
+            assertThat(t.appPath()).isEqualTo("/pages/customer-flow/index?customerId=" + untouched);
+        });
+        assertThat(todos(lead)).filteredOn(t -> t.key().equals("franchise:stale:" + dormant)).singleElement()
+                .satisfies(t -> assertThat(t.title()).isEqualTo("「陈先生」超过 15 天没有跟进记录"));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).noneMatch(key -> key.startsWith("franchise:stale:"));
+        assertThat(todos(boss)).extracting(TodoItem::key).noneMatch(key -> key.startsWith("franchise:stale:"));
+        assertThat(todos(lead)).filteredOn(t -> t.key().equals("franchise:first-follow:" + fresh)).isNotEmpty();
+
+        // 约了下次跟进日期的不再算超期，改由到期待办提醒
+        as(salesA1, () -> customers.follow(salesA1, dormant, new FollowCommand("约好下周再访", today.plusDays(7)), commandKey()));
+        assertThat(todos(lead)).extracting(TodoItem::key).doesNotContain("franchise:stale:" + dormant);
+
+        // 流失客户再次有客资登记：负责人收到“待确认是否恢复”，登记时间清掉后待办消失
+        long lost = capture(salesA1).customerId();
+        jdbc.update("INSERT INTO fr_customer_workflow(id,tenant_id,company_id,customer_id,status,reconsulted_at) VALUES(?,?,?,?,'LOST',now())",
+                System.nanoTime(), store.orgId(), store.orgId(), lost);
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:reconsult:" + lost)).singleElement().satisfies(t -> {
+            assertThat(t.title()).isEqualTo("「陈先生」流失客户再次咨询，待确认是否恢复");
+            assertThat(t.appPath()).isEqualTo("/pages/workflow/index?view=customer&id=" + lost + "&tab=1");
+        });
+        jdbc.update("UPDATE fr_customer_workflow SET reconsulted_at=NULL WHERE customer_id=?", lost);
+        assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain("franchise:reconsult:" + lost);
     }
 
     @Test
