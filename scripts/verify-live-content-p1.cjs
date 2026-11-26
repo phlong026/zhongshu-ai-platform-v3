@@ -21,6 +21,7 @@ function loadPage(relativePath, modules, wxOverrides = {}) {
       if(id==='../../utils/creation-text-resize')return require('../miniprogram/utils/creation-text-resize');
       if(id==='./content-task-result')return require('../miniprogram/pages/studio/content-task-result');
       if(id==='./task-display')return require('../miniprogram/pages/studio/task-display');
+      if(id==='./publication-cover')return require('../miniprogram/pages/studio/publication-cover');
       if (Object.prototype.hasOwnProperty.call(modules, id)) return modules[id];
       throw new Error('Unexpected require: ' + id);
     },

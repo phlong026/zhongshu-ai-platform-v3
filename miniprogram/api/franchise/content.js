@@ -97,12 +97,6 @@ const publisherAccounts = {
   update: (id, body) => http.put('/franchise/content/publisher-accounts/' + encodeURIComponent(id), body)
 };
 
-const covers = {
-  list: query => http.get('/franchise/content/covers/templates', query),
-  /** Same key always reads the saved request; nonterminal results must keep their original key. */
-  generate: (body, key) => http.post('/franchise/content/covers', body, idem(key, 'cover'), { timeout: 120000 })
-};
-
 const publications = {
   /** 创建发布记录（direct-v1 五态；幂等 duplicate 返回既有） */
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
@@ -138,4 +132,4 @@ const clones = {
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
   setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
 };
-module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publisherAccounts, covers, publications, growth };
+module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publisherAccounts, publications, growth };
