@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -45,17 +46,44 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
     @Resource
     private JdbcTemplate jdbc;
 
+    private java.util.Map<String, Object> originalBossTemplate;
+
     @BeforeEach
     void registerOrgTypesAndTemplates() {
         jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店') ON CONFLICT DO NOTHING");
-        jdbc.update("INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code) VALUES "
-                + "('boss','test','t-hq,t-store','management',FALSE,NULL) ON CONFLICT DO NOTHING");
+        // The shared PostgreSQL test database may already contain a production/other-suite boss template.
+        // Capture it, temporarily install the test contract, and restore it after each method.
+        var existing = jdbc.queryForList("""
+                SELECT domain,org_types,line,lead,inherits_role_code
+                FROM pf_post_template WHERE role_code='boss'
+                """);
+        originalBossTemplate = existing.isEmpty() ? null : existing.get(0);
+        jdbc.update("""
+                INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code)
+                VALUES ('boss','test','t-hq,t-store','management',FALSE,NULL)
+                ON CONFLICT (role_code) DO UPDATE SET domain=EXCLUDED.domain,org_types=EXCLUDED.org_types,
+                    line=EXCLUDED.line,lead=EXCLUDED.lead,inherits_role_code=EXCLUDED.inherits_role_code
+                """);
         directory.roleIdsByCode.put("boss", 501L);
+    }
+
+    @AfterEach
+    void restoreBossTemplate() {
+        if (originalBossTemplate == null) {
+            jdbc.update("DELETE FROM pf_post_template WHERE role_code='boss'");
+            return;
+        }
+        jdbc.update("""
+                UPDATE pf_post_template SET domain=?,org_types=?,line=?,lead=?,inherits_role_code=?
+                WHERE role_code='boss'
+                """, originalBossTemplate.get("domain"), originalBossTemplate.get("org_types"),
+                originalBossTemplate.get("line"), originalBossTemplate.get("lead"),
+                originalBossTemplate.get("inherits_role_code"));
     }
 
     @Test
     void firstOnboardCreatesOrgAdminWithBossPost() {
-        OrgOnboardService.OnboardResult r = onboardService.onboard("t-store", "湖北门店", "赵管理员", "13800001001", 9L);
+        OrgOnboardService.OnboardResult r = onboardService.onboard("t-store", "首次开通门店", "赵管理员", "13800001001", 9L);
         assertThat(r.orgId()).isPositive();
         assertThat(r.reusedOrg()).isFalse();
         OrgUnitDO org = orgService.getUnit(r.orgId());
@@ -69,12 +97,12 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
 
     @Test
     void repeatOnboardIsIdempotentWithoutDuplicatingOrg() {
-        OrgOnboardService.OnboardResult first = onboardService.onboard("t-store", "湖北门店", "赵管理员", "13800001002", 9L);
-        OrgOnboardService.OnboardResult second = onboardService.onboard("t-store", "湖北门店", "钱复用", "13800001003", 9L);
+        OrgOnboardService.OnboardResult first = onboardService.onboard("t-store", "重复开通门店", "赵管理员", "13800001002", 9L);
+        OrgOnboardService.OnboardResult second = onboardService.onboard("t-store", "重复开通门店", "钱复用", "13800001003", 9L);
         assertThat(second.orgId()).isEqualTo(first.orgId());
         assertThat(second.reusedOrg()).isTrue();
         // Fake 环境 dept 在内存（shim 的 system_dept 未被写入）——内存反查 deptId 统计 ACTIVE ORG 行唯一
-        long orgRows = directory.findRootDeptIdsByName("湖北门店").stream()
+        long orgRows = directory.findRootDeptIdsByName("重复开通门店").stream()
                 .mapToLong(id -> jdbc.queryForObject(
                         "SELECT count(*) FROM pf_org_unit WHERE dept_id = " + id + " AND kind = 'ORG' AND status = 'ACTIVE'", Integer.class))
                 .sum();
