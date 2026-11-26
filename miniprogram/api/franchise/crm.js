@@ -19,9 +19,8 @@ const leads = {
 };
 
 const customers = {
-  /** 分页列表；keyword 按称呼、手机号、省市（空关键词不传参——undefined 会被工具端序列化成字面量） */
-  page: (pageNo, pageSize, keyword, followFilter) =>
-    http.get('/franchise/customers', { pageNo, pageSize, ...(keyword ? {keyword} : {}), ...(followFilter ? {followFilter} : {}) }),
+  page: (pageNo, pageSize, keyword, followFilter, stablePrefix, previousPrefix) =>
+    http.get('/franchise/customers', { pageNo, pageSize, ...(keyword ? {keyword} : {}), ...(followFilter ? {followFilter} : {}), ...(stablePrefix ? {stablePrefix:true} : {}), ...(previousPrefix ? {previousPrefix} : {}) }),
   /** 详情（含跟进与方案版本；follows createTime ASC、schemes kind,version ASC） */
   get: (id) => http.get('/franchise/customers/' + id),
   /** 编辑基本信息（phone/source 不可改，带 revision；幂等键可选） */
@@ -33,7 +32,7 @@ const customers = {
   /** 保存参考方案或预算版本（BUDGET / PLAN / FACADE；revision 服务端自取） */
   saveScheme: (id, data, idempotencyKey) =>
     http.post('/franchise/customers/' + id + '/schemes', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),
-  /** 责任转交 {targetUserId, reason, revision}（幂等键可选；已知后端重放指纹缺口 S1-11b） */
+  /** 责任转交（revision） */
   transfer: (id, data, idempotencyKey) =>
     http.post('/franchise/customers/' + id + '/transfer', data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined)
 };

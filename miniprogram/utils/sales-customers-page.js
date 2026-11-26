@@ -17,7 +17,7 @@ module.exports=()=>({
   if(PF.pageMode(http.token(),post)==='api'){
    this.__post=post;this.__pf=PF;this.__http=http;this.__crmApi=this.__crmApi||require('../api/franchise/crm');
    const postKey=String(post.postId),scope=JSON.stringify([http.sessionGeneration(),post.tenantId,post.orgId,postKey,post.roleCode,post.orgType]);
-   if(this.__customerScope!==scope){this.__customerScope=scope;this.__postKey=postKey;this.__pageNo=0;this.__serverHasMore=false;this.__total=0;this.__loadedQuery='';this.__listFlight=null;this.__listRetry=null;this.setData({keyword:'',tab:this.data.tab,pageSize:10,platformMode:true,platformRefreshing:false,authError:false,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[]});}
+   if(this.__customerScope!==scope){this.__customerScope=scope;this.__postKey=postKey;this.__pageNo=0;this.__prefix=null;this.__serverHasMore=false;this.__total=0;this.__loadedQuery='';this.__listFlight=null;this.__listRetry=null;this.setData({keyword:'',tab:this.data.tab,pageSize:10,platformMode:true,platformRefreshing:false,authError:false,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[]});}
    else if(!this.data.platformMode)this.setData({platformMode:true});
    const isBossView=['boss','owner'].includes(post.roleCode),isLead=post.roleCode==='sales-lead',actor=Job.apiContext(post);
    const navigationIndex=Job.navigation(actor).tabs.find(tab=>tab.key===(isBossView?'owner-business':'customers'))?.index??7;
@@ -31,7 +31,7 @@ module.exports=()=>({
  stale(gen,sessionGen,postKey){return this.__unloaded||gen!==this.__loadGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey;},
  handle401(err,sessionGenAtRequest){
   if(!(err&&err.code===401&&!err.silent))return false;
-  // token 存活+代次已变 → 新会话迟到 401，整体丢弃；token 存活+代次未变 → 当前会话业务 401，页面 clearSession；
+  // A late 401 must not clear the new session.
   if(this.__http.token()){
    if(sessionGenAtRequest!==this.__http.sessionGeneration())return true;
    this.__http.clearSession();
@@ -54,23 +54,21 @@ module.exports=()=>({
   const gen=this.__loadGen=(this.__loadGen||0)+1,retain=this.__loadedQuery===query;
   const lastPage=append?(this.__pageNo||0)+1:retain?Math.max(1,this.__pageNo||1,retry?.lastPage||1):1;
   const displaySize=append?this.data.pageSize+10:retry?.displaySize??this.data.pageSize;
-  // Existing server limit is 200. Fetch the visible prefix in one ordered read
-  // within that bound, including appends, so equal-total swaps cannot mix two versions.
   const windowed=lastPage<=MAX_WINDOW_PAGES,mergeAppend=append&&!windowed;
   const firstPage=mergeAppend?lastPage:1;
   const flight={query,gen,append,promise:null};this.__listFlight=flight;
   if(!append&&!retain)this.__loadedQuery='';
   if(!append||windowed)this.setData(retain?{platformStatus:'ready',platformRefreshing:true,platformError:'',authError:false}:{platformStatus:'loading',platformRefreshing:false,platformError:'',authError:false,customers:[],visibleCustomers:[],filteredCustomers:[],hasMore:false,emptyText:'正在加载客户…'});
-  // Independent offset requests can straddle a colleague's edit. Do not commit
-  // an observable drift as a complete list, or advance the cursor on rejection.
-  const drift={};
+  const drift={},prefixChanged={};
   flight.promise=(async()=>{
    const ids=new Set(mergeAppend?this.data.customers.map(row=>String(row.id)):[]);
-   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=mergeAppend?this.__total:null;
+   let list=[],total=0,loadedPage=firstPage,lastCount=0,expectedTotal=mergeAppend?this.__total:null,prefix=mergeAppend?this.__prefix:null;
    const batchSize=windowed?lastPage*SERVER_PAGE_SIZE:SERVER_PAGE_SIZE;
    for(let pageNo=firstPage;pageNo<=(windowed?1:lastPage);pageNo++){
-    const res=await this.__crmApi.customers.page(pageNo,batchSize,keyword||undefined,tab==='all'?undefined:tab.toUpperCase());
+    const res=await this.__crmApi.customers.page(pageNo,batchSize,keyword||undefined,tab==='all'?undefined:tab.toUpperCase(),true,prefix);
     if(this.stale(gen,sessionGen,postKey))return;
+    if(res?.changed||(prefix&&!res?.prefix))throw prefixChanged;
+    prefix=res?.prefix||null;
     const rows=res&&res.list||[];
     total=typeof(res&&res.total)==='number'?res.total:ids.size+rows.length;
     if(expectedTotal!==null&&expectedTotal!==total)throw drift;
@@ -85,18 +83,23 @@ module.exports=()=>({
      break;
     }
    }
-   return {list,total,loadedPage,lastCount};
+   return {list,total,loadedPage,lastCount,prefix};
   })().then(res=>{
    if(this.stale(gen,sessionGen,postKey))return;
    const rows=res.list.map(c=>PF.customerRow(c,{today:PF.today(),canWrite:PF.can(post,'write'),visited:tab==='visited'}));
    const merged=mergeAppend?this.data.customers.concat(rows):rows;
-   this.__pageNo=res.loadedPage;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__loadedQuery=query;this.__total=res.total;this.__serverHasMore=merged.length<res.total&&res.lastCount>0;
+   this.__prefix=res.prefix;this.__pageNo=res.loadedPage;this.__loadedKeyword=keyword;this.__loadedTab=tab;this.__loadedQuery=query;this.__total=res.total;this.__serverHasMore=merged.length<res.total&&res.lastCount>0;
    this.__listRetry=null;
    const pageSize=displaySize;
    this.setData({platformStatus:'ready',platformRefreshing:false,platformError:'',customers:merged,pageSize,tabs:this.platformTabs(merged),...this.customerListPatch(merged,pageSize)});
   }).catch(err=>{
    if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
+   if(err===prefixChanged){
+    this.__prefix=null;this.__pageNo=0;this.__loadedQuery='';this.__listRetry=null;this.__serverHasMore=false;
+    this.setData({platformStatus:'degraded',platformRefreshing:false,platformError:'客户名单已变化，请重试',pageSize:10,customers:[],filteredCustomers:[],visibleCustomers:[],tabs:[],hasMore:false});
+    return;
+   }
    if(err===drift){
     this.__listRetry={query,lastPage,displaySize};
     this.setData({platformStatus:retain?'ready':'degraded',platformRefreshing:false,platformError:'客户名单正在变化，请重试'});
