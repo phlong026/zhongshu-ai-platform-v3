@@ -3,7 +3,10 @@ package cn.iocoder.yudao.module.franchise.engineering.content;
 import cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.StageBalance;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngPlanNodeDO;
 import org.junit.jupiter.api.Test;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
@@ -30,6 +33,19 @@ class EngPaymentDatesTest {
         assertThat(EngPaymentDates.beforeStart("ON_SIGN","STAGE_1")).isTrue();
         assertThat(EngPaymentDates.beforeStart("BEFORE_START","STAGE_2")).isTrue();
     }
+    @Test void collectionDatesUseShanghaiCalendarWhenTheServerIsStillOnThePreviousDay() {
+        Clock serverClock = Clock.fixed(Instant.parse("2026-11-26T16:30:00Z"), ZoneOffset.UTC);
+        LocalDate shanghaiToday = LocalDate.of(2026, 11, 27);
+        assertThat(LocalDate.now(serverClock)).isEqualTo(shanghaiToday.minusDays(1));
+        assertThat(EngCollectionService.resolveCollectionDate(shanghaiToday, serverClock)).isEqualTo(shanghaiToday);
+        assertThat(EngCollectionService.resolveCollectionDate(null, serverClock)).isEqualTo(shanghaiToday);
+        assertThat(EngCollectionService.resolveCollectionDate(shanghaiToday.minusDays(1), serverClock))
+                .isEqualTo(shanghaiToday.minusDays(1));
+        assertThatThrownBy(() -> EngCollectionService.resolveCollectionDate(shanghaiToday.plusDays(1), serverClock))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class)
+                .hasMessageContaining("收款日期不能晚于今天");
+    }
+
     private StageBalance balance(String trigger,Integer index,LocalDate due) {
         return new StageBalance("STAGE_1",100,0,due,1L,0,"约定款",trigger,index,1);
     }
