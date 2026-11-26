@@ -167,8 +167,9 @@ public class EngCollectionService {
         if (StrUtil.isBlank(transactionNo) || cmd.fileAssetId() == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写收款流水并留存凭据");
         }
-        LocalDate date = cmd.occurredAt() == null ? LocalDate.now() : cmd.occurredAt();
-        if (date.isAfter(LocalDate.now())) {
+        LocalDate today = LocalDate.now();
+        LocalDate date = cmd.occurredAt() == null ? today : cmd.occurredAt();
+        if (date.isAfter(today)) {
             throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
         }
         long amount = EngGuard.requirePositiveCents(cmd.amount());
@@ -183,10 +184,29 @@ public class EngCollectionService {
         payload.put("stage", stage);
         payload.put("amountCents", amount);
         payload.put("transactionNo", transactionNo);
-        payload.put("occurredAt", date.toString());
+        // A missing date is part of the original request; the server's default day is not.
+        payload.put("occurredAt", cmd.occurredAt() == null ? null : date.toString());
         payload.put("fileAssetId", cmd.fileAssetId());
+        payload.put("dateProvided", cmd.occurredAt() != null);
 
-        var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload);
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload, event -> {
+            // The previous version fingerprinted the resolved day. Recover only from a matching
+            // recorded collection, never from today's default or another project's receipt.
+            if (!AGGREGATE.equals(event.getAggregateType())
+                    || !"eng-collect".equals(event.getCommand())) {
+                return null;
+            }
+            var original = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(event.getPayload());
+            if (original.has("dateProvided") || !original.has("projectId")) return null;
+            Map<String, Object> recordedPayload = new LinkedHashMap<>(payload);
+            recordedPayload.remove("dateProvided");
+            if (cmd.occurredAt() == null) {
+                // The former default was the server's posting day. A backdated explicit date could not be that default.
+                var day = event.getOccurredAt().atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate();
+                recordedPayload.put("occurredAt", day.toString());
+            }
+            return recordedPayload;
+        });
         if (replayed.isPresent()) {
             var event = replayed.get();
             if (!AGGREGATE.equals(event.getAggregateType()) || !"eng-collect".equals(event.getCommand())) {
