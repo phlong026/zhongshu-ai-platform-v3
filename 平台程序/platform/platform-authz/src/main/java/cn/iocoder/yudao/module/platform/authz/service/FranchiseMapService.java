@@ -67,9 +67,10 @@ public class FranchiseMapService {
                 (r,i)->new Brand(r.getString("id"),r.getString("name"),brandColor(r.getLong("id"),r.getString("name"))),brandArgs);
         for(var item:items) {
             String publicName=publicName(item,catalog);
-            // StoreProfile address is private. Keep the map field for client compatibility,
-            // but do not fill it until an independently authorized public address exists.
-            String publicAddress="";
+            // Never read StoreProfile.address: only a separately maintained, explicitly authorized
+            // address on an actual franchise record may enter the same-brand public projection.
+            String publicAddress="FRANCHISE".equals(item.recordType())&&item.publicAddressAuthorized()
+                    ?item.publicAddress():"";
             records.add(new MapRecord(item.id(),publicName,item.brandId(),item.brandName(),item.brandColor(),item.recordType(),
                     item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),publicAddress));
             FranchiseRegionCatalog.Region firstDistrict=null;

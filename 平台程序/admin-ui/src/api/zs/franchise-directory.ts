@@ -40,6 +40,8 @@ export interface DirectoryItem {
   sourceCell: string | null
   version: number
   publicName?: string
+  publicAddress?: string
+  publicAddressAuthorized?: boolean
 }
 
 export interface DirectoryInput {
@@ -102,7 +104,12 @@ export const updateDirectoryRecord = (id: string, data: DirectoryInput): Promise
 
 export const updateDirectoryMapDisplay = (
   id: string,
-  data: { publicName: string; expectedVersion: number }
+  data: {
+    publicName: string
+    publicAddress: string
+    publicAddressAuthorized: boolean
+    expectedVersion: number
+  }
 ): Promise<DirectoryItem> =>
   request.put({ url: `${base}/${encodeURIComponent(id)}/map-display`, data })
 

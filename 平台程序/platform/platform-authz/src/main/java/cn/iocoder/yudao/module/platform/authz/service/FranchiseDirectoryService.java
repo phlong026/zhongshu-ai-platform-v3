@@ -21,12 +21,13 @@ public class FranchiseDirectoryService {
     public record Item(String id,String name,String brandId,String brandName,String brandColor,String recordType,
                        String originalRegionText,String matchStatus,List<String> regionCodes,String provinceCode,
                        String cityCode,String linkedOrgId,String sourceKey,Integer sourceRow,String sourceSheet,
-                       String sourceCell,String brand,String province,String city,String area,String districtCode,long version,String publicName) { }
+                       String sourceCell,String brand,String province,String city,String area,String districtCode,long version,
+                       String publicName,String publicAddress,boolean publicAddressAuthorized) { }
     public record RecordRequest(String name,String brand,String recordType,String originalRegionText,List<String> regionCodes,
                                 String provinceCode,String cityCode,Long expectedVersion) { }
     public record FromDirectoryRequest(String recordId,Long expectedVersion,String adminName,String adminMobile,
                                        String areaPinyin,String ownerPinyin,String remark,String districtCode) { }
-    public record MapDisplayRequest(String publicName,Long expectedVersion) { }
+    public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion) { }
     public record ImportRow(String sourceKey,int sourceRow,String sourceSheet,String sourceCell,String brand,String name,
                             String recordType,String originalRegionText,String provinceCode,String cityCode,List<String> regionCodes,
                             String matchStatus,String status,String message,String recordId) { }
@@ -67,7 +68,8 @@ public class FranchiseDirectoryService {
             r.getString("match_status"),List.of(codes),pc,cc,r.getString("org_id"),r.getString("source_key"),
             r.getObject("source_row",Integer.class),text(r.getString("source_sheet")),text(r.getString("source_cell")),
             r.getString("brand_name"),province,city,district==null?r.getString("original_region_text"):district.name(),
-            district==null?"":district.code(),r.getLong("version"),text(r.getString("public_name")));
+            district==null?"":district.code(),r.getLong("version"),text(r.getString("public_name")),
+            text(r.getString("public_address")),r.getBoolean("public_address_authorized"));
     }
     public Item get(String id) {
         var rows=query(" AND d.id=?",id);if(rows.isEmpty())throw new ServiceException(404,"加盟商名录记录不存在");return rows.get(0);
@@ -157,8 +159,15 @@ public class FranchiseDirectoryService {
             } else {
                 jdbc.update("""
                     UPDATE pf_franchise_directory SET brand_id=?,name=?,record_type=?,original_region_text=?,match_status=?,
-                      province_code=?,city_code=?,source_fingerprint=?,version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
-                    """,brand,row.name().trim(),row.recordType(),row.originalRegionText().trim(),resolution.status(),emptyNull(resolution.provinceCode()),emptyNull(resolution.cityCode()),fingerprint,tenant(),id);
+                      province_code=?,city_code=?,source_fingerprint=?,
+                      public_address=CASE WHEN ?='FRANCHISE' THEN public_address ELSE NULL END,
+                      public_address_authorized=CASE WHEN ?='FRANCHISE' THEN public_address_authorized ELSE false END,
+                      public_address_authorized_by=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_by ELSE NULL END,
+                      public_address_authorized_at=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_at ELSE NULL END,
+                      version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
+                    """,brand,row.name().trim(),row.recordType(),row.originalRegionText().trim(),resolution.status(),
+                        emptyNull(resolution.provinceCode()),emptyNull(resolution.cityCode()),fingerprint,
+                        row.recordType(),row.recordType(),row.recordType(),row.recordType(),tenant(),id);
             }
             replaceRegions(id,resolution.codes());
         }
@@ -198,21 +207,52 @@ public class FranchiseDirectoryService {
         ImportRow result=persist(prepare(row,regions.all()),actor,true);return get(result.recordId());
     }
     @Transactional(rollbackFor=Exception.class)
-    public Item updateMapDisplay(String id,MapDisplayRequest input) {
+    public Item updateMapDisplay(String id,MapDisplayRequest input,long actor) {
         lock(id);Item before=get(id);
         if(input==null||input.expectedVersion()==null||input.expectedVersion()!=before.version())throw new ServiceException(409,"名录资料已变化，请重新载入");
         String name=text(input.publicName());
         if(name.length()>128||name.codePoints().anyMatch(Character::isISOControl)
                 ||name.matches(".*(?:\\d[ -]?){7,}.*"))throw invalid("公开地图名称不能包含联系方式或控制字符，最多128字");
-        if(!name.isEmpty()&&before.linkedOrgId()!=null) {
-            var people=jdbc.queryForList("SELECT owner_name,login_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=?",tenant(),Long.parseLong(before.linkedOrgId()));
-            for(var person:people)for(String key:List.of("owner_name","login_name")) {
-                String privateValue=text((String)person.get(key));
-                if(privateValue.length()>1&&name.toLowerCase(Locale.ROOT).contains(privateValue.toLowerCase(Locale.ROOT)))throw invalid("公开地图名称不能包含人员姓名或登录账号");
-            }
+        rejectPrivateAccountValues(name,before,"公开地图名称");
+
+        // Older admin clients only send publicName. Preserve an already authorized address unless
+        // the address/authorization fields are explicitly present in the request.
+        boolean updateAddress=input.publicAddress()!=null||input.publicAddressAuthorized()!=null;
+        String address=before.publicAddress();
+        boolean authorized=before.publicAddressAuthorized();
+        if(updateAddress) {
+            address=text(input.publicAddress());
+            authorized=Boolean.TRUE.equals(input.publicAddressAuthorized());
+            if(address.length()>300||address.codePoints().anyMatch(Character::isISOControl)
+                    ||address.matches(".*(?:\\d[ -]?){7,}.*"))throw invalid("公开门店地址不能包含联系方式或控制字符，最多300字");
+            if(!address.isEmpty()&&!authorized)throw invalid("请先确认已获得该门店地址的公开展示授权");
+            if(authorized&&address.isEmpty())throw invalid("请填写公开门店地址后再确认授权");
+            if(!address.isEmpty()&&!"FRANCHISE".equals(before.recordType()))throw invalid("只有加盟商档案可以设置公开门店地址");
+            rejectPrivateAccountValues(address,before,"公开门店地址");
         }
-        jdbc.update("UPDATE pf_franchise_directory SET public_name=?,version=version+1,updated_at=now() WHERE tenant_id=? AND id=?",emptyNull(name),tenant(),id);
+        if(updateAddress) {
+            jdbc.update("""
+                UPDATE pf_franchise_directory SET public_name=?,public_address=?,public_address_authorized=?,
+                  public_address_authorized_by=?,public_address_authorized_at=?,version=version+1,updated_at=now()
+                WHERE tenant_id=? AND id=?
+                """,emptyNull(name),emptyNull(address),authorized,authorized?actor:null,
+                    authorized?java.time.OffsetDateTime.now():null,tenant(),id);
+        } else {
+            jdbc.update("UPDATE pf_franchise_directory SET public_name=?,version=version+1,updated_at=now() WHERE tenant_id=? AND id=?",
+                    emptyNull(name),tenant(),id);
+        }
         return get(id);
+    }
+
+    private void rejectPrivateAccountValues(String value,Item before,String field) {
+        if(value.isEmpty()||before.linkedOrgId()==null)return;
+        var people=jdbc.queryForList("SELECT owner_name,login_name FROM pf_franchise_account WHERE tenant_id=? AND org_id=?",
+                tenant(),Long.parseLong(before.linkedOrgId()));
+        for(var person:people)for(String key:List.of("owner_name","login_name")) {
+            String privateValue=text((String)person.get(key));
+            if(privateValue.length()>1&&value.toLowerCase(Locale.ROOT).contains(privateValue.toLowerCase(Locale.ROOT)))
+                throw invalid(field+"不能包含人员姓名或登录账号");
+        }
     }
 
     @Transactional(rollbackFor=Exception.class)
@@ -243,9 +283,14 @@ public class FranchiseDirectoryService {
         }
         jdbc.update("""
             UPDATE pf_franchise_directory SET name=?,brand_id=?,record_type=?,original_region_text=?,match_status=?,province_code=?,city_code=?,
+              public_address=CASE WHEN ?='FRANCHISE' THEN public_address ELSE NULL END,
+              public_address_authorized=CASE WHEN ?='FRANCHISE' THEN public_address_authorized ELSE false END,
+              public_address_authorized_by=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_by ELSE NULL END,
+              public_address_authorized_at=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_at ELSE NULL END,
               version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
             """,row.name(),brand(row.brand()),row.recordType(),row.originalRegionText(),after.resolution().status(),
-                emptyNull(after.resolution().provinceCode()),emptyNull(after.resolution().cityCode()),tenant(),id);
+                emptyNull(after.resolution().provinceCode()),emptyNull(after.resolution().cityCode()),
+                row.recordType(),row.recordType(),row.recordType(),row.recordType(),tenant(),id);
         replaceRegions(id,after.resolution().codes());return get(id);
     }
     private static FranchiseDirectoryWorkbook.Row requestRow(RecordRequest input,String source) {

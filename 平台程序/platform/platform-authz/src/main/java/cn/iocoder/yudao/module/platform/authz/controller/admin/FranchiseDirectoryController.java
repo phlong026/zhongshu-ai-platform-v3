@@ -63,8 +63,7 @@ public class FranchiseDirectoryController {
     @PutMapping("/franchise-directory/{id}/map-display")
     @ApiAccessLog(requestEnable=false,responseEnable=false)
     public CommonResult<FranchiseDirectoryService.Item> updateMapDisplay(@PathVariable String id,@RequestBody FranchiseDirectoryService.MapDisplayRequest input) {
-        actor();
-        return CommonResult.success(directory.updateMapDisplay(id,input));
+        return CommonResult.success(directory.updateMapDisplay(id,input,actor()));
     }
     @PostMapping("/franchise-onboard/from-directory")
     @ApiAccessLog(requestEnable=false,responseEnable=false)
