@@ -4,7 +4,7 @@ const MAX_CENTS = 1000000000000;
 const TRIGGERS = [
   { value: 'ON_SIGN', label: '签约时' }, { value: 'BEFORE_START', label: '开工前' },
   { value: 'NODE_COMPLETED', label: '工程节点完成' }, { value: 'ON_FINISH', label: '工程完工' },
-  { value: 'DATE', label: '指定日期' }, { value: 'MANUAL', label: '手动确认' }
+  { value: 'DATE', label: '指定日期' }, { value: 'MANUAL', label: '待约定（签约前须补日期或节点）' }
 ];
 const LEGACY_TRIGGERS = { LEGACY_BASE_DONE: '基础完工（原约定）', LEGACY_TOPPING: '主体封顶（原约定）' };
 const STATUS = { WAIT_SIGN: '待签订', SIGNED: '已签订', VOIDED: '已作废' };

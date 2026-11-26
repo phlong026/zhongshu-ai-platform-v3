@@ -148,7 +148,7 @@ Page({
    if(action==='start')return StartRecord.begin(this,require('../../../api/http'),require('../../../api/franchise/engineering'),f||this.data.form);
    if(action==='delay')return Delay.save(this,f||this.data.form,node||this.data.node);
    if(action==='expense-register')return this.saveExpense(f||this.data.form);
-   if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
+   if(action==='declare'||action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
    this.__paymentRead=(this.__paymentRead||0)+1;
    const http=require('../../../api/http'),current=http.sessionGuard(),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
    const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post)&&(this.__accessEpoch||0)===epoch;
