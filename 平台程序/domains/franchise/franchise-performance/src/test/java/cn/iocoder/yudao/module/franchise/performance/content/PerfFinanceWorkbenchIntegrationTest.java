@@ -304,17 +304,8 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
 
  @Test @org.springframework.transaction.annotation.Transactional
  void homeUsesTheOriginalReceiptEffectiveProjectContractAndShanghaiDate() {
-  createTables();
+  createHomeTables();
   jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
-  jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
-  jdbc.execute("ALTER TABLE fr_eng_project ADD name text");
-  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date)");
-  jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD amount_cents bigint");
-  jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD customer_id bigint, ADD stage text");
-  jdbc.execute("ALTER TABLE fr_fin_receipt ADD customer_id bigint, ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
-  jdbc.execute("ALTER TABLE fr_fin_payable ADD project_id bigint, ADD customer_id bigint, ADD stage text, ADD deleted boolean DEFAULT false");
-  jdbc.execute("ALTER TABLE fr_fin_payment ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
-  jdbc.execute("ALTER TABLE fr_fin_refund ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint, ADD reason text");
   var boss=fixture.post(fixture.store().orgId(),"boss",null);
   long org=boss.orgId(); var home=new HomeMetricsService(jdbc);
   jdbc.update("INSERT INTO fr_customer VALUES(1,?,'客户','', '2026-10-31 16:00:01+00')",org);
@@ -338,6 +329,60 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
      tuple("tail",340L),tuple("CAP_DONE",850L));
   var customers=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","newCustomers",1).get("rows");
   assertThat(customers).extracting(r->r.get("date")).containsExactly("2026-11-01");
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void rectificationMetricsAndTeamPendingUseTheOriginalAssignmentAndDeadline() {
+  createHomeTables();
+  var store=fixture.store();
+  var boss=fixture.post(store.orgId(),"boss",null);
+  var manager=fixture.post(store.orgId(),"project-manager",store.engineeringTeam());
+  var assigned=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  long org=boss.orgId();
+  jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint, ADD assigned_engineer_user_id bigint, ADD status text");
+  jdbc.execute("ALTER TABLE fr_eng_plan_node ADD name text, ADD delay_owner_user_id bigint, ADD responsible_user_id bigint");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_rectification(id bigint,company_id bigint,project_id bigint,title text,state text,owner_user_id bigint,due_date date,create_time timestamptz DEFAULT now())");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,project_id bigint,supply_id bigint,quality text,quality_resolution jsonb,occurred_at date)");
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,manager_user_id,assigned_engineer_user_id,status) VALUES(11,?,'庭院',?,?,'IN_PROGRESS')",org,manager.userId(),assigned.userId());
+  jdbc.update("""
+      INSERT INTO fr_eng_rectification(id,company_id,project_id,title,state,owner_user_id,due_date) VALUES
+      (51,?,11,'指派整改','REVIEW',?,'2026-12-01'), (52,?,11,'历史整改单','OPEN',NULL,NULL),
+      (53,?,11,'已销项','CLOSED',?,NULL), (54,?,11,'跨公司','OPEN',?,NULL), (55,?,11,'人员已调走','OPEN',77,NULL)
+      """,org,assigned.userId(),org,org,assigned.userId(),org+1,assigned.userId(),org);
+  var home=new HomeMetricsService(jdbc);
+  var mine=(List<Map<String,Object>>)home.detail(assigned,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(mine).singleElement().satisfies(r->assertThat(r).containsEntry("id","51").containsEntry("date","2026-12-01"));
+  var unassigned=(List<Map<String,Object>>)home.detail(manager,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(unassigned).extracting(r->r.get("id")).containsExactlyInAnyOrder("52","55");
+  assertThat(unassigned).allMatch(r->r.get("date")==null && r.get("subtitle").toString().contains("分派"));
+  for(String view:List.of("owner","engineering")) {
+   var orgRows=(List<Map<String,Object>>)home.detail(boss,view,"2026-11","rectifications",1).get("rows");
+   assertThat(orgRows).extracting(r->r.get("id")).containsExactlyInAnyOrder("51","52","55");
+  }
+  var teams=new HomeTeamService(jdbc);
+  var pending=(List<Map<String,Object>>)teams.records(boss,"engineering","2026-11",assigned.userId(),"pending",1).get("rows");
+  assertThat(pending).extracting(r->r.get("id")).containsExactly("51");
+  var managerRows=(List<Map<String,Object>>)teams.records(boss,"engineering","2026-11",manager.userId(),"pending",1).get("rows");
+  assertThat(managerRows).extracting(r->r.get("id")).containsExactlyInAnyOrder("52","55");
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),assigned.postId());
+  var reassigned=(List<Map<String,Object>>)home.detail(manager,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(reassigned).anyMatch(r->"51".equals(r.get("id"))&&r.get("subtitle").toString().contains("重新分派"));
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),manager.postId());
+  var unresolved=(List<Map<String,Object>>)home.detail(boss,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(unresolved).hasSize(3).allMatch(r->r.get("subtitle").toString().contains("待组织分派"));
+ }
+
+ private void createHomeTables(){
+  createTables();
+  jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
+  jdbc.execute("ALTER TABLE fr_eng_project ADD name text");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date)");
+  jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD amount_cents bigint");
+  jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD customer_id bigint, ADD stage text");
+  jdbc.execute("ALTER TABLE fr_fin_receipt ADD customer_id bigint, ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
+  jdbc.execute("ALTER TABLE fr_fin_payable ADD project_id bigint, ADD customer_id bigint, ADD stage text, ADD deleted boolean DEFAULT false");
+  jdbc.execute("ALTER TABLE fr_fin_payment ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
+  jdbc.execute("ALTER TABLE fr_fin_refund ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint, ADD reason text");
  }
 
  private void createTables(){

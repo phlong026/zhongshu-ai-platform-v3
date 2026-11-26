@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.*;
 class FinPayrollIntegrationTest extends FranchisePgIntegrationTest {
     @Resource FinPayrollService service;
     @Resource FinWorkbenchService workbench;
+    @Resource FinPaymentService payments;
     @Resource FinRefundService refunds;
     @Resource JdbcTemplate jdbc;
     @Resource PlatformTransactionManager transactions;
@@ -58,6 +59,101 @@ class FinPayrollIntegrationTest extends FranchisePgIntegrationTest {
             .containsEntry("calculationMode","MANUAL_ONLY").containsEntry("cashFact",false);
         for(String table:List.of("fr_fin_payable","fr_fin_payment","fr_fin_receipt"))assertThat(jdbc.queryForObject("SELECT count(*) FROM "+table+" WHERE company_id=?",Long.class,finance.orgId())).isZero();
         assertThatThrownBy(()->service.saveRecord(finance,"not-confirmed",new FinPayrollService.RecordCommand(sales.userId(),"BUSINESS","2026-11",0,null,1,0,List.of(),"未经核对",false))).hasMessageContaining("人工核算");
+    }
+    @Test void payrollSettlementRequiresAnExplicitOriginalEvenForSameNamedRecipientAndMonth() {
+        long salary=id(service.saveRecord(finance,"payroll-before-cash",record(sales,"BUSINESS",0,null,300000,0,List.of())));
+        workbench.register(finance,"old-cash-with-same-name",new FinWorkbenchService.EntryCommand("company","expense",
+            "十一月绩效薪酬","绩效薪酬",300000,LocalDate.now(),"本公司员工","公司银行账户",null,null));
+        assertThat(service.get(finance,salary)).containsKey("settlement");
+        assertThat(settlement(salary)).containsEntry("dueCents","300000").containsEntry("paidCents","0")
+            .containsEntry("unpaidCents","300000").containsEntry("registrationCount",0L);
+    }
+    @SuppressWarnings("unchecked") private Map<String,Object> settlement(long salary) {
+        return (Map<String,Object>)service.get(finance,salary).get("settlement");
+    }
+    private FinPayrollService.PayoutCommand payout(long count,long amount,String txn) {
+        return new FinPayrollService.PayoutCommand(count,amount,LocalDate.now(),"财务公司账户",txn,null);
+    }
+    @Test void payrollPaymentUsesExactlyOneOriginalAcrossRetriesAndTracksRealRefundsVoidsAndVersions() {
+        long salary=id(service.saveRecord(finance,"salary",record(sales,"BUSINESS",0,null,10000,0,List.of())));
+        var command=payout(0,7500,"PAYROLL-ORIGINAL-"+salary);
+        assertThat(service.paymentResult(finance,salary,"actual-cash")).containsEntry("state","NOT_REGISTERED");
+        var first=service.registerPayment(finance,salary,"actual-cash",command);
+        assertThat(service.paymentResult(finance,salary,"actual-cash")).isEqualTo(first);
+        long payment=Long.parseLong(first.get("id"));
+        assertThat(service.registerPayment(finance,salary,"actual-cash",command)).isEqualTo(first);
+        assertThatThrownBy(()->service.registerPayment(finance,salary,"new-key-same-stale-form",command)).hasMessageContaining("刷新");
+        assertThat(settlement(salary)).containsEntry("dueCents","10000").containsEntry("paidCents","7500")
+            .containsEntry("unpaidCents","2500").containsEntry("registrationCount",1L).containsEntry("paymentCount",1L).containsEntry("latestPaymentId",Long.toString(payment));
+        long payable=jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,payment);
+        assertThat(jdbc.queryForMap("SELECT payroll_record_id,category,recipient FROM fr_fin_payable WHERE id=?",payable))
+            .containsEntry("payroll_record_id",salary).containsEntry("category","绩效薪酬").containsEntry("recipient","本公司员工");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,finance.orgId())).isOne();
+        assertThatThrownBy(()->service.registerPayment(finance,salary,"new-with-old-bank-number",payout(1,1000,command.transactionNo()))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(settlement(salary)).containsEntry("registrationCount",1L);
+        long revised=id(service.saveRecord(finance,"correct-salary",record(sales,"BUSINESS",1,null,6000,0,List.of())));
+        assertThat(settlement(salary)).containsEntry("currentRecordId",Long.toString(revised)).containsEntry("dueCents","6000").containsEntry("overpaidCents","1500");
+        assertThat(facts(service.get(finance,salary))).containsEntry("totalCents","10000");
+        assertThatThrownBy(()->service.registerPayment(finance,salary,"stale-version",payout(1,100,null))).hasMessageContaining("刷新");
+        assertThat(service.registerPayment(finance,salary,"actual-cash",command)).isEqualTo(first);
+        long refund=refunds.registerExpense(finance,"salary-return",new FinRefundService.ExpenseRefundCommand(payment,2000,"多发退回",LocalDate.now(),null,null,null));
+        assertThat(settlement(revised)).containsEntry("paidCents","5500").containsEntry("refundedCents","2000").containsEntry("unpaidCents","500");
+        var lead=fixture.post(finance.orgId(),"finance-lead",null);directory(lead);actor(lead);
+        refunds.void_(lead,refund,"退回金额核对后更正");
+        long replacement=refunds.registerExpense(lead,"corrected-return",new FinRefundService.ExpenseRefundCommand(payment,1500,"更正退回",LocalDate.now(),null,null,refund));
+        actor(finance);assertThat(settlement(revised)).containsEntry("paidCents","6000").containsEntry("refundedCents","1500");
+        actor(lead);refunds.void_(lead,replacement,"核对后作废");payments.void_(lead,payment,"原付款作废",null);
+        actor(finance);assertThat(settlement(revised)).containsEntry("paidCents","0").containsEntry("unpaidCents","6000")
+            .containsEntry("registrationCount",1L).containsEntry("paymentCount",0L);
+        payments.register(finance,"replacement-original",new FinPaymentService.PaymentCommand(payable,5000,LocalDate.now(),null,null));
+        assertThat(settlement(revised)).containsEntry("paidCents","5000").containsEntry("unpaidCents","1000");
+    }
+    @Test void payrollPaymentScopeUsesEmployeeFamilyAndPayrollMonthAndRequiresCurrentStoreFinance() {
+        long original=id(service.saveRecord(finance,"april",record(sales,"BUSINESS",0,null,10000,0,List.of())));
+        var command=payout(0,1000,null);
+        var other=fixture.post(finance.orgId(),"sales",null);directory(other);
+        long namesake=id(service.saveRecord(finance,"namesake",record(other,"BUSINESS",0,null,10000,0,List.of())));
+        long prior=id(service.saveRecord(finance,"prior",new FinPayrollService.RecordCommand(sales.userId(),"BUSINESS","2026-10",0,null,10000,0,List.of(),"上月工资",true)));
+        long dualPost=IdWorker.getId();
+        jdbc.update("INSERT INTO pf_staff_post(id,user_id,org_id,role_code,status) VALUES(?,?,?,'engineer','ACTIVE')",dualPost,sales.userId(),finance.orgId());
+        long differentFamily=id(service.saveRecord(finance,"dual-role",record(sales,"ENGINEERING",0,null,10000,0,List.of())));
+        service.registerPayment(finance,original,"same-key",command);
+        assertThatThrownBy(()->service.registerPayment(finance,namesake,"same-key",command)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        for(long id:new long[]{namesake,prior,differentFamily})assertThat(settlement(id)).containsEntry("paidCents","0");
+        var otherFinance=fixture.post(fixture.store().orgId(),"finance",null);directory(otherFinance);actor(otherFinance);
+        assertThatThrownBy(()->service.registerPayment(otherFinance,original,"other-org",command)).hasMessageContaining("无权");
+        var boss=fixture.post(finance.orgId(),"boss",null);directory(boss);actor(boss);
+        assertThat(service.get(boss,original)).containsKey("settlement");
+        assertThatThrownBy(()->service.registerPayment(boss,original,"boss",command)).hasMessageContaining("仅本公司财务");
+        actor(finance);jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now() WHERE id=?",finance.postId());
+        assertThatThrownBy(()->service.registerPayment(finance,original,"same-key",command)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+    }
+    @Test void concurrentPayrollPaymentsFromTheSameFormWriteOneFinanceOriginal() throws Exception {
+        long salary=id(service.saveRecord(finance,"concurrent-salary",record(sales,"BUSINESS",0,null,9000,0,List.of())));
+        var barrier=new CyclicBarrier(2);var pool=Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Boolean>> tasks=new ArrayList<>();
+            for(int i=0;i<2;i++) { String key="original-"+i;tasks.add(pool.submit(()->{
+                actor(finance);try {barrier.await(10,TimeUnit.SECONDS);service.registerPayment(finance,salary,key,payout(0,3000,null));return true;}
+                catch(cn.iocoder.yudao.framework.common.exception.ServiceException e){assertThat(e.getCode()).isEqualTo(409);return false;}
+                finally{clearActor();}
+            })); }
+            int success=0;for(var task:tasks)if(task.get(20,TimeUnit.SECONDS))success++;
+            assertThat(success).isOne();assertThat(settlement(salary)).containsEntry("registrationCount",1L).containsEntry("paidCents","3000");
+        }finally{pool.shutdownNow();}
+    }
+    @Test void payrollSourceCannotCrossCompaniesOrBeErasedByRollback() throws Exception {
+        long salary=id(service.saveRecord(finance,"source-rollback",record(sales,"BUSINESS",0,null,10000,0,List.of())));
+        long payment=Long.parseLong(service.registerPayment(finance,salary,"linked-payment",payout(0,1000,null)).get("id"));
+        var second=fixture.store();var other=fixture.post(second.orgId(),"finance",null);var employee=fixture.post(second.orgId(),"sales",second.salesTeamA());
+        directory(other);directory(employee);actor(other);
+        long wrong=id(service.saveRecord(other,"other-company",record(employee,"BUSINESS",0,null,10000,0,List.of())));
+        assertThatThrownBy(()->jdbc.update("UPDATE fr_fin_payable SET payroll_record_id=? WHERE id=(SELECT payable_id FROM fr_fin_payment WHERE id=?)",wrong,payment))
+            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        String undo=new org.springframework.core.io.ClassPathResource("db/migration-undo/franchise/V20261126.1070__undo_fr_payroll_payment_source.sql")
+            .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThatThrownBy(()->jdbc.execute(undo)).rootCause().hasMessageContaining("Payroll payments are linked");
+        actor(finance);assertThat(settlement(salary)).containsEntry("paidCents","1000");
     }
     @Test void effectiveRulesAndSalaryHistoryKeepTheirOriginalVersionAndRejectStaleReferences() {
         var v1=service.saveRule(finance,"rule1",rule("BUSINESS",0,"2026-01","管理层原规则"));

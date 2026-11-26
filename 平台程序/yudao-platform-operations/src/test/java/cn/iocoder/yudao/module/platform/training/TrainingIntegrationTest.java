@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -33,6 +34,7 @@ import static cn.iocoder.yudao.module.platform.training.TrainingModel.*;
 
 @TestPropertySource(properties={"platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/platform-wallet,classpath:db/migration/franchise-asset","zhongshu.org-point.headquarters-tenant-id=1"})
 @Import({TrainingIntegrationTest.Config.class,OperationsGuard.class,TrainingFiles.class,TrainingCatalog.class,TrainingLearning.class})
+@Sql("/fixtures/operations-system-users.sql")
 class TrainingIntegrationTest extends PlatformPgIntegrationTest {
     private static final AtomicLong IDS=new AtomicLong(9731000);
     private static final Path STORE=Path.of(System.getProperty("java.io.tmpdir"),"zs-training-"+UUID.randomUUID());
@@ -45,7 +47,6 @@ class TrainingIntegrationTest extends PlatformPgIntegrationTest {
     long admin,student,org,other,post;PostSnapshot current;
     @BeforeEach void setup(){
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted int2 DEFAULT 0");
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,tenant_id bigint,nickname text,mobile text,username text,password text,status int DEFAULT 0,deleted int2 DEFAULT 0,update_time timestamptz)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigserial PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted int2 DEFAULT 0)");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('store','test','培训测试门店') ON CONFLICT DO NOTHING");
         admin=IDS.incrementAndGet();student=IDS.incrementAndGet();org=IDS.incrementAndGet();other=IDS.incrementAndGet();post=IDS.incrementAndGet();
