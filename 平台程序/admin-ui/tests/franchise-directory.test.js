@@ -155,19 +155,43 @@ test('public map display saves an independently authorized address without sendi
   assert.equal(env.state.mapPublicAddress.value, item.publicAddress)
   assert.equal(env.state.mapPublicAddressAuthorized.value, true)
   env.state.mapPublicName.value = ' 测试品牌 · 武汉门店 '
-  env.state.mapPublicAddress.value = ' 武汉市黄陂区前川街道公开门店路88号 '
+  env.state.editMapPublicAddress(' 武汉市黄陂区前川街道公开门店路88号 ')
+  assert.equal(env.state.mapPublicAddressAuthorized.value, false)
+  await env.state.saveMapDisplay()
+  assert.equal(writes.length, 0)
+  assert.match(env.state.mapEditError.value, /授权/)
+  env.state.togglePublicAddressAuthorization(true)
+  env.state.editMapPublicAddress('武汉市黄陂区前川街道公开门店路89号')
+  await env.state.saveMapDisplay()
+  assert.equal(writes.length, 0, 'further edits invalidate a fresh confirmation too')
+  env.state.togglePublicAddressAuthorization(true)
   await env.state.saveMapDisplay()
   assert.deepEqual(plain(writes), [{
     id: item.id,
     payload: {
       publicName: '测试品牌 · 武汉门店',
-      publicAddress: '武汉市黄陂区前川街道公开门店路88号',
+      publicAddress: '武汉市黄陂区前川街道公开门店路89号',
       publicAddressAuthorized: true,
+      publicAddressConfirmed: true,
       expectedVersion: 7
     }
   }])
   assert.equal(item.name, entry.name)
   assert.equal(env.state.mapEditVisible.value, false)
+})
+
+test('editing only the display name does not send or restamp the existing address consent', async () => {
+  const writes = []
+  const item = { ...entry, recordType: 'FRANCHISE', publicName: '旧名称',
+    publicAddress: '合成已授权营业地址', publicAddressAuthorized: true }
+  const env = loadView('FranchiseDirectoryPanel.vue', {
+    updateDirectoryMapDisplay: async (id, payload) => { writes.push(plain(payload)); return item }
+  })
+  env.state.openMapEditor(item)
+  env.state.editMapPublicAddress('  合成已授权营业地址  ')
+  env.state.mapPublicName.value = '新地图名称'
+  await env.state.saveMapDisplay()
+  assert.deepEqual(writes, [{ publicName: '新地图名称', expectedVersion: 7 }])
 })
 
 test('revoking public address authorization clears the address from the next map projection', async () => {

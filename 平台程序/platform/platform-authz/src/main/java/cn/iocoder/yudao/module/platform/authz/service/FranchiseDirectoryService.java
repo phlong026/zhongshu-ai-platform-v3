@@ -27,7 +27,12 @@ public class FranchiseDirectoryService {
                                 String provinceCode,String cityCode,Long expectedVersion) { }
     public record FromDirectoryRequest(String recordId,Long expectedVersion,String adminName,String adminMobile,
                                        String areaPinyin,String ownerPinyin,String remark,String districtCode) { }
-    public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion) { }
+    public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion,
+                                    Boolean publicAddressConfirmed) {
+        public MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion) {
+            this(publicName,publicAddress,publicAddressAuthorized,expectedVersion,null);
+        }
+    }
     public record ImportRow(String sourceKey,int sourceRow,String sourceSheet,String sourceCell,String brand,String name,
                             String recordType,String originalRegionText,String provinceCode,String cityCode,List<String> regionCodes,
                             String matchStatus,String status,String message,String recordId) { }
@@ -230,6 +235,12 @@ public class FranchiseDirectoryService {
             if(authorized&&address.isEmpty())throw invalid("请填写公开门店地址后再确认授权");
             if(!address.isEmpty()&&!"FRANCHISE".equals(before.recordType()))throw invalid("只有加盟商档案可以设置公开门店地址");
             rejectPrivateAccountValues(address,before,"公开门店地址");
+            if (before.publicAddressAuthorized() && authorized && !address.equals(before.publicAddress())
+                    && !Boolean.TRUE.equals(input.publicAddressConfirmed())) {
+                throw invalid("公开地址已变更，请重新确认新地址的公开展示授权");
+            }
+            // Legacy clients send the prior values with a name edit. Keep the original grant.
+            updateAddress = !address.equals(before.publicAddress()) || authorized != before.publicAddressAuthorized();
         }
         if(updateAddress) {
             jdbc.update("""

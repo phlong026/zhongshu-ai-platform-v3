@@ -106,8 +106,9 @@ export const updateDirectoryMapDisplay = (
   id: string,
   data: {
     publicName: string
-    publicAddress: string
-    publicAddressAuthorized: boolean
+    publicAddress?: string
+    publicAddressAuthorized?: boolean
+    publicAddressConfirmed?: boolean
     expectedVersion: number
   }
 ): Promise<DirectoryItem> =>
