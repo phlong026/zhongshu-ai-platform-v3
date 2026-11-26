@@ -195,9 +195,12 @@ test('现有项目账本接入核算入口，切到公司账时清除项目核�
 
 test('总部只读账本展示同口径且拒绝带写权限或项目不匹配的核算', () => {
   const hq = require('../miniprogram/pages/headquarters/model'), row = fixture({ canConfirm: false });
-  row.latestSnapshot = snapshot(row); row.version = 1; row.state = 'STALE';
+  row.latestSnapshot = snapshot({ ...row, payableOutstandingCents: '501' }); row.version = 1; row.state = 'STALE';
   const ledger = hq.ledger({ summary: {}, entries: [], accounting: row }, 'project:' + project);
   assert.equal(ledger.accounting.profit, '¥ 30,000.00'); assert.equal(ledger.accounting.latest.profit, '¥ 30,000.00');
+  assert.equal(ledger.accounting.latest.outstanding, '¥ 5.01');
+  delete row.latestSnapshot.snapshot.payableOutstandingCents;
+  assert.equal(hq.ledger({ summary: {}, entries: [], accounting: row }, 'project:' + project).accounting.latest.outstanding, '—');
   assert.throws(() => hq.ledger({ summary: {}, entries: [], accounting: fixture() }, 'project:' + project), /不匹配/);
   assert.throws(() => hq.ledger({ summary: {}, entries: [], accounting: row }, 'project:99'), /不匹配/);
 });
