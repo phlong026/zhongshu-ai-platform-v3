@@ -1,5 +1,4 @@
-// One "我的" implementation for every role. The three route shells (profile tab, sales, boss) differ only in the
-// bottom navigation component they mount; content, handlers and styles all come from here and profile.wxml.
+// The native tab and finance workspace share the same profile content and actions.
 const A = require('../../utils/account');
 const O = require('../../utils/organization');
 const M = require('../../utils/platform-messages');
@@ -26,7 +25,8 @@ const ACTIONS = {
   course: (eng, id) => account('course', id ? '&id=' + encodeURIComponent(id) : '')
 };
 // actions that need a signed-in account
-const LOGIN_ONLY = ['profile', 'messages', 'announcements', 'performance', 'storeMap', 'academy'];
+const LOGIN_ONLY = ['profile','messages','announcements','performance','services','selection','storeMap','academy','learning','resources','course'];
+const ADMIN_LINKS = { '公告管理':'/platform-announcements', '加盟商名录':'/platform-org/onboard' };
 const emptyCourse = () => ({ courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
 const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
 const profileScope = () => {
@@ -37,9 +37,12 @@ const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyP
   identityOrganization: '', identityRole: '', announcementTitle: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
   showAdminMap:false, showStoreMap:false });
 
-// Keep one entry per company setting; task access stays in the profile quick card.
 function managementEntries(a) {
   if (!a.active) return [];
+  if (a.api && a.orgType === 'headquarters' && a.role === 'hq-admin') return [
+    { text:'公告管理', icon:'/assets/icons/profile-megaphone.svg' },
+    { text:'加盟商名录', icon:'/assets/icons/profile-users.svg' }
+  ];
   const X = require('../../utils/access');
   if (X.isBoss(a)) {
     if (a.api) {
@@ -62,22 +65,22 @@ function managementEntries(a) {
 function entries(a) {
   if (!a.active) return [];
   if (a.api) {
-    if (O.headquartersReader(a)) return [{ text: '总部全品牌工作台', url: '/pages/headquarters/index?section=' + (a.role === 'hq-admin' ? 'overview' : 'finance') }, { text: '公司与项目账本', url: '/pages/headquarters/index?section=books' }];
+    if (O.headquartersReader(a)) return [];
     if (require('../../utils/access').isBoss(a)) return [];
-    if (a.role === 'sales-lead') return [{ text: '客户与责任转交', url: '/pages/customers/index' }];
-    if (a.role === 'project-manager') return [{ text: '工程项目', url: '/pages/build/projects/index' }];
+    if (a.role === 'sales-lead') return [{ text:'客户与责任转交', url:'/pages/customers/index', icon:'/assets/icons/profile-users.svg' }];
+    if (a.role === 'project-manager') return [{ text:'工程项目', url:'/pages/build/projects/index', icon:'/assets/account-shop.jpg' }];
   }
   if (require('../../utils/access').isBoss(a)) return [{ text: '我的团队', url: '/pages/admin/detail/index?view=team' }];
   if (a.role === 'hq-design-admin' && a.orgType === 'headquarters') return [{ text: '设计费计价设置', url: '/pages/workflow/commission/index?view=pricing' }];
   const team = a.api ? null : TEAM[a.role];
-  if (['finance','finance-lead'].includes(a.role)) return (team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : []).concat([{ text: '项目回款提成', url: '/pages/admin/commission/index?from=finance-profile' }]);
+  if (['finance','finance-lead'].includes(a.role)) return (team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : []).concat([{ text:'项目回款提成', url:'/pages/admin/commission/index?from=finance-profile', icon:'/assets/management-receipt.jpg' }]);
   // the business lead also hands customers over between salespeople (single or batch) from here
   return team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }].concat(a.role === 'sales-lead' ? [{ text: '责任转交', url: '/pages/workflow/index?view=transfer' }] : []) : [];
 }
 
 module.exports = function (tabIndex) {
   return {
-    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, announcementTitle: '', ...emptyCourse(), learningAvailable: false, learningLoading: false, learningError: '', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
+    data: { loggedIn: false, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, announcementTitle: '', ...emptyCourse(), learningAvailable: false, learningLoading: false, learningError: '', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
     logout() { return require('../../utils/session-actions').logout(); },
     onHide() { this.__profileHidden = true; this.__profileFlight = null; },
     onUnload() { this.onHide(); },
@@ -103,11 +106,11 @@ module.exports = function (tabIndex) {
       const company = apiLoggedIn ? (apiPost.orgName || '') : (c ? c.name : '');
       const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
       this.setData({
-        identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
+        identityOrganization: Profile.compactIdentity(company,''), identityRole: role === '总部管理员' ? '平台管理员' : role === '工程人员' ? '工程' : role,
         ...(sameScope ? {} : { ...emptyCourse(), announcementTitle: '', courseId: course ? course.id : '',
-          courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
+          courseTitle: course ? course.name : '', courseImage: course ? (loggedIn ? course.image : '/assets/profile-management-course.jpg') : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
         learningAvailable: storeProfile || apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
-        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || storeProfile || actor.orgType === 'headquarters',
+        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || storeProfile || (actor.orgType === 'headquarters' && !showAdminMap),
         showAdminMap, showStoreMap: !loggedIn || storeProfile || showAdminMap,
         entries: entries(actor), managementEntries: managementEntries(actor),
         name: this.__profileDenied ? '' : s.profile.name, avatar: this.__profileDenied ? Profile.emptyProfile().avatar : s.profile.avatar, profileLoading: !!http.token(), profileError: '', role,
@@ -175,15 +178,31 @@ module.exports = function (tabIndex) {
     },
     open(e) {
       const d = e.currentTarget.dataset;
+      if (d.admin) return openAdmin(d.admin);
       // entries carry a ready-made url; everything else is a named action (or, from older callers, a raw account view)
       let target = d.url;
       if (!target) {
         const action = d.action || (ACTIONS[d.view] ? d.view : ''), eng = this.data.engineeringProfile;
-        if (action === 'storeMap' && this.data.loggedIn && !this.data.showStoreMap) return;
+        if (action === 'storeMap' && !this.data.showStoreMap || action === 'performance' && this.data.showAdminMap) return;
+        if (['services','selection','academy'].includes(action) && !this.data.showStoreServices) return;
         target = ACTIONS[action] ? ACTIONS[action](eng, d.id || (action === 'course' ? this.data.courseId : ''), this.data.ownerProfile) : d.view ? account(d.view, d.id ? '&id=' + encodeURIComponent(d.id) : '') : '';
-        if (!this.data.loggedIn && (['learning','resources','course'].includes(action)||LOGIN_ONLY.includes(action) || (d.view && ['profile', 'messages', 'orders', 'personal-performance'].includes(d.view)))) target = account('login', '&return=' + encodeURIComponent(target));
+        if (!this.data.loggedIn && (LOGIN_ONLY.includes(action) || ['profile','messages','orders','personal-performance'].includes(d.view))) {
+          if (action === 'course' || action === 'learning') target = '/pages/account/training/index';
+          if (action === 'academy') target = '/pages/account/training/index?entry=academy';
+          target = account('login', '&return=' + encodeURIComponent(target));
+        }
       }
       if (target) require('../../utils/page-navigation').open(target);
     }
   };
 };
+
+function openAdmin(label) {
+  const scope = profileScope(), post = auth.currentApiPost();
+  if (!scope || !canViewAllStores(post) || post.roleCode !== 'hq-admin' || !Object.hasOwn(ADMIN_LINKS,label)) return;
+  const origin = require('../../config/env').API_BASE.replace(/\/admin-api\/?$/, '');
+  if (!origin.startsWith('https://')) return;
+  wx.showModal({ title:label, content:label === '加盟商名录' ? '请在浏览器登录平台管理台，打开「加盟商名录」标签。' : '请在浏览器登录平台管理台办理公告发布和下架。', confirmText:'复制地址',
+    success:res => { if (res.confirm && scope === profileScope()) wx.setClipboardData({data:origin + '/admin' + ADMIN_LINKS[label]}); }
+  });
+}

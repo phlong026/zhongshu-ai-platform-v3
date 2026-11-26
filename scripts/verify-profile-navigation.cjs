@@ -257,6 +257,8 @@ test('游客直达我的显示登录引导，不触发资料请求', () => {
   settleNavigation();
   assert.equal(page.data.loggedIn, false);
   assert.equal(page.data.showStoreServices, true);
+  assert.equal(page.bar.data.tabs.find(tab => tab.index === 4).text, '我的');
+  assert.equal(page.bar.data.tabs.find(tab => tab.index === 4).url, '/pages/profile/index');
   assert.equal(navigation.length, 0);
   assert.equal(requests.length, 0);
 });
@@ -279,11 +281,11 @@ for (const role of ['hq-admin','hq-design-admin','hq-operations','hq-operations-
     auth.switchPost(42);
     const page=show('/pages/profile/index');
     const allowed=['hq-admin','finance','finance-lead'].includes(role);
-    assert.equal(page.data.showStoreServices,true);assert.equal(page.data.showAdminMap,allowed);assert.equal(page.data.showStoreMap,allowed);
+    assert.equal(page.data.showStoreServices,!allowed);assert.equal(page.data.showAdminMap,allowed);assert.equal(page.data.showStoreMap,allowed);
     navigation=[];
     for(const action of ['services','selection','storeMap'])page.open({currentTarget:{dataset:{action}}});
     assert.deepEqual(navigation.map(row=>row.url),[
-      '/pages/account/index?view=services','/pages/account/index?view=selection',...(allowed?['/pages/account/store-map/index']:[])
+      ...(allowed?['/pages/account/store-map/index']:['/pages/account/index?view=services','/pages/account/index?view=selection'])
     ]);
   });
 }

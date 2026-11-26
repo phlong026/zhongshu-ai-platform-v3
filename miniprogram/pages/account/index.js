@@ -8,6 +8,9 @@ const RESERVED_MEMBER_REASON='老板和门店负责人身份由总部维护，�
 const isReservedMemberRole=(post,role)=>!!post&&post.orgType==='store'&&['boss','owner'].includes(role);
 const isOrgManager=post=>!!http.token()&&!!post&&['boss','owner'].includes(post.roleCode);
 const O=require('../../utils/organization');
+const trainingRoot = '/pages/account/training/index';
+const storeMap = '/pages/account/store-map/index';
+const servicePreview = { services:'services', service:'services', selection:'selection', product:'selection' };
 function openApiHome(post) {
  const home=O.navigation(O.apiContext(post)).tabs[0];
  const options={url:home.url,fail:()=>wx.showToast({title:'工作台打开失败，请重试',icon:'none'})};
@@ -25,7 +28,13 @@ const Learning=require('../../utils/learning-catalog');
 const courses=Learning.courses,resources=Learning.resources;
 Page({
  data:{view:'learning',title:'学习中心',tab:'课程',category:'全部',categories:['全部','自媒体运营','招商','业务销售','设计','工程','财务绩效','AI应用'],messageTab:'全部',messageTabs:['全部','业务','学习','系统'],messageStatus:'',messageError:'',profileLoading:false,profileError:'',messageHasMore:false,messageBusy:false,messageMode:'ALL',messagePending:0,messageModule:'',messageModuleIndex:0,messageModules:[],messageKeyword:'',messageDetail:null,messagePartial:'',orderTab:'全部',orderTabs:['全部','待沟通','待确认','进行中','已完成'],feedbackTab:'提交反馈',feedbackType:'使用问题',keyword:'',form:{},error:'',checked:false,expanded:false,courseTab:'课程目录',modal:null,paymentReceipt:null,busy:false,loginMode:'account',loginPolicy:null,consentOpen:false,consentChecked:false,consentDocument:'',passwordVisible:false,newPasswordVisible:false,confirmPasswordVisible:false,loginBusy:false,defaultAccount:null,rememberDefault:true,passwordChangeRequired:false,pendingAccountLogin:null,wechatPhoneRequired:false,wechatPhoneGeneration:null,staffAccountDelivery:null,services:A.services,chapters:A.chapters,apiLeavers:[],apiReceivers:[],apiPendingRows:[],handoverPendingError:false,handoverSource:null,handoverItems:[],handoverRequirements:[],handoverReceivers:{},handoverPreviewBusy:false,handoverPreviewReady:false,handoverPreviewError:'',handoverBusy:false,handoverResult:null,reassignHint:'',handoverSearchQuery:'',handoverSearchRows:[],handoverSearchPage:0,handoverSearchHasMore:false,handoverSearchBusy:false,handoverSearchError:''},
- onLoad(options){if(http.token()&&['learning','course','resource'].includes(options.view)){const params=options.view==='course'&&options.id?'?id='+encodeURIComponent(options.id):options.tab==='资料'||options.view==='resource'?'?tab='+encodeURIComponent('资料'):'';wx.redirectTo({url:'/pages/account/training/index'+(options.entry==='academy'&&!params?'?entry=academy':params)});return;}this.options=options||{};// 展陈设计与众墅甄选目前只做展示：下单、订单、采购单类链接统一回到展示页
+ onLoad(options){
+  const preview = Object.hasOwn(servicePreview,options.view) && servicePreview[options.view];
+  if (preview && !http.token()) {
+   wx.redirectTo({url:'/pages/account/index?view=login&return='+encodeURIComponent('/pages/account/index?view='+preview)});
+   return;
+  }
+  if(http.token()&&['learning','course','resource'].includes(options.view)){const params=options.view==='course'&&options.id?'?id='+encodeURIComponent(options.id):options.tab==='资料'||options.view==='resource'?'?tab='+encodeURIComponent('资料'):'';wx.redirectTo({url:trainingRoot+(options.entry==='academy'&&!params?'?entry=academy':params)});return;}this.options=options||{};// 展陈设计与众墅甄选目前只做展示：下单、订单、采购单类链接统一回到展示页
   const showcase={request:'services',orders:'services',order:'services',plan:'services',delivery:'services',cancel:'services',procure:'selection',purchases:'selection',purchase:'selection'};const view=titles[showcase[options.view]||options.view]?showcase[options.view]||options.view:'learning';this.id=routeValue(options.id)||'';this.serviceId=routeValue(options.service)||'store';const preferred=view==='login'?AccountLogin.defaultAccount():null;this.setData({view,title:titles[view],tab:routeValue(options.tab||'课程'),category:routeValue(options.category||'全部'),statusHeight:(getApp().globalData.windowInfo||wx.getSystemInfoSync()).statusBarHeight||20,defaultAccount:preferred,form:preferred?{accountQuery:preferred.loginName}:this.data.form});this.refresh(true);if(view==='login')this.loadLoginPolicy();},
  onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
  onShow(){this.memberPageHidden=false;this.restoreHandoverOutcome();if(this.options)this.refresh(false);if(this.data.view==='login'&&http.token()&&!this.data.loginBusy)this.resumeLogin();},
@@ -449,6 +458,9 @@ Page({
    if(destination==='/pages/wallet/company-recharge/index')return wx.reLaunch({url:destination});
    const announcement=require('./announcements/model').returnPath(requested);
    if(announcement)return wx.reLaunch({url:announcement,fail:()=>wx.showToast({title:'公告打开失败，请重试',icon:'none'})});
+   const allowedService = post.orgType==='store' && ['/pages/account/index?view=services','/pages/account/index?view=selection',trainingRoot+'?entry=academy'].includes(destination);
+   const allowedMap = destination===storeMap && (post.orgType==='store'||require('../../utils/store-map-access').canViewAllStores(post));
+   if (allowedService || allowedMap || destination===trainingRoot) return wx.reLaunch({url:destination,fail:()=>openApiHome(post)});
   }
   return openApiHome(post);
  },
