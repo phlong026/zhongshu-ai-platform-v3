@@ -88,6 +88,7 @@
         <button wx:if="{{step.canReopen}}" class="flow-secondary flow-reopen" bindtap="reopen" disabled="{{busy||uncertain}}">更正／重新办理</button>
       </block>
     </block>
+    <view hidden="{{showHistory}}"><step-supplements customer-id="{{workflow.customerId}}" step-code="{{step.code}}" /></view>
   </view>
   <view wx:if="{{workflow&&step.canWrite&&!showHistory}}" class="flow-footer"><button class="flow-secondary" data-action="save" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}" loading="{{busy}}">保存记录</button><button class="flow-primary" data-action="complete" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}">完成本步</button></view>
   <view wx:if="{{workflow&&journeyOpen}}" class="journey-dim" catchtap="hideJourney">
