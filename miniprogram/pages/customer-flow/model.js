@@ -23,12 +23,14 @@ const STEPS = [
     field('address', '实测地址'), field('measurer', '测量人'), field('width', '面宽', 'number', { unit: 'm' }),
     field('depth', '进深', 'number', { unit: 'm' }), field('area', '建筑面积', 'number', { unit: '㎡' }),
     field('floors', '层数', 'integer', { unit: '层' }), field('orientation', '实测朝向（选填）'),
-    field('siteElevationNote', '影响设计的现场高差或说明（选填）', 'textarea'), field('checked', '测量资料已核对', 'boolean')
+    field('siteElevationNote', '影响设计的现场高差或说明（选填）', 'textarea'), field('checked', '测量资料已核对', 'boolean'),
+    field('designContractAssetId', '设计合同', 'hidden'), field('designContractName', '设计合同名称', 'hidden')
   ] },
   { code: 'QUOTATION', name: '别墅报价', fields: [
     field('quoteId', '正式报价原单', 'hidden'),
     field('amountCents', '正式报价金额', 'money', { unit: '元' }), field('scope', '报价范围', 'textarea'),
-    field('versionLabel', '报价版本'), field('result', '沟通结果', 'textarea'), field('communicated', '已向客户说明报价', 'boolean')
+    field('versionLabel', '报价版本'), field('result', '沟通结果', 'textarea'), field('communicated', '已向客户说明报价', 'boolean'),
+    field('designFileAssetId', '设计文件', 'hidden'), field('designFileName', '设计文件名称', 'hidden')
   ] },
   { code: 'CONTRACT', name: '施工签约', fields: [] },
   { code: 'START', name: '开工大吉', fields: [] }
@@ -38,6 +40,19 @@ const FLOW_STATUS = { ACTIVE: '跟进中', PAUSED: '已暂停', LOST: '已流失
 /** 时间线上的动作：八步事件、补充记录、客资再次咨询、升级前的普通跟进。 */
 const EVENT = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新办理', STATUS: '更新状态', SUPPLEMENT: '补充记录', CONSULT: '再次咨询', LEGACY: '跟进记录', VISIT: '实际接待' };
 const QUOTE_SNAPSHOT_FIELDS = new Set(['amountCents', 'scope', 'versionLabel']);
+/** 专用资料槽位：05 步设计合同、06 步设计文件。文件引用存在步骤 fields 里，与通用附件列表分开。 */
+const SLOTS = {
+  designContract: { code: 'MEASUREMENT', asset: 'designContractAssetId', name: 'designContractName', fallback: '设计合同' },
+  designFile: { code: 'QUOTATION', asset: 'designFileAssetId', name: 'designFileName', fallback: '设计文件' }
+};
+/** 已登记的槽位文件转成附件形状，供预览和历史查看复用附件渲染。 */
+function slotFiles(source = {}) {
+  const fields = source.fields || {};
+  return Object.entries(SLOTS).flatMap(([, slot]) => {
+    const assetId = id(fields[slot.asset]);
+    return assetId ? [{ assetId, title: String(fields[slot.name] || slot.fallback), mimeType: '' }] : [];
+  });
+}
 const definition = code => STEPS.find(step => step.code === code);
 function id(value) {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) return '';
@@ -163,4 +178,4 @@ function facts(step) {
   return [];
 }
 function errorText(error) { return String(error && (error.msg || error.message) || '操作未完成，请重试'); }
-module.exports = { houseSelection, STEPS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, quoteOptions, workflow, records, facts, errorText };
+module.exports = { houseSelection, STEPS, SLOTS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, quoteOptions, slotFiles, workflow, records, facts, errorText };
