@@ -41,6 +41,25 @@ test('customerStatusLabel/Tag map REGISTERED/FOLLOWING and keep unknown raw', ()
   assert.equal(model.customerStatusTag('ARCHIVED'), 'info')
 })
 
+test('customerStageLabel/Tag follow the eight-step workflow: lost, paused, untouched, current step', () => {
+  const lost = { lastFollowAt: '2026-11-20T02:00:00Z', workflow: { status: 'LOST', statusReason: '选了同行' } }
+  assert.equal(model.customerStageLabel(lost), '已流失 · 选了同行')
+  assert.equal(model.customerStageTag(lost), 'info')
+  assert.equal(model.customerStageLabel({ workflow: { status: 'LOST' } }), '已流失')
+  const paused = { lastFollowAt: '2026-11-20T02:00:00Z', workflow: { status: 'PAUSED', currentStepName: '户型选择' } }
+  assert.equal(model.customerStageLabel(paused), '暂缓')
+  assert.equal(model.customerStageTag(paused), 'warning')
+  assert.equal(model.customerStageLabel({ lastFollowAt: null, workflow: { status: 'ACTIVE', currentStepName: '邀约进店' } }), '未跟进')
+  assert.equal(model.customerStageLabel({ workflow: null }), '未跟进')
+  const active = {
+    lastFollowAt: '2026-11-20T02:00:00Z',
+    workflow: { status: 'ACTIVE', completedCount: 2, totalSteps: 8, currentStepName: '户型选择' }
+  }
+  assert.equal(model.customerStageLabel(active), '户型选择 2/8')
+  assert.equal(model.customerStageTag(active), 'success')
+  assert.equal(model.customerStageLabel({ lastFollowAt: '2026-11-20T02:00:00Z' }), '跟进中')
+})
+
 test('normalizeCustomerQuery trims, drops empty filters and clamps paging', () => {
   const q = model.normalizeCustomerQuery({
     pageNo: 0,

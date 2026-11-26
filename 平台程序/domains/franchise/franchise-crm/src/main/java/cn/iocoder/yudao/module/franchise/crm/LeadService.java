@@ -55,6 +55,9 @@ public class LeadService {
     private final CustomerMapper customerMapper;
     private final FranchiseCommands commands;
     private final JdbcTemplate jdbcTemplate;
+    /** 老客户再次咨询要进八步时间线；只有装配了八步服务的进程才写。 */
+    @jakarta.annotation.Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowService> workflows;
 
     @Autowired
     public LeadService(LeadMapper leadMapper, CustomerMapper customerMapper, FranchiseCommands commands,
@@ -89,6 +92,7 @@ public class LeadService {
                 .setRegistrarUserId(post.userId()).setRegistrarPostId(post.postId()).setRevision(1L);
         input.address().apply(lead);
         CustomerDO existing = customerMapper.selectByPhone(input.phone());
+        CustomerDO linked = null;
         try {
             if (existing == null) {
                 CustomerDO customer = newCustomer(post, input, lead.getId());
@@ -97,6 +101,7 @@ public class LeadService {
                 lead.setStatus(LeadDO.STATUS_CONVERTED).setConversion(LeadDO.CONVERSION_DIRECT).setCustomerId(customer.getId());
             } else if (CustomerAccess.canAutoLink(post, existing)) {
                 lead.setStatus(LeadDO.STATUS_CONVERTED).setConversion(LeadDO.CONVERSION_EXISTING).setCustomerId(existing.getId());
+                linked = existing;
             } else {
                 lead.setStatus(LeadDO.STATUS_LINK_REQUIRED);
             }
@@ -106,6 +111,7 @@ public class LeadService {
             throw exception(STATE_VERSION_CONFLICT);
         }
         commands.record(post, AGGREGATE, lead.getId(), 1, "lead-capture", input, idempotencyKey);
+        consult(post, linked, lead);
         return resultOf(lead);
     }
 
@@ -146,6 +152,7 @@ public class LeadService {
                 .set(LeadDO::getConversion, LeadDO.CONVERSION_LINKED)
                 .set(LeadDO::getCustomerId, customer.getId())));
         commands.record(post, AGGREGATE, leadId, revision + 1, "lead-link", revision, idempotencyKey);
+        consult(post, customer, leadMapper.selectById(leadId));
         return leadMapper.selectById(leadId);
     }
 
@@ -167,6 +174,16 @@ public class LeadService {
                 .set(LeadDO::getNote, reason)));
         commands.record(post, AGGREGATE, leadId, revision + 1, "lead-invalid", reason, idempotencyKey);
         return leadMapper.selectById(leadId);
+    }
+
+    /**
+     * 客资关联到老客户（登记人可见时自动关联，或负责人关联）：在客户的八步时间线上留一条“再次咨询”，
+     * 并把下次跟进日期提到今天；已流失的客户只记下再次咨询，等负责人恢复。
+     */
+    private void consult(PostSnapshot post, CustomerDO customer, LeadDO lead) {
+        if (workflows == null || customer == null || lead == null) return;
+        var service = workflows.getIfAvailable();
+        if (service != null) service.recordConsult(post, customer.getId(), lead.getId(), lead.getNeed(), lead.getSource());
     }
 
     /** A publication source is accepted only when it resolves to a real, published record in this organization. */

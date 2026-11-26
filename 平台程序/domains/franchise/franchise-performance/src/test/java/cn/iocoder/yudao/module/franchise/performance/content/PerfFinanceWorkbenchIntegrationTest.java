@@ -155,6 +155,10 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   // 本域测试无销售/内容/工程生产依赖，临时表只提供跨域只读查询所需列。
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint)");
   jdbc.execute("CREATE TEMP TABLE fr_customer_follow(customer_id bigint,company_id bigint,create_time timestamptz)");
+  // 当月有跟进客户同时读取八步流程事实（步骤事件与补充记录）。
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow(id bigint,company_id bigint,customer_id bigint)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow_event(workflow_id bigint,company_id bigint,action text,created_at timestamptz)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_step_supplement(customer_id bigint,company_id bigint,created_at timestamptz)");
   jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,status text,completed_at date,end_date date,responsible_user_id bigint)");
   jdbc.execute("CREATE TEMP TABLE fr_content_publication(id bigint,company_id bigint,status text,published_at timestamptz,author_user_id bigint)");
   jdbc.execute("CREATE TEMP TABLE fr_lead(id bigint,company_id bigint,status text,update_time timestamptz,registrar_user_id bigint)");

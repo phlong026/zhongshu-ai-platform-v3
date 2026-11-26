@@ -27,6 +27,41 @@ export function customerStatusTag(
   return 'info'
 }
 
+export interface CustomerStageRow {
+  lastFollowAt?: string | null
+  workflow?: {
+    status?: string | null
+    completedCount?: number | null
+    totalSteps?: number | null
+    currentStepName?: string | null
+    statusReason?: string | null
+  } | null
+}
+
+/**
+ * 客户阶段按八步流程显示：已流失、暂缓优先；还没有任何跟进记录为“未跟进”；
+ * 否则是当前步骤和进度（如“户型选择 2/8”）。
+ */
+export function customerStageLabel(row: CustomerStageRow): string {
+  const workflow = row.workflow
+  if (workflow?.status === 'LOST') {
+    const reason = (workflow.statusReason || '').trim()
+    return reason ? `已流失 · ${reason}` : '已流失'
+  }
+  if (workflow?.status === 'PAUSED') return '暂缓'
+  if (!row.lastFollowAt) return '未跟进'
+  const step = (workflow?.currentStepName || '').trim()
+  if (!step) return '跟进中'
+  const done = Number(workflow?.completedCount)
+  return Number.isFinite(done) ? `${step} ${done}/${Number(workflow?.totalSteps) || 8}` : step
+}
+
+export function customerStageTag(row: CustomerStageRow): 'success' | 'warning' | 'info' {
+  if (row.workflow?.status === 'LOST') return 'info'
+  if (row.workflow?.status === 'PAUSED') return 'warning'
+  return 'success'
+}
+
 export interface CustomerQueryInput {
   pageNo?: number
   pageSize?: number

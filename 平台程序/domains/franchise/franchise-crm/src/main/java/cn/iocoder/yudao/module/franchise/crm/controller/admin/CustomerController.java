@@ -128,6 +128,13 @@ public class CustomerController {
         return success(customerService.transferCandidates(currentPost.require(), customerId));
     }
 
+    @GetMapping("/follow-summary")
+    @Operation(summary = "客户跟进汇总：按与客户列表分栏相同的口径统计待跟进、预约跟进、跟进中、已流失")
+    @PreAuthorize("@post.has('franchise:customer:query')")
+    public CommonResult<CustomerService.FollowSummary> followSummary() {
+        return success(customerService.followSummary(currentPost.require()));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "客户详情（含跟进记录、方案与预算版本）")
     @PreAuthorize("@post.has('franchise:customer:query')")
@@ -145,7 +152,7 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/follows")
-    @Operation(summary = "登记跟进，可预约回访日期")
+    @Operation(summary = "登记跟进（升级前的小程序使用；新版本的客户跟进走 /workflow 八步流程）")
     @PreAuthorize("@post.has('franchise:customer:write')")
     public CommonResult<CustomerDetail> follow(@PathVariable long id, @RequestBody FollowCommand req,
                                             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {

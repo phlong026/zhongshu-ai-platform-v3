@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
+import cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.test.FranchiseFixture.Store;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
@@ -45,11 +46,13 @@ import static org.mockito.Mockito.*;
 
 /** PostgreSQL/Flyway and real row/advisory locks; only external catalog/asset/source ports are controlled fixtures. */
 @Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
-        CustomerWorkflowReadService.class, CustomerWorkflowService.class, CustomerWorkflowAssetPolicy.class, CustomerWorkflowIntegrationTest.Ports.class})
+        CustomerWorkflowReadService.class, CustomerWorkflowService.class, CustomerWorkflowSupplementService.class,
+        CustomerWorkflowAssetPolicy.class, CustomerWorkflowIntegrationTest.Ports.class})
 class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     private static final AtomicLong PHONES = new AtomicLong(15_000_000_000L + System.nanoTime() % 900_000_000L);
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowReadService reads;
+    @Resource CustomerWorkflowSupplementService supplements;
     @Resource CustomerService customers;
     @Resource LeadService leads;
     @Resource JdbcTemplate jdbc;
@@ -390,7 +393,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     void pauseAndLostRequireReasonAndResumePreservesEarlierFacts() {
         long id = customer();
         as(sales, () -> workflow.save(sales, id, "INVITATION", invitation(0), "save"));
-        View paused = as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", "等待客户返乡"), "pause"));
+        View paused = as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", null, "等待客户返乡", today().plusDays(3)), "pause"));
         assertThat(paused.status()).isEqualTo("PAUSED"); assertThat(paused.canWrite()).isFalse();
         failure(409, () -> as(sales, () -> workflow.complete(sales, id, "INVITATION", 2, "paused-complete")));
         View resumed = as(sales, () -> workflow.status(sales, id, new StatusCommand(2, "ACTIVE", "客户已返乡"), "resume"));
@@ -454,7 +457,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
                 new SaveCommand(0, null, "", Map.of("visitSkip", Map.of("reason","伪造")), List.of()), "normal-save")));
         assertThat(count("fr_customer_workflow", id)).isZero();
         as(sales, () -> workflow.save(sales, id, "INVITATION", invitation(0), "first"));
-        as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", "暂缓"), "pause"));
+        as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", null, "暂缓", today().plusDays(3)), "pause"));
         failure(409, () -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(2, "免带看"), "paused")));
         assertThat(as(sales, () -> workflow.get(sales, id)).completedCount()).isZero();
     }
@@ -480,6 +483,172 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         } finally { executor.shutdownNow(); }
         assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList()).singleElement()
                 .satisfies(e -> assertThat(e.type()).isEqualTo("SKIP"));
+    }
+
+    @Test
+    void nextFollowOnIsTheCustomersAppointmentAndDrivesTheDueAndAppointmentLists() {
+        long id = customer();
+        var page = new PageParam(); page.setPageNo(1); page.setPageSize(50);
+        LocalDate day = today().plusDays(2);
+        View saved = as(sales, () -> workflow.save(sales, id, "INVITATION",
+                new SaveCommand(0, today(), "已约到店", Map.of("contactMethod", "微信"), List.of(), day), "plan"));
+        assertThat(saved.nextFollowOn()).isEqualTo(day);
+        assertThat(saved.steps().get(0).nextFollowOn()).isEqualTo(day);
+        assertThat(jdbc.queryForObject("SELECT next_visit_date::text FROM fr_customer WHERE id=?", String.class, id)).isEqualTo(day.toString());
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_customer WHERE id=?", String.class, id)).isEqualTo(CustomerDO.STATUS_FOLLOWING);
+        assertThat(jdbc.queryForObject("SELECT last_follow_at IS NOT NULL FROM fr_customer WHERE id=?", Boolean.class, id)).isTrue();
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.APPOINTMENTS).getList()))
+                .extracting(CustomerDO::getId).containsExactly(id);
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.DUE).getList())).isEmpty();
+        assertThat(as(sales, () -> customers.listAwaitingFirstFollow(sales))).isEmpty();
+
+        // 不带日期的保存不改约定；带了就按新的算
+        as(sales, () -> workflow.save(sales, id, "INVITATION", new SaveCommand(1, today(), "再沟通", Map.of("contactMethod", "电话"), List.of()), "keep"));
+        assertThat(as(sales, () -> customers.get(sales, id).customer().getNextVisitDate())).isEqualTo(day);
+        as(sales, () -> workflow.save(sales, id, "INVITATION", new SaveCommand(2, today(), "改到今天", Map.of("contactMethod", "电话"), List.of(), today()), "today"));
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.DUE).getList()))
+                .extracting(CustomerDO::getId).containsExactly(id);
+        assertThat(as(sales, () -> customers.listDueVisits(sales, today()))).extracting(CustomerDO::getId).containsExactly(id);
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.APPOINTMENTS).getList())).isEmpty();
+        failure(400, () -> as(sales, () -> workflow.save(sales, id, "INVITATION",
+                new SaveCommand(3, today(), "过去", Map.of(), List.of(), today().minusDays(1)), "past")));
+        assertThat(as(sales, () -> workflow.get(sales, id).revision())).isEqualTo(3);
+    }
+
+    @Test
+    void legacyInvitationNextContactStaysAWorkflowDateAndNeverMovesTheCustomersNextFollowDate() {
+        var page = new PageParam(); page.setPageNo(1); page.setPageSize(50);
+        long id = customer();
+        LocalDate day = today().plusDays(3);
+        // 升级前的小程序只带第 1 步的“下次联系”：留在步骤里，不改客户的下次跟进日期
+        View saved = as(sales, () -> workflow.save(sales, id, "INVITATION",
+                new SaveCommand(0, today(), "", Map.of("contactMethod", "微信", "nextContactOn", day.toString()), List.of()), "legacy-next"));
+        assertThat(saved.steps().get(0).fields()).containsEntry("nextContactOn", day.toString());
+        assertThat(saved.steps().get(0).nextFollowOn()).isNull();
+        assertThat(saved.nextFollowOn()).isNull();
+        assertThat(as(sales, () -> customers.get(sales, id).customer().getNextVisitDate())).isNull();
+        // 客户已经约定的下次跟进日期，不会被旧版本的一次保存改掉
+        LocalDate agreed = today().plusDays(5);
+        as(sales, () -> workflow.save(sales, id, "INVITATION",
+                new SaveCommand(1, today(), "已约到店", Map.of("contactMethod", "微信"), List.of(), agreed), "agree"));
+        View legacy = as(sales, () -> workflow.save(sales, id, "INVITATION",
+                new SaveCommand(2, today(), "", Map.of("contactMethod", "微信", "nextContactOn", day.toString()), List.of()), "legacy-again"));
+        assertThat(legacy.nextFollowOn()).isEqualTo(agreed);
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.APPOINTMENTS).getList()))
+                .extracting(CustomerDO::getId).containsExactly(id);
+    }
+
+    @Test
+    void lostNeedsAReasonAndLeavesTheFollowupListsWhileResumeBringsTheCustomerBackToday() {
+        long id = customer();
+        as(sales, () -> workflow.save(sales, id, "INVITATION", new SaveCommand(0, today(), "", Map.of(), List.of(), today().plusDays(1)), "plan"));
+        failure(400, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "LOST", "客户不建了"), "lost-without-code")));
+        failure(400, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "LOST", "UNKNOWN", "客户不建了", null), "lost-unknown-code")));
+        failure(400, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", "等宅基地批复"), "pause-without-date")));
+        failure(400, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", null, "等宅基地批复", today()), "pause-today")));
+        View lost = as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "LOST", "COMPETITOR", null, null), "lost"));
+        assertThat(lost.status()).isEqualTo("LOST");
+        assertThat(lost.statusReasonCode()).isEqualTo("COMPETITOR");
+        assertThat(lost.statusReason()).isEqualTo("选了同行");
+        assertThat(lost.nextFollowOn()).isNull();
+        assertThat(lost.canWrite()).isFalse();
+        assertThat(lost.canChangeStatus()).isTrue();
+        assertThat(as(boss, () -> workflow.get(boss, id)).canChangeStatus()).isFalse();
+        assertThat(as(sales, () -> customers.get(sales, id).customer().getNextVisitDate())).isNull();
+        assertThat(as(sales, () -> customers.listDueVisits(sales, today()))).isEmpty();
+        assertThat(as(sales, () -> customers.listAwaitingFirstFollow(sales))).isEmpty();
+        failure(409, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(lost.revision(), "LOST", "PLAN", null, null), "lost-again")));
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList().get(0).fields()).containsEntry("reasonCode", "COMPETITOR");
+
+        // “其他”必须自己填写原因
+        long other = customer();
+        failure(400, () -> as(sales, () -> workflow.status(sales, other, new StatusCommand(0, "LOST", "OTHER", " ", null), "lost-other-blank")));
+        View custom = as(sales, () -> workflow.status(sales, other, new StatusCommand(0, "LOST", "OTHER", "选了同村施工队", null), "lost-other"));
+        assertThat(custom.statusReasonCode()).isEqualTo("OTHER");
+        assertThat(custom.statusReason()).isEqualTo("选了同村施工队");
+        // 即使客户表的状态列仍是“已登记”，已流失的客户也不提醒首次跟进
+        jdbc.update("UPDATE fr_customer SET status='REGISTERED' WHERE id=?", other);
+        assertThat(as(sales, () -> customers.listAwaitingFirstFollow(sales))).isEmpty();
+
+        View resumed = as(sales, () -> workflow.status(sales, id, new StatusCommand(lost.revision(), "ACTIVE", null, null, null), "resume"));
+        assertThat(resumed.status()).isEqualTo("ACTIVE");
+        assertThat(resumed.statusReason()).isNull();
+        assertThat(resumed.steps().get(0).canWrite()).isTrue();
+        assertThat(as(sales, () -> customers.listDueVisits(sales, today()))).extracting(CustomerDO::getId).containsExactly(id);
+        LocalDate later = today().plusMonths(3);
+        View deferred = as(sales, () -> workflow.status(sales, id, new StatusCommand(resumed.revision(), "PAUSED", null, "等宅基地批复", later), "pause"));
+        assertThat(deferred.nextFollowOn()).isEqualTo(later);
+        assertThat(as(sales, () -> customers.listDueVisits(sales, today()))).isEmpty();
+        assertThat(as(sales, () -> customers.listDueVisits(sales, later))).extracting(CustomerDO::getId).containsExactly(id);
+        failure(409, () -> as(sales, () -> workflow.complete(sales, id, "INVITATION", deferred.revision(), "paused-complete")));
+    }
+
+    @Test
+    void timelineMergesStepsSupplementsConsultsAndLegacyFollows() {
+        long id = customer();
+        as(sales, () -> customers.follow(sales, id, new CustomerService.FollowCommand("升级前的电话沟通", today()), null));
+        as(sales, () -> workflow.save(sales, id, "INVITATION", invitation(0), "save"));
+        as(sales, () -> workflow.complete(sales, id, "INVITATION", 1, "done"));
+        as(sales, () -> supplements.append(sales, id, "INVITATION",
+                new CustomerWorkflowSupplementService.Input("补充：客户周六到店", List.of()), "supplement"));
+        String phone = jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?", String.class, id);
+        var linked = as(colleague, () -> leads.capture(colleague, new LeadService.CaptureCommand("陈先生", phone, "想了解两层的报价", "朋友介绍"), null));
+        assertThat(linked.outcome()).isEqualTo(LeadService.CaptureOutcome.LINKED);
+
+        var timeline = as(sales, () -> workflow.timeline(sales, id, 1, 20));
+        assertThat(timeline.getTotal()).isEqualTo(5L);
+        assertThat(timeline.getList()).extracting(RecordView::type).containsExactly("CONSULT", "SUPPLEMENT", "COMPLETE", "SAVE", "LEGACY");
+        assertThat(timeline.getList().get(0).note()).isEqualTo("想了解两层的报价");
+        assertThat(timeline.getList().get(0).fields()).containsEntry("source", "朋友介绍");
+        assertThat(timeline.getList().get(4).note()).isEqualTo("升级前的电话沟通");
+        assertThat(timeline.getList().get(4).actorUserId()).isEqualTo(Long.toString(sales.userId()));
+        assertThat(as(sales, () -> workflow.timeline(sales, id, 2, 4).getList())).extracting(RecordView::type).containsExactly("LEGACY");
+        assertThat(as(sales, () -> workflow.timeline(sales, id, 3, 4).getList())).isEmpty();
+        assertThat(as(sales, () -> workflow.timeline(sales, id, 3, 4).getTotal())).isEqualTo(5L);
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList()).extracting(RecordView::type)
+                .containsExactly("CONSULT", "COMPLETE", "SAVE");
+        // 再次咨询不是负责人的跟进：最近跟进时间不变，没约定的下次跟进日期提到今天
+        assertThat(as(sales, () -> workflow.get(sales, id).nextFollowOn())).isEqualTo(today());
+        failure(1_110_000_000, () -> as(colleague, () -> workflow.timeline(colleague, id, 1, 20)));
+    }
+
+    @Test
+    void followSummaryCountsCustomersWithTheSameRulesAsTheListFilters() {
+        long planned = customer(), overdue = customer(), lost = customer(), fresh = customer();
+        as(sales, () -> workflow.save(sales, planned, "INVITATION", new SaveCommand(0, today(), "", Map.of(), List.of(), today().plusDays(2)), "planned"));
+        as(sales, () -> workflow.save(sales, overdue, "INVITATION", new SaveCommand(0, today(), "", Map.of(), List.of(), today()), "overdue"));
+        as(sales, () -> workflow.save(sales, lost, "INVITATION", new SaveCommand(0, today(), "", Map.of(), List.of(), today()), "lost-plan"));
+        as(sales, () -> workflow.status(sales, lost, new StatusCommand(1, "LOST", "PLAN", null, null), "lost"));
+
+        var summary = as(sales, () -> customers.followSummary(sales));
+        assertThat(summary.total()).isEqualTo(4);
+        assertThat(summary.due()).isEqualTo(2); // 新客户，加上约定今天跟进的客户；已流失不计
+        assertThat(summary.appointments()).isEqualTo(1);
+        assertThat(summary.overdue()).isZero();
+        assertThat(summary.following()).isEqualTo(2);
+        assertThat(summary.lost()).isEqualTo(1);
+        assertThat(summary.paused()).isZero();
+        assertThat(as(colleague, () -> customers.followSummary(colleague)).total()).isZero();
+        assertThat(as(boss, () -> customers.followSummary(boss)).total()).isEqualTo(4);
+    }
+
+    @Test
+    void visitedListKeepsTheVisibilityScopeAndLeavesOutLostCustomers() {
+        var page = new PageParam(); page.setPageNo(1); page.setPageSize(50);
+        long visited = customer(), lost = customer(), abroad = as(otherSales, () -> capture(otherSales));
+        for (long id : List.of(visited, lost)) {
+            as(sales, () -> workflow.save(sales, id, "INTRODUCTION", new SaveCommand(0, today(), "已到店", Map.of(), List.of()), "intro-" + id));
+        }
+        as(otherSales, () -> workflow.save(otherSales, abroad, "INTRODUCTION", new SaveCommand(0, today(), "已到店", Map.of(), List.of()), "intro-abroad"));
+        as(sales, () -> workflow.status(sales, lost, new StatusCommand(1, "LOST", "PLAN", null, null), "lost"));
+        // 到过店的客户在列；已流失的不在；同店其他业务员、别的门店看不到不是自己的客户
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.VISITED).getList()))
+                .extracting(CustomerDO::getId).containsExactly(visited);
+        assertThat(as(colleague, () -> customers.page(colleague, page, null, null, null, CustomerMapper.FollowFilter.VISITED).getList())).isEmpty();
+        assertThat(as(otherSales, () -> customers.page(otherSales, page, null, null, null, CustomerMapper.FollowFilter.VISITED).getList()))
+                .extracting(CustomerDO::getId).containsExactly(abroad);
+        assertThat(as(boss, () -> customers.page(boss, page, null, null, null, CustomerMapper.FollowFilter.VISITED).getList()))
+                .extracting(CustomerDO::getId).containsExactly(visited);
     }
 
     private long customer() { return as(sales, () -> capture(sales)); }

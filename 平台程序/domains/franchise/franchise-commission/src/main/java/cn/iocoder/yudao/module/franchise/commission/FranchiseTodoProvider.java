@@ -62,24 +62,46 @@ public class FranchiseTodoProvider implements TodoProvider {
         List<TodoItem> items = new ArrayList<>();
         if (FranchiseRoles.has(post, FranchiseRoles.SALES)) {
             customerTodos(post, items);
+            staleCustomerTodos(post, items);
         }
         pendingLeadTodos(post, items);
         commissionTodos(post, items);
         return items;
     }
 
+    /** 提醒业务负责人：新客户登记两天没人首次跟进，或跟进中 15 天没有新记录也没约下次（约了日期的由到期待办提醒）。 */
+    private void staleCustomerTodos(PostSnapshot post, List<TodoItem> items) {
+        if (!post.lead() || !FranchiseRoles.atStore(post)) return;
+        for (CustomerDO customer : customers.listStale(post, LocalDate.now(CUSTOMER_ZONE))) {
+            boolean fresh = customer.getLastFollowAt() == null;
+            items.add(item("stale:" + customer.getId(), "「" + customer.getName() + "」"
+                            + (fresh ? "登记 2 天仍未首次跟进" : "超过 15 天没有跟进记录"),
+                    fresh ? "REGISTERED" : "FOLLOWING", null, true, flowPage(customer),
+                    fresh ? customer.getCreateTime() : customer.getLastFollowAt()));
+        }
+    }
+
     // ===================== 业务线客户待办 =====================
+
+    /** 客户跟进一律进八步页的当前步骤；升级前“记录跟进”的客户工作区入口不再作为待办落点。 */
+    private static String flowPage(CustomerDO customer) {
+        return "/pages/customer-flow/index?customerId=" + customer.getId();
+    }
 
     private void customerTodos(PostSnapshot post, List<TodoItem> items) {
         for (CustomerDO customer : customers.listAwaitingFirstFollow(post)) {
-            items.add(item("first-follow:" + customer.getId(), "「" + customer.getName() + "」首次跟进",
-                    "REGISTERED", null, true, followupPage(customer), customer.getCreateTime()));
+            items.add(item("first-follow:" + customer.getId(), "「" + customer.getName() + "」待首次跟进",
+                    "REGISTERED", null, true, flowPage(customer), customer.getCreateTime()));
         }
         LocalDate today = LocalDate.now(CUSTOMER_ZONE);
         for (CustomerDO customer : customers.listDueVisits(post, today)) {
             items.add(item("visit:" + customer.getId() + ":" + customer.getNextVisitDate(),
-                    "「" + customer.getName() + "」预约回访已到期", "FOLLOWING", null, true,
-                    followupPage(customer), atStartOfDay(customer.getNextVisitDate())));
+                    "「" + customer.getName() + "」约定跟进已到期", "FOLLOWING", null, true,
+                    flowPage(customer), atStartOfDay(customer.getNextVisitDate())));
+        }
+        for (CustomerDO customer : customers.listReconsulted(post)) {
+            items.add(item("reconsult:" + customer.getId(), "「" + customer.getName() + "」流失客户再次咨询，待确认是否恢复",
+                    "LOST", null, true, followupPage(customer), customer.getUpdateTime()));
         }
         Set<Long> withCommission = Set.copyOf(commissions.listVisible(post).stream()
                 .map(CommissionDO::getCustomerId).toList());

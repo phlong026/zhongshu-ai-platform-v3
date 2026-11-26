@@ -16,7 +16,8 @@ public class BusinessMessageFacts {
                        Map<Recipient,String> recipients) { }
     public static final Map<String,Rule> RULES=new LinkedHashMap<>();
     static {
-        rules("customer","customer","customer-create","客户已分配","customer-follow","客户跟进已记录","customer-transfer","客户负责人已变更");
+        rules("customer","customer","customer-create","客户已分配","customer-follow","客户跟进已记录","customer-transfer","客户负责人已变更",
+            "lead-link","老客户有新的咨询登记","lead-capture","客户咨询已登记","workflow-complete","客户跟进有新进展");
         rules("design","commission","commission-submit","设计委托已提交","commission-fee-decide","委托费用审批已更新",
             "commission-feedback","收到客户修改意见","design-complete","设计已完成","design-dispatch","正式图纸已下发");
         rules("engineering","commission","packet-submit","业务资料待工程接收","packet-receive","工程已接收业务资料","packet-return","工程移交资料待补充");
@@ -40,6 +41,11 @@ public class BusinessMessageFacts {
             "perf-cycle-appeal-resolve","绩效申诉处理结果已更新","perf-commission-release","提成应付已生成","perf-commission-reconcile","提成核对已完成");
     }
     private static void rules(String module,String route,String... pairs){for(int i=0;i<pairs.length;i+=2)RULES.put(pairs[i],new Rule(pairs[i+1],module,route));}
+    /** 2026-11-26 随“八步为唯一跟进口径”新增的三条规则：只送达当天及以后的事件，此前的历史事件只补检查点，不补发。 */
+    private static final Set<String> FOLLOWUP_RULES=Set.of("lead-link","lead-capture","workflow-complete");
+    private static final java.time.OffsetDateTime FOLLOWUP_RULES_SINCE=java.time.OffsetDateTime.parse("2026-11-26T00:00:00+08:00");
+    private static final Map<String,String> STEP_LABELS=Map.of("INVITATION","邀约进店","INTRODUCTION","店面讲解","HOUSE_SELECTION","户型选择",
+            "SITE_VISIT","带看工地","MEASUREMENT","现场测量","QUOTATION","别墅报价");
     private final JdbcTemplate jdbc;
     private final Map<String,Boolean> tables=new ConcurrentHashMap<>();
     public BusinessMessageFacts(JdbcTemplate jdbc){this.jdbc=jdbc;}
@@ -83,6 +89,8 @@ public class BusinessMessageFacts {
     public Fact fact(CommandEventDO event) {
         Rule rule=RULES.get(event.getCommand());if(rule==null)return null;
         String command=event.getCommand(),aggregate=text(event.getAggregateType());long object=event.getAggregateId();
+        if(FOLLOWUP_RULES.contains(command)&&event.getOccurredAt()!=null&&event.getOccurredAt().isBefore(FOLLOWUP_RULES_SINCE))return null;
+        long messageObject=object;
         Map<String,Object> input=payload(event.getPayload()),subject=new LinkedHashMap<>(),context=new LinkedHashMap<>();
         Map<Recipient,String> recipients=new LinkedHashMap<>();
         context.put("module",rule.module());context.put("eventCode",command);context.put("eventId",text(event.getId()));
@@ -161,6 +169,24 @@ public class BusinessMessageFacts {
             context.put("actionPath","/pages/admin/tasks/index?view=mine"+(first(subject,"period").isBlank()?"":"&period="+first(subject,"period")));context.put("actionLabel","查看绩效事项");
             if(command.startsWith("perf-task-"))context.put("actionPath",context.get("actionPath")+"&messageTask="+object);
             else context.put("actionPath","/pages/account/index?view=personal-performance"+(first(subject,"period").isBlank()?"":"&period="+first(subject,"period")));
+        } else if(aggregate.equals("lead")) {
+            // 客资关联到已有客户（登记人可见时自动关联，或负责人关联）：只通知原负责人，登记人自己不收。
+            subject=one("fr_lead",object);if(subject.isEmpty()||subject.get("customer_id")==null)return null;
+            var customer=one("fr_customer",subject.get("customer_id"));if(customer.isEmpty())return null;
+            messageObject=number(subject.get("customer_id"));customer(context,customer);long org=number(customer.get("company_id"));
+            field(context,"咨询需求",first(subject,"need"));field(context,"客资来源",first(subject,"source"));
+            context.put("actionPath","/pages/workflow/index?view=customer&id="+subject.get("customer_id"));context.put("actionLabel","查看客户");
+            add(recipients,customer.get("owner_user_id"),org,"你负责这位客户");
+            if(command.equals("lead-capture"))recipients.remove(new Recipient(number(event.getActorUserId()),org));
+        } else if(aggregate.equals("fr-customer-workflow")&&command.equals("workflow-complete")) {
+            // 别人替你完成了客户的一个跟进步骤（如负责人代办）时通知负责人；自己完成不通知。
+            subject=one("fr_customer_workflow",object);if(subject.isEmpty()||subject.get("customer_id")==null)return null;
+            var customer=one("fr_customer",subject.get("customer_id"));if(customer.isEmpty())return null;
+            messageObject=number(subject.get("customer_id"));customer(context,customer);long org=number(customer.get("company_id"));
+            field(context,"完成步骤",STEP_LABELS.getOrDefault(text(input.get("stepCode")),text(input.get("stepCode"))));
+            context.put("actionPath","/pages/workflow/index?view=customer&id="+subject.get("customer_id"));context.put("actionLabel","查看客户");
+            add(recipients,customer.get("owner_user_id"),org,"你负责这位客户");
+            recipients.remove(new Recipient(number(event.getActorUserId()),org));
         } else {
             String table=switch(aggregate){
                 case "sale-collection-declaration"->"fr_sale_collection_declaration";
@@ -206,7 +232,7 @@ public class BusinessMessageFacts {
         context.put("stateAtEvent",first(subject,"status"));
         field(context,"办理说明",first(input,"reason","note"));
         if(command.equals("commission-feedback"))field(context,"修改意见",first(input,"content","note"));
-        return new Fact(rule,object,context,subject,recipients);
+        return new Fact(rule,messageObject,context,subject,recipients);
     }
     public void roles(Map<Recipient,String> target,long org,String reason,String... roles){
         for(String role:roles)for(long user:jdbc.queryForList("SELECT user_id FROM pf_staff_post WHERE org_id=? AND role_code=? AND status='ACTIVE'",Long.class,org,role))add(target,user,org,reason);

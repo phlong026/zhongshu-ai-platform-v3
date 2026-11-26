@@ -100,18 +100,16 @@
             <el-table v-loading="customerLoading" :data="customers.list" empty-text="暂无客资">
               <el-table-column prop="name" label="姓名" width="110" />
               <el-table-column prop="phone" label="手机" width="130" />
-              <el-table-column label="状态" width="100">
+              <el-table-column label="跟进阶段" min-width="150" show-overflow-tooltip>
                 <template #default="{ row }">
-                  <el-tag :type="customerStatusTag(row.status)">
-                    {{ customerStatusLabel(row.status) }}
-                  </el-tag>
+                  <el-tag :type="customerStageTag(row)">{{ customerStageLabel(row) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="负责人" width="120">
                 <template #default="{ row }">{{ row.ownerName || row.ownerUserId }}</template>
               </el-table-column>
               <el-table-column prop="source" label="来源" width="120" show-overflow-tooltip />
-              <el-table-column label="下次回访" width="120">
+              <el-table-column label="下次跟进" width="120">
                 <template #default="{ row }">{{ row.nextVisitDate || '-' }}</template>
               </el-table-column>
               <el-table-column label="最近跟进" width="170">
@@ -324,8 +322,8 @@ import * as customerApi from '@/api/platform/customers'
 import type { CustomerRow, OwnerOption, TransferCandidate } from '@/api/platform/customers'
 import {
   CUSTOMER_STATUS_OPTIONS,
-  customerStatusLabel,
-  customerStatusTag,
+  customerStageLabel,
+  customerStageTag,
   normalizeCustomerQuery,
   transferIdempotencyKey
 } from './model'

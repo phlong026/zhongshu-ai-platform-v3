@@ -291,15 +291,33 @@ public class CustomerService {
         return schemeMapper.selectLatest(customerId, kind);
     }
 
-    /** 当前岗位可办理、待首次跟进的客户 */
+    /** 当前岗位可办理、待首次跟进的客户；已流失的不再提醒 */
     public List<CustomerDO> listAwaitingFirstFollow(PostSnapshot post) {
         return customerMapper.selectVisible(CustomerAccess.writableBy(post).andThen(
-                q -> q.eq(CustomerDO::getStatus, CustomerDO.STATUS_REGISTERED)));
+                q -> q.eq(CustomerDO::getStatus, CustomerDO.STATUS_REGISTERED).apply("NOT " + CustomerMapper.LOST)));
     }
 
-    /** 当前岗位可办理、预约回访已到期（含今天）的客户 */
+    /** 当前岗位可办理、约定的下次跟进日期已到（含今天）的客户；已流失的不再提醒 */
     public List<CustomerDO> listDueVisits(PostSnapshot post, LocalDate today) {
         return customerMapper.selectDueVisits(CustomerAccess.writableBy(post), today);
+    }
+
+    /** 当前岗位可办理、超期未跟进的客户：新客登记满两天未首跟，或跟进中 15 天没有新记录且没约下次 */
+    public List<CustomerDO> listStale(PostSnapshot post, LocalDate today) {
+        return customerMapper.selectStale(CustomerAccess.writableBy(post), today);
+    }
+
+    /** 已流失、但流失后又有客资登记进来的客户，等负责人确认是否恢复跟进 */
+    public List<CustomerDO> listReconsulted(PostSnapshot post) {
+        return customerMapper.selectReconsulted(CustomerAccess.writableBy(post));
+    }
+
+    /** 客户跟进汇总：首页的客户数字读这一份，口径与客户列表的分栏一致。 */
+    public record FollowSummary(long total, long due, long appointments, long overdue, long following, long lost, long paused) { }
+
+    public FollowSummary followSummary(PostSnapshot post) {
+        return customerMapper.selectFollowSummary(CustomerAccess.visibleTo(post),
+                LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")));
     }
 
     /** 当前岗位可办理、已保存参考预算的客户（供业务域判断是否该提交委托） */
@@ -311,6 +329,11 @@ public class CustomerService {
 
     // ===================== 命令 =====================
 
+    /**
+     * 升级前小程序的“普通跟进”。八步流程成为客户跟进的唯一事实后，这里只为未升级的客户端保留一个版本：
+     * 它写入的记录会并入客户的跟进时间线，新版本不再调用；旧版本退出后在清理批删除。
+     * 每个写命令推进客户 revision 并记一条命令事件；追加型命令（跟进、方案）以读取时的版本做乐观锁。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Detail follow(PostSnapshot post, long customerId, FollowCommand command, String idempotencyKey) {
         CustomerDO customer = requireWritable(post, customerId);
