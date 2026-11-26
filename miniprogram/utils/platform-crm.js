@@ -84,7 +84,8 @@ const shortDate = d => String(d || '').slice(5, 10);
 function customerRow(c, ctx) {
   const day = (ctx && ctx.today) || today();
   const canW = !!(ctx && ctx.canWrite);
-  const appointment = toDate(c.workflow?.nextContactOn || c.nextVisitDate);
+  // Match the customer-list filters: invitation is a separate workflow date.
+  const appointment = toDate(c.nextVisitDate);
   const fresh = !c.lastFollowAt;
   const lastDate = toDate(c.lastFollowAt);
   const name = c.name || '';
