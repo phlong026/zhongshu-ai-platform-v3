@@ -1008,6 +1008,26 @@ test('06报价设计文件独立于报价原单：换原单与改外部报价都
   assert.ok(h.page.data.activeRecord.attachments.some(file => file.assetId === '801' && file.title === '历史设计文件.pdf'));
 });
 
+test('专用资料拍照后按上传识别的类型预览，无需先保存或重新下载', async () => {
+  const h = harness({ step: 'QUOTATION', upload: async pending => pending.file.name
+    ? { assetId: '801', title: pending.file.name, mimeType: 'application/pdf' }
+    : { assetId: '800', title: '现场照片', mimeType: 'image/jpeg' } });
+  await h.open();
+  h.page.chooseSlotPhoto({ currentTarget: { dataset: { slot: 'designFile' } } });
+  h.mediaPicker.success({ tempFiles: [{ tempFilePath: '/local/camera', size: 1024 }] });
+  await tick();
+  await h.page.previewFile({ currentTarget: { dataset: { id: '800' } } });
+  assert.deepEqual(copy(h.preview), { urls: ['/local/camera'] });
+  assert.equal(h.callsFor('download').length, 0);
+
+  h.page.removeSlotFile({ currentTarget: { dataset: { slot: 'designFile' } } });
+  await h.page.startUpload({ path: '/local/plan.pdf', name: '方案.pdf' }, model.SLOTS.designFile);
+  await h.page.previewFile({ currentTarget: { dataset: { id: '801' } } });
+  assert.equal(h.preview.filePath, '/local/plan.pdf');
+  assert.equal(h.preview.showMenu, true);
+  assert.equal(h.callsFor('download').length, 0);
+});
+
 test('八步页模板只为测量与报价步骤渲染各自的专用资料槽位', async () => {
   const { render } = require('./role-page-runtime.cjs');
   const template = path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
