@@ -12,9 +12,9 @@
    <view wx:if="{{externalHandoverUrl&&(view==='overview'||view==='prepare'||view==='documents'||view==='archive')}}" class="eng-section"><view class="eng-heading"><text>外部成果移交 V{{externalHandoverVersion}}</text><button class="eng-link" data-url="{{externalHandoverUrl}}" bindtap="go">查看移交记录</button></view><text class="eng-muted">查看客户确认凭据、成果资料及随包付款约定</text></view>
    <view wx:if="{{(view==='node'||view==='delay'||view==='start')&&node}}" class="eng-section progress-card">
     <text wx:if="{{view==='delay'}}" class="eng-name">{{node.name}}</text><view class="eng-heading"><text>进度偏差</text><text class="progress-pace {{node.deviationDays>0?'progress-late':''}}">{{node.pace||'待排期'}}</text></view>
-    <text class="eng-muted">原计划完成 {{node.baselineEnd||node.end||'待填写'}}</text><text wx:if="{{node.completedAt}}" class="eng-muted">实际完成 {{node.completedAt}}</text>
+    <text class="eng-muted">原计划完成 {{node.baselineEnd||'未留存'}}</text><text class="eng-muted">当前排期 {{node.end||'待填写'}}</text><text wx:if="{{node.completedAt}}" class="eng-muted">实际完成 {{node.completedAt}}</text>
     <text wx:if="{{node.delayReason&&(view!=='delay'||!actions.length)}}" class="eng-muted">延期原因：{{node.delayReason}}</text>
-    <text wx:if="{{view!=='delay'||!actions.length}}" class="eng-muted">处理责任人：{{node.delayOwnerName||p.manager}}</text>
+    <text wx:if="{{view!=='delay'||!actions.length}}" class="eng-muted">处理责任人：{{node.delayOwnerName||'未登记'}}</text>
     <text wx:if="{{node.recoveryDate&&(view!=='delay'||!actions.length)}}" class="eng-muted">预计完成 {{node.recoveryDate}}</text>
     <text wx:if="{{node.recoveryAction&&(view!=='delay'||!actions.length)}}" class="eng-muted">处理措施：{{node.recoveryAction}}</text>
     <button wx:if="{{view!=='delay'&&(node.deviationDays>0||node.delayHistory.length)}}" class="eng-link" data-url="{{delayUrl}}" bindtap="go">{{own&&node.status!=='已完成'?'处理延期':'查看处理记录'}}</button>
@@ -118,7 +118,7 @@
     <button wx:if="{{expenseSaveState==='unknown'}}" class="eng-outline" bindtap="retryExpense">核对原费用</button>
    </view>
    <template wx:if="{{fields.length&&!expenseSaveState&&(own||(view==='collection'&&actions.length))&&view!=='prepare'&&view!=='node'}}" is="record-fields" data="{{layout:view,fields:fields,form:form,fileNames:fileNames,demo:demo,purposes:purposes,purposeLabel:purposeLabel,handlers:handlers}}"/>
-   <view wx:if="{{view==='delay'&&delayHistory.length}}" class="eng-section"><view class="eng-heading"><text>处理记录</text></view><view wx:for="{{delayHistory}}" wx:key="id" wx:if="{{expanded.delay||index<3}}" class="record-field"><text>{{item.recordedAt}} · {{item.ownerName}}</text><text class="eng-muted">{{item.reason}}</text><text class="eng-muted">{{item.action}} · 预计完成 {{item.recoveryDate}}</text></view><template is="record-more" data="{{total:delayHistory.length,open:expanded.delay,section:'delay',label:'记录'}}"/></view>
+   <view wx:if="{{view==='delay'&&delayHistory.length}}" class="eng-section"><view class="eng-heading"><text>处理记录</text></view><block wx:for="{{delayHistory}}" wx:key="id"><view wx:if="{{expanded.delay||index<3}}" class="record-field"><text>{{item.recordedAt}} · {{item.ownerName}}</text><text class="eng-muted">{{item.reason}}</text><text class="eng-muted">{{item.action}} · 预计完成 {{item.recoveryDate}}</text></view></block><template is="record-more" data="{{total:delayHistory.length,open:expanded.delay,section:'delay',label:'记录'}}"/></view>
 
    <button wx:if="{{platEng&&(view==='overview'||view==='node')}}" class="eng-outline" data-url="/pages/build/issues/index?project={{p.id}}&node={{view==='node'?node.id:''}}" bindtap="go">现场整改与复验 ›</button>
    <view wx:if="{{(view==='overview'||view==='project'||view==='archive'||view==='settlement')&&events.length}}" class="eng-section"><view class="eng-heading"><text>项目记录</text></view><view wx:for="{{events}}" wx:key="id" wx:if="{{expanded.events||index<3}}" class="record-field record-event-row"><text>{{item.title}}</text><text class="eng-muted">{{item.time}} · {{item.by}}</text></view><template is="record-more" data="{{total:events.length,open:expanded.events,section:'events',label:'记录'}}"/></view>
