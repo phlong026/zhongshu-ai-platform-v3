@@ -8,5 +8,7 @@ module.exports = {
   complete: (id, code, body, key) => http.post(step(id, code) + '/complete', body, headers(key)),
   reopen: (id, code, body, key) => http.post(step(id, code) + '/reopen', body, headers(key)),
   records: (id, pageNo) => http.get(base(id) + '/records', { pageNo, pageSize: 20 }),
+  listSupplements: (id, code, pageNo) => http.get(step(id, code) + '/supplements', { pageNo, pageSize: 20 }),
+  addSupplement: (id, code, body, key) => http.post(step(id, code) + '/supplements', body, headers(key)),
   download: (id, code, assetId) => http.post(step(id, code) + '/assets/' + encodeURIComponent(assetId) + '/download-tickets', {})
 };
