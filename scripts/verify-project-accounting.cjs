@@ -199,6 +199,8 @@ test('总部只读账本展示同口径且拒绝带写权限或项目不匹配�
   const ledger = hq.ledger({ summary: {}, entries: [], accounting: row }, 'project:' + project);
   assert.equal(ledger.accounting.profit, '¥ 30,000.00'); assert.equal(ledger.accounting.latest.profit, '¥ 30,000.00');
   assert.equal(ledger.accounting.latest.outstanding, '¥ 5.01');
+  const detail = allText(render(path.join(root, 'pages/headquarters/detail.wxml'), { ready: true, kind: 'ledger', ledger }));
+  assert.match(detail, /当时待付款 ¥ 5\.01/);
   delete row.latestSnapshot.snapshot.payableOutstandingCents;
   assert.equal(hq.ledger({ summary: {}, entries: [], accounting: row }, 'project:' + project).accounting.latest.outstanding, '—');
   assert.throws(() => hq.ledger({ summary: {}, entries: [], accounting: fixture() }, 'project:' + project), /不匹配/);
