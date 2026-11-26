@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,14 +44,17 @@ public class CustomerWorkflowService {
     private final ObjectProvider<CustomerWorkflowReferencePort> references;
     private final ObjectProvider<CustomerWorkflowQuotePort> quotes;
     private final CustomerWorkflowAssetPolicy attachmentPolicy;
+    private final SystemDirectory directory;
 
     public CustomerWorkflowService(CustomerService customers, CustomerMapper customerMapper, CustomerWorkflowReadService reads,
                                    JdbcTemplate jdbc, FranchiseCommands commands, ObjectProvider<AssetAccessPort> assets,
                                    ObjectProvider<StoreServiceAccountPort> accounts, ObjectProvider<CustomerWorkflowReferencePort> references,
-                                   ObjectProvider<CustomerWorkflowQuotePort> quotes, CustomerWorkflowAssetPolicy attachmentPolicy) {
+                                   ObjectProvider<CustomerWorkflowQuotePort> quotes, CustomerWorkflowAssetPolicy attachmentPolicy,
+                                   SystemDirectory directory) {
         this.customers = customers; this.customerMapper = customerMapper; this.reads = reads; this.jdbc = jdbc;
         this.commands = commands; this.assets = assets; this.accounts = accounts; this.references = references;
         this.quotes = quotes; this.attachmentPolicy = attachmentPolicy;
+        this.directory = directory;
     }
 
     public View get(PostSnapshot post, long customerId) { return reads.read(post, customers.requireReadable(post, customerId)); }
@@ -129,6 +133,34 @@ public class CustomerWorkflowService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public View skipVisit(PostSnapshot post, long customerId, SkipVisitCommand request, String key) {
+        if (request == null) throw invalid("请填写跳过带看原因");
+        String reason = CustomerWorkflowRules.text(request.reason(), 1000);
+        if (reason.isBlank()) throw invalid("请填写跳过带看原因");
+        var fingerprint = new Mutation("SKIP", customerId, Step.SITE_VISIT.name(),
+                Map.of("revision", request.revision(), "reason", reason, "actorPostId", post.postId()));
+        CustomerDO customer = lockWritable(post, customerId, key);
+        if (commands.replayed(post, key, fingerprint).isPresent()) return reads.read(post, customer);
+        var workflow = requireWorkflow(customer, request.revision(), true);
+        requireActive(workflow);
+        var prior = reads.step(workflow.tenantId(), workflow.companyId(), workflow.id(), Step.SITE_VISIT);
+        if (prior != null && "COMPLETED".equals(prior.status())) throw conflict("带看已办理，如需更正请先重开");
+        String actorName = directory.usersByIds(List.of(post.userId())).stream().filter(user -> user.userId() == post.userId())
+                .map(SystemDirectory.UserBrief::name).filter(java.util.Objects::nonNull).findFirst().orElse("");
+        var evidence = Map.<String,Object>of("visitSkip", Map.of("reason", reason, "actorUserId", Long.toString(post.userId()),
+                "actorPostId", Long.toString(post.postId()), "actorName", actorName));
+        // Keep the previous visit draft available for a deliberate reopen. The skip has its own source and no visit date.
+        jdbc.update("""
+                INSERT INTO fr_customer_workflow_step(workflow_id,tenant_id,company_id,step_code,status,revision,fields,completed_at)
+                VALUES(?,?,?,'SITE_VISIT','COMPLETED',1,CAST(? AS jsonb),CURRENT_TIMESTAMP)
+                ON CONFLICT(workflow_id,step_code) DO UPDATE SET status='COMPLETED',revision=fr_customer_workflow_step.revision+1,
+                    fields=fr_customer_workflow_step.fields || EXCLUDED.fields,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                """, workflow.id(), workflow.tenantId(), workflow.companyId(), JsonUtils.toJsonString(evidence));
+        record(post, workflow, Step.SITE_VISIT, "SKIP", null, reason, evidence, List.of(), fingerprint, key);
+        return reads.read(post, customer);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public View reopen(PostSnapshot post, long customerId, String code, ReopenCommand request, String key) {
         Step step = manual(code);
         if (request == null) throw invalid("请填写重开原因");
@@ -139,9 +171,11 @@ public class CustomerWorkflowService {
         var workflow = requireWorkflow(customer, input.revision(), false); requireActive(workflow);
         var saved = reads.step(workflow.tenantId(), workflow.companyId(), workflow.id(), step);
         if (saved == null || !"COMPLETED".equals(saved.status())) throw conflict("只有已完成的步骤可以重开");
-        jdbc.update("UPDATE fr_customer_workflow_step SET status='DRAFT',revision=revision+1,completed_at=NULL,updated_at=CURRENT_TIMESTAMP"
+        jdbc.update("UPDATE fr_customer_workflow_step SET status='DRAFT',revision=revision+1,completed_at=NULL,fields=fields-'visitSkip',updated_at=CURRENT_TIMESTAMP"
                 + " WHERE tenant_id=? AND company_id=? AND workflow_id=? AND step_code=?", workflow.tenantId(), workflow.companyId(), workflow.id(), step.name());
-        record(post, workflow, step, "REOPEN", saved.occurredOn(), input.reason(), saved.fields(), saved.attachments(), fingerprint, key);
+        var fields = new LinkedHashMap<>(saved.fields());
+        fields.remove("visitSkip");
+        record(post, workflow, step, "REOPEN", saved.occurredOn(), input.reason(), fields, saved.attachments(), fingerprint, key);
         return reads.read(post, customer);
     }
 
@@ -247,7 +281,7 @@ public class CustomerWorkflowService {
                 INSERT INTO fr_customer_workflow_event(id,workflow_id,tenant_id,company_id,step_code,action,revision,occurred_on,note,fields,attachments,actor_user_id,actor_post_id)
                 VALUES(?,?,?,?,?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),?,?)
                 """, IdWorker.getId(), workflow.id(), workflow.tenantId(), workflow.companyId(), step == null ? null : step.name(),
-                action, revision, date, note, JsonUtils.toJsonString(fields), JsonUtils.toJsonString(attachments), post.userId(), post.postId());
+                "SKIP".equals(action) ? "STATUS" : action, revision, date, note, JsonUtils.toJsonString(fields), JsonUtils.toJsonString(attachments), post.userId(), post.postId());
         commands.record(post, "fr-customer-workflow", workflow.id(), revision, "workflow-" + action.toLowerCase(java.util.Locale.ROOT), fingerprint, key);
     }
 
