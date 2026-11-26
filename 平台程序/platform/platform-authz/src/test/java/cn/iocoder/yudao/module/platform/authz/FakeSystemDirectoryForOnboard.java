@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.platform.authz;
 
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
