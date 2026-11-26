@@ -4,6 +4,7 @@ const apiScope = require('../../utils/api-scope');
 const navigation = require('../../utils/page-navigation');
 const api = require('./api');
 const model = require('./model');
+const visitEntry = require('./visit-entry');
 const commandKey = require('../../utils/platform-crm').commandKey;
 const scope = () => http.token() ? JSON.stringify([apiScope(), auth.currentApiPost()?.brandId || '']) : '';
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -16,6 +17,7 @@ function quoteSourceChanged(previous, next) {
 const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 1110000001].includes(Number(error.code));
 
 Page({
+  ...visitEntry.actions,
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
     uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
@@ -25,8 +27,10 @@ Page({
   onHide() { this._visible = false; this._request = null; this._historyRequest = null; this._quoteRequest = null; },
   onUnload() { this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
   clear(error = '') {
+    this._visitEntry = null;
     this._request = null; this._historyRequest = null; this._quoteRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
+      visitSites: [], visitTimes: [], visitFeedback: [], visitSiteMore: false, visitSiteLoading: false, visitSiteError: '',
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
       journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error });
@@ -73,6 +77,7 @@ Page({
     this.selectedCode = code;
     this._quoteRequest = null;
     const form = draft ? clone(draft.form) : model.form(step);
+    if (!draft) visitEntry.defaultDate(step, form);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
     const workflow = this.data.workflow;
     const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
@@ -81,6 +86,7 @@ Page({
       nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error: '' });
     if (code === 'QUOTATION' && step.canWrite) this.loadQuotes();
+    visitEntry.prepare(this, step, draft, auth.currentApiPost(), http.currentUserId?.(), api);
   },
   journeyLocked() { return this.data.busy || this.data.uploading || this.data.uploadFailed || this.data.uncertain; },
   showJourney() {
@@ -103,6 +109,10 @@ Page({
       form.fields.communicated = false;
       form.fields.result = '';
       form.occurredOn = '';
+    }
+    if (this.selectedCode === 'HOUSE_SELECTION') {
+      if (previous.fields.selectionMode !== form.fields.selectionMode) this._referenceRequest = null;
+      model.houseSelection.update(previous, form);
     }
     this._drafts[this.selectedCode] = { form: clone(form), revision: this._formRevision };
     this.setData({ form, fields: model.fieldRows(this.selectedCode, form), dirty: true, error: '' });
@@ -301,11 +311,12 @@ Page({
     }
   },
   chooseReference() {
-    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION') return;
-    const savedScope = this._scope;
+    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form)) return;
+    const savedScope = this._scope, request = this._referenceRequest = {};
     wx.navigateTo({ url: '/design-migration/pages/library/index?pick=workflow&customerId=' + encodeURIComponent(this.customerId),
       events: { workflowReference: value => {
-        if (!this.alive(savedScope) || !this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || !model.id(value?.caseId)) return;
+        if (this._referenceRequest !== request || !this.alive(savedScope) || !this.editable()
+            || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form) || !model.id(value?.caseId)) return;
         const form = clone(this.data.form); form.fields.referenceCaseId = model.id(value.caseId); form.fields.referenceCaseName = String(value.title || '参考户型').slice(0, 200); this.change(form);
       } }, fail: () => { if (this.alive(savedScope)) this.setData({ error: '灵感库打开失败，请重试' }); } });
   },

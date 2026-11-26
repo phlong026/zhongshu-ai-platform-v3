@@ -10,7 +10,8 @@ const STATUS = { DRAFT: '草稿', PENDING: '待处理', NOT_STARTED: '未开始'
 const FIELD_NAMES = {
   contactMethod: '联系渠道', invitationResult: '邀约结果', appointmentAt: '预约到店时间', nextContactOn: '下次联系日期',
   receptionist: '接待人员', requirements: '建房需求', feedback: '客户反馈', referenceCaseId: '参考户型编号', referenceCaseName: '参考户型',
-  selectionResult: '户型选择说明', versionLabel: '方案 / 报价版本', confirmed: '客户已确认', siteName: '参观工地', address: '地址',
+  selectionMode: '选型方式', customDirection: '定制方向', selectionResult: '户型选择说明',
+  versionLabel: '方案 / 报价版本', confirmed: '客户已确认', siteName: '参观工地', address: '地址',
   measurer: '测量人员', width: '开间（米）', depth: '进深（米）', area: '面积（平方米）', floors: '层数', checked: '已复核测量',
   amountCents: '报价金额', scope: '报价范围', communicated: '已向客户讲解', result: '报价沟通结果',
   contractId: '合同编号', signedDate: '签约日期', totalCents: '合同金额', projectId: '工程编号', actualStartAt: '实际开工日期',
@@ -21,7 +22,7 @@ const FINANCE_FIELDS = { name: '名称', status: '状态', date: '业务日期',
   transactionNo: '交易流水号', refundDirection: '退款方向', projectId: '工程编号', customerId: '客户编号', payableId: '应付编号',
   receiptId: '原收款编号', paymentId: '原付款编号', replacesId: '更正的原单', replacedById: '后续更正单', createTime: '登记时间' };
 const ENUM = { CONFIRMED: '确认到店', PENDING: '待确认', DECLINED: '暂不进店', CONTRACT: '合同', ENGINEERING: '工程',
-  CUSTOMER: '客户退款', EXPENSE: '支出退回', COMPANY: '公司资金', PERSONAL: '个人垫付', ADVANCE: '垫付款' };
+  CUSTOMER: '客户退款', EXPENSE: '支出退回', COMPANY: '公司资金', PERSONAL: '个人垫付', ADVANCE: '垫付款', EXTERNAL_CUSTOM: '外部定制' };
 const text = value => value == null || value === '' ? '—' : ['string', 'number', 'boolean'].includes(typeof value) ? String(value) : '—';
 const status = value => STATUS[value] || text(value);
 const date = value => text(value).replace('T', ' ').replace(/\.\d+(Z)?$/, '$1');
@@ -30,7 +31,7 @@ const title = kind => SECTIONS.concat(FINANCE).find(item => item.key === kind)?.
 function fields(row, names) {
   return Object.entries(names).filter(([key]) => row[key] !== null && row[key] !== undefined && row[key] !== '').map(([key, label]) => ({
     label, value: key.endsWith('Cents') ? money(row[key]) : typeof row[key] === 'boolean' ? row[key] ? '是' : '否'
-      : key === 'status' ? status(row[key]) : ENUM[row[key]] || date(row[key])
+      : key === 'customDirection' ? text(row[key]) : key === 'status' ? status(row[key]) : ENUM[row[key]] || date(row[key])
   }));
 }
 function context(value) {
