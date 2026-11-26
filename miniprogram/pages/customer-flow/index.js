@@ -110,6 +110,10 @@ Page({
       form.fields.result = '';
       form.occurredOn = '';
     }
+    if (this.selectedCode === 'HOUSE_SELECTION') {
+      if (previous.fields.selectionMode !== form.fields.selectionMode) this._referenceRequest = null;
+      model.houseSelection.update(previous, form);
+    }
     this._drafts[this.selectedCode] = { form: clone(form), revision: this._formRevision };
     this.setData({ form, fields: model.fieldRows(this.selectedCode, form), dirty: true, error: '' });
   },
@@ -307,11 +311,12 @@ Page({
     }
   },
   chooseReference() {
-    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION') return;
-    const savedScope = this._scope;
+    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form)) return;
+    const savedScope = this._scope, request = this._referenceRequest = {};
     wx.navigateTo({ url: '/design-migration/pages/library/index?pick=workflow&customerId=' + encodeURIComponent(this.customerId),
       events: { workflowReference: value => {
-        if (!this.alive(savedScope) || !this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || !model.id(value?.caseId)) return;
+        if (this._referenceRequest !== request || !this.alive(savedScope) || !this.editable()
+            || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form) || !model.id(value?.caseId)) return;
         const form = clone(this.data.form); form.fields.referenceCaseId = model.id(value.caseId); form.fields.referenceCaseName = String(value.title || '参考户型').slice(0, 200); this.change(form);
       } }, fail: () => { if (this.alive(savedScope)) this.setData({ error: '灵感库打开失败，请重试' }); } });
   },

@@ -1,3 +1,4 @@
+const houseSelection = require('./house-selection');
 const field = (key, label, type = 'text', extra = {}) => ({ key, label, type,
   maxLength: ['requirements', 'feedback'].includes(key) ? 4000 : 1000, ...extra });
 const STEPS = [
@@ -10,6 +11,8 @@ const STEPS = [
     field('receptionist', '接待人'), field('requirements', '建房需求', 'textarea'), field('feedback', '讲解反馈', 'textarea')
   ] },
   { code: 'HOUSE_SELECTION', name: '户型选择', fields: [
+    field('selectionMode', '选型方式', 'pick', { options: houseSelection.options }),
+    field('customDirection', '实际定制方向', 'textarea'),
     field('referenceCaseId', '参考户型', 'reference'), field('referenceCaseName', '户型名称', 'hidden'),
     field('selectionResult', '选型结果', 'textarea'), field('versionLabel', '确认版本'), field('confirmed', '客户已确认选型', 'boolean')
   ] },
@@ -75,7 +78,7 @@ function form(step = {}) {
 }
 function fieldRows(code, value) {
   const linked = code === 'QUOTATION' && id(value.fields.quoteId);
-  return (definition(code)?.fields || []).filter(row => row.type !== 'hidden' &&
+  return houseSelection.fields(definition(code), value).filter(row => row.type !== 'hidden' &&
     (!linked || (!QUOTE_SNAPSHOT_FIELDS.has(row.key) && !['communicated', 'result'].includes(row.key)))).map(row => ({ ...row,
     value: value.fields[row.key], optionLabel: row.options?.find(o => o.value === value.fields[row.key])?.label || '请选择',
     optionIndex: Math.max(0, row.options?.findIndex(o => o.value === value.fields[row.key]) || 0) }));
@@ -84,7 +87,7 @@ function payload(code, value, revision) {
   const def = definition(code);
   if (!def || ['CONTRACT', 'START'].includes(code)) throw Error('签约与开工由业务事实同步');
   const fields = {};
-  for (const row of def.fields) {
+  for (const row of houseSelection.fields(def, value, true)) {
     if (code === 'QUOTATION' && id(value.fields.quoteId) && QUOTE_SNAPSHOT_FIELDS.has(row.key)) continue;
     const input = value.fields[row.key];
     fields[row.key] = row.type === 'boolean' ? input === true : row.type === 'money' ? toCents(input) : String(input == null ? '' : input).trim();
@@ -138,4 +141,4 @@ function facts(step) {
   return [];
 }
 function errorText(error) { return String(error && (error.msg || error.message) || '操作未完成，请重试'); }
-module.exports = { STEPS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, quoteOptions, workflow, records, facts, errorText };
+module.exports = { houseSelection, STEPS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, quoteOptions, workflow, records, facts, errorText };
