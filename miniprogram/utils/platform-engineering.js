@@ -572,6 +572,7 @@ function recordView(bundle, ctx) {
   const node = (view === 'start' && nodes.find(n => n.milestone === 'start'))
     || ((opts.nodeId || materialNodeId) && nodes.find(n => n.id === String(opts.nodeId || materialNodeId)))
     || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
+  if(opts.nodeId&&['node','delay'].includes(view)&&node?.id!==String(opts.nodeId))throw Error('原施工节点已变化，请返回刷新');
   if(node?.delayOwnerUserId&&!node.delayOwnerName)
     node.delayOwnerName=(opts.handlers||[]).find(h=>String(h.id)===node.delayOwnerUserId)?.name||node.delayOwnerUserId;
   const inspections = (d.siteRecords || []).filter(r => r.completion && String(r.node_id) === node?.id).map(r => ({
