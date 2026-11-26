@@ -328,7 +328,7 @@ Page({
     try {
       const file = await require('./upload').run(pending, alive);
       if (!alive()) return;
-      this._localFiles[file.assetId] = pending.file.path || pending.file.tempFilePath;
+      this._localFiles[file.assetId] = { path: pending.file.path || pending.file.tempFilePath, mimeType: file.mimeType };
       const form = clone(this.data.form);
       if (pending.slot) {
         form.fields[pending.slot.asset] = file.assetId;
@@ -367,7 +367,8 @@ Page({
     const preview = this._previewRequest = { scope: this._scope };
     const alive = () => this.alive(preview.scope) && this._previewRequest === preview;
     try {
-      let localPath = this._localFiles[assetId], contentType = attachment.mimeType;
+      const local = this._localFiles[assetId];
+      let localPath = local?.path, contentType = local?.mimeType || attachment.mimeType;
       if (!localPath) {
         const ticket = await api.download(this.customerId, source.stepCode, assetId);
         if (!alive()) return;
