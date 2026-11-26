@@ -70,6 +70,7 @@ Page({
   if(this.data.view==='project'&&activePost&&['finance','finance-lead'].includes(activePost.roleCode)){this.options={...this.options,view:'book',bookScope:'project:'+this.id};this.setData({view:'book'});}
   if(!this.__platformActions)require('./platform-actions')(this,financeApi,PF),this.__platformActions=true;if(!this.__workbench){require('./workbench')(this,financeApi);this.__workbench=true;}this.installWorkbenchActions();if(!this.__journey){require('./journey')(this,financeApi);this.__journey=true;}this.setData({journeyEnabled:activePost&&activePost.orgType==='store'&&['finance','finance-lead'].includes(activePost.roleCode)&&this.options.messageType!=='design_fee'});
   this.resumePayment();
+  if(this.options?.payrollRecord)this.openPayrollExpense();
   if(!this.__ptSyncHook){const rawSetData=this.setData.bind(this);this.setData=(obj,cb)=>{rawSetData(obj,()=>{if(obj&&obj.platformTodos)this.syncPlatformTasks();if(cb)cb();});};this.__ptSyncHook=true;} // 平台待办到达后同步 tasks 视图行与工作台预览
   this.loadWorkbench();
   this.loadPlatformFinance(); // M+：先置 platformApiMode，本地分支按态跳过（财务岗不再触达本地账簿）

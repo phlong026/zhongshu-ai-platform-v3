@@ -14,14 +14,14 @@ Page({
   data: { ready: false, loading: false, error: '', headquarters: false, companyName: '', month: '', families: model.FAMILIES, familyIndex: 0, kind: 'records',
     context: null, activeRule: null, staff: [], rows: [], listBusy: false, listError: '', hasMore: false,
     form: null, formLoading: false, ruleForm: null, totalText: '—', busy: false, uncertain: false, conflict: false,
-    detail: null, versions: [], versionsMore: false, versionsLoading: false, versionsError: '' },
+    detail: null, settlement: null, settlementError: '', versions: [], versionsMore: false, versionsLoading: false, versionsError: '' },
   onLoad(options = {}) { this.headquarters = options.headquarters === '1'; this.companyId = model.id(options.companyId); this.setData({ headquarters: this.headquarters, month: require('../../../utils/finance-date').day(Date.now()).slice(0, 7) }); this._lineNo = 0; },
   endpoint(path) { return (this.headquarters ? '/platform/headquarters/companies/' + encodeURIComponent(this.companyId) + '/payroll' : base) + path; },
   actor(post) { return (this.headquarters ? organization.headquartersReader(post) : readable(post)) && String(post?.userId) === http.currentUserId() && String(post?.tenantId) === String(http.tenantId()); },
   onShow() { this._visible = true; return this.load(); },
   onHide() {
-    this._visible = false; this._read = null; this._listRead = null; this._formRead = null; this._versionsRead = null;
-    this.setData({ ready: false, loading: false, context: null, activeRule: null, staff: [], rows: [], detail: null, versions: [],
+    this._visible = false; this._read = null; this._listRead = null; this._formRead = null; this._versionsRead = null; this._settlementRead = null;
+    this.setData({ ready: false, loading: false, context: null, activeRule: null, staff: [], rows: [], detail: null, settlement: null, settlementError: '', versions: [],
       form: null, ruleForm: null, formLoading: false, busy: false, listBusy: false, versionsLoading: false, uncertain: !!this._pending });
   },
   onUnload() { this._disposed = true; this.onHide(); this._pending = null; },
@@ -31,9 +31,9 @@ Page({
       && String(post.postId) === String(http.currentPostId());
   },
   clear(error = '') {
-    this._read = null; this._listRead = null; this._formRead = null; this._versionsRead = null; this._pending = null;
+    this._read = null; this._listRead = null; this._formRead = null; this._versionsRead = null; this._pending = null; this._settlementRead = null;
     this.setData({ ready: false, loading: false, context: null, activeRule: null, staff: [], rows: [], form: null, ruleForm: null, detail: null,
-      versions: [], formLoading: false, busy: false, listBusy: false, versionsLoading: false, uncertain: false, conflict: false, error });
+      versions: [], settlement: null, settlementError: '', formLoading: false, busy: false, listBusy: false, versionsLoading: false, uncertain: false, conflict: false, error });
   },
   family() { return model.FAMILIES[this.data.familyIndex].key; },
   idle() { return this.alive() && !this.data.busy && !this.data.uncertain && !this.data.loading; },
@@ -191,9 +191,38 @@ Page({
     if (!this.idle()) return;
     const row = this.data.rows.find(r => r.id === String(event.currentTarget.dataset.id)); if (!row || this.data.kind !== 'records') return;
     this._versionsRead = null; this._versionPage = 0;
-    this.setData({ form: null, ruleForm: null, detail: row, versions: [], versionsMore: true, versionsLoading: false, versionsError: '' }); return this.moreVersions();
+    this.setData({ form: null, ruleForm: null, detail: row, settlement: null, settlementError: '', versions: [], versionsMore: true, versionsLoading: false, versionsError: '' });
+    return Promise.all([this.loadSettlement(), this.moreVersions()]);
   },
-  closeDetail() { if (this.idle()) { this._versionsRead = null; this.setData({ detail: null, versions: [], versionsLoading: false }); } },
+  async loadSettlement() {
+    const row = this.data.detail, saved = this._scope;
+    if (!row || !this.alive(saved)) return;
+    const request = this._settlementRead = {};
+    const current = () => this.alive(saved) && this._settlementRead === request && this.data.detail?.userId === row.userId &&
+      this.data.detail.month === row.month && this.data.detail.family === row.family;
+    this.setData({ settlement: null, settlementError: '' });
+    try {
+      const response = await http.get(this.endpoint('/records/' + row.id));
+      if (!current()) return;
+      const source = model.record(response, row.companyId);
+      if (source.id !== row.id || source.userId !== row.userId || source.month !== row.month || source.family !== row.family) throw Error('财务原单归属不匹配');
+      this.setData({ settlement: model.settlement(response.settlement) });
+    } catch (error) {
+      if (!current()) return;
+      if (revoked(error)) this.clear(message(error));
+      else this.setData({ settlementError: message(error) });
+    }
+  },
+  openPayment() {
+    const row = this.data.detail, current = this.data.settlement;
+    if (!this.canEdit() || !row || !current || row.id !== current.currentRecordId) return;
+    return navigation.open('/pages/admin/finance-desk/index?view=flows&payrollRecord=' + row.id + '&payrollCompany=' + row.companyId + '&payrollPost=' + http.currentPostId());
+  },
+  openPaymentSource() {
+    const id = this.data.settlement?.latestPaymentId;
+    if (this.canEdit() && this.data.detail && id) return navigation.open('/pages/admin/finance-desk/index?view=flows&tab=ledger&scope=all&messageType=fin_payment&messageObject=' + id);
+  },
+  closeDetail() { if (this.idle()) { this._versionsRead = null; this._settlementRead = null; this.setData({ detail: null, settlement: null, versions: [], versionsLoading: false }); } },
   viewVersion(event) { if (this.idle()) { const row = this.data.versions.find(r => r.id === String(event.currentTarget.dataset.id)); if (row) { this._versionsRead = null; this.setData({ detail: row, versionsLoading: false }); } } },
   async moreVersions() {
     if (!this.alive() || this.data.loading || !this.data.detail || this.data.versionsLoading || !this.data.versionsMore) return;
