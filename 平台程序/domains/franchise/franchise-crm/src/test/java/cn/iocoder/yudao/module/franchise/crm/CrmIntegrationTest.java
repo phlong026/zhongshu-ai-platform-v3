@@ -563,6 +563,49 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(visited.getList()).extracting(CustomerDO::getId).containsExactly(overdue);
     }
 
+    @Test
+    void stablePageRefusesToAppendAfterSameTotalMembershipChangeBeyondTwoHundred() {
+        long base = PHONES.addAndGet(1000);
+        followJdbc.update("""
+                INSERT INTO fr_customer (id, company_id, team_id, owner_user_id, name, phone, source, status, update_time)
+                SELECT ? + seq, ?, ?, ?, '分页合成客户', (? + seq)::text, '测试', 'REGISTERED',
+                       now() - seq * interval '1 second'
+                FROM generate_series(1,251) AS seq
+                """, base, store.orgId(), store.salesTeamA(), salesA1.userId(), base);
+        long otherCustomer = capture(otherStoreSales, phone()).customerId();
+        var first = new PageParam().setPageNo(1).setPageSize(200);
+        var fifth = new PageParam().setPageNo(5).setPageSize(50);
+        var sixth = new PageParam().setPageNo(6).setPageSize(50);
+        var initial = as(salesA1, () -> customers.stablePage(salesA1, first, null, null, null, null, null));
+        assertThat(initial.changed()).isFalse();
+        assertThat(initial.page().getTotal()).isEqualTo(251L);
+        assertThat(initial.page().getList()).extracting(CustomerDO::getId).hasSize(200).doesNotContain(otherCustomer);
+        var more = as(salesA1, () -> customers.stablePage(salesA1, fifth, null, null, null, null, initial.prefix()));
+        assertThat(more.changed()).isFalse();
+        assertThat(more.page().getList()).extracting(CustomerDO::getId).hasSize(50).startsWith(base + 201);
+        var finalRow = as(salesA1, () -> customers.stablePage(salesA1, sixth, null, null, null, null, more.prefix()));
+        assertThat(finalRow.page().getList()).extracting(CustomerDO::getId).containsExactly(base + 251);
+
+        var wrongRole = as(boss, () -> customers.stablePage(boss, fifth, null, null, null, null, initial.prefix()));
+        assertThat(wrongRole.changed()).isTrue();
+        assertThat(wrongRole.page().getList()).isEmpty();
+        var alien = as(otherStoreSales, () -> customers.stablePage(otherStoreSales, fifth, null, null, null, null, initial.prefix()));
+        assertThat(alien.changed()).isTrue();
+        assertThat(alien.page().getList()).isEmpty();
+
+        followJdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", salesA2.userId(), base + 5);
+        long replacement = capture(salesA2, phone()).customerId();
+        followJdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", salesA1.userId(), replacement);
+        var legacy = as(salesA1, () -> customers.page(salesA1, fifth, null));
+        assertThat(legacy.getTotal()).isEqualTo(251L);
+        assertThat(legacy.getList()).extracting(CustomerDO::getId).startsWith(base + 201);
+        var refused = as(salesA1, () -> customers.stablePage(salesA1, fifth, null, null, null, null, initial.prefix()));
+        assertThat(refused.changed()).isTrue();
+        assertThat(refused.page().getList()).isEmpty();
+        var refreshed = as(salesA1, () -> customers.stablePage(salesA1, first, null, null, null, null, null));
+        assertThat(refreshed.page().getList()).extracting(CustomerDO::getId).contains(replacement).doesNotContain(base + 5);
+    }
+
     private static FollowCommand follow(String note) {
         return new FollowCommand(note, null);
     }
