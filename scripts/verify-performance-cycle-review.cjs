@@ -162,3 +162,46 @@ test('本人可显式更新待审当前版，旧提交只读，管理人不能�
   assert.equal(page.data.current.revision,2);assert.equal(page.data.snapshot.note,'更正说明');
   page.selectVersion({detail:{value:'1'}});assert.equal(page.data.snapshot.note,'原待审说明');assert.equal(page.data.canSubmit,false);
 });
+
+test('在前台切换岗位后，成员、历史、分页、原单、月份、输入和写操作全部即时清除旧详情',async t=>{
+  const {page,actor,event,opened}=start(t,true);
+  const row=cycle(other,{canReview:true,submission:JSON.stringify({note:'团队私有',sources:[],
+    history:[{revision:1,status:'RETURNED',submission:{note:'历史私有'}}]})});
+  t.mock.method(api,'list',async()=>[row]);
+  const actions=[
+    ()=>page.selectMember(event('user',other)), ()=>page.selectVersion({detail:{value:'1'}}),
+    ()=>page.pageSources(event('step','next')), ()=>page.openSource(event('index',0)),
+    ()=>page.month({detail:{value:'2026-12'}}), ()=>page.inputNote({detail:{value:'前岗位输入'}}),
+    ()=>page.review(event('action','approve')), ()=>page.submit(), ()=>page.onShow()
+  ];
+  for (const action of actions) {
+    actor.gen++;actor.post='17';actor.role='boss';await page.onShow();assert(page.data.current);
+    actor.gen++;actor.post='18';actor.role='sales';await action();
+    assert.equal(page.data.current,null);assert.equal(page.data.snapshot,null);assert.equal(page.data.members.length,0);
+    assert.equal(page.data.canReview,false); assert.equal(page.data.note,''); assert.equal(page.records.length,0); assert.equal(page.versionRows.length,0);
+  }
+  assert.equal(opened(),undefined);
+});
+
+test('切到另一个有权主管岗时立即清屏，等新公司的列表返回后才可看新成员',async t=>{
+  const {page,actor,event}=start(t,true);
+  let next;
+  const listing=t.mock.method(api,'list',async()=>[cycle(other,{canReview:true})]);
+  await page.onShow();assert.equal(page.data.current.userId,other);
+  listing.mock.mockImplementation(()=>new Promise(done=>{next=done;}));
+  actor.post='82';actor.org='82';actor.gen++;page.selectMember(event('user',other));
+  assert.equal(page.data.current,null);assert.equal(page.data.snapshot,null);assert.equal(page.data.members.length,0);
+  next([cycle(other,{canReview:true}),cycle('83',{companyId:'82',canReview:true})]);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(page.data.members.map(row=>row.userId),['83']);assert.equal(page.data.current.userId,'83');
+});
+test('写入回执到达前已切换岗位时，同屏旧资料和写回结果一并清除',async t=>{
+  const {page,actor,event}=start(t,true);
+  t.mock.method(api,'list',async()=>[cycle(other,{canReview:true})]);let finish;
+  t.mock.method(api,'review',()=>new Promise(done=>{finish=done;}));
+  await page.onShow();const pending=page.review(event('action','approve'));assert.equal(page.data.saving,true);
+  actor.post='55';actor.gen++;actor.role='sales';
+  finish(cycle(other,{revision:2,status:'REVIEWED'}));await pending;
+  assert.equal(page.data.current,null);assert.equal(page.data.snapshot,null);assert.equal(page.data.members.length,0);
+  assert.equal(page.data.saving,false);assert.equal(page.data.canReview,false);
+});

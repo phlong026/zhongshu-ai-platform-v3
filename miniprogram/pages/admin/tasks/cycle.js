@@ -32,6 +32,13 @@ Page({
     this.setData({ ...empty(), loading: true, error: '', notice: '' });
   },
   onUnload() { this.onHide(); this.command = null; },
+  activeActor() {
+    if (!this.visible) return null;
+    const actor = identity();
+    if (actor && actor.key === this.scope) return actor;
+    this.refresh();
+    return null;
+  },
   guard(actor, generation) {
     if (!this.visible || generation !== this.generation) return false;
     if (actor.key === identity()?.key) return true;
@@ -45,7 +52,7 @@ Page({
     this.records = []; this.versionRows = [];
     this.setData({ ...empty(), loading: true, error: '', notice: typeof notice === 'string' ? notice : '' });
     if (!actor || (this.data.team && !['boss','owner'].includes(actor.role))) {
-      this.command = null; this.selectedUser = '';
+      this.scope = ''; this.command = null; this.selectedUser = '';
       this.setData({loading: false, error: actor ? '当前岗位无权查看团队周期' : '请先登录并选择有效岗位'});
       return;
     }
@@ -101,33 +108,33 @@ Page({
       snapshot:snapshot ? {...snapshot, sources:snapshot.sources.slice(start, start + sourcePageSize)} : null});
   },
   pageSources(event) {
+    if (!this.activeActor()) return;
     const step = event.currentTarget.dataset.step;
     if (step === 'next' || step === 'previous') this.showSources(this.data.sourcePage + (step === 'next' ? 1 : -1));
   },
   selectMember(event) {
-    const actor = identity(), target = id(event.currentTarget.dataset.user);
-    if (this.data.saving || actor?.key !== this.scope || !this.records.some(r => id(r.userId) === target)) return;
+    const actor = this.activeActor(), target = id(event.currentTarget.dataset.user);
+    if (!actor || this.data.saving || !this.records.some(r => id(r.userId) === target)) return;
     this.selectedUser = target; this.setData({error:'', notice:''}); this.showRows(actor);
   },
   selectVersion(event) {
     const index=Number(event.detail.value);
-    if (!this.data.saving && this.versionRows[index]) this.showVersion(index);
+    if (this.activeActor() && !this.data.saving && this.versionRows[index]) this.showVersion(index);
   },
   month(event) {
-    if (this.data.saving || !P.validPeriod(event.detail.value)) return;
+    if (!this.activeActor() || this.data.saving || !P.validPeriod(event.detail.value)) return;
     this.command = null; this.selectedUser = '';
     this.setData({period:event.detail.value}); return this.refresh();
   },
-  inputNote(event) { this.setData({note: event.detail.value, error:''}); },
+  inputNote(event) { if (this.activeActor()) this.setData({note: event.detail.value, error:''}); },
   submit() { return this.write('submit'); },
   review(event) {
     const action = event.currentTarget.dataset.action;
     if (action === 'approve' || action === 'return') return this.write(action);
   },
   async write(action) {
-    if (this.data.saving || this.data.loading || this.data.versionIndex !== 0) return;
-    const actor = identity();
-    if (!actor || actor.key !== this.scope) return this.refresh();
+    const actor = this.activeActor();
+    if (!actor || this.data.saving || this.data.loading || this.data.versionIndex !== 0) return;
     if (action === 'submit' ? !this.data.canSubmit : !this.data.canReview) return;
     const row = this.records.find(r => id(r.userId) === this.selectedUser);
     if (!row) return;
@@ -162,7 +169,11 @@ Page({
     }
   },
   openSource(event) {
-    const actor = identity(), row = this.data.snapshot?.sources[Number(event.currentTarget.dataset.index)];
-    if (actor?.key === this.scope && row?.url) wx.navigateTo({url:row.url, fail:()=>this.setData({error:'原单暂无法打开，请核对当前岗位权限'})});
+    const actor = this.activeActor(), generation = this.generation;
+    if (!actor) return;
+    const row = this.data.snapshot?.sources[Number(event.currentTarget.dataset.index)];
+    if (row?.url) wx.navigateTo({url: row.url, fail: () => {
+      if (this.guard(actor, generation)) this.setData({error:'原单暂无法打开，请核对当前岗位权限'});
+    }});
   }
 });
