@@ -69,11 +69,13 @@ public class CompanyRechargeCatalog {
                 """,(r,i)->new Order(r.getString("id"),displayState(r.getString("payment_state"),r.getString("credit_state"),r.getString("refund_state"),r.getString("refund_points")),
                 r.getLong("price_fen"),r.getString("credits"),r.getBoolean("quote_current")),org.tenantId(),org.id(),org.actorId(),org.postId());
         String name=jdbc.queryForObject("SELECT name FROM system_dept WHERE tenant_id=? AND id=?",String.class,org.tenantId(),org.id());
+        Order currentOrder=orders.isEmpty()?null:orders.get(0);
+        if (!payments.onlineRechargeEnabled()) return new Catalog(name,false,false,"线上充值暂未开放",List.of(),currentOrder);
         String reason="";
         if (!permissions.has("platform:wallet:recharge")) reason="当前岗位仅可查看充值套餐";
         else if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM org_point_account WHERE org_id=? AND status='ACTIVE')",Boolean.class,org.id())))
             reason="当前公司积分池未启用";
         else if (!payments.companyPaymentsEnabled()) reason="公司积分支付暂未开放";
-        return new Catalog(name,reason.isEmpty(),!reason.isEmpty(),reason,plans,orders.isEmpty()?null:orders.get(0));
+        return new Catalog(name,reason.isEmpty(),!reason.isEmpty(),reason,plans,currentOrder);
     }
 }

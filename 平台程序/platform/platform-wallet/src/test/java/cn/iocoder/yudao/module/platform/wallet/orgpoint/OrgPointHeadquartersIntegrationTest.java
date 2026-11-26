@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.platform.wallet.orgpoint;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.franchise.api.OrgPointPort.ReserveCommand;
 import cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -120,6 +121,27 @@ class OrgPointHeadquartersIntegrationTest extends PlatformPgIntegrationTest {
         assertThatThrownBy(()->service.creditDirectly(maker,store,0,"测试","direct:zero")).hasMessageContaining("正整数");
         assertThatThrownBy(()->service.creditDirectly(maker,store,-1,"测试","direct:negative")).hasMessageContaining("正整数");
         assertThat(points.findAccount(store).balance()).isZero();
+    }
+
+    @Test void companyMembersSpendTheSameAdministrativelyCreditedBalance() {
+        makeSuperAdministrator(maker);
+        long joinedMember = actor(store, "member-a");
+        long anotherMember = actor(store, "member-b");
+        long otherStore = org("store", "另一家门店");
+        points.ensurePool(otherStore);
+
+        service.creditDirectly(maker, store, 12, "门店共享积分", "direct:shared-pool");
+        long memberPost = jdbc.queryForObject("SELECT id FROM pf_staff_post WHERE user_id=? AND org_id=?",
+                Long.class, anotherMember, store);
+        long operationId = points.reserve(new ReserveCommand("test:shared-pool-member", store, anotherMember,
+                memberPost, "copy", 1, "test", null));
+        var settlement = points.settle(operationId, 1);
+        long used = points.myUsage(store, anotherMember, null, 1, 20).used();
+
+        assertThat(used).isPositive().isEqualTo(settlement.charged() - settlement.refunded());
+        assertThat(points.summary(store).balance()).isEqualTo(12 - used);
+        assertThat(points.myUsage(store, joinedMember, null, 1, 20).used()).isZero();
+        assertThat(points.summary(otherStore).balance()).isZero();
     }
 
     @Test void superAdministratorWithoutHeadquartersCanOpenPoolAndCredit() {

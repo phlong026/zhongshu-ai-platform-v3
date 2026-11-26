@@ -43,9 +43,12 @@ final class CompanyServicesHttpFixture {
     private final MockMvc mvc;
     private final ObjectMapper json=new ObjectMapper();
     private long orderId;
+    private final java.util.function.Consumer<Boolean> setOnlineRecharge;
 
     CompanyServicesHttpFixture(JdbcTemplate jdbc, PlatformTransactionManager manager, WalletScope scope,
-            RechargePaymentService payment,PaymentPort channel,ThreadLocal<PostSnapshot> current,long tenant,PostSnapshot alpha,PostSnapshot peer,PostSnapshot beta) {
+            RechargePaymentService payment,PaymentPort channel,ThreadLocal<PostSnapshot> current,long tenant,PostSnapshot alpha,PostSnapshot peer,PostSnapshot beta,
+            java.util.function.Consumer<Boolean> setOnlineRecharge) {
+        this.setOnlineRecharge=setOnlineRecharge;
         this.jdbc=jdbc; this.payment=payment; this.current=current; this.tenant=tenant; this.alpha=alpha; this.beta=beta;
         this.channel=channel;
         var beans=new org.springframework.beans.factory.support.StaticListableBeanFactory();
@@ -119,7 +122,10 @@ final class CompanyServicesHttpFixture {
                     new LoginUser().setId(actor.userId()).setTenantId(tenant).setUserType(2),null,List.of()));
             int status=200; byte[] body;
             try {
-                if(path.equals("/fixture/paid")) {
+                if(path.equals("/fixture/recharge-off") || path.equals("/fixture/recharge-on")) {
+                    setOnlineRecharge.accept(path.equals("/fixture/recharge-on"));
+                    body=json.writeValueAsBytes(Map.of("code",0,"data",true));
+                } else if(path.equals("/fixture/paid")) {
                     var row=jdbc.queryForMap("SELECT * FROM pf_recharge_order WHERE tenant_id=? AND org_id=? AND credit_target='COMPANY' AND payment_state IN ('PENDING','SUCCEEDED')",tenant,alpha.orgId());
                     orderId=((Number)row.get("id")).longValue();
                     long wallet=((Number)row.get("wallet_id")).longValue();

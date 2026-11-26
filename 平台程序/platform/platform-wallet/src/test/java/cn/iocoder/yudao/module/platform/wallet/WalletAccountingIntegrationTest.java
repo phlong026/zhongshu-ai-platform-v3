@@ -374,6 +374,11 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
 
     private RechargePaymentService paymentService(PaymentPort channel) {
         var properties = new WechatXPayProperties();
+        properties.setOnlineRechargeEnabled(true);
+        return paymentService(channel, properties);
+    }
+
+    private RechargePaymentService paymentService(PaymentPort channel, WechatXPayProperties properties) {
         properties.setEnabled(true);
         properties.setAppid("wallet-app");
         properties.setOfferId("wallet-offer");
@@ -386,11 +391,19 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
 
     @Test
     void companyPoolCreditsOnceAndKeepsHistoricWalletSeparate() {
-        var payment = paymentService();
+        var properties = new WechatXPayProperties();
+        var payment = paymentService(mock(PaymentPort.class), properties);
         long planId = paymentFixture();
         jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)",IdWorker.getId(),post.orgId());
+        assertThat(properties.isOnlineRechargeEnabled()).isFalse();
+        assertThatThrownBy(() -> payment.createCompanyOrder(Long.toString(planId),"closed-company",1)).hasMessageContaining("线上充值暂未开放");
+        assertThatThrownBy(() -> payment.createOrder(planId,"closed-wallet")).hasMessageContaining("线上充值暂未开放");
+        properties.setOnlineRechargeEnabled(true);
         var order = payment.createCompanyOrder(Long.toString(planId),"company-check",1);
         assertThat(payment.createCompanyOrder(Long.toString(planId),"company-check",1).id()).isEqualTo(order.id());
+        properties.setOnlineRechargeEnabled(false);
+        assertThatThrownBy(() -> payment.payParams(order.id(),"unused","closed-attempt",true)).hasMessageContaining("线上充值暂未开放");
+        assertThatThrownBy(() -> payment.payParams(order.id(),"unused","closed-attempt")).hasMessageContaining("线上充值暂未开放");
         long walletId=jdbc.queryForObject("SELECT id FROM pf_wallet WHERE org_id=?",Long.class,post.orgId());
         var fact=new PaymentPort.ChannelQueryResult("SUCCEEDED",order.orderNo(),"XPAY","wallet-app","wallet-offer",0,
                 "openid-"+post.userId(),"fixture-"+order.id(),100L,"FEN",java.time.Instant.now(),0);
@@ -404,7 +417,11 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
         var authorization=mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
         when(authorization.has("platform:wallet:recharge")).thenReturn(true);
         var catalog=new CompanyRechargeCatalog(jdbc,scope,authorization,payment);
-        assertThat(tx.execute(status->catalog.read()).currentOrder().status()).isEqualTo("CREDITED");
+        var closed = tx.execute(status->catalog.read());
+        assertThat(closed.enabled()).isFalse();
+        assertThat(closed.browseOnly()).isFalse();
+        assertThat(closed.plans()).isEmpty();
+        assertThat(closed.currentOrder().status()).isEqualTo("CREDITED");
         var refund=new RefundPaymentService(dataSource,transactionManager,scope,points,payment,new PaymentFactValidator());
         var refunded=new PaymentPort.ChannelRefundResult("SUCCEEDED",order.orderNo(),"external-company-refund","wx-refund-"+order.id(),100L,"FEN",1,8);
         refund.processRefundFact(tenant,walletId,Long.parseLong(order.id()),refunded);
@@ -421,7 +438,9 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
         var provider=mock(PaymentPort.class);
         when(provider.createPrepay(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(new PaymentPort.PrepayResult(java.util.Map.of("signData","fixture","signature","fixture","paySig","fixture","mode","short_series_goods")));
-        var payment=paymentService(provider);
+        var properties=new WechatXPayProperties();
+        properties.setOnlineRechargeEnabled(true);
+        var payment=paymentService(provider,properties);
         jdbc.update("INSERT INTO org_point_account(id,org_id,balance) VALUES(?,?,8)",IdWorker.getId(),post.orgId());
         PostSnapshot peer=createPost(), other=createPost();
         current.set(post);
@@ -429,7 +448,7 @@ class WalletAccountingIntegrationTest extends PlatformPgIntegrationTest {
                 mock(cn.iocoder.yudao.module.infra.zhongshu.audit.AuditPort.class),
                 new cn.iocoder.yudao.module.platform.wallet.orgpoint.OrgPointPriceService(dataSource, transactionManager));
         assertThat(pool.summary(post.orgId()).balance()).isEqualTo(8);
-        new CompanyServicesHttpFixture(jdbc,transactionManager,scope,payment,provider,current,tenant,post,peer,other)
+        new CompanyServicesHttpFixture(jdbc,transactionManager,scope,payment,provider,current,tenant,post,peer,other,properties::setOnlineRechargeEnabled)
                 .run(planId,System.getProperty("franchise.ui.runner"));
         assertThat(pool.summary(post.orgId()).balance()).isEqualTo(20);
         assertThat(pool.summary(post.orgId()).monthUsedTotal()).isZero();
