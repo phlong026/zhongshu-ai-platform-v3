@@ -584,6 +584,40 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void recordedStepAndStatusRequestsReplayAfterMidnightWithoutChangingTheOriginalDates() {
+        long id = customer();
+        LocalDate firstDay = LocalDate.of(2026, 11, 26);
+        LocalDate nextDay = firstDay.plusDays(1);
+        try (var clock = org.mockito.Mockito.mockStatic(CustomerWorkflowRules.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            clock.when(CustomerWorkflowRules::today).thenReturn(firstDay);
+            var request = new SaveCommand(0, firstDay, "", Map.of(), List.of(), firstDay);
+            View saved = as(sales, () -> workflow.save(sales, id, "INVITATION", request, "midnight-save"));
+            assertThat(saved.nextFollowOn()).isEqualTo(firstDay);
+            clock.when(CustomerWorkflowRules::today).thenReturn(nextDay);
+            View retry = as(sales, () -> workflow.save(sales, id, "INVITATION", request, "midnight-save"));
+            assertThat(retry.revision()).isEqualTo(saved.revision());
+            assertThat(retry.nextFollowOn()).isEqualTo(firstDay);
+            var expiredNew = new SaveCommand(saved.revision(), firstDay, "", Map.of(), List.of(), firstDay);
+            failure(400, () -> as(sales, () -> workflow.save(sales, id, "INVITATION", expiredNew, "midnight-late-new")));
+
+            clock.when(CustomerWorkflowRules::today).thenReturn(firstDay);
+            var pause = new StatusCommand(saved.revision(), "PAUSED", null, "等待批复", nextDay);
+            View paused = as(sales, () -> workflow.status(sales, id, pause, "midnight-pause"));
+            clock.when(CustomerWorkflowRules::today).thenReturn(nextDay);
+            View foundPause = as(sales, () -> workflow.status(sales, id, pause, "midnight-pause"));
+            assertThat(foundPause.revision()).isEqualTo(paused.revision());
+            assertThat(foundPause.nextFollowOn()).isEqualTo(nextDay);
+            var resume = new StatusCommand(paused.revision(), "ACTIVE", null, "", null);
+            View resumed = as(sales, () -> workflow.status(sales, id, resume, "midnight-resume"));
+            clock.when(CustomerWorkflowRules::today).thenReturn(nextDay.plusDays(1));
+            View foundResume = as(sales, () -> workflow.status(sales, id, resume, "midnight-resume"));
+            assertThat(foundResume.revision()).isEqualTo(resumed.revision());
+            assertThat(foundResume.nextFollowOn()).isEqualTo(nextDay);
+            assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList()).hasSize(3);
+        }
+    }
+
+    @Test
     void timelineMergesStepsSupplementsConsultsAndLegacyFollows() {
         long id = customer();
         as(sales, () -> customers.follow(sales, id, new CustomerService.FollowCommand("升级前的电话沟通", today()), null));

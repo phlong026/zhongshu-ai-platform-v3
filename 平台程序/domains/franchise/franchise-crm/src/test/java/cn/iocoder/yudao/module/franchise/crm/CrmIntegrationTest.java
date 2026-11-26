@@ -79,7 +79,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     @Test
     void aLegacyFollowAddsHistoryWithoutErasingAPausedCustomersScheduledReminder() {
         long id = capture(salesA1, phone()).customerId();
-        long tenant = as(salesA1, () -> cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        long tenant = salesA1.orgId(); // This CRM fixture uses a synthetic shop without setting a request tenant.
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), resumeOn = today.plusDays(5);
         jdbc.update("INSERT INTO fr_customer_workflow(id,tenant_id,company_id,customer_id,status,status_reason) VALUES(?,?,?,?,'PAUSED','等审批')",
                 id, tenant, salesA1.orgId(), id);
