@@ -569,20 +569,37 @@ public class EngMaterialService {
         if (receipt == null || receipt.getCompanyId() != post.orgId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "到货记录不存在");
         }
+        projects.lockById(receipt.getProjectId());
+        receipt = supplyReceipts.selectById(receiptId);
         FrEngSupplyDO supply = supplies.selectById(receipt.getSupplyId());
         FrEngMaterialDO material = materials.selectById(supply.getMaterialId());
         projectService.requireOwned(post, supply.getProjectId(), "materials");
-        // 重放输入=落账输入（评审十三 P1-3）：统一 {"receiptId","to"} 形状
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("receiptId", receiptId);
-        payload.put("to", cmd.actual() == null ? null : cmd.actual().toPlainString());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
-        if (replayed.isPresent()) {
-            return supplyView(post, supply);
-        }
         if (StrUtil.isBlank(cmd.reason()) || cmd.actual() == null || cmd.actual().scale() > 3
                 || cmd.actual().compareTo(BigDecimal.ZERO) <= 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写更正原因与有效实到数量");
+        }
+        Map<String, Object> legacy = new LinkedHashMap<>();
+        legacy.put("receiptId", receiptId);
+        legacy.put("to", cmd.actual().toPlainString());
+        var payload = new LinkedHashMap<>(legacy);
+        payload.put("to", cmd.actual().stripTrailingZeros().toPlainString());
+        payload.put("reason", cmd.reason());
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
+        if (replayed.isPresent()) {
+            if (legacyMaterialEvent(replayed.get(), supply.getProjectId(), "eng-arrival-correct", "reason")) {
+                var reasons = new java.util.HashSet<String>();
+                if (receipt.getCorrections() != null) {
+                    for (var row : JsonUtils.parseTree(receipt.getCorrections())) {
+                        if (row.path("actorUserId").asLong() == post.userId()
+                                && new BigDecimal(row.path("to").asText()).compareTo(cmd.actual()) == 0) {
+                            reasons.add(row.path("reason").asText());
+                        }
+                    }
+                }
+                if (!reasons.contains(cmd.reason())) throw exception(IDEMPOTENCY_KEY_REUSED);
+                if (reasons.size() > 1) throw exception(ENGINEERING_INPUT_INVALID, "该批次有多次同量更正，请核对历史原因");
+            }
+            return supplyView(post, supply);
         }
         if (receipt.getActualQuantity() == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "这批货还未登记实收，请用确认到货");
@@ -620,6 +637,8 @@ public class EngMaterialService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> movement(PostSnapshot post, long projectId, MovementCommand cmd, String idempotencyKey) {
+        projectService.requireProject(post, projectId);
+        FrEngProjectDO project = projects.lockById(projectId);
         projectService.requireOwned(post, projectId, "materials");
         // 数量先归一再统一 payload（重放输入=落账输入——评审十三 P1-3）
         BigDecimal q = EngGuard.requireQuantity(cmd.quantity());
@@ -627,8 +646,22 @@ public class EngMaterialService {
         payload.put("materialId", cmd.materialId());
         payload.put("kind", cmd.kind());
         payload.put("quantity", q.toPlainString());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        var legacy = new LinkedHashMap<>(payload);
+        payload.put("projectId", projectId);
+        payload.put("note", StrUtil.trim(cmd.note()));
+        payload.put("receiverUserId", cmd.receiverUserId());
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            if (legacyMaterialEvent(replayed.get(), projectId, "eng-material-movement", "projectId")) {
+                var candidates = movements.selectByProject(post.orgId(), projectId).stream()
+                        .filter(row -> row.getMaterialId() == cmd.materialId() && row.getAuthorUserId() == post.userId()
+                                && cmd.kind().equals(row.getKind()) && q.compareTo(row.getQuantity()) == 0).toList();
+                long matches = candidates.stream()
+                        .filter(row -> java.util.Objects.equals(row.getReceiverUserId(), cmd.receiverUserId())
+                                && java.util.Objects.equals(row.getNote(), payload.get("note"))).count();
+                if (matches == 0) throw exception(IDEMPOTENCY_KEY_REUSED);
+                if (matches != candidates.size()) throw exception(ENGINEERING_INPUT_INVALID, "存在多笔相同数量的材料流转，请核对原单");
+            }
             return summary(post, projectId, null);
         }
         FrEngMaterialDO material = materials.selectById(cmd.materialId());
@@ -642,7 +675,6 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择材料去向并说明用途或原因");
         }
         // 行锁串行化可分配量读-判-写（评审十三 P2-1）
-        FrEngProjectDO project = projects.lockById(projectId);
         FrEngSupplyDO supply = supplies.selectByMaterial(post.orgId(), material.getId());
         BigDecimal good = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
         BigDecimal used = movements.selectByProject(post.orgId(), projectId).stream()
@@ -661,6 +693,13 @@ public class EngMaterialService {
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
                 "eng-material-movement", payload, idempotencyKey);
         return summary(post, projectId, null);
+    }
+
+    private static boolean legacyMaterialEvent(cn.iocoder.yudao.module.platform.command.dal.CommandEventDO event,
+                                               long projectId, String command, String addedField) {
+        if (!command.equals(event.getCommand()) || !AGGREGATE.equals(event.getAggregateType())
+                || event.getAggregateId() != projectId) throw exception(IDEMPOTENCY_KEY_REUSED);
+        return !JsonUtils.parseTree(event.getPayload()).has(addedField);
     }
 
     // ===================== 汇总（到货+付款派生态，蓝本 plans()） =====================
