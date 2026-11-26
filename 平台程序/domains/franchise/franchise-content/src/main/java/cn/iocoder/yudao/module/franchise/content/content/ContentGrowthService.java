@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.content.content;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.ContentCustomerOutcomesPort;
+import jakarta.annotation.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -31,11 +32,11 @@ public class ContentGrowthService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    private final ContentCustomerOutcomesPort outcomes;
+    @Resource
+    private ContentCustomerOutcomesPort outcomes;
 
-    public ContentGrowthService(JdbcTemplate jdbcTemplate, ContentCustomerOutcomesPort outcomes) {
+    public ContentGrowthService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        this.outcomes = outcomes;
     }
 
     /**
