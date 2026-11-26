@@ -498,7 +498,7 @@ async function saveMapDisplay() {
     })
     if (!active || generation !== lifecycleGeneration) return
     mapEditVisible.value = false
-    ElMessage.success('地图名称已保存')
+    ElMessage.success('地图展示设置已保存')
     await loadList()
   } catch (error: any) {
     if (active && generation === lifecycleGeneration) {
