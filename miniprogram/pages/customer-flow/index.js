@@ -31,15 +31,16 @@ Page({
     this.__entryStatus = ['lost', 'paused', 'resume'].includes(options.status) ? options.status : ''; this._drafts = {}; this._localFiles = {}; },
   onShow() { this._visible = true; return this.load(); },
   onHide() { this._visible = false; this._request = null; this._historyRequest = null; this._quoteRequest = null; },
-  onUnload() { this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
+  onUnload() { this.__statusCommand = null; this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
   clear(error = '') {
     this._visitEntry = null;
+    this.__statusCommand = null;
     this._request = null; this._historyRequest = null; this._quoteRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
       visitSites: [], visitTimes: [], visitFeedback: [], visitSiteMore: false, visitSiteLoading: false, visitSiteError: '',
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
       journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
-      quoteOptions: [], quotesLoading: false, quotesError: '', error });
+      quoteOptions: [], quotesLoading: false, quotesError: '', statusSheet: null, error });
   },
   validPost() {
     const post = auth.currentApiPost();
@@ -114,7 +115,7 @@ Page({
   statusContext() {
     const workflow = this.data.workflow;
     if (!this.alive() || !workflow || !workflow.canChangeStatus) return null;
-    return { customerId: this.customerId, api };
+    return { customerId: this.customerId, scope: this._scope, api };
   },
   statusDone() { return this.load({ replace: true }); },
   selectStep(event) {

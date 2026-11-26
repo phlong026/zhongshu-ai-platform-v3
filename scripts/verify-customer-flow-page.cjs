@@ -894,17 +894,42 @@ test('状态提交结果未知时保留原键重试，确定失败时提示原�
   const h = harness(); await h.open();
   h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
   h.page.statusInput({ detail: { value: '等批复' } }); h.page.statusDate({ detail: { value: dayText(9) } });
-  h.overrides.workflowStatus = async () => { throw { code: -1 }; };
+  h.overrides.workflowStatus = async () => { h.state.revision += 1; throw { code: -1 }; };
   await h.page.submitStatus();
   assert.equal(h.page.data.statusSheet.busy, false); assert.match(h.page.data.statusSheet.error, /未收到保存确认/);
+  const readCount=h.callsFor('workflow').length;
+  h.page.statusInput({ detail: { value: '不能替换旧请求的内容' } });
   h.overrides.workflowStatus = async () => { throw { code: 409, message: '流程已更新，请刷新后重试' }; };
   await h.page.submitStatus();
-  assert.equal(h.callsFor('workflowStatus')[1].args[2], h.callsFor('workflowStatus')[0].args[2], '结果未知的重试沿用同一个幂等键');
+  assert.deepEqual(h.callsFor('workflowStatus')[1].args, h.callsFor('workflowStatus')[0].args, '回执丢失后只重发原日期、原原因、原版本和原编号');
+  assert.equal(h.callsFor('workflow').length,readCount,'结果未知时不重新取版本');
   assert.match(h.page.data.statusSheet.error, /流程已更新/);
   delete h.overrides.workflowStatus;
   await h.page.submitStatus();
   assert.notEqual(h.callsFor('workflowStatus')[2].args[2], h.callsFor('workflowStatus')[0].args[2], '确定失败后换新的幂等键');
   assert.equal(h.page.data.statusSheet, null);
+});
+
+test('状态已保存但回执丢失，重试找回原结果且不再执行变更', async () => {
+  const h=harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+  h.page.statusPick({ currentTarget: { dataset: { code: 'PRICE' } } });
+  let original, writes=0;
+  h.overrides.workflowStatus=async (...args) => {
+    if (!original) {
+      original=copy(args);
+      h.state.status='LOST'; h.state.revision += 1; writes += 1;
+      throw { code: -1 };
+    }
+    assert.deepEqual(args,original);
+    return copy(h.state);
+  };
+  await h.page.submitStatus();
+  assert.equal(h.page.data.statusSheet.pending,true);
+  assert.equal(writes,1);
+  await h.page.submitStatus();
+  assert.equal(writes,1);
+  assert.equal(h.page.data.statusSheet,null);
 });
 
 test('八步页模板包含下次跟进日期、可点的流程状态和状态弹层', async () => {
