@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.crm.workflow;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.RESOURCE_FORBIDDEN;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
@@ -206,6 +207,59 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         var history = as(sales, () -> workflow.records(sales, id, 1, 20)).getList();
         assertThat(history).hasSize(2);
         assertThat(history.get(1).fields()).containsEntry("quoteId", quoteId);
+    }
+
+    @Test
+    void designContractSlotLivesInFieldsAndBlocksLegacySilentRemoval() {
+        long id = customer();
+        var measurement = new SaveCommand(0, today(), "实测完成",
+                Map.of("address", "村东头", "measurer", "老周", "width", "12", "depth", "15", "area", "180",
+                        "floors", "2", "checked", true, "designContractAssetId", "9001", "designContractName", "设计服务合同.pdf"),
+                List.of());
+        View saved = as(sales, () -> workflow.save(sales, id, "MEASUREMENT", measurement, "slot-save"));
+        assertThat(saved.steps().get(4).fields()).containsEntry("designContractAssetId", "9001")
+                .containsEntry("designContractName", "设计服务合同.pdf");
+        // 未验收或他店资产拒绝引用
+        failure(400, () -> as(sales, () -> workflow.save(sales, id, "MEASUREMENT", new SaveCommand(saved.revision(), today(), "换合同",
+                Map.of("designContractAssetId", "9002", "designContractName", "别店合同.pdf"), List.of()), "slot-bad")));
+        // 旧版小程序漏发槽位键会随整字段替换清掉引用，守卫拒绝
+        assertThatThrownBy(() -> as(sales, () -> workflow.save(sales, id, "MEASUREMENT", new SaveCommand(saved.revision(), today(), "旧版只改地址",
+                Map.of("address", "村西头"), List.of()), "slot-legacy")))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
+        // 只有显式空值才能清除
+        var cleared = new SaveCommand(saved.revision(), today(), "删除设计合同",
+                Map.of("address", "村东头", "measurer", "老周", "width", "12", "depth", "15", "area", "180",
+                        "floors", "2", "checked", true, "designContractAssetId", "", "designContractName", ""), List.of());
+        assertThat(as(sales, () -> workflow.save(sales, id, "MEASUREMENT", cleared, "slot-clear")).steps().get(4).fields())
+                .doesNotContainKeys("designContractAssetId", "designContractName");
+        // 已归属本客户的资产（事件历史里仍有引用）不能被另一客户借用
+        long other = customer();
+        failure(400, () -> as(sales, () -> workflow.save(sales, other, "MEASUREMENT", new SaveCommand(0, today(), "借用合同",
+                Map.of("address", "别家", "measurer", "x", "width", "1", "depth", "1", "area", "1", "floors", "1", "checked", true,
+                        "designContractAssetId", "9001", "designContractName", "设计服务合同.pdf"), List.of()), "slot-steal")));
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(2);
+    }
+
+    @Test
+    void quotationDesignFileSurvivesQuoteSwitchesAndTicketDownloadAcceptsFieldReferences() {
+        long id = customer();
+        var withFile = new SaveCommand(0, today(), "报价与设计文件",
+                Map.of("amountCents", "12000000", "scope", "主体土建", "versionLabel", "V1", "communicated", true, "result", "客户接受",
+                        "designFileAssetId", "9001", "designFileName", "别墅设计方案V1.pdf"), List.of());
+        View saved = as(sales, () -> workflow.save(sales, id, "QUOTATION", withFile, "design-file-save"));
+        assertThat(saved.steps().get(5).fields()).containsEntry("designFileAssetId", "9001");
+        // 关联正式报价（快照替换）保留设计文件：客户端每次都带全部定义字段
+        var linked = new SaveCommand(saved.revision(), today(), "改用原单",
+                Map.of("quoteId", "1234567890123456789", "communicated", true, "result", "已发给客户",
+                        "designFileAssetId", "9001", "designFileName", "别墅设计方案V1.pdf"), List.of());
+        View switched = as(sales, () -> workflow.save(sales, id, "QUOTATION", linked, "design-file-linked"));
+        assertThat(switched.steps().get(5).fields()).containsEntry("quoteId", "1234567890123456789")
+                .containsEntry("designFileAssetId", "9001").containsEntry("designFileName", "别墅设计方案V1.pdf");
+        // 下载票据：fields 引用可出票；未被任何记录引用的资产拒绝
+        when(assets.createWorkflowDownloadUrl(any(), eq(id), eq("QUOTATION"), eq(9001L)))
+                .thenReturn(new AssetAccessPort.DownloadUrlView("https://ticket/design", null));
+        assertThat(as(sales, () -> workflow.download(sales, id, "QUOTATION", 9001L)).downloadUrl()).isEqualTo("https://ticket/design");
+        failure((int) RESOURCE_FORBIDDEN.getCode(), () -> as(sales, () -> workflow.download(sales, id, "QUOTATION", 9002L)));
     }
 
     @Test
