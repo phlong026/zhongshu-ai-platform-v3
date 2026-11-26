@@ -252,7 +252,7 @@ test('同县气泡渲染每个品牌名称与各自家/条数；点气泡保留�
   assert.match(caption,/测试甲/);assert.match(caption,/测试乙/);assert.match(caption,/1条覆盖记录/);
   assert.equal(page.data.callouts[0].brands.length,2);
   await callout.tap();assert.equal(page.data.pinned,true);assert.equal(page.data.rows.length,3);
-  assert.match(await (await screen.$('.area-quick-status')).text(),/江夏区.*已有加盟商/);
+  assert.match(await (await screen.$('.area-quick-status')).text(),/江夏区\s*已有加盟商/);
 });
 
 test('名称搜索跨所选县找出全范围记录，点击跨县加盟商定位所有真实县中心并高亮',async()=>{
@@ -262,6 +262,7 @@ test('名称搜索跨所选县找出全范围记录，点击跨县加盟商定�
   page.searchInput({detail:{value:'验收记录one'}});page.searchName();
   assert.deepEqual(page.data.rows.map(row=>row.id),['one']);
   assert.equal(page.data.markers.length,2);
+  assert.equal(page.data.markers.every(marker=>marker.customCallout.display==='BYCLICK'),true);
   assert.equal(page.data.summary.status,'empty','行政区结论仍属于明确选中的新洲区');
   page.toggleRecord({currentTarget:{dataset:{id:'one'}}});
   await (await (await runtime.currentPage()).$('map')).trigger('updated',{});

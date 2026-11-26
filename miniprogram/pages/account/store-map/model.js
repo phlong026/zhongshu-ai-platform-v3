@@ -128,7 +128,7 @@ function counts(records) {
     coverageRecordCount:records.filter(row => row.recordType === 'COVERAGE').length};
 }
 
-function groupMarkers(points, snapshot, catalog, selectedRecordId) {
+function groupMarkers(points, snapshot, catalog, selectedRecordId, selectedPointKey) {
   const groups = new Map();
   for (const point of points) {
     if (!hasPosition(point)) continue;
@@ -146,11 +146,12 @@ function groupMarkers(points, snapshot, catalog, selectedRecordId) {
       return {id,name:first.brandName,color:first.color,...amount,
         detail:[amount.franchiseCount ? amount.franchiseCount + '家' : '', amount.coverageRecordCount ? amount.coverageRecordCount + '条覆盖记录' : ''].filter(Boolean).join(' · ')};
     });
-    const selected = group.recordIds.has(selectedRecordId);
+    const selected = key === selectedPointKey || group.recordIds.has(selectedRecordId);
+    const display = selected || groups.size === 1 ? 'ALWAYS' : 'BYCLICK';
     return {id:index + 1,key,latitude:group.latitude,longitude:group.longitude,storeIds:[...group.recordIds],
       heading,brands,selected,iconPath:'/pages/account/store-map/pin.jpg',width:selected ? 26 : 20,height:selected ? 32 : 25,zIndex:selected ? 10 : 1,
-      customCallout:{display:'ALWAYS',anchorY:0},
-      callout:{content:(heading || (mixed ? '多品牌' : first.brandName)) + '\n' + detail,display:'ALWAYS',
+      customCallout:{display,anchorY:0},
+      callout:{content:(heading || (mixed ? '多品牌' : first.brandName)) + '\n' + detail,display,
         color:'#ffffff',bgColor:mixed ? '#89512a' : first.color,borderRadius:8,padding:7,fontSize:11}};
   });
 }
@@ -198,7 +199,7 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
   const mapRecordIds = new Set(candidates.filter(matchesName).map(row => row.id));
   const mapPoints = validPoints.filter(point => mapRecordIds.has(point.recordId)
     && (keyword || viewport || point.recordId === filters.record || contains(target,catalog.byCode.get(point.regionCode))));
-  const markers = groupMarkers(mapPoints,snapshot,catalog,filters.record);
+  const markers = groupMarkers(mapPoints,snapshot,catalog,filters.record,filters.pointKey);
   const pinnedMarker = filters.pointKey && markers.find(marker => marker.key === filters.pointKey);
   // A point list is scoped to its pin, not to the camera bounds after moving the map.
   const pinnedRows = pinnedMarker ? pinnedMarker.storeIds.map(id => formatRow(snapshot.byId.get(id))) : null;

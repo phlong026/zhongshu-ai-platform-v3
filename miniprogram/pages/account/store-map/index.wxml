@@ -1,15 +1,26 @@
 <brand-header title="{{admin?'加盟商地图':'门店地图'}}" back="{{true}}"/>
 <view class="map-page">
   <view wx:if="{{loading}}" class="map-message">正在读取地图与地区资料…</view>
-  <view wx:elif="{{error}}" class="map-message"><text>{{error}}</text><button bindtap="load">重新加载</button></view>
+  <view wx:elif="{{error}}" class="map-message map-load-error">
+    <text class="load-title">门店地图暂未加载</text>
+    <text>{{error}}</text>
+    <button bindtap="load">重新加载</button>
+  </view>
   <block wx:else>
-    <view class="scope">
-      <image class="scope-icon" src="/assets/account-shop.jpg" mode="aspectFit"/>
-      <text>{{admin?'总部端 · 全部品牌视图':'加盟商端 · 本品牌'}}{{!admin&&brandName?'（'+brandName+'）':''}}</text>
+    <view class="map-context">
+      <view class="scope">
+        <text class="scope-title">{{admin?'全部品牌':brandName||'本品牌'}}</text>
+        <text class="scope-label">{{admin?'总部视图':'本品牌门店'}}</text>
+      </view>
+      <view class="map-overview">
+        <view class="overview-item"><text class="metric-value">{{overview.franchiseCount}}</text><text class="metric-label">家加盟商</text></view>
+        <view class="overview-item"><text class="metric-value">{{overview.districtCount}}</text><text class="metric-label">个覆盖区县</text></view>
+      </view>
+      <text wx:if="{{overview.coverageRecordCount}}" class="overview-note">另有 {{overview.coverageRecordCount}} 条品牌覆盖记录</text>
     </view>
     <view class="map-search">
       <image src="/assets/search.png" mode="aspectFit"/>
-      <input value="{{query}}" placeholder="搜索省、市、区县或加盟商名称" maxlength="80" confirm-type="search" bindinput="searchInput" bindconfirm="confirmSearch" aria-label="搜索地区或加盟商"/>
+      <input value="{{query}}" placeholder="搜索地区、门店或地址" maxlength="80" confirm-type="search" bindinput="searchInput" bindconfirm="confirmSearch" aria-label="搜索地区或加盟商"/>
       <button wx:if="{{query||keyword}}" bindtap="clearSearch">清除</button>
     </view>
     <view wx:if="{{searchOpen}}" class="search-results">
@@ -18,55 +29,48 @@
       </button>
       <button class="name-search" bindtap="searchName">按门店名称、地址或地区查询“{{query}}”</button>
     </view>
-    <view class="map-overview">
-      <view class="overview-item">
-        <view class="metric-icon"><image src="/assets/account-shop.jpg" mode="aspectFit"/></view>
-        <view><text class="metric-label">{{admin?'已登记加盟商':'本品牌加盟商'}}</text><view class="metric-value"><text>{{overview.franchiseCount}}</text><text class="metric-unit">家</text></view></view>
-      </view>
-      <view class="overview-item">
-        <view class="metric-icon"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/></view>
-        <view><text class="metric-label">已确认覆盖区县</text><view class="metric-value"><text>{{overview.districtCount}}</text><text class="metric-unit">个</text></view></view>
-      </view>
-      <text wx:if="{{overview.coverageRecordCount}}" class="overview-note">另有 {{overview.coverageRecordCount}} 条品牌覆盖记录，单独统计</text>
-    </view>
-    <view wx:if="{{admin}}" class="brand-filter">
-      <text>品牌</text><picker range="{{brands}}" range-key="name" value="{{brandIndex}}" bindchange="changeBrand"><view class="picker-value"><text>{{brands[brandIndex].name}}</text><image src="/assets/creation-chevron.png" mode="aspectFit"/></view></picker>
-    </view>
-    <view class="regions">
-      <view wx:for="{{pickers}}" wx:key="key" class="region-field">
-        <text class="picker-label">{{item.title}}</text>
-        <picker range="{{item.choices}}" range-key="name" value="{{item.index}}" disabled="{{item.disabled}}" data-index="{{index}}" bindchange="changeRegion">
-          <view class="picker-value {{item.disabled?'disabled':''}}"><text>{{item.choices[item.index].name}}</text><image src="/assets/creation-chevron.png" mode="aspectFit"/></view>
-        </picker>
-      </view>
-    </view>
-    <view class="count-tabs">
-      <button class="{{mode==='region'?'active':''}}" data-mode="region" bindtap="changeMode">按行政区域统计</button>
-      <button class="{{mode==='viewport'?'active':''}}" data-mode="viewport" bindtap="changeMode">按地图视野统计</button>
-    </view>
-    <view class="area-quick-status">
-      <text>{{summary.shortTitle}}</text><text class="status status-{{summary.status}}">{{mode==='viewport'&&viewportError?'范围读取失败':mode==='viewport'&&viewportLoading?'正在更新':summary.statusText}}</text>
-    </view>
-    <map id="stores" class="map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" markers="{{markers}}" bindupdated="fitMarkers" bindregionchange="onRegionChange" bindmarkertap="selectMarker" bindcallouttap="selectMarker" enable-zoom="{{true}}" enable-scroll="{{true}}" show-scale="{{true}}">
-      <cover-view slot="callout">
-        <cover-view wx:for="{{callouts}}" wx:key="id" marker-id="{{item.id}}" data-marker-id="{{item.id}}" bindtap="selectMarker" class="county-callout {{item.selected?'callout-selected':''}}">
-          <cover-view class="callout-title">{{item.heading}}</cover-view>
-          <cover-view wx:for="{{item.brands}}" wx:for-item="brand" wx:key="id" class="callout-brand">
-            <cover-view class="callout-dot" style="background-color:{{brand.color}}"/>
-            <cover-view class="callout-name">{{brand.name}}</cover-view><cover-view class="callout-count">{{brand.detail}}</cover-view>
+    <view class="map-frame">
+      <map id="stores" class="map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" markers="{{markers}}" bindupdated="fitMarkers" bindregionchange="onRegionChange" bindmarkertap="selectMarker" bindcallouttap="selectMarker" enable-zoom="{{true}}" enable-scroll="{{true}}" show-scale="{{true}}">
+        <cover-view slot="callout">
+          <cover-view wx:for="{{callouts}}" wx:key="id" marker-id="{{item.id}}" data-marker-id="{{item.id}}" bindtap="selectMarker" class="county-callout {{item.selected?'callout-selected':''}}">
+            <cover-view class="callout-title">{{item.heading}}</cover-view>
+            <cover-view wx:for="{{item.brands}}" wx:for-item="brand" wx:key="id" class="callout-brand">
+              <cover-view class="callout-dot" style="background-color:{{brand.color}}"/>
+              <cover-view class="callout-name">{{brand.name}}</cover-view><cover-view class="callout-count">{{brand.detail}}</cover-view>
+            </cover-view>
           </cover-view>
         </cover-view>
-      </cover-view>
-    </map>
-    <view class="map-footer">
-      <text>按区县中心展示，不代表门店地址</text><view class="zoom-actions"><button data-delta="1" bindtap="zoom" aria-label="放大地图">放大</button><button data-delta="-1" bindtap="zoom" aria-label="缩小地图">缩小</button></view>
+      </map>
+      <view class="map-footer">
+        <text>图钉标在区县中心</text><view class="zoom-actions"><button data-delta="1" bindtap="zoom" aria-label="放大地图">放大</button><button data-delta="-1" bindtap="zoom" aria-label="缩小地图">缩小</button></view>
+      </view>
     </view>
-    <view wx:if="{{brandCounts.length}}" class="map-legend">
+    <view wx:if="{{admin&&brandCounts.length}}" class="map-legend">
       <view wx:for="{{brandCounts}}" wx:key="id" class="legend-item"><text class="dot" style="background:{{item.color}}"/><text>{{item.name}}</text></view>
+    </view>
+    <view class="filter-panel">
+      <view class="filter-heading">
+        <text class="filter-title">筛选范围</text>
+        <view class="count-tabs">
+          <button class="{{mode==='region'?'active':''}}" data-mode="region" bindtap="changeMode">行政区域</button>
+          <button class="{{mode==='viewport'?'active':''}}" data-mode="viewport" bindtap="changeMode">地图视野</button>
+        </view>
+      </view>
+      <view wx:if="{{admin}}" class="brand-filter">
+        <text>品牌</text><picker range="{{brands}}" range-key="name" value="{{brandIndex}}" bindchange="changeBrand"><view class="picker-value"><text>{{brands[brandIndex].name}}</text><image src="/assets/creation-chevron.png" mode="aspectFit"/></view></picker>
+      </view>
+      <view class="regions">
+        <view wx:for="{{pickers}}" wx:key="key" class="region-field">
+          <text class="picker-label">{{item.title}}</text>
+          <picker range="{{item.choices}}" range-key="name" value="{{item.index}}" disabled="{{item.disabled}}" data-index="{{index}}" bindchange="changeRegion">
+            <view class="picker-value {{item.disabled?'disabled':''}}"><text>{{item.choices[item.index].name}}</text><image src="/assets/creation-chevron.png" mode="aspectFit"/></view>
+          </picker>
+        </view>
+      </view>
     </view>
     <view wx:if="{{focusNote}}" class="focus-note">{{focusNote}}</view>
     <view class="area-summary">
-      <view class="summary-heading">
+      <view class="summary-heading area-quick-status">
         <image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text class="summary-title">{{summary.title}}</text>
         <text class="status status-{{summary.status}}">{{mode==='viewport'&&viewportError?'范围读取失败':mode==='viewport'&&viewportLoading?'正在更新':summary.statusText}}</text>
       </view>
