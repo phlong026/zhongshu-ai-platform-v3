@@ -99,16 +99,17 @@ async function main() {
     await tap('.search-submit');
     await waitFor(list, data => data.items.length === 1 && data.items[0].id === notices[2].id);
     const checkedRoles = [];
-    for (const role of ['sales', 'engineer', 'finance']) {
-      const route = ['finance', 'finance-lead'].includes(role) ? 'pages/admin/finance-desk/index?view=profile' : profile;
+    // The shared template is checked here through the native Tab. The finance-desk shell
+    // and all eight roles are covered separately by the profile navigation regressions.
+    for (const role of ['sales', 'engineer']) {
       const [courseId, title, , resource, completed] = trainingByRole[role];
       process.stdout.write('Checking the native profile for ' + role + '\n');
-      await mp.evaluate(({ role, route }) => {
+      await mp.evaluate(({ role, profile }) => {
         wx.setStorageSync('zs-api-post-v1', 'preview-' + role);
-        wx.reLaunch({ url: '/' + route });
+        wx.reLaunch({ url: '/' + profile });
         return true;
-      }, { role, route });
-      const data = await waitFor(route.split('?')[0], data => data.announcementTitle === notices[0].title && data.role === roles[role]);
+      }, { role, profile });
+      const data = await waitFor(profile, data => data.announcementTitle === notices[0].title && data.role === roles[role]);
       assert.equal(data.courseId, courseId, role);
       assert.equal(data.courseTitle, title, role);
       assert.equal(data.progress.completed, completed, role);
