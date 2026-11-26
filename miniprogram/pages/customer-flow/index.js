@@ -302,7 +302,24 @@ Page({
       success: response => { if (this.alive(savedScope) && code === this.selectedCode && response.tempFiles?.[0]) this.startUpload(response.tempFiles[0]); },
       fail: error => { if (this.alive(savedScope) && !/cancel/i.test(error.errMsg || '')) this.setData({ error: '照片选择失败，请重试' }); } });
   },
-  startUpload(file) { this._pendingFile = { file, scope: this._scope, code: this.selectedCode }; return this.retryUpload(); },
+  // 专用资料槽位（05 设计合同、06 设计文件）：同一条上传链路，成功后写入步骤 fields 而不是通用附件列表。
+  chooseSlotFile(event) {
+    const slot = model.SLOTS[event.currentTarget.dataset.slot];
+    if (!slot || slot.code !== this.selectedCode || !this.editable() || this.data.form.fields[slot.asset]) return;
+    const savedScope = this._scope, code = this.selectedCode;
+    wx.chooseMessageFile({ count: 1, type: 'file', extension: ['pdf', 'jpg', 'jpeg', 'png'],
+      success: response => { if (this.alive(savedScope) && code === this.selectedCode && response.tempFiles?.[0]) this.startUpload(response.tempFiles[0], slot); },
+      fail: error => { if (this.alive(savedScope) && !/cancel/i.test(error.errMsg || '')) this.setData({ error: '文件选择失败，请重试' }); } });
+  },
+  chooseSlotPhoto(event) {
+    const slot = model.SLOTS[event.currentTarget.dataset.slot];
+    if (!slot || slot.code !== this.selectedCode || !this.editable() || this.data.form.fields[slot.asset]) return;
+    const savedScope = this._scope, code = this.selectedCode;
+    wx.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album', 'camera'],
+      success: response => { if (this.alive(savedScope) && code === this.selectedCode && response.tempFiles?.[0]) this.startUpload(response.tempFiles[0], slot); },
+      fail: error => { if (this.alive(savedScope) && !/cancel/i.test(error.errMsg || '')) this.setData({ error: '照片选择失败，请重试' }); } });
+  },
+  startUpload(file, slot = null) { this._pendingFile = { file, scope: this._scope, code: this.selectedCode, slot }; return this.retryUpload(); },
   async retryUpload() {
     const pending = this._pendingFile;
     if (!pending || !this.alive(pending.scope) || pending.code !== this.selectedCode || this.data.uploading) return;
@@ -313,7 +330,10 @@ Page({
       if (!alive()) return;
       this._localFiles[file.assetId] = pending.file.path || pending.file.tempFilePath;
       const form = clone(this.data.form);
-      if (!form.attachments.some(item => item.assetId === file.assetId)) form.attachments.push(file);
+      if (pending.slot) {
+        form.fields[pending.slot.asset] = file.assetId;
+        form.fields[pending.slot.name] = String(file.title || pending.slot.fallback).slice(0, 200);
+      } else if (!form.attachments.some(item => item.assetId === file.assetId)) form.attachments.push(file);
       this._pendingFile = null;
       this.setData({ uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '' });
       this.change(form);
@@ -322,7 +342,7 @@ Page({
   restartUpload() {
     const pending = this._pendingFile;
     if (!this.editable() || !pending?.restartRequired || !this.alive(pending.scope) || pending.code !== this.selectedCode) return;
-    this._pendingFile = { file: pending.file, bytes: pending.bytes, mimeType: pending.mimeType, scope: pending.scope, code: pending.code };
+    this._pendingFile = { file: pending.file, bytes: pending.bytes, mimeType: pending.mimeType, scope: pending.scope, code: pending.code, slot: pending.slot };
     return this.retryUpload();
   },
   discardUpload() { if (!this.data.uploading) { this._pendingFile = null; this.setData({ uploadFailed: false, uploadRestartAllowed: false, uploadName: '', error: '' }); } },
@@ -330,10 +350,18 @@ Page({
     if (!this.editable()) return;
     const form = clone(this.data.form); form.attachments = form.attachments.filter(f => f.assetId !== String(event.currentTarget.dataset.id)); this.change(form);
   },
+  removeSlotFile(event) {
+    const slot = model.SLOTS[event.currentTarget.dataset.slot];
+    if (!slot || slot.code !== this.selectedCode || !this.editable()) return;
+    const form = clone(this.data.form);
+    form.fields[slot.asset] = ''; form.fields[slot.name] = '';
+    this.change(form);
+  },
   async previewFile(event) {
     if (!this.alive()) return;
     const assetId = String(event.currentTarget.dataset.id), record = this.data.activeRecord;
-    const source = record || { stepCode: this.selectedCode, attachments: this.data.form?.attachments || [] };
+    const source = record || { stepCode: this.selectedCode,
+      attachments: (this.data.form?.attachments || []).concat(model.slotFiles(this.data.form)) };
     const attachment = source.attachments.find(f => f.assetId === assetId);
     if (!attachment) return;
     const preview = this._previewRequest = { scope: this._scope };
@@ -440,7 +468,10 @@ Page({
         { label: '正式报价金额', value: '¥ ' + value.fields.amountCents },
         { label: '报价版本', value: value.fields.versionLabel }, { label: '沟通结果', value: value.fields.result || '—' });
     }
-    this.setData({ activeRecord: { ...record, details } });
+    // 专用槽位资料：设计合同（05）、设计文件（06）存放在 fields 里，补进详情和附件列表以便回看。
+    if (record.stepCode === 'MEASUREMENT' && value.fields.designContractAssetId) details.push({ label: '设计合同', value: value.fields.designContractName || '已上传' });
+    if (record.stepCode === 'QUOTATION' && value.fields.designFileAssetId) details.push({ label: '设计文件', value: value.fields.designFileName || '已上传' });
+    this.setData({ activeRecord: { ...record, details, attachments: (record.attachments || []).concat(model.slotFiles(record)) } });
   },
   closeRecord() { this.setData({ activeRecord: null }); },
   noop() {},

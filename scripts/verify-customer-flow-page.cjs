@@ -230,7 +230,7 @@ test('step six uses an exact quote for this customer and submits a communication
   assert.match(h.page.data.form.occurredOn, /^\d{4}-\d{2}-\d{2}$/);
   await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
   const [save] = h.callsFor('save');
-  assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户' });
+  assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户', designFileAssetId: '', designFileName: '' });
   assert.deepEqual(save.args[2].attachments, []);
   assert.equal(h.callsFor('complete').length, 1);
 });
@@ -951,4 +951,74 @@ test('八步页模板包含下次跟进日期、可点的流程状态和状态�
   const paused = flatten(render(template, h.page.data));
   assert.ok(paused.some(node => node.tag === 'textarea' && node.attrs.bindinput === 'statusInput'));
   assert.ok(paused.some(node => node.tag === 'picker' && node.attrs.bindchange === 'statusDate'));
+});
+
+test('05测量步骤可登记设计合同：上传写入fields、可预览移除，不占通用附件列表', async () => {
+  const h = harness({ step: 'MEASUREMENT', upload: async pending => ({ assetId: '800', title: pending.file.name, mimeType: 'application/pdf' }) });
+  await h.open();
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designFile' } } });
+  assert.equal(h.filePicker, undefined, '设计文件槽位不属于测量步骤');
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.ok(h.filePicker, '选择器已打开');
+  h.filePicker.success({ tempFiles: [{ name: '设计服务合同.pdf', path: '/local/contract.pdf', size: 1024 }] });
+  for (let i = 0; i < 10 && h.page.data.form.fields.designContractAssetId !== '800'; i++) await tick();
+  assert.equal(h.page.data.form.fields.designContractAssetId, '800');
+  assert.equal(h.page.data.form.fields.designContractName, '设计服务合同.pdf');
+  assert.equal(h.page.data.form.attachments.length, 0, '槽位文件不进通用附件列表');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.designContractAssetId, '800');
+  assert.equal(body.fields.designContractName, '设计服务合同.pdf');
+  assert.equal(body.attachments, undefined || body.attachments.length === 0 ? body.attachments : body.attachments, '通用附件保持为空');
+  assert.deepEqual(body.attachments, []);
+  const pickerBefore = h.filePicker;
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.equal(h.filePicker, pickerBefore, '已登记后不再打开选择器');
+  delete h.page._localFiles['800'];
+  await h.page.previewFile({ currentTarget: { dataset: { id: '800' } } });
+  assert.deepEqual(h.callsFor('download').at(-1).args, ['42', 'MEASUREMENT', '800'], '槽位文件走本步下载票据');
+  h.page.removeSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.equal(h.page.data.form.fields.designContractAssetId, '');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  assert.equal(h.callsFor('save')[1].args[2].fields.designContractAssetId, '', '移除后显式提交空值清除');
+});
+
+test('06报价设计文件独立于报价原单：换原单与改外部报价都保留，历史查看可回看', async () => {
+  const h = harness({ step: 'QUOTATION', upload: async pending => ({ assetId: '800', title: pending.file.name, mimeType: 'application/pdf' }) });
+  h.overrides.listQuotes = async () => [{ id: '9001', customerId: '42', companyId: '9', totalCents: 128000, budgetVersion: 2, createTime: '2026-11-20T10:00:00Z' }];
+  await h.open(); await tick();
+  await h.page.startUpload({ path: '/local/design.pdf', name: '别墅设计方案V1.pdf' }, model.SLOTS.designFile);
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800');
+  h.page.chooseQuote({ detail: { value: 0 } });
+  assert.equal(h.page.data.form.fields.quoteId, '9001');
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800', '关联正式报价不清设计文件');
+  h.page.removeQuote();
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800', '改用外部报价保留设计文件');
+  assert.equal(h.page.data.form.attachments.length, 0);
+  await h.page.startUpload({ path: '/local/design2.pdf', name: '别墅设计方案V2.pdf' }, model.SLOTS.designFile);
+  assert.equal(h.page.data.form.fields.communicated, false, '更换设计文件不重置报价沟通');
+  assert.equal(h.page.data.form.fields.designFileName, '别墅设计方案V2.pdf');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.designFileAssetId, '800');
+  assert.equal(body.fields.designFileName, '别墅设计方案V2.pdf');
+  h.page.setData({ records: model.records([{ id: '91', stepCode: 'QUOTATION', type: 'SAVE', fields: { quoteId: '9001', designFileAssetId: '801', designFileName: '历史设计文件.pdf' }, attachments: [] }]) });
+  h.page.viewRecord({ currentTarget: { dataset: { id: '91' } } });
+  assert.ok(h.page.data.activeRecord.details.some(row => row.label === '设计文件' && row.value === '历史设计文件.pdf'));
+  assert.ok(h.page.data.activeRecord.attachments.some(file => file.assetId === '801' && file.title === '历史设计文件.pdf'));
+});
+
+test('八步页模板只为测量与报价步骤渲染各自的专用资料槽位', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const template = path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  const h = harness({ step: 'MEASUREMENT' }); await h.open();
+  let nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'chooseSlotFile' && node.attrs['data-slot'] === 'designContract'));
+  assert.equal(nodes.some(node => node.attrs && node.attrs['data-slot'] === 'designFile'), false, '测量步骤不渲染设计文件槽位');
+  h.page.select('QUOTATION');
+  nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'chooseSlotFile' && node.attrs['data-slot'] === 'designFile'));
+  h.page.setData({ form: { ...h.page.data.form, fields: { ...h.page.data.form.fields, designFileAssetId: '801', designFileName: '设计文件.pdf' } } });
+  nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'removeSlotFile' && node.attrs['data-slot'] === 'designFile'), '已登记后出现移除按钮');
 });
