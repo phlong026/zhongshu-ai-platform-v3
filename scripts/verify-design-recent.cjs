@@ -29,11 +29,11 @@ test('missing backend fields never become invented counts, image previews or fin
  assert.equal(row.progress,'');assert.equal(row.metadata,'');assert.equal(row.coverUrl,'');assert.equal(row.statusText,'待确认');assert.equal(row.running,false);
 });
 
-test('a new successful generation with V1 still present opens candidate selection until confirmation',()=>{
+test('a historical job with unconfirmed candidates opens its read-only gallery',()=>{
  for(const stage of ['FLAT','ELEVATION']){
   const h=harness(),project={projectId:'11',jobId:'102',stage,resultVersionId:'201',resumeAction:'SELECT_'+stage};
   h.page.data.recentTasks=[h.api.row(project,{jobId:'102',status:'SUCCEEDED'})];
-  assert.equal(h.page.data.recentTasks[0].action,'选择新方案');
+  assert.equal(h.page.data.recentTasks[0].action,'查看候选图');
   h.api.open(h.page,{currentTarget:{dataset:{id:'11'}}});assert.match(h.routes[0],/generating\?projectId=11&jobId=102/);assert(!h.routes[0].includes('201'));
   h.page.data.recentTasks=[h.api.row({...project,resumeAction:'VIEW_RESULT',resultVersionId:'202'},{jobId:'102',status:'SUCCEEDED'})];
   h.api.open(h.page,{currentTarget:{dataset:{id:'11'}}});assert.match(h.routes[1],/result\?projectId=11&resultVersionId=202/);

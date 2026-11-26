@@ -10,19 +10,12 @@ const generationOptions = require('../../utils/generation-options');
 const flatDefaults = generationOptions.selection('FLAT');
 const STATUS_TEXT = { QUEUED: '排队等待中', RUNNING: 'AI 正在绘制方案', VALIDATING: '正在校验生成结果', CANCEL_REQUESTED: '正在取消任务', SUCCEEDED: '生成完成', PARTIALLY_SUCCEEDED: '部分方案已生成', FAILED: '生成失败', CANCELLED: '任务已取消' };
 const STEP_ORDER = ['QUEUED', 'RUNNING', 'VALIDATING'];
-// 两条线路确认后进入各自正式结果，不跨线引导；
-// tab=true 表示目标是 tabBar 页面，需用 switchTab 跳转
-const NEXT = {
-  plane: { label: '查看平面方案', url: '/design-migration/pages/ai-design/result' },
-  elevation: { label: '查看最终方案', url: '/design-migration/pages/ai-design/result' }
-};
-
 protectedPage({
   data: { stage: 'plane', count: 2, progress: 0, status: 'QUEUED',
           statusText: '正在读取任务', acceptedCount: 0, canCancel: false, cancelling: false, finished: false, pollError: '', partialNotice: '',
           stepIndex: 0, elapsedText: '00:00',
           candidates: [], pendingSlots: 0, candidatesError: '',
-          selectedId: '', selectDone: false, selecting: false, nextLabel: '', regenerating: false, terminal: false, targetInvalid: false, terminalNotice: '',
+          terminal: false, targetInvalid: false, terminalNotice: '',
           resolution: flatDefaults.resolution, orientation: flatDefaults.orientation, outputPixels: flatDefaults.outputPixels },
   onLoad(query) {
     this._token = http.captureSession ? http.captureSession() : http.getToken();
@@ -192,91 +185,15 @@ protectedPage({
       { url: '', imageLoading: false, imageError: '图片已失效，点击重新加载' }) : candidate) });
   },
   current(token) { return http.isSameSession ? http.isSameSession(token) : token === http.getToken(); },
-  // 页内选择：与主/恢复两路径共用（选择页已收敛到本页内联候选）
-  selectCandidate(event) {
-    if (!this.data.finished || this.data.selectDone || this.data.selecting) return;
-    const candidateId = event.currentTarget.dataset.id;
-    const cand = this.data.candidates.find(function (item) { return String(item.candidateId) === String(candidateId); });
-    if (!cand) return;
-    const self = this;
-    this.setData({ selecting: true });
-    const global = getDesignApp().globalData;
-    const request = this.data.stage === 'plane'
-      ? api.selectFlat(this._projectId, this._jobId, cand.candidateId).then(function (vo) {
-          if (self._stopped || !self.current(self._token)) return;
-          const legacySelection = vo && vo.selectionSaved === true && vo.flatDeliveryCreated === false
-            && vo.stage === 'ELEVATION' && String(vo.projectId) === String(self._projectId);
-          if (legacySelection) {
-            global.resultVersionId = null;
-            global.projectId = self._projectId;
-            self._flatSelectionFollowUp = 'elevation';
-            self._legacyElevationJobId = vo.resumeAction === 'POLL_JOB' ? view.id(vo.jobId) : null;
-            if (vo.resumeAction === 'POLL_JOB' && !self._legacyElevationJobId) throw { msg: '立面任务编号无效，请重试' };
-          } else if (vo && vo.stage !== 'ELEVATION' && vo.resultVersionId
-            && (vo.selectionSaved == null || vo.flatDeliveryCreated === true)) {
-            global.resultVersionId = vo.resultVersionId;
-          } else {
-            throw { msg: '正式方案尚未保存，请重试确认' };
-          }
-          global.selectedCandidateId = cand.candidateId;
-          global.selectedFlatAssetId = cand.assetId;
-          global.flatLabel = cand.name;
-          return null;
-        })
-      : api.selectElevation(this._projectId, this._jobId, cand.candidateId).then(function (vo) {
-          global.selectedElevationId = cand.candidateId;
-          global.selectedElevationAssetId = cand.assetId;
-          global.elevationLabel = cand.name;
-          global.resultVersionId = (vo && vo.resultVersionId) ? vo.resultVersionId : null;
-          return null;
-        });
-    return request.then(function () {
-      if (self._stopped || !self.current(self._token)) return;
-      const next = self._flatSelectionFollowUp === 'elevation'
-        ? { label: self._legacyElevationJobId ? '查看立面进度' : '继续配置立面', url: '/design-migration/pages/ai-design/index', tab: true }
-        : NEXT[self.data.stage];
-      self.setData({ selectedId: cand.candidateId, selectDone: true, selecting: false, nextLabel: next.label });
-      wx.showToast({ title: '已选定 ' + cand.name, icon: 'success' });
-    }).catch(function (err) {
-      if (self._stopped || !self.current(self._token)) return;
-      self.setData({ selecting: false });
-      wx.showToast({ title: (err && err.msg) || '选定失败，请重试', icon: 'none' });
-    });
-  },
-  nextStep() {
-    if (!this.data.selectDone || !this.current(this._token)) return;
-    // 带 projectId/resultVersionId 直达，不依赖 globalData（场景恢复后内存态可能为空）
-    if (this._legacyElevationJobId) {
-      wx.redirectTo({ url: '/design-migration/pages/ai-design/generating?stage=elevation&projectId=' + this._projectId + '&jobId=' + this._legacyElevationJobId,
-        fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
-      return;
-    }
-    const followUp = this._flatSelectionFollowUp === 'elevation';
-    const next = followUp ? { label: '继续立面设计', url: '/design-migration/pages/ai-design/index', tab: true } : NEXT[this.data.stage];
-    if (next.tab) {
-      // 历史立面线路选完平面：回入口页并直接打开立面 Tab（入口页 onShow 按 aiLine 归位）
-      if (followUp) {
-        getDesignApp().globalData.aiLine = 'ELEVATION';
-        getDesignApp().globalData.resumeElevationProjectId = this._projectId;
-      }
-      navigation.switchTab({ url: next.url, fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
-      return;
-    }
-    let url = next.url;
-    if (this._projectId) {
-      const versionId = getDesignApp().globalData.resultVersionId;
-      url += '?projectId=' + this._projectId + (versionId ? '&resultVersionId=' + versionId : '');
-    }
-    wx.redirectTo({ url: url, fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
-  },
+  // 重新读取历史任务的候选图。
   retryCandidates() {
     this.setData({ candidatesError: '' });
     this.refreshCandidates();
   },
   leavePage() {
-    wx.navigateBack({ fail: () => navigation.switchTab({ url: '/design-migration/pages/ai-design/index' }) });
+    wx.navigateBack({ fail: () => navigation.switchTab({ url: '/design-migration/pages/profile/records?type=projects' }) });
   },
-  // 选择页收敛后重生成入口移到这里：不满意候选可直接再生成（扣点确认在前），逻辑与原两页一致
+  // 兼容旧页面实例里尚未消失的事件。
   regenerate() {
     wx.showToast({ title: '请在客户跟进中上传外部设计成果', icon: 'none' });
   },

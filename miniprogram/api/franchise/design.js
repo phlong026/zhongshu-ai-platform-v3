@@ -28,8 +28,8 @@ const projects = {
   aiJob: (jobId) => http.get('/franchise/design/ai-jobs/' + jobId),
   cancelJob: (jobId) => http.post('/franchise/design/ai-jobs/' + jobId + '/cancellation-requests', {}),
   notePolish: retired.reject,
-  selectFlat: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/flat-selections', data),
-  selectElevation: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/elevation-selections', data),
+  selectFlat: retired.reject,
+  selectElevation: retired.reject,
   resultVersions: (projectId) => http.get('/franchise/design/projects/' + projectId + '/result-versions'),
   revision: retired.reject,
   saveToCustomer: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/save-to-customer', data, idem(key, 'save'))

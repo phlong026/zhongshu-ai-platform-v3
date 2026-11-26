@@ -88,10 +88,18 @@ test('B价格变化走重新确认语义，报价与余额来自真实公司积�
  h.http.post=()=>Promise.reject({code:1072000016,message:'价格已改变'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code==='DESIGN_PRICE_CHANGED');
  h.http.post=()=>Promise.reject({code:1072000001,message:'公司没有开通设计能力'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code===1072000001);
 });
-test('旧出图入口回到灵感资料库，快速预算仍独立可用',()=>{
+test('旧出图入口回到灵感资料库，快速预算链接保留创建与历史的上下文',()=>{
  let page;const routes=[];vm.runInNewContext(fs.readFileSync(path.join(ROOT,'miniprogram/pages/workflow/explore/index.js'),'utf8'),{Page:p=>page=p,wx:{redirectTo:o=>routes.push(o.url)},require:p=>p.endsWith('/api/http')?{token:()=> 'b'}:p.endsWith('/api/auth')?{currentApiPost:()=>({postId:'1'})}:p.endsWith('/utils/platform-design')?{pageMode:()=> 'api'}:p==='./platform-bridge'?p=>{p.platTeardown=()=>{};p.platOnLoadInit=()=>{throw Error('old flow invoked');};}: {}});
  page.setData=()=>{};for(const view of ['inspiration','ai-config','ai-facade','budget'])page.onLoad({view});
- assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/budget/quick']);
+ page.onLoad({view:'budget-result',budgetId:'90071992547409971',revisionId:'90071992547409972'});
+ page.onLoad({view:'plan-result',projectId:'90071992547409973',resultVersionId:'90071992547409975'});
+ page.onLoad({view:'project',id:'not-an-id'});
+ page.onLoad({view:'budget',draftId:'90071992547409974'});
+ page.onLoad({view:'budget',projectId:'90071992547409970',resultVersionId:'701'});
+ assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/budget/quick',
+ '/design-migration/pages/budget/result?budgetId=90071992547409971&revisionId=90071992547409972',
+ '/design-migration/pages/ai-design/result?projectId=90071992547409973&resultVersionId=90071992547409975',
+ '/design-migration/pages/profile/records?type=projects','/design-migration/pages/budget/quick?draftId=90071992547409974','/design-migration/pages/budget/input?projectId=90071992547409970&resultVersionId=701']);
 });
 test('全图展示和公司归档入口已接入；历史只读与完成后才导出预算图保持原限制',()=>{
  const root=path.join(ROOT,'miniprogram/design-migration');assert.match(fs.readFileSync(path.join(root,'pages/library/detail.wxml'),'utf8'),/aspectFit/);assert.match(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/pages\/customer\/archive/);assert.doesNotMatch(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/ai-design\/publish/);

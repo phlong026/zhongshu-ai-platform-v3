@@ -10,7 +10,7 @@ function row(p,j={}){
  return {id,jobId,stage,resumeAction:p.resumeAction||'',title:(p.name||'独立方案')+' · '+(stage==='ELEVATION'?'AI立面':'AI平面'),metadata,
   status,statusText:labels[status]||'待确认',running:active.includes(status),tone:active.includes(status)?'warm':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'green':['FAILED','CANCELLED'].includes(status)?'red':'muted',
   progress:count>0&&Number.isFinite(accepted)?'已生成 '+accepted+'/'+count+' 张':'',count:count>0?count:0,
-  action:['SELECT_FLAT','SELECT_ELEVATION'].includes(p.resumeAction)?'选择新方案':active.includes(status)?'查看进度':status==='FAILED'?'查看原因':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'查看结果':'查看详情',
+  action:['SELECT_FLAT','SELECT_ELEVATION'].includes(p.resumeAction)?'查看候选图':active.includes(status)?'查看进度':status==='FAILED'?'查看原因':['SUCCEEDED','PARTIALLY_SUCCEEDED'].includes(status)?'查看结果':'查看详情',
   resultVersionId:p.resultVersionId?String(p.resultVersionId):'',coverAssetId:p.coverAssetId||p.selectedElevationAssetId||p.selectedFlatAssetId||'',coverUrl:'',icon:stage==='ELEVATION'?'/assets/house.png':'/assets/plan-file.png'};
 }
 function stop(page){page.__recentHidden=true;page.__recentSequence=(page.__recentSequence||0)+1;if(page.__recentTimer)clearTimeout(page.__recentTimer);page.__recentTimer=null;}
