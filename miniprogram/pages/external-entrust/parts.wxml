@@ -9,9 +9,19 @@
 <template name="files">
   <view wx:for="{{files}}" wx:key="assetId" class="entrust-file"><button class="entrust-file-name" data-asset-id="{{item.assetId}}" data-kind="{{item.kind}}" data-version="{{item.version}}" bindtap="previewFile">{{item.title}}</button><button wx:if="{{removable}}" class="entrust-link" data-asset-id="{{item.assetId}}" disabled="{{locked}}" bindtap="removeFile">移除</button></view>
 </template>
+<template name="measurement">
+  <view class="entrust-fact"><text>测量原单</text><text>{{source.occurredOn}} · 流程版本 {{source.revision}}</text></view>
+  <view class="entrust-fact"><text>测量记录编号</text><text>{{source.eventId}}</text></view>
+  <view class="entrust-fact"><text>实测地址</text><text>{{source.fields.address}}</text></view>
+  <view class="entrust-fact"><text>测量人</text><text>{{source.fields.measurer}}</text></view>
+  <view class="entrust-fact"><text>面宽 / 进深 / 面积</text><text>{{source.fields.width}} m / {{source.fields.depth}} m / {{source.fields.area}} ㎡</text></view>
+  <view wx:if="{{source.fields.floors}}" class="entrust-fact"><text>实测层数</text><text>{{source.fields.floors}}</text></view>
+  <text wx:for="{{source.attachments}}" wx:key="assetId" class="entrust-muted">{{item.title || '测量原件'}}</text>
+</template>
 <template name="request">
   <view class="entrust-fact"><text>实际委托日期</text><text>{{record.occurredOn||'—'}}</text></view>
   <view class="entrust-fact"><text>外部服务方</text><text>{{record.data.providerName}}</text></view>
+  <template wx:if="{{record.data.measurementRef}}" is="measurement" data="{{source:record.data.measurementRef}}"/>
   <view wx:if="{{record.data.providerReference}}" class="entrust-fact"><text>外部编号</text><text>{{record.data.providerReference}}</text></view>
   <view wx:if="{{record.data.area||record.data.floors}}" class="entrust-fact"><text>建筑规模</text><text>{{record.data.area?record.data.area+'㎡':''}}{{record.data.area&&record.data.floors?' · ':''}}{{record.data.floors?record.data.floors+'层':''}}</text></view>
   <text class="entrust-label">委托需求</text><text class="entrust-copy">{{record.data.text}}</text>

@@ -8,33 +8,45 @@ const model = require('./model');
 const api = require('./api');
 const errorText = error => String(error?.msg || error?.message || '操作未完成，请重试');
 const revoked = error => error?.postInvalid || [401, 403, 404, 1110000000, 1110000001, 1112000000].includes(Number(error?.code));
+const deniedRead = error => revoked(error) || Number(error?.code) === 1099000002;
+const emptyMeasurements = () => ({ measurements: [], measurementNext: '', measurementsOpen: false, measurementsLoading: false, measurementsError: '' });
 
 Page({
   ...require('./files'),
   data: { loading: false, ready: false, context: null, tab: 'request', form: null, editing: '', dirty: false, today: '',
     requestFields: model.requestFields, fileSlots: [], historyKey: '', busy: false, uploading: false, uploadFailed: false,
-    uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error: '' },
+    uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error: '', ...emptyMeasurements() },
   onLoad(options = {}) {
     this._routeCustomerId = model.id(options.customerId); this._routeCommissionId = model.id(options.commissionId);
     this.customerId = this._routeCustomerId;
     this.setData({ today: day(Date.now()), tab: ['request', 'result', 'history'].includes(options.tab) ? options.tab : 'request' });
   },
-  onShow() { this._visible = true; this.setData({ today: day(Date.now()) }); return this.load(); },
-  onHide() { this._visible = false; this._read = null; this._preview = null; },
+  onShow() { this.suspend(); this._visible = true; this._view = {}; this.setData({ today: day(Date.now()) }); return this.load(); },
+  onHide() { this._visible = false; this.suspend(); },
   onUnload() { this._disposed = true; this.onHide(); this.clear(); },
   alive(savedScope = this._scope) {
     const post = auth.currentApiPost();
     return !this._disposed && !!http.token() && !!savedScope && savedScope === scope() && post && String(post.postId) === String(http.currentPostId());
   },
+  suspend() {
+    this._view = null; this._read = null; this._preview = null; this._measurementRead = null;
+    if (!this.data.ready) return;
+    const { context, form, editing, dirty, historyKey, conflict } = this.data;
+    this._suspended = { revision: context.revision, form, editing, dirty, historyKey, conflict };
+    this.setData({ ...emptyMeasurements(), ready: false, context: null, form: null, editing: '', dirty: false, historyKey: '', fileSlots: [],
+      busy: false, uploading: false, uncertain: false, uploadFailed: false, uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', conflict: false, error: '' });
+  },
   clear(error = '') {
     this._read = null; this._preview = null; this._pending = null; this._pendingFile = null; this._localFiles = {}; this._edit = null;
-    this.setData({ loading: false, ready: false, context: null, form: null, editing: '', dirty: false, fileSlots: [], historyKey: '',
+    this._measurementRead = null; this._suspended = null; this._picker = null; this._baseRevision = null; this._basePlanRef = null;
+    this.setData({ ...emptyMeasurements(), loading: false, ready: false, context: null, form: null, editing: '', dirty: false, fileSlots: [], historyKey: '',
       busy: false, uploading: false, uploadFailed: false, uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error });
   },
   apply(context) {
-    this._read = null; this._preview = null; this._pendingFile = null; this._localFiles = {}; this._edit = null;
+    this._read = null; this._preview = null; this._pending = null; this._pendingFile = null; this._localFiles = {}; this._edit = null; this._picker = null;
     this._baseRevision = context.revision; this._basePlanRef = model.copy(context.planRef);
-    this.setData({ loading: false, ready: true, context, form: null, editing: '', dirty: false, conflict: false,
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), loading: false, ready: true, context, form: null, editing: '', dirty: false, conflict: false, busy: false, uploading: false, uncertain: false,
       uploadFailed: false, uploadName: '', uploadRestartAllowed: false, fileSlots: this.slotsFor(context.result?.data), error: '' });
     if (!context.commissionId && context.canRegister && this.data.tab === 'request') this.startEdit({ currentTarget: { dataset: { action: 'register' } } });
   },
@@ -44,7 +56,7 @@ Page({
     if (!http.token() || !post || !currentScope || String(post.postId) !== String(http.currentPostId())) return this.clear('请先登录并选择工作身份');
     if (!this._routeCustomerId && !this._routeCommissionId) return this.clear('委托链接无效，请从客户页重新进入');
     if (currentScope !== this._scope) { this.clear(); this._scope = currentScope; this.customerId = this._routeCustomerId; }
-    if (this.data.busy || this.data.uploading || this.data.uncertain) return;
+    if (this.data.ready && (this.data.busy || this.data.uploading || this.data.uncertain)) return;
     const request = this._read = { scope: currentScope };
     const current = () => this._visible && this._read === request && this.alive(request.scope);
     this.setData({ loading: true, error: '' });
@@ -57,6 +69,8 @@ Page({
       const result = await api.get(this.customerId); if (!current()) return;
       const context = model.detail(result, this.customerId, model.id(post.orgId), post);
       if (this._routeCommissionId && context.commissionId !== this._routeCommissionId) throw Error('委托所属客户不匹配');
+      if (this._suspended && context.revision < this._suspended.revision) throw Error('尚未取得最新委托，请重新加载');
+      if (this._suspended) return this.restore(context);
       if (this.data.context && context.revision < this.data.context.revision) return this.setData({ loading: false });
       const keep = !options.replace && this.data.editing && this.allowed(this.data.editing, context);
       if (!keep) this.apply(context);
@@ -64,22 +78,76 @@ Page({
         conflict: this._baseRevision !== context.revision || this.data.editing !== 'results' && model.refKey(this._basePlanRef) !== model.refKey(context.planRef) });
     } catch (error) {
       if (!current()) return;
-      if (revoked(error)) return this.clear(errorText(error));
+      if (deniedRead(error)) return this.clear(errorText(error));
       this.setData({ loading: false, error: errorText(error) });
     }
+  },
+  restore(context) {
+    const saved = this._suspended, pending = this._pending, file = this._pendingFile;
+    this._suspended = null;
+    // A successful conversion no longer offers the conversion action. Its original command can still be replayed by the writer.
+    const canReplayConversion = pending?.action === 'convert' && context.mode === 'EXTERNAL' && context.canRegister;
+    if (!this.allowed(saved.editing, context) && !canReplayConversion) {
+      this.apply(context);
+      if (!saved.editing && context.history.some(row => row.key === saved.historyKey)) this.setData({ historyKey: saved.historyKey });
+      return;
+    }
+    const busy = !!pending?.inFlight, uncertain = !!pending && !busy, uploading = !!file?.inFlight;
+    this.setData({ ready: true, loading: false, context, form: saved.form, editing: saved.editing, dirty: saved.dirty, busy, uncertain, uploading,
+      fileSlots: this.slotsFor(saved.editing === 'results' ? saved.form : context.result?.data), uploadName: file?.file?.name || '',
+      uploadFailed: !!file && !uploading, uploadRetryable: !!file && !file.rejected, uploadRestartAllowed: !!file?.restartRequired,
+      conflict: saved.conflict || this._baseRevision !== context.revision || saved.editing !== 'results' && model.refKey(this._basePlanRef) !== model.refKey(context.planRef),
+      error: uncertain ? '办理结果尚未确认，请用原请求重试核对' : '' });
+    this.finishPicker();
   },
   allowed(action, context = this.data.context) {
     return !!context && model.canWrite(auth.currentApiPost()) && ({ register: context.canRegister, convert: context.canConvert, results: context.canResults })[action] === true;
   },
-  editable() { return this.alive() && this.allowed(this.data.editing) && !this.data.busy && !this.data.uploading && !this.data.uncertain && !this.data.conflict; },
+  editable() { return this._visible && this.data.ready && this.alive() && this.allowed(this.data.editing) && !this.data.busy && !this.data.uploading && !this.data.uncertain && !this.data.conflict; },
   startEdit(event) {
     const action = event?.currentTarget?.dataset?.action;
     if (!this.alive() || !this.allowed(action) || this.data.busy || this.data.uploading || this.data.uncertain || this.data.dirty) return;
     const context = this.data.context; this._read = null; this._preview = null; this._pendingFile = null; this._localFiles = {}; this._edit = {};
     this._baseRevision = context.revision; this._basePlanRef = model.copy(context.planRef);
     const form = action === 'results' ? model.resultForm(context) : model.requestForm(context);
-    this.setData({ form, editing: action, tab: action === 'results' ? 'result' : 'request', dirty: false, conflict: false, error: '',
+    this.setData({ ...emptyMeasurements(), form, editing: action, tab: action === 'results' ? 'result' : 'request', dirty: false, conflict: false, error: '',
       fileSlots: this.slotsFor(action === 'results' ? form : context.result?.data), uploadFailed: false, uploadName: '', uploadRestartAllowed: false });
+  },
+  async loadMeasurements(event) {
+    if (!this._visible || !this.editable() || this.data.editing === 'results' || this.data.measurementsLoading) return;
+    const more = event?.currentTarget?.dataset?.more === '1';
+    const before = more ? this.data.measurementNext : '';
+    if (more && !before) return;
+    const savedScope = this._scope, edit = this._edit, customer = this.customerId;
+    const token = this._measurementRead = {};
+    const current = () => this._visible && this._measurementRead === token && this._edit === edit && customer === this.customerId && this.alive(savedScope);
+    this.setData({ measurementsOpen: true, measurementsLoading: true, measurementsError: '', ...(!more ? { measurements: [], measurementNext: '' } : {}) });
+    try {
+      const page = await api.measurements(customer, before);
+      if (!current()) return;
+      if (model.id(page?.customerId) !== customer || !Array.isArray(page.list) || (page.nextBeforeId != null && !model.id(page.nextBeforeId)))
+        throw Error('测量记录响应不匹配，请重试');
+      const values = page.list.map(row => model.measurement(row, customer));
+      const rows = [...(more ? this.data.measurements : []), ...values];
+      this.setData({ measurements: [...new Map(rows.map(row => [row.eventId, row])).values()],
+        measurementNext: model.id(page.nextBeforeId), measurementsLoading: false });
+    } catch (error) {
+      if (!current()) return;
+      if (deniedRead(error)) return this.clear(errorText(error));
+      this.setData({ measurementsLoading: false, measurementsError: errorText(error) });
+    }
+  },
+  chooseMeasurement(event) {
+    if (!this._visible || !this.editable() || this.data.editing === 'results') return;
+    const selected = this.data.measurements.find(row => row.eventId === model.id(event.currentTarget.dataset.id));
+    if (!selected) return;
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: selected }, dirty: true, error: '' });
+  },
+  removeMeasurement() {
+    if (!this._visible || !this.editable() || this.data.editing === 'results') return;
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: null }, dirty: true, error: '' });
   },
   input(event) {
     const key = event.currentTarget.dataset.key;
@@ -109,24 +177,30 @@ Page({
     } catch (error) { this.setData({ error: errorText(error) }); }
   },
   async runPending() {
-    const command = this._pending;
-    if (!command || this.data.busy || !this.alive(command.scope) || command.customerId !== this.customerId) return;
+    const command = this._pending, view = this._view;
+    if (!this._visible || !this.data.ready || !command || command.inFlight || !this.alive(command.scope) || command.customerId !== this.customerId) return;
+    command.inFlight = true;
+    const current = () => this.alive(command.scope) && this._pending === command && this._view === view && this.data.ready;
     this._read = null; this._preview = null; this.setData({ busy: true, uncertain: false, error: '' });
     try {
       const result = await api[command.action](command.customerId, command.body, command.key);
-      if (!this.alive(command.scope) || this._pending !== command) return;
+      if (!current()) return;
       const context = model.detail(result, command.customerId, model.id(auth.currentApiPost().orgId), auth.currentApiPost());
       if (context.revision <= command.body.revision || !context.commissionId) throw Error('办理结果尚未确认');
       this._pending = null; this.setData({ busy: false, uncertain: false }); this.apply(context);
       wx.showToast({ title: command.action === 'results' ? '外部成果已登记' : command.action === 'convert' ? '已转入外部流程' : '委托需求已登记', icon: 'none' });
     } catch (error) {
-      if (!this.alive(command.scope) || this._pending !== command) return;
+      if (!current()) return;
       if (revoked(error)) return this.clear(errorText(error));
       if (Number(error?.code) === 1099000002) return this.recheckAccess(error);
       const code = Number(error?.code), uncertain = !Number.isFinite(code) || code === -1 || code === 1099000000 || code >= 500 && code < 600;
       if (!uncertain) this._pending = null;
       this.setData({ busy: false, uncertain, conflict: code === 409 || code === 1099000001,
         error: uncertain ? '办理结果尚未确认，请用原请求重试核对' : errorText(error) });
+    } finally {
+      command.inFlight = false;
+      if (this._pending === command && this.alive(command.scope) && this.data.ready && this._view !== view)
+        this.setData({ busy: false, uncertain: true, error: '办理结果尚未确认，请用原请求重试核对' });
     }
   },
   async recheckAccess(error) {

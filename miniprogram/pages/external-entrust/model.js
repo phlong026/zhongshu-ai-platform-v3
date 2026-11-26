@@ -48,10 +48,22 @@ function files(values, kind, version) {
   return values.map(file => { if (!id(file?.assetId)) throw Error('附件编号无效');
     return { assetId: id(file.assetId), title: String(file.title || '委托资料'), kind, version }; });
 }
+function measurement(value, customerId) {
+  if (!value || !id(value.eventId) || id(value.customerId) !== customerId || !Number.isSafeInteger(value.revision) || value.revision < 1 ||
+      !day(value.occurredOn) || value.fields?.checked !== true || !Array.isArray(value.attachments) || !value.attachments.length)
+    throw Error('测量原单所属客户或版本不匹配，请重新读取');
+  return { eventId: id(value.eventId), revision: value.revision, customerId, occurredOn: day(value.occurredOn),
+    fields: copy(value.fields), attachments: files(value.attachments, '', 0) };
+}
 function version(value, kind, customerId, companyId) {
   if (!value || !Number.isSafeInteger(value.version) || value.version < 1 || !value.data) throw Error('委托版本记录无效');
   const data = copy(value.data), request = kind === 'requests';
   const attachments = files(request ? data.attachments || [] : value.attachments || [], kind, value.version);
+  if (request && data.measurementRef) {
+    data.measurementRef = measurement(data.measurementRef, customerId);
+    if (data.measurementRef.attachments.some(source => !attachments.some(file => file.assetId === source.assetId)))
+      throw Error('委托版本与测量原件不匹配，请重新读取');
+  }
   return { ...value, key: kind + '-' + value.version, kind, data, attachments, actorUserId: id(value.actorUserId),
     createdOn: day(value.createdAt), occurredOn: day(request ? data.entrustedOn : data.deliveredOn),
     title: request ? ({ REGISTER: '登记委托需求', UPDATE: '变更委托需求', CONVERT: '转入外部流程' }[value.action] || '委托需求') : '登记外部成果',
@@ -86,9 +98,11 @@ function detail(value, customerId, companyId, post) {
 }
 function requestForm(context) {
   const source = context.request?.data || {};
+  const measured = new Set((source.measurementRef?.attachments || []).map(file => file.assetId));
   return { entrustedOn: day(source.entrustedOn), providerName: source.providerName || '', providerReference: source.providerReference || '',
     text: source.text || '', scope: source.scope || '', area: source.area == null ? '' : String(source.area), floors: source.floors == null ? '' : String(source.floors),
-    attachments: copy(context.request?.attachments || []), reason: '' };
+    attachments: copy((context.request?.attachments || []).filter(file => !measured.has(file.assetId))),
+    measurementRef: source.measurementRef ? copy(source.measurementRef) : null, reason: '' };
 }
 function resultForm(context) {
   const source = context.result?.data || {};
@@ -115,9 +129,14 @@ function payload(action, form, context, today) {
   if (floors && (!/^\d+$/.test(floors) || Number(floors) < 1 || Number(floors) > 20)) throw Error('层数须为1至20的整数');
   const attachments = files(form.attachments || [], 'requests', 0).map(file => ({ assetId: file.assetId, title: string(file.title, 180, true, '附件名称') }));
   if (attachments.length > 20 || new Set(attachments.map(v => v.assetId)).size !== attachments.length) throw Error('最多20份委托资料，同一附件不能重复');
+  const selected = form.measurementRef ? measurement(form.measurementRef, context.customerId) : null;
+  if (selected && new Set([...attachments, ...selected.attachments].map(file => file.assetId)).size > 20)
+    throw Error('委托附件与测量原件合计最多20份');
   return { revision: context.revision, entrustedOn: date(form.entrustedOn, today, '实际委托日期'), providerName: string(form.providerName, 100, true, '外部服务方'),
     providerReference: string(form.providerReference, 100, false, '外部编号'), text: string(form.text, 2000, true, '委托需求'), scope: string(form.scope, 500, true, '服务范围'),
     area: area ? Number(area) : null, floors: floors ? Number(floors) : null, attachments, paymentPlanRef: planRef(context.planRef),
-    reason: string(form.reason, 500, action === 'convert' || !!context.request, '变更原因') };
+    reason: string(form.reason, 500, action === 'convert' || !!context.request, '变更原因'),
+    ...(selected ? { measurementRef: { eventId: selected.eventId, revision: selected.revision } } :
+      context.request?.data.measurementRef ? { removeMeasurement: true } : {}) };
 }
-module.exports = { id, copy, canWrite, planRef, refKey, detail, requestForm, resultForm, payload, slots, requestFields };
+module.exports = { id, copy, canWrite, planRef, refKey, detail, requestForm, resultForm, payload, measurement, slots, requestFields };

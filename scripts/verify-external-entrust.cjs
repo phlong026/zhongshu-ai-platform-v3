@@ -7,6 +7,11 @@ const event = (key, value) => ({ currentTarget: { dataset: { key } }, detail: { 
 const actionEvent = action => ({ currentTarget: { dataset: { action } } });
 const tabEvent = tab => ({ currentTarget: { dataset: { tab } } });
 const tick = () => new Promise(resolve => setImmediate(resolve));
+test('委托编辑可选择当前客户已核对的测量记录', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/external-entrust/index.wxml'), 'utf8');
+  assert.match(page, /bindtap="loadMeasurements"/);
+  assert.match(page, /选择已核对的测量记录/);
+});
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 function load(file, mocks, globals = {}) {
   const filename = path.join(root, file), real = createRequire(filename), module = { exports: {} };
@@ -14,6 +19,45 @@ function load(file, mocks, globals = {}) {
   return module.exports;
 }
 const noneRef = () => ({ source: 'NONE', revision: 0, contractId: null, contractPlanVersion: null });
+function measured(id, revision, asset, customer = '42') {
+  return { eventId: id, revision, customerId: customer, occurredOn: '2026-11-24',
+    fields: {checked: true, address: '实测现场', measurer: '陈师傅', width: '10', depth: '12', area: '120'},
+    attachments: [{assetId: asset, title: '原测量图.pdf'}] };
+}
+test('only the selected saved measurement identity is submitted, and editing a past request separates original from manual files', async () => {
+  const old = measured('8123456789123456001', 3, '901'), recent = measured('8123456789123456002', 5, '902');
+  const h = harness({api: {measurements: async (id, before) => ({customerId: id, list: [before ? old : recent], nextBeforeId: before ? null : recent.eventId})}});
+  await h.open(); h.fill();
+  await h.page.loadMeasurements();
+  await h.page.loadMeasurements({currentTarget: {dataset: {more: '1'}}});
+  assert.deepEqual(copy(h.page.data.measurements).map(row => row.eventId), [recent.eventId,old.eventId]);
+  h.page.chooseMeasurement({currentTarget:{dataset:{id:old.eventId}}});
+  const form = h.page.data.form, context = h.page.data.context;
+  assert.equal(form.measurementRef.eventId,old.eventId);
+  assert.deepEqual(copy(model.payload('register',form,context,'2026-11-25').measurementRef),{eventId:old.eventId,revision:3});
+  assert.deepEqual(model.payload('register',form,context,'2026-11-25').attachments,[]);
+  const stored = state('pending'); stored.currentRequest.data.measurementRef = old;
+  stored.currentRequest.data.attachments = [...old.attachments,{assetId:'601',title:'外部需求.pdf'}]; stored.requests = [stored.currentRequest];
+  const parsed = model.detail(stored,'42','9',{orgType:'store',roleCode:'sales'});
+  const edit = model.requestForm(parsed);
+  assert.deepEqual(edit.attachments.map(f=>f.assetId),['601']);
+  assert.equal(edit.measurementRef.attachments[0].assetId,'901');
+  edit.reason='改用手动附件'; edit.measurementRef=null;
+  assert.equal(model.payload('register',edit,parsed,'2026-11-25').removeMeasurement,true);
+  assert.deepEqual(parsed.request.attachments.map(f=>f.assetId),['901','601']);
+});
+test('late measurement pages are discarded after switching posts and a foreign customer response cannot become a selection', async () => {
+  const slow = deferred(), h = harness({api:{measurements:()=>slow.promise}});
+  await h.open();
+  const waiting=h.page.loadMeasurements();
+  h.switchSession({roleCode:'boss'}); await h.page.onShow();
+  slow.resolve({customerId:'42',list:[measured('700',1,'800')],nextBeforeId:null}); await waiting;
+  assert.equal(h.page.data.measurements.length,0);
+  assert.equal(h.page.data.editing,'');
+  const bad=harness({api:{measurements:async()=>({customerId:'42',list:[measured('700',1,'800','99')],nextBeforeId:null})}});
+  await bad.open(); await bad.page.loadMeasurements();
+  assert.match(bad.page.data.measurementsError,/客户或版本/); assert.equal(bad.page.data.measurements.length,0);
+});
 function requestData() { return { revision: 0, entrustedOn: '2026-11-24', providerName: '本地设计服务方', providerReference: 'EX-1', text: '三房两厅，带老人房', scope: '平面及施工图',
   area: 260.5, floors: 2, attachments: [{ assetId: '88', title: '测量记录.pdf' }], paymentPlanRef: noneRef(), reason: '' }; }
 function draftPlan(revision = 2) { return { customerId: '42', companyId: '9', source: 'DRAFT', revision, totalCents: 100001, contractId: null, contractPlanVersion: null,
@@ -38,9 +82,10 @@ function harness(options = {}) {
   let definition, generation = 1, key = 0, token = 'token', clock = Date.UTC(2026, 10, 25, 1);
   let post = { postId: '7', orgId: '9', orgType: 'store', roleCode: options.role || 'sales', permissions: options.permissions };
   const h = { state: state(options.kind), calls: [], toasts: [], navigations: [], previews: [], overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'resolve', 'register', 'convert', 'results', 'download'].map(name => [name, async (...args) => {
+  const api = Object.fromEntries(['get', 'resolve', 'register', 'convert', 'results', 'download', 'measurements'].map(name => [name, async (...args) => {
     h.calls.push({ name, args: copy(args) }); if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
+    if (name === 'measurements') return { customerId: '42', list: [], nextBeforeId: null };
     if (name === 'resolve') return { commission: { id: '91', customerId: '42' } };
     if (name === 'download') return { downloadUrl: 'https://store.test/file.pdf', expiresAt: 1891234567 };
     const body = copy(args[1]); h.state.revision += 1; h.state.commissionId = '91'; h.state.mode = 'EXTERNAL'; h.state.canWrite = true; h.state.canConvert = false;
@@ -162,6 +207,100 @@ test('unknown mutation result freezes exact key/body, prevents edits/leave and r
   await h.open(); h.fill(); await h.page.submit(); assert.equal(h.page.data.uncertain, true); const oldText = h.page.data.form.text;
   h.page.input(event('text', '不能覆盖原请求')); h.page.changeTab(tabEvent('history')); h.page.openPlan(); assert.equal(h.page.data.form.text, oldText); assert.equal(h.page.data.tab, 'request'); assert.equal(h.navigations.length, 0);
   await h.page.runPending(); const commands = h.callsFor('register'); assert.deepEqual(commands[0].args, commands[1].args); assert.equal(h.page.data.uncertain, false);
+});
+
+test('a lost receipt never exposes a measurement while customer access is being rechecked on return', async () => {
+  for (const decision of ['transfer', 'offline', 'retry']) {
+    const source = measured('8123456789123456001', 3, '901');
+    const h = harness({ api: {
+      measurements: async () => ({customerId: '42', list: [source], nextBeforeId: null}),
+      register: async () => { throw Error('lost receipt'); }
+    } });
+    await h.open(); h.fill(); await h.page.loadMeasurements();
+    h.page.chooseMeasurement({currentTarget: {dataset: {id: source.eventId}}});
+    await h.page.submit();
+    assert.equal(h.page.data.uncertain, true);
+    const original = h.callsFor('register')[0].args;
+    h.page.onHide();
+    const access = deferred();
+    h.overrides.get = () => access.promise;
+    const returning = h.page.onShow();
+    assert.equal(h.callsFor('get').length, 2);
+    assert.equal(h.page.data.form, null);
+    assert.equal(h.page.data.context, null);
+    assert.equal(h.controls().some(n => n.attrs?.bindtap === 'runPending'), false);
+    await h.page.runPending();
+    assert.equal(h.callsFor('register').length, 1);
+    if (decision === 'transfer') {
+      access.reject({code: 1110000000, msg: '客户已转交'}); await returning;
+      assert.equal(h.page._pending, null);
+      assert.equal(h.page.data.form, null);
+      assert.equal(h.page.data.uncertain, false);
+      assert.doesNotMatch(JSON.stringify(h.page.data), /实测现场|原测量图|陈师傅/);
+      await h.page.runPending();
+      assert.equal(h.callsFor('register').length, 1);
+    } else {
+      if (decision === 'offline') {
+        access.reject(Error('offline')); await returning;
+        assert.equal(h.page.data.form, null); assert.equal(h.page.data.context, null);
+        await h.page.runPending(); assert.equal(h.callsFor('register').length, 1);
+        delete h.overrides.get; await h.page.load();
+      } else { access.resolve(state()); await returning; }
+      assert.equal(h.page.data.uncertain, true);
+      assert.equal(h.page.data.form.measurementRef.eventId, source.eventId);
+      await h.page.runPending();
+      assert.deepEqual(h.callsFor('register')[1].args, original);
+    }
+  }
+});
+
+test('late write and upload receipts cannot restore a draft after a same-post transfer', async () => {
+  for (const operation of ['write', 'upload']) {
+    const reply = deferred(), access = deferred();
+    const h = harness({api: {register: () => reply.promise}, upload: () => reply.promise});
+    await h.open(); h.fill();
+    const pending = operation === 'write' ? h.page.submit() : h.page.startUpload({path: '/原测量附件.pdf', name: '原测量附件.pdf'});
+    h.page.onHide(); h.overrides.get = () => access.promise;
+    const returning = h.open();
+    assert.equal(h.page.data.form, null);
+    assert.equal(h.page.data.context, null);
+    reply.resolve(operation === 'write' ? state('pending') : {assetId: '98', fileName: '敏感.pdf', mimeType: 'application/pdf'});
+    await pending;
+    assert.equal(h.page.data.form, null); assert.equal(h.toasts.length, 0);
+    access.reject({code: 403, msg: '客户已转交'}); await returning;
+    assert.equal(h.page._pendingFile, null); assert.equal(h.page._pending, null); assert.deepEqual(copy(h.page._localFiles), {});
+    assert.doesNotMatch(JSON.stringify(h.page.data), /原测量附件|敏感/);
+  }
+});
+
+test('a suspended file picker uses the verified customer only, and a late accepted upload can confirm its original ticket', async () => {
+  for (const authorized of [true, false]) {
+    let uploads = 0;
+    const h = harness({upload: async () => { uploads++; return {assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'}; }});
+    await h.open(); h.page.chooseFile({currentTarget: {dataset: {}}});
+    h.page.onHide(); h.filePicker.success({tempFiles: [{path: '/现场.pdf', name: '现场.pdf'}]});
+    assert.equal(uploads, 0);
+    if (!authorized) h.overrides.get = async () => { throw {code: 1099000002, msg: '已转交'}; };
+    await h.open(); await tick();
+    assert.equal(uploads, authorized ? 1 : 0);
+    assert.equal(h.page.data.form?.attachments?.[0]?.assetId || null, authorized ? '98' : null);
+  }
+  const accepted = deferred(), attempts = [];
+  const h = harness({upload: async pending => {
+    attempts.push(pending);
+    if (attempts.length === 1) { pending.ticket = {assetId: '98'}; return accepted.promise; }
+    assert.equal(pending.ticket.assetId, '98');
+    return {assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'};
+  }});
+  await h.open();
+  const first = h.page.startUpload({path: '/现场.pdf'});
+  h.page.onHide(); await h.open();
+  assert.equal(h.page.data.uploading, true); await h.page.retryUpload(); assert.equal(attempts.length, 1);
+  accepted.resolve({assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'}); await first;
+  assert.equal(h.page.data.form.attachments.length, 0);
+  assert.equal(h.page.data.uploadFailed, true);
+  await h.page.retryUpload();
+  assert.equal(attempts[0], attempts[1]); assert.equal(h.page.data.form.attachments[0].assetId, '98');
 });
 
 test('revision and payment-plan conflicts preserve form, require explicit reload; old GET cannot roll back saved request', async () => {
