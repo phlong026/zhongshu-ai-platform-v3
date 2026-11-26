@@ -127,15 +127,17 @@ public class EngCollectionService {
 
     public List<Map<String,Object>> declarations(PostSnapshot post,long projectId) {
         var project=projectService.requireProject(post,projectId);
-        if (project.getSaleContractId()==null || !canViewProjectAmounts(post,project)) return List.of();
+        if (!canViewProjectAmounts(post,project)) return List.of();
         return jdbcTemplate.queryForList("""
                 SELECT d.id::text AS id,s.stage,d.amount_cents AS "amountCents",d.received_date::text AS "receivedDate",
                     d.transaction_no AS "transactionNo",d.status,d.return_reason AS "returnReason",d.receipt_id::text AS "receiptId"
                 FROM fr_sale_collection_declaration d JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
-                WHERE d.company_id=? AND s.contract_id=?
-                  AND EXISTS (SELECT 1 FROM pf_command_event e WHERE e.aggregate_id=d.id AND e.command='eng-collection-declare')
+                WHERE d.company_id=? AND EXISTS (
+                    SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.aggregate_type='fr-eng-project'
+                    AND e.command='eng-collection-declare' AND e.org_id=d.company_id AND e.aggregate_id=d.id
+                    AND e.payload::jsonb->>'projectId'=?)
                 ORDER BY d.received_date DESC,d.id DESC
-                """,post.orgId(),project.getSaleContractId());
+                """,post.orgId(),Long.toString(projectId));
     }
 
     public List<Map<String, Object>> list(PostSnapshot post, long projectId) {

@@ -510,11 +510,14 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 key(),today(),evidence,(Long)first.get("stageId"),1L);
         assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).doesNotContainKey("remainingCents");
         assertThatThrownBy(()->as(secondEngineer,()->collections.register(secondEngineer,project,claim,key()))).isInstanceOf(ServiceException.class);
-        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",secondEngineer.userId(),project);
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=?,sale_contract_id=NULL WHERE id=?",secondEngineer.userId(),project);
         assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).containsEntry("remainingCents",40000L);
         long declaration=(long)as(secondEngineer,()->collections.register(secondEngineer,project,claim,key())).get("declarationId");
         assertThat(as(engineer,()->collections.declarations(engineer,project))).singleElement()
                 .satisfies(row->assertThat(row).containsEntry("id",Long.toString(declaration)).containsEntry("status","PENDING"));
+        long secondProject=manualProject(customer,engineer);
+        assertThat(secondProject).isNotEqualTo(project);
+        assertThat(as(engineer,()->collections.declarations(engineer,secondProject))).isEmpty();
         jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",engineer.userId(),project);
         assertThat(as(secondEngineer,()->collections.declarations(secondEngineer,project))).isEmpty();
     }
