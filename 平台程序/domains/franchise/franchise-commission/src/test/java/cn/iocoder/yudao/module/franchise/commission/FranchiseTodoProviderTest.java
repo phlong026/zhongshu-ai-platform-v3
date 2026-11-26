@@ -6,7 +6,9 @@ import cn.iocoder.yudao.module.franchise.commission.CommissionService.FeeDecisio
 import cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitCommand;
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.DecisionCommand;
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.PacketCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureOutcome;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
@@ -21,10 +23,15 @@ import cn.iocoder.yudao.module.platform.workflow.TodoServiceImpl;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
@@ -103,6 +110,49 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 .contains("franchise:first-follow:" + customerId)
                 .doesNotContain("franchise:submit-commission:" + customerId,
                         "franchise:fee-pending:" + detail.commission().getId());
+    }
+
+    @Test
+    void followupReminderOpensItsCustomerOnceAndMovesToTheNewOwner() {
+        long id = capture(salesA1).customerId();
+        var path = "/pages/workflow/index?view=customer&id=" + id + "&tab=1";
+        var today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        var visitKey = "franchise:visit:" + id + ":" + today;
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:first-follow:" + id))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        var reminder = new FollowCommand("已联系，按约再访", today);
+        String key = commandKey();
+        var detail = as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
+        as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals(visitKey))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain("franchise:first-follow:" + id);
+        as(boss, () -> customers.transfer(boss, id, new TransferCommand(
+                salesB.userId(), "由新负责人继续回访"), detail.customer().getRevision(), commandKey()));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain(visitKey);
+        assertThat(todos(salesB)).filteredOn(t -> t.key().equals(visitKey))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        as(salesB, () -> customers.follow(salesB, id,
+                new FollowCommand("本次回访已完成", null), commandKey()));
+        assertThat(todos(salesB)).extracting(TodoItem::key).doesNotContain(visitKey);
+    }
+
+    @Test
+    void appointmentIsDueAtShanghaiMidnightEvenIfTheHostUsesUtc() {
+        long id = capture(salesA1).customerId();
+        var due = LocalDate.of(2035, 1, 2);
+        as(salesA1, () -> customers.follow(salesA1, id,
+                new FollowCommand("跨时区的预约", due), commandKey()));
+        var midnight = Instant.parse("2035-01-01T16:00:00Z");
+        var shanghai = ZoneId.of("Asia/Shanghai");
+        var hostClock = Clock.fixed(midnight, ZoneOffset.UTC);
+        var storeClock = hostClock.withZone(shanghai);
+        try (var clocks = Mockito.mockStatic(Clock.class, Mockito.CALLS_REAL_METHODS)) {
+            clocks.when(Clock::systemDefaultZone).thenReturn(hostClock);
+            clocks.when(() -> Clock.system(shanghai)).thenReturn(storeClock);
+            assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:visit:" + id + ":" + due))
+                    .singleElement().satisfies(t -> assertThat(t.since().toInstant()).isEqualTo(midnight));
+        }
     }
 
     @Test
