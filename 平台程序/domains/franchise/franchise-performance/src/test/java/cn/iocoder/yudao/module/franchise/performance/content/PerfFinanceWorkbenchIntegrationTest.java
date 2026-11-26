@@ -407,6 +407,16 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(pending).extracting(r->r.get("id")).containsExactly("51");
   var focus=(List<Map<String,Object>>)team.focus(boss,"engineering",period,1).get("rows");
   assertThat(focus).extracting(r->r.get("id")).containsExactly("11","12");
+  var assigned=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=11",assigned.userId());
+  jdbc.update("UPDATE fr_eng_plan_node SET delay_owner_user_id=? WHERE id=51",assigned.userId());
+  assertThat((List<?>)team.records(boss,"engineering",period,assigned.userId(),"overdue",1).get("rows")).hasSize(1);
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),assigned.postId());
+  assertThat((List<?>)team.records(boss,"engineering",period,assigned.userId(),"overdue",1).get("rows")).isEmpty();
+  assertThat((List<?>)team.records(boss,"engineering",period,manager.userId(),"overdue",1).get("rows")).hasSize(1);
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),manager.postId());
+  assertThat((List<?>)team.records(boss,"engineering",period,manager.userId(),"overdue",1).get("rows")).isEmpty();
+  assertThat((List<?>)home.detail(boss,"owner",period,"overdueNodes",1).get("rows")).hasSize(1);
   jdbc.update("UPDATE fr_eng_plan_node SET status='DONE' WHERE id=51");
   assertThat((List<?>)home.detail(manager,"engineering",period,"overdueNodes",1).get("rows")).isEmpty();
  }
