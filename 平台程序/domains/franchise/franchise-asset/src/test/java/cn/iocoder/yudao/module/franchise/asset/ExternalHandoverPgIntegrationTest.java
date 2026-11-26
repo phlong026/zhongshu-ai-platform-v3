@@ -79,6 +79,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource ExternalHandoverService handover;
     @Resource HandoverService legacyHandover;
     @Resource CommissionService legacyCommission;
+    @Resource CustomerService customers;
     @Resource CustomerPaymentPlanDraftService drafts;
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowReadService reads;
@@ -178,9 +179,11 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @Test void legacyClientCanResubmitMeasurementFilesWithEmptyAndLongOriginalTitles() throws Exception {
         long customer = customer(sales), first = upload(sales,"BUSINESS_DOCUMENT"), second = upload(sales,"BUSINESS_DOCUMENT");
+        long whitespace = upload(sales,"BUSINESS_DOCUMENT");
         String longTitle = "测".repeat(175) + "🏡" + "量".repeat(19) + ".PDF";
         assertThat(longTitle).hasSize(200);
-        var originals = List.of(new Attachment(Long.toString(first), ""), new Attachment(Long.toString(second), longTitle));
+        var originals = List.of(new Attachment(Long.toString(first), ""), new Attachment(Long.toString(second), longTitle),
+                new Attachment(Long.toString(whitespace), "\u00A0\u3000\uFEFF"));
         var fields = Map.<String,Object>of("address","老址","measurer","测量员","width","9","depth","10","area","90","checked",true);
         as(sales, () -> workflow.save(sales,customer,"MEASUREMENT",new CustomerWorkflowModel.SaveCommand(0,today(),"",fields,originals),key()));
         var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
@@ -195,6 +198,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         });
         assertThat(copiedFiles.get(0).title()).isNotBlank();
         assertThat(copiedFiles.get(1).title()).isEqualTo("测".repeat(175) + ".PDF");
+        assertThat(copiedFiles.get(2).title()).isEqualTo(copiedFiles.get(0).title());
         var download = as(sales, () -> external.download(sales,customer,"requests",1,second));
         assertThat(as(sales, () -> assets.readDownload(actor(sales),second,token(download.downloadUrl()))).bytes()).isEqualTo(PDF);
     }
@@ -296,6 +300,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         if (measurementClient) {
             input.put("measurementEventId", measurement.eventId());
             input.put("measurementAssetId", measurement.attachments().get(0).assetId());
+            input.put("transfer", Map.of("targetId",Long.toString(colleague.userId()),
+                    "revision",as(boss, () -> customers.get(boss,customer)).customer().getRevision()));
         }
         for(String key:List.of("resultAssetId","drawingAssetId","reviewAssetId","confirmationAssetId"))
             input.put(key,Long.toString(upload(sales,"BUSINESS_DOCUMENT")));
@@ -307,6 +313,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var json=builder.build();
         var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
+                new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController(customers,currentPost,FakeSystemDirectory.INSTANCE),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
         // Keep the JSON fixture intact when the paired test runs under Windows as well as Linux.
@@ -323,8 +330,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                     var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
                     if(request.path("done").asBoolean()) { completed=request; break; }
                     String role=request.path("actor").asText(), method=request.path("method").asText();
-                    assertThat(role).isIn("sales","engineer"); assertThat(method).isIn("GET","POST");
-                    currentPost.use("sales".equals(role)?sales:engineer);
+                    assertThat(role).isIn("sales","engineer","boss"); assertThat(method).isIn("GET","POST");
+                    currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; default -> engineer; });
                     String response;
                     try {
                         var http=org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -352,7 +359,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long project=Long.parseLong(completed.path("projectId").asText());
         if (measurementClient) {
             assertThat(completed.path("measurementEventId").asText()).isEqualTo(measurement.eventId());
-            var original = as(sales, () -> external.get(sales,customer)).requests().get(0);
+            assertThat(completed.path("verifiedCustomerTransfer").asBoolean()).isTrue();
+            var versions = as(sales, () -> external.get(sales,customer)).requests();
+            assertThat(versions).hasSize(1);
+            var original = versions.get(0);
             assertThat(original.data().measurementRef()).isEqualTo(measurement);
             assertThat(original.data().attachments()).containsExactlyElementsOf(measurement.attachments());
             long file = Long.parseLong(measurement.attachments().get(0).assetId());

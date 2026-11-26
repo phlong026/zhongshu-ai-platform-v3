@@ -233,9 +233,24 @@ public class ExternalCommissionService {
         var source = measurements.require(tenant(), post.orgId(), customerId, ref);
         var files = new LinkedHashMap<String,Attachment>();
         input.attachments().forEach(file -> files.put(file.assetId(), file));
-        source.attachments().forEach(file -> files.put(file.assetId(), file));
+        for (Attachment original : source.attachments()) {
+            files.put(original.assetId(), new Attachment(original.assetId(), requestFileTitle(original.title())));
+        }
         if (files.size() > 20) throw invalid("委托附件与测量原件合计最多20份");
         return input.withMeasurement(source, List.copyOf(files.values()));
+    }
+
+    // The immutable CRM evidence accepts 200 UTF-16 units or no title. Legacy commission forms re-submit a 1–180 unit title.
+    private static String requestFileTitle(String original) {
+        String name = original == null ? "" : original.replaceAll("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$", "");
+        if (name.isBlank()) return "测量附件";
+        if (name.length() <= 180) return name;
+        int dot = name.lastIndexOf('.');
+        String extension = dot >= 0 && Set.of("pdf","jpg","jpeg","png").contains(name.substring(dot + 1).toLowerCase(Locale.ROOT))
+                ? name.substring(dot) : "";
+        int end = 180 - extension.length();
+        if (Character.isHighSurrogate(name.charAt(end - 1))) end--;
+        return name.substring(0, end) + extension;
     }
 
     List<RequestVersion> requests(long commission, long company) {
