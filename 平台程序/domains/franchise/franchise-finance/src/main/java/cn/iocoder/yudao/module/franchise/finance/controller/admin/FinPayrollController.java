@@ -24,6 +24,15 @@ public class FinPayrollController {
     public CommonResult<?> saveRecord(@RequestHeader("Idempotency-Key")String key,@RequestBody FinPayrollService.RecordCommand command){return success(service.saveRecord(current.require(),key,command));}
     @GetMapping("/records/{id}") @PreAuthorize("@post.has('franchise:fin:query')")
     public CommonResult<?> record(@PathVariable long id){return success(service.get(current.require(),id));}
+    @PostMapping("/records/{id}/payments") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> registerPayment(@PathVariable long id,@RequestHeader("Idempotency-Key")String key,
+                                          @RequestBody FinPayrollService.PayoutCommand command) {
+        return success(service.registerPayment(current.require(),id,key,command));
+    }
+    @GetMapping("/records/{id}/payments/registration-result") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> paymentResult(@PathVariable long id,@RequestParam String key) {
+        return success(service.paymentResult(current.require(),id,key));
+    }
     @GetMapping("/latest") @PreAuthorize("@post.has('franchise:fin:query')")
     public CommonResult<?> latest(@RequestParam long userId,@RequestParam String family,@RequestParam String month){return success(service.latest(current.require(),userId,family,month));}
     @GetMapping("/records/{id}/versions") @PreAuthorize("@post.has('franchise:fin:query')")

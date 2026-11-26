@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
 
@@ -23,8 +24,9 @@ public class FinPayrollService implements PayrollReadPort {
     private final JdbcTemplate jdbc;
     private final FranchiseCommands commands;
     private final FinProjectAccountingAccess access;
-    public FinPayrollService(JdbcTemplate jdbc,FranchiseCommands commands,FinProjectAccountingAccess access) {
-        this.jdbc=jdbc;this.commands=commands;this.access=access;
+    private final FinWorkbenchService workbench;
+    public FinPayrollService(JdbcTemplate jdbc,FranchiseCommands commands,FinProjectAccountingAccess access,FinWorkbenchService workbench) {
+        this.jdbc=jdbc;this.commands=commands;this.access=access;this.workbench=workbench;
     }
     public record RuleCommand(String family,String effectiveMonth,long expectedVersion,String baseSalaryNote,
                               String assessmentNote,String commissionNote,String evidenceNote,boolean managementConfirmed) {}
@@ -33,6 +35,9 @@ public class FinPayrollService implements PayrollReadPort {
                                 long adjustmentCents,List<CommissionLine> commissions,String note,boolean manuallyConfirmed) {}
     private record RulePayload(String operation,RuleCommand rule) {}
     private record RecordPayload(String operation,RecordCommand record) {}
+    public record PayoutCommand(Long expectedRegistrationCount,long amountCents,LocalDate date,String accountName,
+                                String transactionNo,Long voucherFileId) {}
+    private record PayoutPayload(long payrollRecordId,PayoutCommand payment) {}
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> context(PostSnapshot post,String period) {
@@ -89,7 +94,7 @@ public class FinPayrollService implements PayrollReadPort {
         lock(post.orgId()+":payroll-rule:"+family);
         lock(post.orgId()+":payroll-record:"+cmd.userId()+":"+family+":"+month);access.require(post,true);
         var payload=new RecordPayload("payroll-record",cmd);var replay=commands.replayed(post,key,payload);
-        if(replay.isPresent()) {var old=record(post.orgId(),replay.get().getAggregateId());access.require(post,true);return old;}
+        if(replay.isPresent()) {var old=detail(post.orgId(),replay.get().getAggregateId());access.require(post,true);return old;}
         var member=member(post.orgId(),cmd.userId(),family);var applied=effectiveRule(post.orgId(),family,month);
         String actualRule=applied==null?null:(String)applied.get("id");
         if(!Objects.equals(actualRule,cmd.ruleId()==null?null:cmd.ruleId().toString()))throw new ServiceException(409,"当前月份适用规则已有变化，请重新加载后核对");
@@ -119,7 +124,7 @@ public class FinPayrollService implements PayrollReadPort {
             """,id,post.orgId(),cmd.userId(),family,month,version,cmd.ruleId(),JsonUtils.toJsonString(snapshot),note,post.userId(),post.postId());
         commands.record(post,"fin-payroll-record",id,version,"fin-payroll-manual-confirm",payload,key);
         member(post.orgId(),cmd.userId(),family);access.require(post,true);
-        return record(post.orgId(),id);
+        return detail(post.orgId(),id);
     }
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
@@ -137,6 +142,58 @@ public class FinPayrollService implements PayrollReadPort {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> get(PostSnapshot post,long id) {
         access.require(post,false);var result=recordAuthorized(tenant(),post.orgId(),id);access.require(post,false);return result;
+    }
+    @Transactional
+    public Map<String,String> registerPayment(PostSnapshot post,long recordId,String key,PayoutCommand cmd) {
+        access.require(post,true);
+        key=commands.requireIdempotencyKey(key);
+        if(cmd==null || cmd.expectedRegistrationCount()==null || cmd.expectedRegistrationCount()<0
+            || cmd.amountCents()<=0 || cmd.amountCents()>MAX_CENTS || cmd.accountName()==null || cmd.accountName().isBlank())
+            throw invalid("请核对原单次数、实际付款金额和付款账户");
+        lock(post.orgId()+":payroll-payment-key:"+key);
+        var row=record(post.orgId(),recordId);
+        lock(post.orgId()+":payroll-record:"+row.get("userId")+":"+row.get("family")+":"+row.get("month"));
+        access.require(post,true);
+        var payload=new PayoutPayload(recordId,cmd);
+        var replay=commands.replayed(post,key,payload);
+        if(replay.isPresent()) {
+            var event=replay.get();
+            if(!"fin-payroll-payment-register".equals(event.getCommand()) || !Objects.equals(event.getActorPostId(),post.postId()))
+                throw new ServiceException(409,"原登记属于其他岗位或业务，请重新核对");
+            access.require(post,true);
+            return Map.of("id",event.getAggregateId().toString(),"payrollRecordId",Long.toString(recordId));
+        }
+        var settlement=settlement(row);
+        if(!Long.toString(recordId).equals(settlement.get("currentRecordId")) || !cmd.expectedRegistrationCount().equals(settlement.get("registrationCount")))
+            throw new ServiceException(409,"核算版本或已登记原单已有变化，请刷新后核对");
+        String employee=String.valueOf(((Map<?,?>)row.get("snapshot")).get("userName"));
+        var entry=new FinWorkbenchService.EntryCommand("company","expense",row.get("month")+" 绩效薪酬","绩效薪酬",cmd.amountCents(),
+            cmd.date(),employee,cmd.accountName().trim(),cmd.transactionNo(),cmd.voucherFileId());
+        // 原单与归属在同一事务提交。外层回执负责重试，专用内部键不会领用既有普通支出。
+        long payment=workbench.register(post,"payroll-wb-"+UUID.randomUUID(),entry);
+        int linked=jdbc.update("""
+            UPDATE fr_fin_payable q SET payroll_record_id=? FROM fr_fin_payment p
+            WHERE p.id=? AND p.company_id=? AND q.company_id=p.company_id AND q.id=p.payable_id
+              AND q.payroll_record_id IS NULL AND q.source_type='manual' AND p.funding_type='COMPANY'
+              AND p.status='已核实' AND NOT p.deleted
+            """,recordId,payment,post.orgId());
+        if(linked!=1)throw conflict();
+        commands.record(post,"fin-payroll-payment",payment,1,"fin-payroll-payment-register",payload,key);
+        access.require(post,true);
+        return Map.of("id",Long.toString(payment),"payrollRecordId",Long.toString(recordId));
+    }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Map<String,String> paymentResult(PostSnapshot post,long recordId,String key) {
+        access.require(post,true);key=commands.requireIdempotencyKey(key);
+        lock(post.orgId()+":payroll-payment-key:"+key);
+        var ids=jdbc.queryForList("""
+            SELECT e.aggregate_id FROM pf_command_event e
+            WHERE e.domain='franchise' AND e.command='fin-payroll-payment-register' AND e.aggregate_type='fin-payroll-payment'
+              AND e.org_id=? AND e.actor_user_id=? AND e.actor_post_id=? AND e.idempotency_key=?
+              AND e.payload::jsonb->>'payrollRecordId'=?
+            """,Long.class,post.orgId(),post.userId(),post.postId(),"franchise:"+post.userId()+":"+key,Long.toString(recordId));
+        access.require(post,true);
+        return ids.isEmpty()?Map.of("state","NOT_REGISTERED"):Map.of("id",Long.toString(ids.get(0)),"payrollRecordId",Long.toString(recordId));
     }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> latest(PostSnapshot post,long user,String selectedFamily,String selectedMonth) {
@@ -168,7 +225,8 @@ public class FinPayrollService implements PayrollReadPort {
     }
     @Override @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> recordAuthorized(long tenant,long company,long id) {
-        access.company(tenant,company);var result=record(company,id);access.company(tenant,company);return result;
+        access.company(tenant,company);var result=detail(company,id);
+        access.company(tenant,company);return result;
     }
     @Override @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> historyAuthorized(long tenant,long company,long id,int page,int size) {
@@ -219,6 +277,36 @@ public class FinPayrollService implements PayrollReadPort {
         result.put("baseSalaryNote",row.get("base_salary_note"));result.put("assessmentNote",row.get("assessment_note"));
         result.put("commissionNote",row.get("commission_note"));result.put("evidenceNote",row.get("evidence_note"));
         result.put("calculationMode","MANUAL_ONLY");result.put("createdAt",row.get("create_time"));return result;
+    }
+    private Map<String,Object> detail(long company,long id) {
+        var result=record(company,id);
+        result.put("settlement",settlement(result));
+        return result;
+    }
+    private Map<String,Object> settlement(Map<String,Object> row) {
+        long company=Long.parseLong((String)row.get("companyId")),user=Long.parseLong((String)row.get("userId"));
+        return jdbc.queryForMap("""
+            WITH versions AS (
+                SELECT id,version,snapshot FROM fr_fin_payroll_record WHERE company_id=? AND user_id=? AND job_family=? AND month=?
+            ), latest AS (
+                SELECT id,(snapshot->>'totalCents')::numeric AS due FROM versions ORDER BY version DESC LIMIT 1
+            ), originals AS (
+                SELECT q.id FROM fr_fin_payable q JOIN versions v ON v.id=q.payroll_record_id WHERE q.company_id=?
+            ), paid AS (
+                SELECT p.id,p.amount_cents,p.pay_date FROM fr_fin_payment p JOIN originals q ON q.id=p.payable_id
+                WHERE p.company_id=? AND p.status='已核实' AND NOT p.deleted AND p.funding_type='COMPANY'
+            ), sums AS (
+                SELECT COALESCE((SELECT sum(amount_cents) FROM paid),0) AS gross,
+                    COALESCE((SELECT sum(f.amount_cents) FROM fr_fin_refund f JOIN paid p ON p.id=f.payment_id
+                        WHERE f.company_id=? AND f.status='已核实' AND NOT f.deleted AND f.replaced_by_id IS NULL
+                          AND f.refund_direction='expense' AND f.funding_type='COMPANY'),0) AS refunded
+            )
+            SELECT id::text AS "currentRecordId",due::text AS "dueCents",gross::text AS "grossCents",refunded::text AS "refundedCents",
+                (gross-refunded)::text AS "paidCents",greatest(due-gross+refunded,0)::text AS "unpaidCents",
+                greatest(gross-refunded-due,0)::text AS "overpaidCents",(SELECT count(*) FROM paid) AS "paymentCount",
+                (SELECT count(*) FROM originals) AS "registrationCount",
+                (SELECT id::text FROM paid ORDER BY pay_date DESC NULLS LAST,id DESC LIMIT 1) AS "latestPaymentId" FROM latest CROSS JOIN sums
+            """,company,user,row.get("family"),row.get("month"),company,company,company);
     }
     private Map<String,Object> record(long company,long id) {
         var rows=jdbc.queryForList("SELECT *,snapshot::text AS facts FROM fr_fin_payroll_record WHERE company_id=? AND id=?",company,id);
