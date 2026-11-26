@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
@@ -151,14 +152,50 @@ public class EngCollectionService {
     public Map<String, Object> register(PostSnapshot post, long projectId, CollectCommand cmd, String idempotencyKey) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
         EngGuard.requireActionAllowed(projectService.closureOf(post, projectId), "collect");
+        // Normalize every business fact before replay lookup. Keep the old payload only as a
+        // compatibility fingerprint; legacy hits are accepted only after checking the persisted row.
+        String stageRaw = cmd.stage() == null ? "" : cmd.stage().trim();
+        String stage;
+        if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stageRaw)) {
+            stage = FrEngCollectionTermDO.STAGE_CAP_DONE;
+        } else if (java.util.Set.of("SIGN_AFTER","BASE_DONE","CAP_DONE","tail").contains(stageRaw)
+                || stageRaw.matches("STAGE_[0-9]+")) {
+            stage = stageRaw;
+        } else throw exception(ENGINEERING_INPUT_INVALID,"收款节点不合法，请刷新合同付款计划");
+
+        String transactionNo = StrUtil.trim(cmd.transactionNo());
+
+        Map<String, Object> legacyPayload = new LinkedHashMap<>();
+        legacyPayload.put("stage", cmd.stage());
+        legacyPayload.put("amount", cmd.amount() == null ? null : cmd.amount().toPlainString());
+        legacyPayload.put("transactionNo", cmd.transactionNo());
+
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("stage", cmd.stage());
-        payload.put("amount", cmd.amount() == null ? null : cmd.amount().toPlainString());
-        payload.put("transactionNo", cmd.transactionNo());
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        payload.put("projectId", projectId);
+        payload.put("stage", stage);
+        payload.put("amountCents", amount);
+        payload.put("transactionNo", transactionNo);
+        payload.put("occurredAt", date.toString());
+        payload.put("fileAssetId", cmd.fileAssetId());
+
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload);
         if (replayed.isPresent()) {
-            // 幂等重放返回既有（含 finance 收据锚——AC13 全写命令重放口径）
-            FrEngCollectionDO prior = collections.selectById(replayed.get().getAggregateId());
+            var event = replayed.get();
+            if (!AGGREGATE.equals(event.getAggregateType()) || !"eng-collect".equals(event.getCommand())) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
+            // A legacy fingerprint did not contain project/date/evidence. Verify these facts against
+            // the immutable collection row before accepting an upgrade-era retry.
+            FrEngCollectionDO prior = collections.selectById(event.getAggregateId());
+            if (prior == null
+                    || !java.util.Objects.equals(prior.getProjectId(), projectId)
+                    || !java.util.Objects.equals(prior.getStage(), stage)
+                    || !java.util.Objects.equals(prior.getAmountCents(), amount)
+                    || !java.util.Objects.equals(prior.getTransactionNo(), transactionNo)
+                    || !java.util.Objects.equals(prior.getFileAssetId(), cmd.fileAssetId())
+                    || (cmd.occurredAt() != null && !java.util.Objects.equals(prior.getOccurredAt(), date))) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
             return Map.of("collectionId", prior.getId(),
                     "receiptId", prior.getReceiptId() == null ? 0 : prior.getReceiptId(), "replayed", true);
         }
@@ -175,14 +212,7 @@ public class EngCollectionService {
         // 不参与余额累计（读侧 requireStartGate/stageConfirmed 亦经统一端口）。
         // 期次归一：三枚举精确匹配；存量旧值 TOPPING 显式映射 CAP_DONE（v3 接线随 M07-T02）；
         // 其它未知值显式拒绝（不得静默错期入账——R1 P2-8）。
-        String stageRaw = cmd.stage() == null ? "" : cmd.stage().trim();
-        String stage;
-        if (FrEngCollectionTermDO.STAGE_TOPPING.equals(stageRaw)) {
-            stage = FrEngCollectionTermDO.STAGE_CAP_DONE; // 存量 v3 旧枚举显式映射（登记 18 号）
-        } else if (java.util.Set.of("SIGN_AFTER","BASE_DONE","CAP_DONE","tail").contains(stageRaw)
-                || stageRaw.matches("STAGE_[0-9]+")) {
-            stage=stageRaw;
-        } else throw exception(ENGINEERING_INPUT_INVALID,"收款节点不合法，请刷新合同付款计划");
+
         // 门禁（R2 P1-3 与销售域对齐）：仅 CAP_DONE 保留封顶节点门禁（与 CAP_DONE 触发语义精确对应）；
         // BASE_DONE 不设节点门禁——「任意非封顶 DONE 即可触发」被 R1 判过松，而项目无基础里程碑，
         // 与销售域 BASE_DONE 收款语义保持一致（无节点门禁）；「基础完成留痕」由 M07-T04 现场记录链
@@ -224,12 +254,12 @@ public class EngCollectionService {
             throw exception(ENGINEERING_INPUT_INVALID,"合同付款节点不存在或已调整，请刷新后重试");
         var unified = unifiedStages.collectStage(post, contractId, stage,
                 new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
-                        amount, "bank", StrUtil.trim(cmd.transactionNo()), date, cmd.fileAssetId()));
+                        amount, "bank", transactionNo, date, cmd.fileAssetId()));
         if("PENDING_CONFIRMATION".equals(unified.stageStatus())) return Map.of("receiptId",0,"stageStatus","PENDING_CONFIRMATION","replayed",unified.replayed());
         // 工程留痕行：引用统一 receiptId（不参与余额累计——读侧经统一端口）
         FrEngCollectionDO collection = new FrEngCollectionDO().setCompanyId(post.orgId())
                 .setProjectId(projectId).setStage(stage).setAmountCents(amount)
-                .setTransactionNo(StrUtil.trim(cmd.transactionNo())).setOccurredAt(date)
+                .setTransactionNo(transactionNo).setOccurredAt(date)
                 .setFileAssetId(cmd.fileAssetId())
                 .setPurpose(purposeOf(stage))
                 .setRegistrarUserId(post.userId());
