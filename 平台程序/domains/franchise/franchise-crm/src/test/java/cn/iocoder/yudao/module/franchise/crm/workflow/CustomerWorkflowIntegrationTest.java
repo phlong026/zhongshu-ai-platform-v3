@@ -269,9 +269,15 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         var placeholder = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", onlyMode, List.of()), "mode-as-direction"));
         assertThat(placeholder.steps().get(2).canComplete()).isFalse();
         var legacy = Map.<String, Object>of("selectionResult", "已确定外部方案", "confirmed", true);
-        var missing = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-no-proof"));
+        failure(400, () -> as(sales, () -> workflow.save(sales, id, step,
+                new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-cannot-replace-direction")));
+        assertThat(as(sales, () -> workflow.get(sales, id)).steps().get(2)).isEqualTo(placeholder.steps().get(2));
+
+        // Legacy external plans remain supported when there is no recorded custom direction to replace.
+        long legacyId = customer();
+        var missing = as(sales, () -> workflow.save(sales, legacyId, step, new SaveCommand(0, today(), "", legacy, List.of()), "legacy-no-proof"));
         assertThat(missing.steps().get(2).canComplete()).isFalse();
-        var file = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(missing.revision(), today(), "", legacy,
+        var file = as(sales, () -> workflow.save(sales, legacyId, step, new SaveCommand(missing.revision(), today(), "", legacy,
                 List.of(new Attachment("9001", "客户原户型.pdf"))), "old-external-plan"));
         assertThat(file.steps().get(2).canComplete()).isTrue();
         assertThat(file.steps().get(2).fields()).doesNotContainKeys("selectionMode", "customDirection");
