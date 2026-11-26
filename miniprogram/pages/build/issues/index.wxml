@@ -17,7 +17,7 @@
     </block>
   </view>
   <block wx:elif="{{!loading&&!quality}}">
-    <button class="row" wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="open">
+    <button class="row" wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="open" disabled="{{saving}}">
       <text>{{item.title}} · {{item.status}} ›</text>
       <text>{{item.ownerLabel||'负责人未登记'}} · {{item.dueDate||'期限未登记'}}</text>
     </button>
@@ -32,6 +32,8 @@
         <view class="picker">负责人 · {{ownerIndex>=0?handlers[ownerIndex].name:'请选择本项目人员'}}</view>
       </picker>
       <picker mode="date" value="{{dueDate}}" bindchange="pickDate"><view class="picker">整改期限 · {{dueDate||'请选择日期'}}</view></picker>
+      <block wx:if="{{handlerError}}"><text class="error">{{handlerError}}</text><button bindtap="load">重新读取负责人</button></block>
+      <text wx:elif="{{!handlers.length}}">项目暂无可分派的有效工程任职</text>
     </block>
     <textarea placeholder="填写现场情况、处置或复验说明" maxlength="800" value="{{note}}" data-field="note" bindinput="input"/>
     <block wx:if="{{quality}}">

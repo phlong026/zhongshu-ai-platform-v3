@@ -9,20 +9,20 @@ const project = '9007199254741001', manager = '9007199254741002', engineer = '90
 const snapshot = value => JSON.parse(JSON.stringify(value));
 const event = data => ({currentTarget:{dataset:data}});
 const pick = value => ({detail:{value}});
-function setup({role='engineer',legacy=false,quality=false}={}) {
+function setup({role='engineer',legacy=false,quality=false,hold=false,suspended=false}={}) {
   const calls=[],requests=[];
   const current={orgId:'4',userId:manager,roleCode:role};
-  let session=1, definition, active=legacy;
+  let session=1, definition, active=legacy, release;
   const row={id:issue,title:'楼梯整改',state:'OPEN',note:'原情况',ownerUserId:null,dueDate:null};
   const history=legacy?[{id:'1',action:'create',note:'首次转录',actorUserId:manager,actorName:'张工',occurredAt:'2026-11-01 09:05:00',ownerUserId:null,dueDate:null}]:[];
   const base='/franchise/engineering/'+project+'/rectifications';
   const api={projects:{get:async()=>({id:project,name:'原项目',managerUserId:manager,managerName:'张工',assignedEngineerUserId:engineer,status:'IN_PROGRESS'})},
-    progress:{handlers:async()=>[{id:manager,name:'张工'},{id:engineer,name:'李工'},{id:'51',name:'外项目'}]},
     materials:{summary:async()=>({plans:[{lines:[{name:'砂石',supplyId:'52',receipts:[{id:'53',transactionNo:'S53',qualified:false}]}]}]}),
       arrival:async(id,body,key)=>calls.push({id,body:snapshot(body),key})},uploadVoucher:async()=>'111'};
   const http={sessionGuard:()=>{const n=session;return ()=>n===session;},currentPostId:()=>String(session),
-    get:async url=>{requests.push(url);if(url===base)return active?[snapshot(row)]:[];if(url===base+'/'+issue)return {...snapshot(row),history:snapshot(history)};throw Error(url);},
-    post:async(url,cmd,headers)=>{calls.push({url,cmd:snapshot(cmd),headers});active=true;
+    get:async url=>{requests.push(url);if(url===base)return active?[snapshot(row)]:[];if(url===base+'/'+issue)return {...snapshot(row),history:snapshot(history)};
+      if(url===base+'/handlers')return [{id:manager,name:'张工'},...(suspended?[]:[{id:engineer,name:'李工'}]),{id:'51',name:'外项目'}];throw Error(url);},
+    post:async(url,cmd,headers)=>{calls.push({url,cmd:snapshot(cmd),headers});if(hold)await new Promise(ok=>{release=ok;});active=true;
       if(cmd.ownerUserId){row.ownerUserId=cmd.ownerUserId;row.dueDate=cmd.dueDate;} if(cmd.action==='submit')row.state='REVIEW';
       history.push({id:String(history.length+10),action:cmd.action,note:cmd.note,actorName:'张工',actorUserId:manager,ownerUserId:row.ownerUserId,dueDate:row.dueDate,occurredAt:'2026-11-26 14:00:00'});return issue;}};
   vm.runInNewContext(fs.readFileSync(route+'.js','utf8'),{Page:page=>definition=page,wx:{showToast(){}},
@@ -31,7 +31,7 @@ function setup({role='engineer',legacy=false,quality=false}={}) {
   page.onLoad({project,...(legacy?{issue}:{}),...(quality?{supply:'52',receipt:'53'}:{})});
   const textOf=node=>(node.text||'')+(node.children||[]).map(textOf).join('');
   const screen=()=>render(route+'.wxml',page.data).map(textOf).join('');
-  return {page,calls,requests,screen,base,switchPost:()=>session++};
+  return {page,calls,requests,screen,base,switchPost:()=>session++,release:()=>release()};
 }
 
 test('新单需明确选择本项目负责人和期限，状态操作使用原单，逐次历史可读',async()=>{
@@ -60,4 +60,24 @@ test('材料质检仍回原收货单，分派字段不进入换货请求',async(
   const {page,calls,requests}=setup({quality:true});await page.load();assert.equal(requests.length,0);
   assert.equal(page.data.selected.id,'53');page.setData({note:'验收合格',photo:'receipt.jpg'});await page.load();await page.save(event({action:'resolve'}));
   assert.deepEqual(calls[0].body,{qualityResolution:{receiptId:'53',note:'验收合格',fileAssetId:'111'}});assert.equal(calls[0].id,'52');
+});
+
+test('前后台刷新及原单切换不能重复登记或让旧回执改写当前页面',async()=>{
+  const {page,calls,release,switchPost}=setup({hold:true});await page.load();
+  page.setData({title:'一层整改',note:'原说明',ownerUserId:engineer,ownerIndex:1,dueDate:'2026-12-01'});
+  const first=page.save(event({action:'create'}));
+  assert.equal(calls.length,1);await page.load();assert.equal(page.data.saving,true);
+  page.input({currentTarget:{dataset:{field:'note'}},detail:{value:'尚在提交'}});
+  await page.save(event({action:'create'}));assert.equal(calls.length,1);
+  await page.open(event({id:'other'}));assert.equal(page.options.issue,undefined);
+  switchPost();await page.load();assert.equal(page.data.saving,false);
+  assert.equal(page.data.note,'');release();await first;
+  assert.equal(page.options.issue,undefined);assert.equal(page.data.selected,null);assert.equal(calls.length,1);
+});
+
+test('岗位被撤销后，项目原指针不能重新把该人加入分派名单',async()=>{
+  const {page,calls}=setup({suspended:true});await page.load();
+  assert.deepEqual(snapshot(page.data.handlers.map(h=>h.id)),[manager]);
+  page.setData({title:'原单',note:'原岗位已撤销',ownerUserId:engineer,dueDate:'2026-12-04'});await page.save(event({action:'create'}));
+  assert.equal(calls.length,0);
 });
