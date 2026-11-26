@@ -100,6 +100,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowReadService reads;
     @Resource ContentTaskService contentTasks;
+    @Resource StoreServiceAccountPort serviceAccounts;
     @Resource ContentDraftService contentDrafts;
     @Resource ContentPublisherAccountService publisherAccounts;
     @Resource ContentPublicationService publications;
@@ -794,6 +795,58 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 "orgId",Long.toString(post.orgId()),"orgType","store","roleCode",post.roleCode());
     }
 
+    @Test void pairedMiniProgramKeepsManualPublishingAndHistoricalCoverAfterGenerationRetirement() throws Exception {
+        String entry=System.getProperty("franchise.external-handover.client");
+        Assumptions.assumeTrue(entry!=null && !entry.isBlank(),"Run with the pinned mini program");
+        var client=java.nio.file.Path.of(entry).toAbsolutePath().resolveSibling("paired-manual-publication.cjs");
+        Assumptions.assumeTrue(java.nio.file.Files.isRegularFile(client),"Older mini program has no manual publication rehearsal");
+
+        var image=new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32,32,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
+        long originalCover=as(sales,()->assets.importContentImage(actor(sales),image.toByteArray(),"image/png"));
+        byte[] archivedBytes=as(sales,()->assets.readContentMedia(actor(sales),originalCover)).bytes();
+        long customer=as(sales,()->customerFromPublishedWork(originalCover));
+        var sources=growth.customerSources(sales,customer);
+        var original=sources.get(0);
+        String work=String.valueOf(original.get("workId"));
+        var account=publisherAccounts.create(sales,Map.of("platform","channels","displayName","手动发布验收","identifier","manual-"+work));
+        var input=Map.of("sales",miniActor(sales),"workId",work,"customerId",Long.toString(customer),
+                "accountId",Long.toString(account.id()),"accountName",account.displayName(),"platform",account.platform(),
+                "historicalPublicationId",original.get("publicationId"),"historicalCoverAssetId",Long.toString(originalCover),
+                "historicalUrl",original.get("publishedUrl"));
+        var publish=new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentPublicationController();
+        org.springframework.test.util.ReflectionTestUtils.setField(publish,"currentPost",currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(publish,"publications",publications);
+        org.springframework.test.util.ReflectionTestUtils.setField(publish,"growth",growth);
+        org.springframework.test.util.ReflectionTestUtils.setField(publish,"drafts",contentDrafts);
+        var draft=new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentDraftController();
+        org.springframework.test.util.ReflectionTestUtils.setField(draft,"currentPost",currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(draft,"drafts",contentDrafts);
+        var permissions=mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(draft,"postPermissions",permissions);
+        var media=new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentAssetController();
+        org.springframework.test.util.ReflectionTestUtils.setField(media,"currentPost",currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(media,"serviceAccounts",serviceAccounts);
+        org.springframework.test.util.ReflectionTestUtils.setField(media,"assets",assets);
+        var result=runMini(client.toString(),input,publish,draft,media,
+                new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentPublisherAccountController(currentPost,publisherAccounts));
+        long manualId=Long.parseLong(result.path("publicationId").asText());
+        var manual=publications.requireOwned(sales.orgId(),sales.userId(),manualId);
+        assertThat(manual.getWorkId().toString()).isEqualTo(work);
+        assertThat(manual.getStatus()).isEqualTo("published");
+        assertThat(manual.getPublishedUrl()).isEqualTo(result.path("publishedUrl").asText());
+        assertThat(manual.getCoverAssetId()).isNull();
+        assertThat(publications.requireOwned(sales.orgId(),sales.userId(),Long.parseLong(String.valueOf(original.get("publicationId"))))
+                .getCoverAssetId()).isEqualTo(originalCover);
+        assertThat(growth.customerSources(sales,customer)).containsExactlyInAnyOrderElementsOf(sources);
+        var historical=as(sales,()->assets.readDownload(actor(sales),originalCover,token(result.path("historicalDownloadUrl").asText())));
+        assertThat(historical.bytes()).isEqualTo(archivedBytes);
+        assertThat(count("fr_content_cover_request","company_id",sales.orgId())).isZero();
+        System.out.printf("MANUAL_PUBLICATION work=%s historicalPublication=%s manualPublication=%d customer=%d " +
+                        "originalCover=%d originalSha256=%s newCover=null coverRequests=0%n",
+                work,original.get("publicationId"),manualId,customer,originalCover,sha(historical.bytes()));
+    }
+
     @Test void getDoesNotCreateAndSubmitRequiresCurrentResultRealConfirmationAndCurrentReceiver() throws Exception {
         var ready=ready(customer(sales)); long commission=Long.parseLong(ready.commissionId());
         var view=as(sales,()->handover.get(sales,commission));
@@ -1096,6 +1149,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     private long customerFromPublishedWork() {
+        return customerFromPublishedWork(null);
+    }
+
+    private long customerFromPublishedWork(Long coverAssetId) {
         long taskId = IdWorker.getId();
         when(contentTasks.requireOwned(sales.orgId(), taskId)).thenReturn(new FrContentTaskDO()
                 .setId(taskId).setAuthorUserId(sales.userId()).setKind("copy").setStatus("SUCCEEDED")
@@ -1103,9 +1160,11 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var work = contentDrafts.saveWork(sales.orgId(), sales.userId(), taskId, "门店庭院讲解");
         var account = publisherAccounts.create(sales, Map.of(
                 "platform", "channels", "displayName", "门店视频号", "identifier", "store-" + taskId));
-        var publication = publications.createFromPost(sales, Map.of(
+        Map<String,Object> description = new LinkedHashMap<>(Map.of(
                 "workId", work.getId(), "publisherAccountId", account.id(), "platform", "channels",
-                "title", "庭院施工案例", "publishText", "现场讲解"), key());
+                "title", "庭院施工案例", "publishText", "现场讲解"));
+        if (coverAssetId != null) description.put("coverAssetId",coverAssetId.toString());
+        var publication = publications.createFromPost(sales, description, key());
         publications.verify(sales.orgId(), sales.userId(), publication.getId());
         String url = "https://channels.example/post/" + publication.getId();
         publications.link(sales.orgId(), sales.userId(), publication.getId(), url);

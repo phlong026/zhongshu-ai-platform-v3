@@ -25,4 +25,5 @@ public interface FranchiseContentErrorCodes {
     ErrorCode PUBLICATION_COVER_INVALID = new ErrorCode(1_114_000_015, "请选择本人已上传完成的 JPG 或 PNG 封面图片");
     ErrorCode WORK_TRASHED = new ErrorCode(1_114_000_016, "作品已移入回收站，请先恢复原作品");
     ErrorCode WORK_VERSION_CONFLICT = new ErrorCode(1_114_000_017, "作品状态已更新，请刷新列表后重试");
+    ErrorCode COVER_GENERATION_RETIRED = new ErrorCode(1_114_000_018, "封面生成已取消，可上传封面图片");
 }
