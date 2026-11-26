@@ -944,6 +944,52 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void partialReshipKeepsTheRemainingQuantityOnTheOriginalDelivery() {
+        jdbc.update("UPDATE fr_eng_material SET quantity = 10 WHERE id = ?", materialId);
+        jdbc.update("UPDATE fr_eng_supply SET quantity = 10 WHERE id = ?", supplyId);
+        long proof = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var initial = new EngMaterialService.ArrivalCommand(null, BigDecimal.TEN, new BigDecimal("5"),
+                "OK", "first-partial-reship-" + supplyId, proof, null, null, null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, initial, idem()));
+        long original = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE supply_id=? AND kind='RECEIPT'",
+                Long.class, supplyId);
+        String pendingSql = " FROM fr_eng_supply_receipt WHERE supply_id=? AND parent_receipt_id=?"
+                + " AND kind='RESHIP' AND actual_quantity IS NULL";
+        long pending = jdbc.queryForObject("SELECT id" + pendingSql, Long.class, supplyId, original);
+
+        var partial = new EngMaterialService.ArrivalCommand(pending, null, new BigDecimal("2"),
+                "OK", "second-partial-reship-" + supplyId, proof, null, null, null);
+        String partialKey = idem();
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, partial, partialKey));
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, partial, partialKey));
+        long successor = jdbc.queryForObject("SELECT id" + pendingSql, Long.class, supplyId, original);
+        assertThat(successor).isNotEqualTo(pending);
+        assertThat(jdbc.queryForObject("SELECT expected_quantity" + pendingSql, BigDecimal.class, supplyId, original))
+                .isEqualByComparingTo("3");
+        var visiblePending = (java.util.List<java.util.Map<String,Object>>) onlyMaterialSummaryLine().get("pendingReships");
+        assertThat(visiblePending).singleElement().satisfies(row -> {
+            assertThat(row).containsEntry("id", Long.toString(successor))
+                    .containsEntry("parentReceiptId", Long.toString(original));
+            assertThat((BigDecimal) row.get("expectedQuantity")).isEqualByComparingTo("3");
+        });
+        assertThat((BigDecimal) onlyMaterialSummaryLine().get("received")).isEqualByComparingTo("7");
+        assertThat((BigDecimal) onlyMaterialSummaryLine().get("remaining")).isEqualByComparingTo("3");
+
+        var finalDelivery = new EngMaterialService.ArrivalCommand(successor, null, new BigDecimal("3"),
+                "OK", "final-partial-reship-" + supplyId, proof, null, null, null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, finalDelivery, idem()));
+        // A lost response for the first supplement is still safe to retry after the remaining quantity arrives.
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, partial, partialKey));
+        assertThat(jdbc.queryForObject("SELECT count(*)" + pendingSql, Integer.class, supplyId, original)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_supply_receipt WHERE supply_id=?",
+                Integer.class, supplyId)).isEqualTo(3);
+        assertThat((BigDecimal) onlyMaterialSummaryLine().get("received")).isEqualByComparingTo("10");
+        assertThat((java.util.List<?>) onlyMaterialSummaryLine().get("pendingReships")).isEmpty();
+        assertThat((BigDecimal) onlyMaterialSummaryLine().get("remaining")).isEqualByComparingTo("0");
+    }
+
+    @Test
     void legacyReceiptCannotDropAnExplicitNonDefaultExpectedQuantity() {
         long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         var original = new EngMaterialService.ArrivalCommand(null, new BigDecimal("7"), new BigDecimal("6"),
@@ -1415,6 +1461,24 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(jdbc.queryForObject(
                 "SELECT owner_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
                 .isEqualTo(ownerEvidence); // R4 P2：双凭据保留断言闭环
+    }
+
+    @Test
+    void settlementProjectLockIsScopedToTheCompanyAndCurrentOwners() {
+        Store otherStore = fixture.store();
+        PostSnapshot assigned = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        PostSnapshot another = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?", assigned.userId(), projectId);
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.executeWithoutResult(status -> {
+            var projects = projectService.projects();
+            assertThat(projects.lockOwnedByCompany(projectId, otherStore.orgId(), engineer.userId())).isNull();
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), another.userId())).isNull();
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), engineer.userId()).getId())
+                    .isEqualTo(projectId);
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), assigned.userId()).getId())
+                    .isEqualTo(projectId);
+        });
     }
 
     @Test

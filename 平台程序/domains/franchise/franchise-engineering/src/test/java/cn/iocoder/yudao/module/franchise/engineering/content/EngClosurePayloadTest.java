@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngCollectionTermMapp
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngPlanNodeMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyMapper;
 import cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
@@ -21,7 +22,6 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -57,9 +57,12 @@ class EngClosurePayloadTest {
                 null, false, Set.of());
         FrEngProjectDO project = new FrEngProjectDO().setId(9L).setCompanyId(100L)
                 .setManagerUserId(7L).setRevision(5L);
-        when(projectService.requireOwned(post, 9L, "settle")).thenReturn(project);
+        FrEngProjectMapper projects = mock(FrEngProjectMapper.class);
+        when(projectService.projects()).thenReturn(projects);
         when(projectService.requireProject(post, 9L)).thenReturn(project);
-        when(commands.replayed(eq(post), anyString(), any())).thenReturn(Optional.empty());
+        when(projects.lockOwnedByCompany(9L, 100L, 7L)).thenReturn(project);
+        var legacyPayload = Map.of("date", "2026-11-01", "note", "结算说明");
+        when(commands.replayed(eq(post), anyString(), any(), eq(legacyPayload))).thenReturn(Optional.empty());
         when(closures.selectByProject(100L, 9L)).thenReturn(new FrEngClosureDO().setId(1L)
                 .setDeliveredAt(LocalDate.now()));
         when(projectService.bumpRevision(post, project)).thenReturn(6L);
@@ -70,15 +73,15 @@ class EngClosurePayloadTest {
         when(ledger.paidCentsByPayableIds(eq(post), any())).thenReturn(Map.of());
 
         service.settle(post, 9L, new EngClosureService.SettleCommand(
-                LocalDate.of(2026, 11, 1), "结算说明", null), "key-1");
+                LocalDate.of(2026, 11, 1), "结算说明", 88L), "key-1");
 
         ArgumentCaptor<Object> replayPayload = ArgumentCaptor.forClass(Object.class);
-        verify(commands).replayed(eq(post), eq("key-1"), replayPayload.capture());
+        verify(commands).replayed(eq(post), eq("key-1"), replayPayload.capture(), eq(legacyPayload));
         ArgumentCaptor<Object> recordPayload = ArgumentCaptor.forClass(Object.class);
         verify(commands).record(eq(post), anyString(), eq(9L), eq(6L), eq("eng-settle"),
                 recordPayload.capture(), eq("key-1"));
         assertThat(recordPayload.getValue()).isEqualTo(replayPayload.getValue())
-                .isEqualTo(Map.of("date", "2026-11-01", "note", "结算说明"));
+                .isEqualTo(Map.of("date", "2026-11-01", "note", "结算说明", "projectId", 9L, "assetId", 88L));
     }
 
 }

@@ -212,12 +212,14 @@ public class EngClosureService {
     }
 
     private FrEngProjectDO lockOwnedProject(PostSnapshot post, long projectId) {
-        FrEngProjectDO project = projectService.projects().lockById(projectId);
-        if (project == null || project.getCompanyId() != post.orgId()) {
-            throw exception(ENGINEERING_INPUT_INVALID, "工程不存在或无权查看");
+        FrEngProjectDO visible = projectService.requireProject(post, projectId);
+        EngGuard.requireOwner(visible, post.userId());
+        // Keep the authorization in the lock query too, in case the assignment changes meanwhile.
+        FrEngProjectDO locked = projectService.projects().lockOwnedByCompany(projectId, post.orgId(), post.userId());
+        if (locked == null) {
+            throw exception(ENGINEERING_FORBIDDEN);
         }
-        EngGuard.requireOwner(project, post.userId());
-        return project;
+        return locked;
     }
 
     private static void requireClosureEvent(CommandEventDO event, long projectId, String command) {

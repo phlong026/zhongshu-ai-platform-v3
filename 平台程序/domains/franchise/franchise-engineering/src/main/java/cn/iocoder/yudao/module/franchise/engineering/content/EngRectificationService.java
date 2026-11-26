@@ -111,7 +111,8 @@ public class EngRectificationService {
         long id;
         if ("create".equals(cmd.action())) {
             projects.requireOwned(post,project,"node");
-            requireAssignment(current,cmd);
+            // Installed clients send neither field. Keep the original issue as unassigned until it is routed.
+            if (cmd.ownerUserId()!=null || cmd.dueDate()!=null) requireAssignment(current,cmd);
             if (cmd.title()==null||cmd.title().isBlank()||cmd.title().length()>160) throw exception(ENGINEERING_INPUT_INVALID,"请填写整改事项");
             if (cmd.nodeId()!=null && jdbc.queryForList("SELECT id FROM fr_eng_plan_node WHERE id=? AND project_id=? AND company_id=?",cmd.nodeId(),project,post.orgId()).isEmpty())
                 throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目节点");

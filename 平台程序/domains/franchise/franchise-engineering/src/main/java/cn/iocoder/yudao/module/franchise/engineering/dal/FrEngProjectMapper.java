@@ -13,6 +13,16 @@ public interface FrEngProjectMapper extends BaseMapperX<FrEngProjectDO> {
                 .eq(FrEngProjectDO::getId, id).last("FOR UPDATE"));
     }
 
+    /** Only lock a project if it still belongs to this company and the actor still owns it. */
+    default FrEngProjectDO lockOwnedByCompany(long id, long companyId, long userId) {
+        return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FrEngProjectDO>()
+                .eq(FrEngProjectDO::getId, id)
+                .eq(FrEngProjectDO::getCompanyId, companyId)
+                .and(owner -> owner.eq(FrEngProjectDO::getManagerUserId, userId)
+                        .or().eq(FrEngProjectDO::getAssignedEngineerUserId, userId))
+                .last("FOR UPDATE"));
+    }
+
     /** 同组织未归档项目名查重（008；部分唯一索引兜底并发） */
     default FrEngProjectDO findActiveByName(long companyId, String name) {
         java.util.List<FrEngProjectDO> rows = selectList(

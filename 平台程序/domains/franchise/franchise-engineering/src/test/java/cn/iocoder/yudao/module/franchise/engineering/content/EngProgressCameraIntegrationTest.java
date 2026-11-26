@@ -86,6 +86,24 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 .hasMessageContaining("状态");
     }
 
+    @Test void installedClientCanCreateOneUnassignedIssueAndKeepItsOriginalReceipt() {
+        var oldClient=issue("create",null,null,null,"旧版只登记现场情况");
+        String request=key();
+        long id=issues.change(engineer,projectId,oldClient,request);
+        assertThat(issues.change(engineer,projectId,oldClient,request)).isEqualTo(id);
+        var row=issueDetail(engineer,id);
+        assertThat(row).containsEntry("state","OPEN").containsEntry("ownerUserId",null).containsEntry("dueDate",null);
+        assertThat((List<?>)row.get("history")).hasSize(1);
+        assertThat(issues.list(engineer,projectId)).hasSize(1);
+        assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id)
+                && t.status().equals("待分派"));
+        issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today,"补齐负责人和期限"),key());
+        assertThat(issueDetail(engineer,id)).containsEntry("ownerUserId",Long.toString(engineer.userId()))
+                .containsEntry("dueDate",today.toString());
+        assertThat((List<?>)issueDetail(engineer,id).get("history")).hasSize(2);
+        assertThat(issues.change(engineer,projectId,oldClient,request)).isEqualTo(id);
+    }
+
     @Test void rectificationDoesNotInventOldAssignmentsOrAcceptAnotherProjectOrCompany() {
         long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         jdbc.update("INSERT INTO fr_eng_rectification(id,company_id,project_id,title,state,created_by) VALUES(?,?,?,'旧单','OPEN',?)",id,engineer.orgId(),projectId,engineer.userId());
@@ -103,7 +121,8 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id) && t.status().contains("待分派"));
         var other=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
-        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,null,"缺少分派"),key())).hasMessageContaining("负责人");
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,today,"缺负责人"),key())).hasMessageContaining("负责人");
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,engineer.userId(),null,"缺期限"),key())).hasMessageContaining("期限");
         assertThatThrownBy(()->issues.change(engineer,projectId,issue("assign",id,other.userId(),today,"其他项目人员"),key())).hasMessageContaining("本项目");
         assertThatThrownBy(()->issueDetail(other,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         var foreign=fixture.post(fixture.store().orgId(),"engineer",null);
