@@ -227,6 +227,65 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void planRetryUsesOriginalLineDetailsAndReturnsOnlyItsOwnPlan() {
+        var due = java.time.LocalDate.now().plusDays(3);
+        var line = new EngMaterialService.PlanLine("钢筋", "HRB400", "吨", new BigDecimal("2.000"));
+        var command = new EngMaterialService.PlanCommand(nodeId, due, java.util.List.of(line), "周五到场");
+        String key = idem();
+        var saved = as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key));
+        long planId = ((Number) saved.get("materialPlanId")).longValue();
+        as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, idem()));
+        var changes = java.util.List.of(
+                new EngMaterialService.PlanLine("钢管", line.spec(), line.unit(), line.quantity()),
+                new EngMaterialService.PlanLine(line.name(), "HRB500", line.unit(), line.quantity()),
+                new EngMaterialService.PlanLine(line.name(), line.spec(), "根", line.quantity()),
+                new EngMaterialService.PlanLine(line.name(), line.spec(), line.unit(), BigDecimal.TEN));
+        for (var changed : changes) {
+            var retry = new EngMaterialService.PlanCommand(nodeId, due, java.util.List.of(changed), command.note());
+            assertPlanKeyConflict(retry, key);
+        }
+        assertPlanKeyConflict(new EngMaterialService.PlanCommand(nodeId, due, command.lines(), "提前到场"), key);
+        var normalized = new EngMaterialService.PlanLine("  钢筋 ", "HRB400", " 吨 ", new BigDecimal("2"));
+        var retry = new EngMaterialService.PlanCommand(nodeId, due, java.util.List.of(normalized), command.note());
+        assertThat(as(engineer, () -> materialsService.submitPlan(engineer, projectId, retry, key)))
+                .isEqualTo(saved);
+        Long id = jdbc.queryForObject("SELECT id FROM fr_eng_material WHERE material_plan_id=?", Long.class, planId);
+        as(engineer, () -> materialsService.adjust(engineer, id,
+                new EngMaterialService.AdjustCommand(BigDecimal.ONE, "用量调整"), idem()));
+        assertThat(as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key)))
+                .containsEntry("materialPlanId", planId);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fr_eng_material WHERE project_id=? AND required_date=?",
+                Integer.class, projectId, due)).isEqualTo(2);
+    }
+
+    @Test
+    void legacyPlanRetryVerifiesTheOriginalBatchBeforeReturningIt() {
+        var due = java.time.LocalDate.now().plusDays(4);
+        var line = new EngMaterialService.PlanLine("外墙砖", "灰色", "箱", BigDecimal.TEN);
+        var command = new EngMaterialService.PlanCommand(nodeId, due, java.util.List.of(line), null);
+        String key = idem();
+        var saved = as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key));
+        var old = new java.util.LinkedHashMap<String, Object>();
+        old.put("nodeId", nodeId);
+        old.put("due", due.toString());
+        old.put("lineCount", 1);
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-material-plan'",
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), projectId)).isOne();
+        assertThat(as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key)))
+                .isEqualTo(saved);
+        var changed = new EngMaterialService.PlanLine(line.name(), "白色", line.unit(), line.quantity());
+        assertPlanKeyConflict(new EngMaterialService.PlanCommand(nodeId, due, java.util.List.of(changed), null), key);
+    }
+
+    private void assertPlanKeyConflict(EngMaterialService.PlanCommand command, String key) {
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    @Test
     void formalPaymentPlanIsInheritedWithoutEngineeringReentryAndKeepsOneSnapshotOnRetry() {
         long asset=insertAsset("CONTRACT_ATTACHMENT",true,store.orgId());
         Config.FORMAL_PLAN=new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan(900,1,1,100000,asset,java.util.List.of(

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort;
 import cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialDO;
@@ -23,11 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 /**
@@ -104,10 +107,32 @@ public class EngMaterialService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> submitPlan(PostSnapshot post, long projectId, PlanCommand cmd, String idempotencyKey) {
+        projectService.requireProject(post, projectId);
+        projects.lockById(projectId);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "materials");
-        var replayed = commands.replayed(post, idempotencyKey, planPayload(cmd));
-        if (replayed.isPresent()) {
-            return summary(post, projectId, null);
+        if (cmd.due() == null) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请填写需到货日期");
+        }
+        List<PlanLine> lines = cmd.lines() == null ? List.of() : cmd.lines().stream()
+                .filter(l -> l != null && StrUtil.isNotBlank(l.name()))
+                .map(EngMaterialService::normalizedPlanLine).toList();
+        if (lines.isEmpty()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请填写材料清单");
+        }
+        var previous = commands.previous(post, idempotencyKey, "eng-material-plan", projectId);
+        if (previous.isPresent()) {
+            var event = previous.get();
+            if (!AGGREGATE.equals(event.getAggregateType())) throw exception(IDEMPOTENCY_KEY_REUSED);
+            var recorded = JsonUtils.parseTree(event.getPayload());
+            long planId;
+            if (recorded.has("materialPlanId")) {
+                planId = recorded.get("materialPlanId").asLong();
+                commands.replayed(post, idempotencyKey, planSubmission(planId, projectId, cmd, lines));
+            } else {
+                commands.replayed(post, idempotencyKey, legacyPlanPayload(cmd));
+                planId = verifiedLegacyPlan(post.orgId(), projectId, cmd, lines);
+            }
+            return submittedPlan(post, projectId, planId);
         }
         FrEngPlanNodeDO node = planNodes.selectByProject(post.orgId(), projectId).stream()
                 .filter(n -> n.getId() == cmd.nodeId()).findFirst()
@@ -115,40 +140,80 @@ public class EngMaterialService {
         if ("START".equals(node.getMilestone()) || FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择未完成的施工节点");
         }
-        if (cmd.due() == null) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请填写需到货日期");
-        }
-        List<PlanLine> lines = cmd.lines() == null ? List.of() : cmd.lines().stream()
-                .filter(l -> l != null && StrUtil.isNotBlank(l.name())).toList();
-        if (lines.isEmpty()) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请填写材料清单");
-        }
         long planId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
         for (PlanLine line : lines) {
-            if (StrUtil.isBlank(line.unit())) {
-                throw exception(ENGINEERING_INPUT_INVALID, "请填写材料单位");
-            }
-            BigDecimal quantity = EngGuard.requireQuantity(line.quantity());
             FrEngMaterialDO material = new FrEngMaterialDO().setCompanyId(post.orgId())
                     .setProjectId(projectId).setMaterialPlanId(planId).setNodeId(cmd.nodeId())
-                    .setName(StrUtil.trim(line.name())).setSpec(StrUtil.nullToEmpty(line.spec()))
-                    .setUnit(StrUtil.trim(line.unit())).setQuantity(quantity)
+                    .setName(line.name()).setSpec(line.spec()).setUnit(line.unit()).setQuantity(line.quantity())
                     .setRequiredDate(cmd.due()).setStatus(FrEngMaterialDO.STATUS_SUBMITTED);
             materials.insert(material);
             supplies.insert(new FrEngSupplyDO().setCompanyId(post.orgId()).setProjectId(projectId)
-                    .setMaterialId(material.getId()).setQuantity(quantity)
+                    .setMaterialId(material.getId()).setQuantity(line.quantity())
                     .setUnitPriceCents(0L).setFreightCents(0L).setPayer(FrEngSupplyDO.PAYER_STORE)
                     .setStatus(FrEngSupplyDO.STATUS_PENDING_TERMS).setPaid(false));
         }
         commands.record(post, AGGREGATE, projectId,
                 projectService.bumpRevision(post, project),
-                "eng-material-plan", planPayload(cmd), idempotencyKey);
+                "eng-material-plan", planSubmission(planId, projectId, cmd, lines), idempotencyKey);
+        return submittedPlan(post, projectId, planId);
+    }
+
+    private Map<String, Object> submittedPlan(PostSnapshot post, long projectId, long planId) {
         Map<String, Object> view = summary(post, projectId, planId);
         view.put("materialPlanId", planId);
         return view;
     }
 
-    private static Map<String, Object> planPayload(PlanCommand cmd) {
+    private static PlanLine normalizedPlanLine(PlanLine line) {
+        if (StrUtil.isBlank(line.unit())) throw exception(ENGINEERING_INPUT_INVALID, "请填写材料单位");
+        return new PlanLine(StrUtil.trim(line.name()), StrUtil.nullToEmpty(line.spec()),
+                StrUtil.trim(line.unit()), EngGuard.requireQuantity(line.quantity()));
+    }
+
+    private record PlanSubmission(long materialPlanId, long projectId, long nodeId, String due,
+                                  List<PlanLine> lines, String note) {}
+
+    private static PlanSubmission planSubmission(long planId, long projectId, PlanCommand cmd, List<PlanLine> lines) {
+        return new PlanSubmission(planId, projectId, cmd.nodeId(), cmd.due().toString(), lines,
+                StrUtil.trimToEmpty(cmd.note()));
+    }
+
+    private long verifiedLegacyPlan(long orgId, long projectId, PlanCommand cmd, List<PlanLine> lines) {
+        // Old events lack a batch ID. Ignore batches already linked to newer events.
+        // A matching description alone cannot distinguish two historical orders for the same node and date.
+        List<Long> candidates = jdbcTemplate.queryForList("""
+                SELECT DISTINCT m.material_plan_id FROM fr_eng_material m
+                WHERE m.company_id=? AND m.project_id=? AND m.node_id=? AND m.required_date=?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM pf_command_event e
+                    WHERE e.domain='franchise' AND e.org_id=m.company_id AND e.aggregate_id=m.project_id
+                      AND e.aggregate_type='fr-eng-project' AND e.command='eng-material-plan'
+                      AND e.payload::jsonb->>'materialPlanId'=m.material_plan_id::text)
+                """, Long.class, orgId, projectId, cmd.nodeId(), cmd.due());
+        if (candidates.size() != 1 || StrUtil.isNotBlank(cmd.note())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "旧版计划缺少批次或备注留痕，请核对原材料计划");
+        }
+        long planId = candidates.get(0);
+        Boolean adjusted = jdbcTemplate.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM pf_command_event e JOIN fr_eng_material m
+                    ON m.company_id=e.org_id AND m.project_id=e.aggregate_id
+                    AND m.id::text=e.payload::jsonb->>'materialId'
+                    WHERE e.domain='franchise' AND e.org_id=? AND e.aggregate_id=?
+                      AND e.aggregate_type='fr-eng-project' AND e.command='eng-material-adjust'
+                      AND m.material_plan_id=?)
+                """, Boolean.class, orgId, projectId, planId);
+        if (Boolean.TRUE.equals(adjusted)) {
+            throw exception(ENGINEERING_INPUT_INVALID, "旧版材料计划数量已有调整，请核对原计划");
+        }
+        List<PlanLine> saved = materials.selectByPlan(orgId, planId).stream()
+                .sorted(Comparator.comparing(FrEngMaterialDO::getId))
+                .map(m -> normalizedPlanLine(new PlanLine(m.getName(), m.getSpec(), m.getUnit(), m.getQuantity())))
+                .toList();
+        if (!saved.equals(lines)) throw exception(IDEMPOTENCY_KEY_REUSED);
+        return planId;
+    }
+
+    private static Map<String, Object> legacyPlanPayload(PlanCommand cmd) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("nodeId", cmd.nodeId());
         m.put("due", cmd.due() == null ? null : cmd.due().toString());
