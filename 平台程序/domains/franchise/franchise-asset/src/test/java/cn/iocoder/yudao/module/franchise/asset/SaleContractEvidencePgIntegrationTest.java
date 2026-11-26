@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
 import cn.iocoder.yudao.module.franchise.api.CommissionDeliverableAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
+import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
+import cn.iocoder.yudao.module.franchise.content.controller.admin.ContentPublicationController;
 import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService;
@@ -66,7 +68,7 @@ import static org.assertj.core.api.Assertions.*;
 /** Real PG, CRM access, command log, scanned uploads and workflow projection; only object storage is in memory. */
 @Import({SaleContractService.class, SaleRequirementService.class, SalesAccess.class, SalesOrgScope.class,
         CustomerSchemeAdapter.class, CustomerService.class, CrmOrgScope.class, CustomerWorkflowReadService.class,
-        SaleWorkflowFactsAdapter.class, ContractDocumentAccessPolicy.class, FranchiseCommands.class, CommandLogImpl.class, SaleContractEvidencePgIntegrationTest.Config.class})
+        SaleWorkflowFactsAdapter.class, ContentGrowthService.class, ContractDocumentAccessPolicy.class, FranchiseCommands.class, CommandLogImpl.class, SaleContractEvidencePgIntegrationTest.Config.class})
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/franchise-asset")
 class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
     private static final byte[] PDF = "%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n%%EOF".getBytes(StandardCharsets.US_ASCII);
@@ -75,10 +77,12 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource AssetEvidenceQueryPort evidence;
     @Resource CustomerWorkflowReadService workflow;
     @Resource SaleWorkflowFactsAdapter sourceFacts;
+    @Resource ContentGrowthService growth;
     @Resource JdbcTemplate jdbc;
     @Resource PlatformTransactionManager transactions;
     @Resource MemoryStorage storage;
     private PostSnapshot sales, boss, colleague, other;
+    private PostSnapshot otherTeam;
     private long tenant;
 
     @TestConfiguration
@@ -113,6 +117,7 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         var store = fixture.store(); tenant = store.orgId();
         sales = fixture.post(store.orgId(), SALES, store.salesTeamA());
         colleague = fixture.post(store.orgId(), SALES, store.salesTeamA());
+        otherTeam = fixture.post(store.orgId(), SALES, store.salesTeamB());
         boss = fixture.post(store.orgId(), BOSS, null);
         var second = fixture.store(); other = fixture.post(second.orgId(), SALES, second.salesTeamA());
         for (long company : List.of(sales.orgId(), other.orgId()))
@@ -120,6 +125,97 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         TenantContextHolder.setTenantId(tenant); currentPost.use(sales); storage.beforeRead = null;
     }
     @AfterEach void clearTenant() { storage.beforeRead = null; TenantContextHolder.clear(); }
+
+    @Test void contentGrowthCountsEachCustomerOnceAcrossTouchesAndUsesRealSigningAndNetReceipts() throws Exception {
+        long first = publication(sales, "published"), second = publication(colleague, "published");
+        long failed = publication(sales, "failed"), foreign = publication(other, "published");
+        long buyer = customer(sales), legacy = customer(sales), pending = customer(sales);
+        String a = ContentGrowthService.SOURCE_PREFIX + first, b = ContentGrowthService.SOURCE_PREFIX + second;
+        inquiry(sales, a, buyer, "CONVERTED");
+        inquiry(sales, a, buyer, "CONVERTED");
+        inquiry(colleague, b, buyer, "CONVERTED");
+        inquiry(sales, b, legacy, "CONVERTED");
+        inquiry(sales, b, pending, "CONVERTED");
+        inquiry(sales, b, null, "LINK_REQUIRED");
+        inquiry(sales, a, null, "INVALID");
+        for (String ignored : List.of("转介绍", a + "x", ContentGrowthService.SOURCE_PREFIX + failed, ContentGrowthService.SOURCE_PREFIX + foreign))
+            inquiry(sales, ignored, buyer, "CONVERTED");
+        inquiry(other, a, customer(other), "CONVERTED");
+
+        var signed = draft(sales, buyer);
+        long file = upload(sales, "CONTRACT_ATTACHMENT");
+        sign(signed, today(), file, revision(signed.getId()), key());
+        var missingEvidence = draft(sales, legacy);
+        jdbc.update("UPDATE fr_sale_contract SET status='SIGNED',signed_date=CURRENT_DATE WHERE id=?", missingEvidence.getId());
+        draft(sales, pending);
+        Map<String, Object> summary = growthSummary(boss);
+        assertCounts(summary, 2, 6, 3, 1, 0);
+        assertThat(number(summary, "converted")).isEqualTo(3);
+        @SuppressWarnings("unchecked") var rows = (List<Map<String,Object>>) summary.get("perPublication");
+        assertThat(rows).extracting(r -> r.get("publicationId")).containsExactly(Long.toString(first), Long.toString(second));
+        assertThat(rows.stream().mapToLong(row -> number(row, "linkedCustomers")).sum()).isEqualTo(4);
+
+        long stage = ((Number) plan(signed.getId()).get(0).get("id")).longValue(), receipt = IdWorker.getId();
+        jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,contract_id,stage_id,receipt_id,amount_cents) VALUES(?,?,?,?,?,100)",
+                IdWorker.getId(), sales.orgId(), signed.getId(), stage, receipt);
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 1);
+        for (int part : List.of(40, 60)) {
+            jdbc.update("INSERT INTO fr_fin_refund(id,receipt_id,company_id,amount_cents,reason,operator_user_id) VALUES(?,?,?,?,?,?)",
+                    IdWorker.getId(), receipt, sales.orgId(), part, "退款", sales.userId());
+            assertThat(number(growthSummary(boss), "netPaidCustomers")).isEqualTo(part == 40 ? 1 : 0);
+        }
+        jdbc.update("UPDATE fr_sale_contract SET status='VOIDED' WHERE id=?", signed.getId());
+        var replacement = draft(sales, buyer);
+        assertCounts(growthSummary(boss), 2, 6, 3, 0, 0);
+        sign(replacement, today(), file, revision(replacement.getId()), key());
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 0);
+        assertCounts(growthSummary(other), 1, 0, 0, 0, 0);
+    }
+
+    @Test void contentGrowthScopesConsultationsAndCustomerOutcomesIndependentlyOfThePublishedDirectory() {
+        var remote = otherTeam;
+        var teamLead = fixture.post(sales.orgId(), "sales-lead", sales.teamId());
+        long a = publication(remote, "published"), b = publication(colleague, "published");
+        long mine = customer(sales), sameTeam = customer(colleague), hidden = customer(remote);
+        String source = ContentGrowthService.SOURCE_PREFIX + a;
+        inquiry(sales, source, mine, "CONVERTED");
+        inquiry(sales, source, hidden, "CONVERTED");
+        inquiry(colleague, source, sameTeam, "CONVERTED");
+        inquiry(remote, ContentGrowthService.SOURCE_PREFIX + b, hidden, "CONVERTED");
+        assertCounts(growthSummary(sales), 2, 2, 1, 0, 0);
+        assertCounts(growthSummary(teamLead), 2, 3, 2, 0, 0);
+        assertCounts(growthSummary(boss), 2, 4, 3, 0, 0);
+    }
+
+    private long publication(PostSnapshot post, String status) {
+        long id = IdWorker.getId();
+        jdbc.update("INSERT INTO fr_content_publication(id,company_id,author_user_id,work_id,title,account_id,platform,status,published_url,published_at) VALUES(?,?,?,?,?,'销售号','douyin',?,?,now())",
+                id, post.orgId(), post.userId(), id, "作品" + id, status, "https://example.org/" + id);
+        return id;
+    }
+
+    private void inquiry(PostSnapshot post, String source, Long customer, String status) {
+        jdbc.update("INSERT INTO fr_lead(id,company_id,team_id,registrar_user_id,registrar_post_id,name,phone,need,source,status,customer_id,conversion) VALUES(?,?,?,?,?,'咨询','13800000000','户型',?,?,?,?)",
+                IdWorker.getId(), post.orgId(), post.teamId(), post.userId(), post.postId(), source, status, customer,
+                customer == null ? null : "EXISTING");
+    }
+
+    private Map<String, Object> growthSummary(PostSnapshot post) {
+        var controller = new ContentPublicationController();
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "growth", growth);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        return as(post, () -> controller.growthSummary().getData());
+    }
+
+    private static long number(Map<String, Object> row, String key) {
+        assertThat(row).containsKey(key);
+        return ((Number) row.get(key)).longValue();
+    }
+
+    private static void assertCounts(Map<String, Object> reply, long published, long consultations, long linked, long signed, long netPaid) {
+        assertThat(List.of(number(reply, "publishedCount"), number(reply, "consultations"), number(reply, "linkedCustomers"),
+                number(reply, "signedCustomers"), number(reply, "netPaidCustomers"))).containsExactly(published, consultations, linked, signed, netPaid);
+    }
 
     @Test void createsWithoutInternalDesignBudgetAndOnlyRealSigningCompletesStepSeven() throws Exception {
         long customer = customer(sales); var contract = draft(sales, customer); long file = upload(sales, "CONTRACT_ATTACHMENT");
