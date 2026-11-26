@@ -27,6 +27,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.GATE_NOT_MET;
@@ -277,6 +278,53 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                 Long.class, projectId)).isEqualTo(1L);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_collection WHERE project_id=?",
                 Long.class, anotherProjectId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?",
+                Long.class, signStageId)).isEqualTo(1L);
+    }
+
+    @Test
+    void collectionWithoutDateReplaysAfterTheServerDayChanges() {
+        String key = idem();
+        String transactionNo = txn();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        var command = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), transactionNo, null, 9002L);
+        Map<String, Object> first;
+        try (var dates = org.mockito.Mockito.mockStatic(LocalDate.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            dates.when(LocalDate::now).thenReturn(yesterday);
+            first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        }
+
+        var replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        assertThat(replay.get("replayed")).isEqualTo(true);
+        assertThat(replay.get("collectionId")).isEqualTo(first.get("collectionId"));
+        assertThat(replay.get("receiptId")).isEqualTo(first.get("receiptId"));
+        assertThat(jdbc.queryForObject("SELECT CAST(occurred_at AS text) FROM fr_eng_collection WHERE id=?",
+                String.class, first.get("collectionId"))).isEqualTo(yesterday.toString());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?",
+                Long.class, signStageId)).isEqualTo(1L);
+    }
+
+    @Test
+    void collectionWithoutDateReplaysAPreviousVersionFingerprintUsingTheRecordedDay() {
+        String key = idem();
+        String transactionNo = txn();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        var dated = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), transactionNo, yesterday, 9002L);
+        // An explicit date creates the same fingerprint as the preceding release's resolved day.
+        var first = as(finance, () -> collectionService.register(finance, projectId, dated, key));
+        var original = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, dated.amount(), transactionNo, null, 9002L);
+        var replay = as(finance, () -> collectionService.register(finance, projectId, original, key));
+
+        assertThat(replay.get("replayed")).isEqualTo(true);
+        assertThat(replay.get("collectionId")).isEqualTo(first.get("collectionId"));
+        assertThat(replay.get("receiptId")).isEqualTo(first.get("receiptId"));
+        assertThatThrownBy(() -> as(finance, () -> collectionService.register(finance, projectId,
+                new EngCollectionService.CollectCommand(
+                        SIGN_AFTER, dated.amount(), transactionNo, yesterday.plusDays(1), 9002L), key)))
+                .isInstanceOf(ServiceException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE stage_id=?",
                 Long.class, signStageId)).isEqualTo(1L);
     }
