@@ -45,5 +45,17 @@ test('historical generation page cannot offer or dispatch another paid drawing',
  let page;const toasts=[];
  load('miniprogram/design-migration/pages/ai-design/generating.js',id=>id==='../../utils/access'?{protectedPage:p=>page=p}:id==='../../utils/context'?{getApp:()=>({globalData:{}})}:id==='../../utils/generation-options'?{selection:()=>({})}:{},{wx:{showToast:o=>toasts.push(o.title)}});
  page.regenerate();assert.deepEqual(toasts,['请在客户跟进中上传外部设计成果']);
+ assert.doesNotMatch(page.leavePage.toString(),/ai-design\/index/);
  const template=fs.readFileSync('miniprogram/design-migration/pages/ai-design/generating.wxml','utf8');assert.doesNotMatch(template,/bindtap="regenerate"/);assert.match(template,/bindtap="retryCandidates"/);assert.match(template,/bindtap="cancel"/);
+});
+
+test('legacy entry restores the fixed result after login and guards other roles',()=>{
+ let page;const routes=[];let token='',role='sales';
+ load('miniprogram/pages/workflow/explore/index.js',id=>id.endsWith('/http')?{token:()=>token}:id.endsWith('/auth')?{currentApiPost:()=>({roleCode:role})}:require('../miniprogram/utils/platform-design'),{Page:p=>page=p,wx:{redirectTo:o=>routes.push(o.url)}});
+ page.setData=()=>{};page.onLoad({view:'plan-result',projectId:'90071992547409973',resultVersionId:'901'});
+ const expected='/pages/workflow/explore/index?view=plan-result&projectId=90071992547409973&resultVersionId=901';
+ assert.equal(routes.pop(),'/pages/account/index?view=login&return='+encodeURIComponent(expected));
+ token='active';role='engineer';page.onShow();assert.match(routes.pop(),/account\/index\?view=access/);
+ role='sales';page.onLoad({view:'plan-result',projectId:'90071992547409973',resultVersionId:'901'});
+ assert.equal(routes.pop(),'/design-migration/pages/ai-design/result?projectId=90071992547409973&resultVersionId=901');
 });

@@ -185,15 +185,15 @@ protectedPage({
       { url: '', imageLoading: false, imageError: '图片已失效，点击重新加载' }) : candidate) });
   },
   current(token) { return http.isSameSession ? http.isSameSession(token) : token === http.getToken(); },
-  // 页内选择：与主/恢复两路径共用（选择页已收敛到本页内联候选）
+  // 重新读取历史任务的候选图。
   retryCandidates() {
     this.setData({ candidatesError: '' });
     this.refreshCandidates();
   },
   leavePage() {
-    wx.navigateBack({ fail: () => navigation.switchTab({ url: '/design-migration/pages/ai-design/index' }) });
+    wx.navigateBack({ fail: () => navigation.switchTab({ url: '/design-migration/pages/profile/records?type=projects' }) });
   },
-  // 选择页收敛后重生成入口移到这里：不满意候选可直接再生成（扣点确认在前），逻辑与原两页一致
+  // 兼容旧页面实例里尚未消失的事件。
   regenerate() {
     wx.showToast({ title: '请在客户跟进中上传外部设计成果', icon: 'none' });
   },
