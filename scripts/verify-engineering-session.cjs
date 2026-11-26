@@ -174,3 +174,25 @@ test('expense form and write actions stay hidden until the original save can be 
  assert.deepEqual(read('unknown').filter(x=>['retryExpense','expenseMode','perform'].includes(x.attrs.bindtap)).map(x=>x.attrs.bindtap),['retryExpense']);
  assert.equal(read('').some(x=>x.attrs.bindtap==='perform'),true);
 });
+
+test('settlement names the revised expense and displays the difference without changing totals or adding actions',()=>{
+ const {render}=require('./role-page-runtime.cjs');
+ const {settleView}=require('../miniprogram/utils/platform-engineering');
+ const file=path.join(__dirname,'../miniprogram/pages/build/record/index.wxml');
+ const row={expenseId:'labor',name:'劳务核减',revisedCents:80000,bookedCents:100000,netPaidCents:100000,netAboveRevisedCents:20000};
+ const show=(remaining,...rows)=>render(file,{view:'settlement',p:{id:'project'},expanded:{},actions:[],
+   settle:settleView({expensesTotalCents:100000,expensesPaidCents:100000-remaining,expensesRemainingCents:remaining,...(rows.length?{expenseReviewRows:rows}:{})})});
+ const snapshot=tree=>JSON.stringify(tree,(key,value)=>key==='parent'?undefined:value);
+ const before=snapshot(show(0,row));
+ for(const label of ['请财务核对原单','劳务核减','工程修订 ¥ 800','财务原应付 ¥ 1,000','净已付 ¥ 1,000','净已付比修订金额多 ¥ 200']) {
+  assert.ok(before.includes(label),label);
+ }
+ assert.ok(!before.includes('data-action'), 'notice must not add a refund or payment action');
+ assert.ok(!snapshot(show(20000)).includes('请财务核对原单'), 'old backend or redacted response');
+ const after=snapshot(show(20000,{...row,netPaidCents:80000,netAboveRevisedCents:0}));
+ assert.ok(after.includes('净已付 ¥ 800'));
+ assert.ok(after.includes('¥ 200（原账余额，待核对）'));
+ assert.ok(!snapshot(show(20000)).includes('原账余额，待核对'));
+ assert.ok(!after.includes('净已付比修订金额多'));
+ assert.equal(settleView({expensesTotalCents:100000}).expensesTotalText,'¥ 1,000');
+});
