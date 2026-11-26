@@ -700,6 +700,19 @@ onBeforeUnmount(dispose)
   justify-content: flex-end;
   margin-top: 18px;
 }
+.map-display-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.map-display-label {
+  color: #5f4937;
+  font-size: 13px;
+  font-weight: 600;
+}
+.map-display-fields .el-alert {
+  margin-top: 4px;
+}
 .region-select {
   width: 100%;
 }
