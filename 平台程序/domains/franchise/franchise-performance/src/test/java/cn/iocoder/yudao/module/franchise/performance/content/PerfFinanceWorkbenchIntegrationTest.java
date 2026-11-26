@@ -372,6 +372,38 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(unresolved).hasSize(3).allMatch(r->r.get("subtitle").toString().contains("待组织分派"));
  }
 
+ @Test @org.springframework.transaction.annotation.Transactional
+ void completedReshipsClearTheOriginalSupplyFromBothWorkbenchesOnlyAfterPhysicalArrival() {
+  createHomeTables();
+  var store=fixture.store();
+  var engineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  var boss=fixture.post(store.orgId(),"boss",null);
+  long org=boss.orgId();
+  jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint, ADD assigned_engineer_user_id bigint, ADD status text");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply(id bigint,company_id bigint,project_id bigint,supplier text,promise_date date,quantity numeric)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,project_id bigint,supply_id bigint,kind text,actual_quantity numeric)");
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,manager_user_id,status) VALUES(11,?,'原项目',?,'IN_PROGRESS')",org,engineer.userId());
+  jdbc.update("INSERT INTO fr_eng_supply VALUES (21,?,11,'合成供应商',NULL,10)",org);
+  jdbc.update("INSERT INTO fr_eng_supply_receipt VALUES (31,?,11,21,'RECEIPT',5),(32,?,11,21,'RESHIP',NULL),"
+          +"(33,?,11,21,'RESHIP',50)",org,org,org+1);
+  var home=new HomeMetricsService(jdbc);
+  for (var actor:List.of(engineer,boss)) {
+   String role=actor==boss?"owner":"engineering";
+   var pending=(List<Map<String,Object>>)home.detail(actor,role,"2026-11","materials",1).get("rows");
+   assertThat(pending).extracting(r->r.get("id")).containsExactly("21");
+  }
+  jdbc.update("UPDATE fr_eng_supply_receipt SET actual_quantity=2 WHERE id=32");
+  jdbc.update("INSERT INTO fr_eng_supply_receipt VALUES (34,?,11,21,'RESHIP',NULL)",org);
+  for (var actor:List.of(engineer,boss)) {
+   String role=actor==boss?"owner":"engineering";
+   var pending=(List<Map<String,Object>>)home.detail(actor,role,"2026-11","materials",1).get("rows");
+   assertThat(pending).extracting(r->r.get("id")).containsExactly("21");
+  }
+  jdbc.update("UPDATE fr_eng_supply_receipt SET actual_quantity=3 WHERE id=34");
+  assertThat((List<?>)home.detail(engineer,"engineering","2026-11","materials",1).get("rows")).isEmpty();
+  assertThat((List<?>)home.detail(boss,"owner","2026-11","materials",1).get("rows")).isEmpty();
+ }
+
  private void createHomeTables(){
   createTables();
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
