@@ -8,8 +8,7 @@ const view = require('../../utils/record-view');
 const format = require('../../utils/format');
 const assets = require('../../utils/assets');
 const JOB_TEXT = { QUEUED: '排队等待中', RUNNING: 'AI 正在绘制', VALIDATING: '正在校验结果', CANCEL_REQUESTED: '正在取消', SUCCEEDED: '生成完成', PARTIALLY_SUCCEEDED: '部分方案已生成', FAILED: '生成失败', CANCELLED: '已取消' };
-const NEXT_LABEL = { POLL_JOB: '查看生成进度', SELECT_FLAT: '下一步：选择平面方案', SELECT_ELEVATION: '下一步：选择立面方案',
-  CREATE_ELEVATION_JOB: '下一步：配置立面生成', CREATE_FLAT_JOB: '下一步：生成平面方案', VIEW_RESULT: '查看最终方案' };
+const NEXT_LABEL = { POLL_JOB: '查看生成进度', SELECT_FLAT: '查看平面图', SELECT_ELEVATION: '查看立面图', VIEW_RESULT: '查看最终方案' };
 function requirementRows(requirements) {
   if (!requirements || typeof requirements !== 'object') return [];
   const style = { NEW_CHINESE: '新中式', MODERN: '现代简约', CHINESE: '中式', EUROPEAN: '欧式', NEW_ASIAN: '新亚洲', SONG: '宋式', COUNTRYSIDE: '田园' };
@@ -67,8 +66,8 @@ protectedPage({
         });
     this.setData({ projectId: project.projectId, versions, projectName: project.name || '',
       title: (typeof project.name === 'string' && project.name.trim()) ? project.name.trim() : this.data.title,
-      canResume: ['POLL_JOB', 'SELECT_FLAT', 'SELECT_ELEVATION', 'CREATE_ELEVATION_JOB', 'CREATE_FLAT_JOB', 'VIEW_RESULT'].includes(project.resumeAction),
-        nextLabel: NEXT_LABEL[project.resumeAction] || '继续设计',
+      canResume: !!NEXT_LABEL[project.resumeAction],
+      nextLabel: NEXT_LABEL[project.resumeAction] || '',
         requirementRows: requirementRows(project.requirements), fields: [
         { label: '方案类型', value: page.list.some(item => item.selectedFlatAssetId && item.selectedElevationAssetId) ? '历史双图方案（平面与立面）' : project.stage === 'ELEVATION' ? '立面方案' : project.stage === 'FLAT' ? '平面方案' : '历史设计方案' },
         { label: '方案来源', value: project.sourceType === 'CASE_REFERENCE' ? '基于户型库设计' : '自主设计' },
@@ -117,7 +116,7 @@ protectedPage({
       }).catch(function () { /* 单图失败保留占位 */ });
     });
   },
-  // 已完成任务的候选直出（后端按 jobId 拉式晋升后下发），配合"下一步"按钮即可续接选择流程
+  // 直接预览该历史任务返回的候选图。
   loadCandidates(project) {
     const self = this, seq = this._seq, projectId = this._id, jobId = project.jobId;
     this._candidateJobId = jobId;
@@ -187,6 +186,7 @@ protectedPage({
       .finally(() => { this._resuming = false; });
   },
   navigate(url) { wx.navigateTo({ url, fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) }); },
+  // 候选图点击放大（加载未完成的格子忽略；catchtap 不触发页面其他点击）
   // 方案重命名（仅 projects 类型入口）：系统弹窗内编辑，成功后同步标题
   renameProject() {
     if (this._renaming || this._type !== 'projects' || !this.data.projectId || !this.current(this._seq)) return;
@@ -214,7 +214,7 @@ protectedPage({
       }
     });
   },
-  // 候选图点击放大（加载未完成的格子忽略；catchtap 不触发页面其他点击）
+
   previewCandidate(event) {
     const url = event.currentTarget.dataset.url;
     if (!url) return;

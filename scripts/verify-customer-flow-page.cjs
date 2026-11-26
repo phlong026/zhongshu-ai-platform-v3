@@ -267,6 +267,7 @@ test('07/08只读真实事实且没有完成按钮；预算入口仍携带客户
   assert.equal(h.navigations[1].url, '/pages/external-entrust/index?customerId=42');
   h.page.select('QUOTATION'); h.page.openBudget();
   assert.equal(h.navigations[2].url, '/design-migration/pages/budget/quick?customerId=42');
+  h.page.openSalesQuote(); assert.equal(h.navigations.at(-1).url, '/pages/workflow/index?view=budget&id=42');
 });
 
 test('文本输入长度和后端契约一致，避免保存时才发现已超限', async () => {

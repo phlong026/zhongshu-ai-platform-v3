@@ -4,7 +4,7 @@
     <view wx:if="{{loading}}" class="record-empty"><v12-state status="loading" text="正在读取…" card="{{false}}" /></view>
     <view wx:elif="{{error}}" class="v12-card record-empty"><v12-state status="error" text="{{error}}" action-text="重试" bind:action="load" card="{{false}}" /></view>
     <block wx:elif="{{loaded}}">
-      <view wx:if="{{canResume}}" class="v12-primary-button record-cta" bindtap="resumeDesign" role="button">{{nextLabel || '继续设计'}}</view>
+      <view wx:if="{{canResume}}" class="v12-primary-button record-cta" bindtap="resumeDesign" role="button">{{nextLabel}}</view>
       <view wx:if="{{selectedImages.length}}" class="v12-card record-card">
         <text class="record-title">已选方案</text>
         <view class="selected-grid">

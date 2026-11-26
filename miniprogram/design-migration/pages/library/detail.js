@@ -156,7 +156,6 @@ protectedPage({
     channel.emit('workflowReference', { caseId: String(detail.id), title: detail.title });
     wx.navigateBack({ delta: 2 });
   },
-  useHouse() {wx.showToast({title:require('../../../utils/design-retirement').message,icon:'none'});},
   quickBudget() {
     const detail=this.data.caseDetail;if(!this.current()||!detail)return;
     getDesignApp().globalData.budgetCaseEntry={caseId:detail.id,caseVersionId:detail.caseVersionId,title:detail.title,values:require('../../utils/case-entry').parameters(detail)};
