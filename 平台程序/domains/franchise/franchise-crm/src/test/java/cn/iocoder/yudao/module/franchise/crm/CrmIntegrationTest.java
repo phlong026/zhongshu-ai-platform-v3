@@ -565,7 +565,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
 
     @Test
     void stablePageRefusesToAppendAfterSameTotalMembershipChangeBeyondTwoHundred() {
-        long base = PHONES.addAndGet(1000);
+        long base = PHONES.getAndAdd(1000);
         followJdbc.update("""
                 INSERT INTO fr_customer (id, company_id, team_id, owner_user_id, name, phone, source, status, update_time)
                 SELECT ? + seq, ?, ?, ?, '分页合成客户', (? + seq)::text, '测试', 'REGISTERED',
@@ -594,7 +594,9 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(alien.page().getList()).isEmpty();
 
         followJdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", salesA2.userId(), base + 5);
-        long replacement = capture(salesA2, phone()).customerId();
+        var capturedReplacement = capture(salesA2, phone());
+        assertThat(capturedReplacement.outcome()).isEqualTo(CaptureOutcome.CREATED);
+        long replacement = capturedReplacement.customerId();
         followJdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", salesA1.userId(), replacement);
         var legacy = as(salesA1, () -> customers.page(salesA1, fifth, null));
         assertThat(legacy.getTotal()).isEqualTo(251L);
