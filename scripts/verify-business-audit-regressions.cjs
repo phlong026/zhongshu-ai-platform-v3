@@ -368,6 +368,33 @@ test('beyond the bounded prefix a duplicate from concurrent page changes is stil
   assert(calls.every(([,size])=>size===50));
 });
 
+test('equal-count swap beyond 200 clears an outdated prefix and retries the same filter safely', async () => {
+  const c=customers(251), calls=[]; let changed=false;
+  c.api.customers.page=async(page,size,keyword,filter,guard,previous)=>{
+    const rows=changed?[c.database[250],...c.database.slice(1,250)]:c.database.slice(0,250);
+    const end=page*size,start=end-size;
+    const stamp=count=>rows.slice(0,count).map(row=>row.id).join(':');
+    calls.push({page,size,keyword,filter,guard,previous});
+    if(start&&previous!==stamp(start)) return {changed:true,list:[],total:0};
+    return {list:rows.slice(start,end),total:250,prefix:stamp(end),changed:false};
+  };
+  c.page.onLoad({focus:'due'});
+  await c.page.onShow();
+  for(let i=0;i<3;i++)await c.page.loadPlatformList(true);
+  assert.equal(c.page.data.customers.length,200);
+  assert(c.page.data.customers.some(row=>row.id==='1'));
+  changed=true;
+  await c.page.loadPlatformList(true);
+  assert.deepEqual(calls.map(x=>[x.page,x.size,x.guard,x.filter]),[[1,50,true,'DUE'],[1,100,true,'DUE'],[1,150,true,'DUE'],[1,200,true,'DUE'],[5,50,true,'DUE']]);
+  assert.equal(c.page.data.visibleCustomers.length,0);
+  assert.match(c.page.data.platformError,/名单已变化/);
+  await c.page.retryPlatform();
+  assert.equal(calls.at(-1).page,1);assert.equal(calls.at(-1).size,50);
+  assert.equal(calls.at(-1).filter,'DUE');assert(!calls.at(-1).previous);
+  assert(c.page.data.customers.some(row=>row.id==='251'));
+  assert(!c.page.data.customers.some(row=>row.id==='1'));
+});
+
 test('customer refresh rejects a short result even without changing totals or duplicate IDs', async () => {
   const c=customers();await c.page.onShow();await c.page.loadPlatformList(true);
   c.api.customers.page=async()=>({list:c.database.slice(1),total:60});
