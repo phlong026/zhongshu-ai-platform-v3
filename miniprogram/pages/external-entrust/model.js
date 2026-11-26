@@ -53,7 +53,7 @@ function measurement(value, customerId) {
       !day(value.occurredOn) || value.fields?.checked !== true || !Array.isArray(value.attachments) || !value.attachments.length)
     throw Error('测量原单所属客户或版本不匹配，请重新读取');
   return { eventId: id(value.eventId), revision: value.revision, customerId, occurredOn: day(value.occurredOn),
-    fields: copy(value.fields), attachments: files(value.attachments, '', 0) };
+    fields: copy(value.fields), attachments: files(value.attachments, '', 0), note: typeof value.note === 'string' ? value.note : '' };
 }
 function version(value, kind, customerId, companyId) {
   if (!value || !Number.isSafeInteger(value.version) || value.version < 1 || !value.data) throw Error('委托版本记录无效');
@@ -136,7 +136,8 @@ function payload(action, form, context, today) {
     providerReference: string(form.providerReference, 100, false, '外部编号'), text: string(form.text, 2000, true, '委托需求'), scope: string(form.scope, 500, true, '服务范围'),
     area: area ? Number(area) : null, floors: floors ? Number(floors) : null, attachments, paymentPlanRef: planRef(context.planRef),
     reason: string(form.reason, 500, action === 'convert' || !!context.request, '变更原因'),
-    ...(selected ? { measurementRef: { eventId: selected.eventId, revision: selected.revision } } :
+    ...(selected ? { measurementRef: { eventId: selected.eventId, revision: selected.revision,
+      ...(form.measurementSelected ? { includeSourceNote: true } : {}) } } :
       context.request?.data.measurementRef ? { removeMeasurement: true } : {}) };
 }
 module.exports = { id, copy, canWrite, planRef, refKey, detail, requestForm, resultForm, payload, measurement, slots, requestFields };

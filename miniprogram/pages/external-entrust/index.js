@@ -142,7 +142,7 @@ Page({
     const selected = this.data.measurements.find(row => row.eventId === model.id(event.currentTarget.dataset.id));
     if (!selected) return;
     this._measurementRead = null;
-    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: selected }, dirty: true, error: '' });
+    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: selected, measurementSelected: true }, dirty: true, error: '' });
   },
   removeMeasurement() {
     if (!this._visible || !this.editable() || this.data.editing === 'results') return;

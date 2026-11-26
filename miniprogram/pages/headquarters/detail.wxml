@@ -32,13 +32,13 @@
               <button wx:if="{{externalMore||externalError}}" class="hq-text-button" bindtap="moreExternal" loading="{{externalLoading}}" disabled="{{externalLoading}}">{{externalError?'重试读取资料':'加载更多版本'}}</button>
             </block>
           </view>
-          <view class="hq-section-heading"><text class="hq-title">客户八步跟进</text><text class="hq-meta">已完成 {{detail.completed}} / 8 · {{detail.progress}}%</text></view>
+          <view class="hq-section-heading"><text class="hq-title">客户跟进</text><text class="hq-meta">已完成 {{detail.completed}} / 8 · {{detail.progress}}%</text></view>
           <view class="hq-progress-track hq-workflow-progress"><view style="width:{{detail.progress}}%"></view></view>
           <view wx:for="{{detail.steps}}" wx:key="code" class="hq-card hq-step {{item.completed?'is-completed':''}}">
             <button class="hq-step-head" data-code="{{item.code}}" bindtap="expandStep"><text class="hq-step-number">{{item.number}}</text><view class="hq-step-title"><text class="hq-title">{{item.name}}</text><text class="hq-meta">{{item.source}}</text></view><text class="hq-status">{{item.status}}</text><text class="hq-arrow">{{expanded===item.code?'−':'+'}}</text></button>
             <view wx:if="{{expanded===item.code}}" class="hq-step-content"><text wx:if="{{item.occurredOn}}" class="hq-meta">发生日期 {{item.occurredOn}}</text><template is="fields" data="{{rows:item.fields}}"/><text wx:if="{{item.note}}" class="hq-note">{{item.note}}</text><template is="files" data="{{files:item.files,fileBusy}}"/><text wx:if="{{!item.fields.length&&!item.files.length&&!item.note}}" class="hq-meta">此步骤暂无补充资料</text></view>
           </view>
-          <text wx:if="{{!detail.steps.length}}" class="hq-empty">该客户尚未建立八步跟进记录</text>
+          <text wx:if="{{!detail.steps.length}}" class="hq-empty">该客户尚未建立跟进记录</text>
           <view class="hq-card"><button class="hq-entry hq-plain" bindtap="toggleHistory"><text class="hq-title">跟进历史记录</text><text class="hq-arrow">{{historyOpen?'−':'+'}}</text></button><block wx:if="{{historyOpen}}"><view wx:for="{{history}}" wx:key="id" class="hq-history-item"><view class="hq-record-top"><text class="hq-title">{{item.step}}</text><text class="hq-status">{{item.type}}</text></view><text class="hq-meta">{{item.actor}} · {{item.date}}</text><text wx:if="{{item.occurredOn}}" class="hq-meta">发生日期 {{item.occurredOn}}</text><template is="fields" data="{{rows:item.fields}}"/><text wx:if="{{item.note}}" class="hq-note">{{item.note}}</text><template is="files" data="{{files:item.files,fileBusy}}"/></view><text wx:if="{{historyError}}" class="hq-error">{{historyError}}</text><text wx:if="{{!history.length&&!historyLoading&&!historyError}}" class="hq-meta">暂无历史记录</text><button wx:if="{{historyMore||historyError||historyLoading}}" class="hq-text-button" loading="{{historyLoading}}" disabled="{{historyLoading}}" bindtap="loadHistory">{{historyError?'重试加载历史':'加载更多历史'}}</button></block></view>
         </block>
         <block wx:elif="{{kind==='projects'}}">
