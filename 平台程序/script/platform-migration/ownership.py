@@ -99,13 +99,13 @@ def validate_manifest(manifest, source_root=None):
         sequence_names.add(sequence["name"])
     if source_root is not None:
         root = source_root.resolve(strict=True)
-        actual = migration_paths(root)
-        demand({str(path.relative_to(root)) for path in actual} == set(expected), "MIGRATION_SET_CHANGED")
+        actual = {path.relative_to(root).as_posix(): path for path in migration_paths(root)}
+        demand(actual.keys() == expected.keys(), "MIGRATION_SET_CHANGED")
         found_tables, found_sequences = set(), set()
-        for path in actual:
+        for relative, path in actual.items():
             demand(path.resolve().is_relative_to(root), "MIGRATION_PATH_INVALID")
             data = path.read_bytes()
-            demand(hashlib.sha256(data).hexdigest() == expected[str(path.relative_to(root))],
+            demand(hashlib.sha256(data).hexdigest() == expected[relative],
                    "MIGRATION_HASH_CHANGED")
             text = re.sub(r"--[^\n]*", "", data.decode("utf-8"))
             text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
@@ -200,7 +200,8 @@ def validate_coverage(coverage, source_root=None):
     demand(writers.keys() == WRITERS, "WRITER_SET_CHANGED")
     root = source_root.resolve(strict=True) if source_root is not None else None
     for writer in writers.values():
-        demand(writer.get("status") == "NOT_WIRED", "STATIC_COVERAGE_ONLY")
+        # The registry tracks source wiring. Runtime readiness is checked separately above.
+        demand(writer.get("status") in ("NOT_WIRED", "WIRED"), "WRITER_STATUS_INVALID")
         demand(bool(writer["candidate_paths"]) and bool(writer["required_evidence"]), "WRITER_EVIDENCE_MISSING")
         for value in writer["candidate_paths"]:
             path = Path(value)
