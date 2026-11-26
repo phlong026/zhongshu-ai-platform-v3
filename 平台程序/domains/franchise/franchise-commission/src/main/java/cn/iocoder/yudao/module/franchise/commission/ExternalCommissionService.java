@@ -221,16 +221,22 @@ public class ExternalCommissionService {
     }
 
     private RequestCommand withMeasurement(PostSnapshot post, long customerId, CommissionDO commission, RequestCommand input) {
+        if (Boolean.TRUE.equals(input.removeMeasurement())) return input.withMeasurement(null, input.attachments());
         MeasurementRef ref = input.measurementRef();
-        if (ref == null && !Boolean.TRUE.equals(input.removeMeasurement()) && commission != null && commission.getExternalRequestVersion() != null) {
-            // An older client omits the optional selection when editing a version that already has a source.
+        MeasurementRef frozen = null;
+        if ((ref == null || !Boolean.TRUE.equals(ref.includeSourceNote())) && commission != null && commission.getExternalRequestVersion() != null) {
             String stored = jdbc.queryForObject("SELECT data->>'measurementRef' FROM fr_commission_external_version"
                             + " WHERE tenant_id=? AND company_id=? AND customer_id=? AND commission_id=? AND version=?",
                     String.class, tenant(), post.orgId(), customerId, commission.getId(), commission.getExternalRequestVersion());
-            if (stored != null) ref = JsonUtils.parseObject(stored, MeasurementRef.class);
+            if (stored != null) frozen = JsonUtils.parseObject(stored, MeasurementRef.class);
         }
+        if (ref == null) ref = frozen;
         if (ref == null) return input.withMeasurement(null, input.attachments());
         var source = measurements.require(tenant(), post.orgId(), customerId, ref);
+        // Legacy editors either omit the source or echo its identity. Keep what the previous commission actually received.
+        if (frozen != null && source.eventId().equals(frozen.eventId()) && source.revision().equals(frozen.revision())) {
+            source = source.withNote(frozen.note());
+        }
         var files = new LinkedHashMap<String,Attachment>();
         input.attachments().forEach(file -> files.put(file.assetId(), file));
         for (Attachment original : source.attachments()) {
