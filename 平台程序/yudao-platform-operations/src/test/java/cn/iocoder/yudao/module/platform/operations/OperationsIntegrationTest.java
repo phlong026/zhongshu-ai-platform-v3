@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.util.*;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.*;
 @Import({OperationsIntegrationTest.Config.class,OperationsGuard.class,OperationsAudit.class,OrganizationProfiles.class,OrganizationCapabilities.class,
  OrganizationCapabilityGate.class,OrganizationPointSummaryAspect.class,TaskOperationsQuery.class,TaskReconciliation.class,OrgDirectoryService.class,OrgServiceImpl.class,
  StaffPostServiceImpl.class,OrgPointService.class,OrgPointPriceService.class,ContentTaskStore.class})
+@Sql("/fixtures/operations-system-users.sql")
 class OperationsIntegrationTest extends PlatformPgIntegrationTest {
     @TestConfiguration @EnableAspectJAutoProxy(proxyTargetClass=true)
     static class Config {
@@ -72,7 +74,6 @@ class OperationsIntegrationTest extends PlatformPgIntegrationTest {
     @BeforeEach void setup() {
         jdbc.execute("ALTER TABLE system_dept ADD COLUMN IF NOT EXISTS update_time timestamptz DEFAULT now()");
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted int2 DEFAULT 0");
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,tenant_id bigint,nickname text,mobile text,username text,password text,status int DEFAULT 0,deleted int2 DEFAULT 0,update_time timestamptz)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigserial PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted int2 DEFAULT 0)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_oauth2_refresh_token(id bigserial PRIMARY KEY,tenant_id bigint,user_id bigint,user_type int)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS pf_wechat_binding(id bigint PRIMARY KEY,appid text,openid text,user_id bigint,status text)");
