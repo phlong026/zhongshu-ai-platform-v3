@@ -78,7 +78,7 @@ public class CustomerController {
 
     public record StablePageRows(java.util.List<CustomerRow> list, long total, String prefix, boolean changed) {}
 
-    @GetMapping("/stable-page")
+    @GetMapping(params = "stablePrefix=true")
     @PreAuthorize("@post.has('franchise:customer:query')")
     public CommonResult<StablePageRows> stablePage(@Valid PageParam page,
                                                     @RequestParam(required = false) String keyword,
