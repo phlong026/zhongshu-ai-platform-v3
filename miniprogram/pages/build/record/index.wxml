@@ -14,7 +14,7 @@
     <text wx:if="{{view==='delay'}}" class="eng-name">{{node.name}}</text><view class="eng-heading"><text>进度偏差</text><text class="progress-pace {{node.deviationDays>0?'progress-late':''}}">{{node.pace||'待排期'}}</text></view>
     <text class="eng-muted">原计划完成 {{node.baselineEnd||node.end||'待填写'}}</text><text wx:if="{{node.completedAt}}" class="eng-muted">实际完成 {{node.completedAt}}</text>
     <text wx:if="{{node.delayReason&&(view!=='delay'||!actions.length)}}" class="eng-muted">延期原因：{{node.delayReason}}</text>
-    <text wx:if="{{view!=='delay'||!actions.length}}" class="eng-muted">处理责任人：{{node.delayOwnerName||p.manager}}</text>
+    <text wx:if="{{view!=='delay'||!actions.length}}" class="eng-muted">处理责任人：{{node.delayOwnerName||'未登记'}}</text>
     <text wx:if="{{node.recoveryDate&&(view!=='delay'||!actions.length)}}" class="eng-muted">预计完成 {{node.recoveryDate}}</text>
     <text wx:if="{{node.recoveryAction&&(view!=='delay'||!actions.length)}}" class="eng-muted">处理措施：{{node.recoveryAction}}</text>
     <button wx:if="{{view!=='delay'&&(node.deviationDays>0||node.delayHistory.length)}}" class="eng-link" data-url="{{delayUrl}}" bindtap="go">{{own&&node.status!=='已完成'?'处理延期':'查看处理记录'}}</button>
