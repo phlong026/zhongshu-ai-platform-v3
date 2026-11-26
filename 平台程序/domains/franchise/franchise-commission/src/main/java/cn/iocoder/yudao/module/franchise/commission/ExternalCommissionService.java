@@ -53,6 +53,7 @@ public class ExternalCommissionService {
     private final AssetAccessPort assets;
     private final StoreServiceAccountPort accounts;
     private final ObjectProvider<AssetEvidenceQueryPort> evidence;
+    private final ExternalCommissionMeasurements measurements;
     private final CommissionSimulatedPayments simulations;
     private final DesignFeeSettlementPort settlement;
 
@@ -63,6 +64,7 @@ public class ExternalCommissionService {
         this.jdbc=jdbc; this.posts=posts; this.customers=customers; this.customerMapper=customerMapper; this.commissions=commissions;
         this.commands=commands; this.plans=plans; this.assetPolicy=assetPolicy; this.assets=assets; this.accounts=accounts;
         this.evidence=evidence; this.simulations=simulations; this.settlement=settlement;
+        this.measurements = new ExternalCommissionMeasurements(jdbc, evidence);
     }
 
     /** All reads are side-effect free; the plan port locks its real contract to return a coherent version. */
@@ -72,6 +74,12 @@ public class ExternalCommissionService {
         CommissionDO commission = commissions.selectByCustomer(customerId);
         var plan = plans.snapshotForEntrust(post, customerId);
         return view(post, customer, commission, plan);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public MeasurementPage measurements(PostSnapshot post, long customerId, Long before, int pageSize) {
+        requireCustomer(post, customerId, false);
+        return measurements.list(tenant(), post.orgId(), customerId, before, pageSize);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -105,7 +113,8 @@ public class ExternalCommissionService {
         }
         var plan = plans.snapshotForEntrust(post, customerId);
         if (!PlanRef.of(plan).equals(input.paymentPlanRef())) throw exception(STATE_VERSION_CONFLICT);
-        validateFiles(post, customerId, input.attachments());
+        var saved = withMeasurement(post, customerId, commission, input);
+        validateFiles(post, customerId, saved.attachments());
         String previousStatus = commission == null ? null : commission.getStatus();
         List<String> superseded = convert ? jdbc.queryForList("""
                 UPDATE pf_approval SET status='SUPERSEDED'
@@ -124,7 +133,7 @@ public class ExternalCommissionService {
                 INSERT INTO fr_commission_external_version(commission_id,version,tenant_id,company_id,customer_id,
                     action,data,payment_plan,previous_status,superseded_approval_ids,actor_user_id,actor_post_id)
                     VALUES(?,?,?,?,?,?,CAST(? AS jsonb),CAST(? AS jsonb),?,CAST(? AS jsonb),?,?)
-                """, commission.getId(), version, tenant(), post.orgId(), customerId, kind, JsonUtils.toJsonString(input),
+                """, commission.getId(), version, tenant(), post.orgId(), customerId, kind, JsonUtils.toJsonString(saved),
                 plan == null ? null : JsonUtils.toJsonString(plan), previousStatus, JsonUtils.toJsonString(superseded), post.userId(), post.postId());
         long next = commission.getRevision() + 1;
         int updated = jdbc.update("""
@@ -209,6 +218,39 @@ public class ExternalCommissionService {
                 commission == null ? "EXTERNAL" : external(commission) ? "EXTERNAL" : "LEGACY", commission == null ? "NOT_REGISTERED" : commission.getStatus(),
                 commission == null ? 0 : commission.getRevision(), writer && editable, convertible, List.copyOf(actions),
                 currentRequest, currentResult, requests, results, plan, PlanRef.of(plan));
+    }
+
+    private RequestCommand withMeasurement(PostSnapshot post, long customerId, CommissionDO commission, RequestCommand input) {
+        MeasurementRef ref = input.measurementRef();
+        if (ref == null && !Boolean.TRUE.equals(input.removeMeasurement()) && commission != null && commission.getExternalRequestVersion() != null) {
+            // An older client omits the optional selection when editing a version that already has a source.
+            String stored = jdbc.queryForObject("SELECT data->>'measurementRef' FROM fr_commission_external_version"
+                            + " WHERE tenant_id=? AND company_id=? AND customer_id=? AND commission_id=? AND version=?",
+                    String.class, tenant(), post.orgId(), customerId, commission.getId(), commission.getExternalRequestVersion());
+            if (stored != null) ref = JsonUtils.parseObject(stored, MeasurementRef.class);
+        }
+        if (ref == null) return input.withMeasurement(null, input.attachments());
+        var source = measurements.require(tenant(), post.orgId(), customerId, ref);
+        var files = new LinkedHashMap<String,Attachment>();
+        input.attachments().forEach(file -> files.put(file.assetId(), file));
+        for (Attachment original : source.attachments()) {
+            files.put(original.assetId(), new Attachment(original.assetId(), requestFileTitle(original.title())));
+        }
+        if (files.size() > 20) throw invalid("委托附件与测量原件合计最多20份");
+        return input.withMeasurement(source, List.copyOf(files.values()));
+    }
+
+    // The immutable CRM evidence accepts 200 UTF-16 units or no title. Legacy commission forms re-submit a 1–180 unit title.
+    private static String requestFileTitle(String original) {
+        String name = original == null ? "" : original.replaceAll("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$", "");
+        if (name.isBlank()) return "测量附件";
+        if (name.length() <= 180) return name;
+        int dot = name.lastIndexOf('.');
+        String extension = dot >= 0 && Set.of("pdf","jpg","jpeg","png").contains(name.substring(dot + 1).toLowerCase(Locale.ROOT))
+                ? name.substring(dot) : "";
+        int end = 180 - extension.length();
+        if (Character.isHighSurrogate(name.charAt(end - 1))) end--;
+        return name.substring(0, end) + extension;
     }
 
     List<RequestVersion> requests(long commission, long company) {
@@ -303,9 +345,12 @@ public class ExternalCommissionService {
             if (!ids.add(id)) throw invalid("同一附件不能重复登记");
             normalized.add(new Attachment(Long.toString(id), text(file.title(), 180, true, "附件名称")));
         }
+        var source = ExternalCommissionMeasurements.selection(value.measurementRef());
+        Boolean remove = Boolean.TRUE.equals(value.removeMeasurement()) ? true : null;
+        if (source != null && remove != null) throw invalid("请选择测量版本或移除当前引用");
         return new RequestCommand(value.revision(), value.entrustedOn(), text(value.providerName(),100,true,"外部服务方"),
                 text(value.providerReference(),100,false,"外部编号"), text(value.text(),2000,true,"需求说明"), text(value.scope(),500,true,"服务范围"),
-                value.area(), value.floors(), List.copyOf(normalized), value.paymentPlanRef(), text(value.reason(),500,false,"变更原因"));
+                value.area(), value.floors(), List.copyOf(normalized), value.paymentPlanRef(), text(value.reason(),500,false,"变更原因"), source, remove);
     }
     private static ResultCommand result(ResultCommand value) {
         if (value == null || value.revision() == null || value.revision() < 0 || value.requestVersion() < 1) throw invalid("成果对应的委托版本无效");

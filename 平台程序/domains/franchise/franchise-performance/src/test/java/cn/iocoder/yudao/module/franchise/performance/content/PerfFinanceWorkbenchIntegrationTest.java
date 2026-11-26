@@ -165,12 +165,15 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
   jdbc.update("INSERT INTO fr_customer VALUES(20,?,101)",org);
   jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date) VALUES(10,?,20,'SIGNED','2026-11-01')",org);
+  jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date,total_cents,author_user_id,deleted) "
+      + "VALUES(11,?,20,'SIGNED','2026-11-01',10000,101,true)",org);
   jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type,source_ref) VALUES(1,?,1000000,'已登记','2026-10-10','business','sale-allocation:10:30:1')",org);
   jdbc.update("INSERT INTO fr_sale_stage_receipt VALUES(?,10,30,1),(?,10,31,1)",org,org);
   jdbc.update("INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(2,?,1,200000,'已核实','2026-11-05','client')",org);
   var metrics=new PerfMetrics(jdbc);
   var october=metrics.sources(actor,"2026-10",List.of());
   var november=metrics.sources(actor,"2026-11",List.of());
+  assertThat(november).noneMatch(row -> row.key().equals("sale-contract:11"));
   assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",null)).isEqualTo(1000000);
   assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",101L)).isEqualTo(1000000);
   assertThat(PerfMetrics.taskValue(november,"auto:collectionsAmount",null)).isEqualTo(-200000);
@@ -372,11 +375,92 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(unresolved).hasSize(3).allMatch(r->r.get("subtitle").toString().contains("待组织分派"));
  }
 
+ @Test @org.springframework.transaction.annotation.Transactional
+ void replanningKeepsOriginalOverdueNodesOnTheEngineeringAndOwnerWorkbenches() {
+  createHomeTables();
+  var store=fixture.store();
+  var manager=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  var boss=fixture.post(store.orgId(),"boss",null);
+  long org=manager.orgId();
+  java.time.LocalDate today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+  String period=today.toString().substring(0,7);
+  jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint, ADD assigned_engineer_user_id bigint, ADD customer_name text, ADD status text, ADD create_time timestamptz, ADD area numeric");
+  jdbc.execute("ALTER TABLE fr_eng_plan_node ADD name text, ADD delay_owner_user_id bigint, ADD responsible_user_id bigint");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_rectification(id bigint,company_id bigint,project_id bigint,title text,state text,owner_user_id bigint,due_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,project_id bigint,supply_id bigint,quality text,quality_resolution jsonb)");
+  jdbc.execute("CREATE TEMP TABLE system_users(id bigint,nickname text)");
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,manager_user_id,status,create_time) VALUES(11,?,'改排工程',?,'IN_PROGRESS',now()-interval '5 days'),(12,?,'正常工程',?,'IN_PROGRESS',now())",org,manager.userId(),org,manager.userId());
+  jdbc.update("""
+      INSERT INTO fr_eng_plan_node(id,company_id,project_id,name,status,baseline_end_date,end_date) VALUES
+      (51,?,11,'现场节点','IN_PROGRESS',?,?),(52,?,11,'旧节点','PENDING',NULL,?),
+      (53,?,11,'已完节点','DONE',?,?),(54,?,11,'其他门店','PENDING',?,?),(55,?,12,'未来节点','PENDING',?,?)
+      """,org,today.minusDays(3),today.plusDays(2),org,today.minusDays(1),org,today.minusDays(2),today.minusDays(1),
+      org+1,today.minusDays(2),today.minusDays(2),org,today.plusDays(4),today.plusDays(4));
+  var home=new HomeMetricsService(jdbc);
+  var overdue=(List<Map<String,Object>>)home.detail(manager,"engineering",period,"overdueNodes",1).get("rows");
+  assertThat(overdue).extracting(r->r.get("id"),r->r.get("date")).containsExactlyInAnyOrder(
+          tuple("51",today.minusDays(3).toString()),tuple("52",today.minusDays(1).toString()));
+  var next=(List<Map<String,Object>>)home.detail(manager,"engineering",period,"nextNodes",1).get("rows");
+  assertThat(next).extracting(r->r.get("id"),r->r.get("date")).contains(tuple("51",today.plusDays(2).toString()));
+  jdbc.update("UPDATE fr_eng_plan_node SET status='DONE' WHERE id=52");
+  var attention=(List<Map<String,Object>>)home.detail(boss,"owner",period,"attention",1).get("rows");
+  assertThat(attention).extracting(r->r.get("id")).containsExactly("11");
+  var team=new HomeTeamService(jdbc);
+  var pending=(List<Map<String,Object>>)team.records(boss,"engineering",period,manager.userId(),"overdue",1).get("rows");
+  assertThat(pending).extracting(r->r.get("id")).containsExactly("51");
+  var focus=(List<Map<String,Object>>)team.focus(boss,"engineering",period,1).get("rows");
+  assertThat(focus).extracting(r->r.get("id")).containsExactly("11","12");
+  var assigned=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=11",assigned.userId());
+  jdbc.update("UPDATE fr_eng_plan_node SET delay_owner_user_id=? WHERE id=51",assigned.userId());
+  assertThat((List<?>)team.records(boss,"engineering",period,assigned.userId(),"overdue",1).get("rows")).hasSize(1);
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),assigned.postId());
+  assertThat((List<?>)team.records(boss,"engineering",period,assigned.userId(),"overdue",1).get("rows")).isEmpty();
+  assertThat((List<?>)team.records(boss,"engineering",period,manager.userId(),"overdue",1).get("rows")).hasSize(1);
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),manager.postId());
+  assertThat((List<?>)team.records(boss,"engineering",period,manager.userId(),"overdue",1).get("rows")).isEmpty();
+  assertThat((List<?>)home.detail(boss,"owner",period,"overdueNodes",1).get("rows")).hasSize(1);
+  jdbc.update("UPDATE fr_eng_plan_node SET status='DONE' WHERE id=51");
+  assertThat((List<?>)home.detail(manager,"engineering",period,"overdueNodes",1).get("rows")).isEmpty();
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void completedReshipsClearTheOriginalSupplyFromBothWorkbenchesOnlyAfterPhysicalArrival() {
+  createHomeTables();
+  var store=fixture.store();
+  var engineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());
+  var boss=fixture.post(store.orgId(),"boss",null);
+  long org=boss.orgId();
+  jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint, ADD assigned_engineer_user_id bigint, ADD status text");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply(id bigint,company_id bigint,project_id bigint,supplier text,promise_date date,quantity numeric)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,project_id bigint,supply_id bigint,kind text,actual_quantity numeric)");
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,manager_user_id,status) VALUES(11,?,'原项目',?,'IN_PROGRESS')",org,engineer.userId());
+  jdbc.update("INSERT INTO fr_eng_supply VALUES (21,?,11,'合成供应商',NULL,10)",org);
+  jdbc.update("INSERT INTO fr_eng_supply_receipt VALUES (31,?,11,21,'RECEIPT',5),(32,?,11,21,'RESHIP',NULL),"
+          +"(33,?,11,21,'RESHIP',50)",org,org,org+1);
+  var home=new HomeMetricsService(jdbc);
+  for (var actor:List.of(engineer,boss)) {
+   String role=actor==boss?"owner":"engineering";
+   var pending=(List<Map<String,Object>>)home.detail(actor,role,"2026-11","materials",1).get("rows");
+   assertThat(pending).extracting(r->r.get("id")).containsExactly("21");
+  }
+  jdbc.update("UPDATE fr_eng_supply_receipt SET actual_quantity=2 WHERE id=32");
+  jdbc.update("INSERT INTO fr_eng_supply_receipt VALUES (34,?,11,21,'RESHIP',NULL)",org);
+  for (var actor:List.of(engineer,boss)) {
+   String role=actor==boss?"owner":"engineering";
+   var pending=(List<Map<String,Object>>)home.detail(actor,role,"2026-11","materials",1).get("rows");
+   assertThat(pending).extracting(r->r.get("id")).containsExactly("21");
+  }
+  jdbc.update("UPDATE fr_eng_supply_receipt SET actual_quantity=3 WHERE id=34");
+  assertThat((List<?>)home.detail(engineer,"engineering","2026-11","materials",1).get("rows")).isEmpty();
+  assertThat((List<?>)home.detail(boss,"owner","2026-11","materials",1).get("rows")).isEmpty();
+ }
+
  private void createHomeTables(){
   createTables();
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
   jdbc.execute("ALTER TABLE fr_eng_project ADD name text");
-  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date,baseline_end_date date)");
   jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD amount_cents bigint");
   jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD customer_id bigint, ADD stage text");
   jdbc.execute("ALTER TABLE fr_fin_receipt ADD customer_id bigint, ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");

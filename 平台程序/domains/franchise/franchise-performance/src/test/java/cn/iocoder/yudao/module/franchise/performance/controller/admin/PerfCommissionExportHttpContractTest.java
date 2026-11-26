@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.common.biz.system.logger.OperateLogCommonApi;
 import cn.iocoder.yudao.framework.common.biz.system.logger.dto.OperateLogCreateReqDTO;
 import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
 import cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler;
+import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
+import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.performance.content.PerfCommissionExportService;
 import cn.iocoder.yudao.module.franchise.performance.content.PerfCommissionService;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
@@ -333,6 +335,8 @@ class PerfCommissionExportHttpContractTest {
         ApplicationContextRunner serviceRunner = new ApplicationContextRunner()
                 .withUserConfiguration(ServiceWiring.class)
                 .withBean(DataSource.class, () -> dataSource)
+                .withBean(AssetAccessPort.class, () -> mock(AssetAccessPort.class))
+                .withBean(StoreServiceAccountPort.class, () -> mock(StoreServiceAccountPort.class))
                 .withBean(PerfCommissionService.class, () -> commissions)
                 .withBean(OperateLogCommonApi.class, () -> audit);
         serviceRunner.run(ctx -> assertThat(ctx).doesNotHaveBean(PerfCommissionExportService.class));

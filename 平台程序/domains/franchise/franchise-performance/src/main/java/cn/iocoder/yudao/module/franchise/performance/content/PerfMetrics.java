@@ -102,7 +102,7 @@ public class PerfMetrics {
 
         // ② auto:contract 签约金额
         jdbc.query("SELECT id, total_cents, signed_date, author_user_id FROM fr_sale_contract "
-                        + "WHERE company_id = ? AND status = 'SIGNED' AND signed_date >= ?::date AND signed_date < ?::date",
+                        + "WHERE company_id = ? AND status = 'SIGNED' AND NOT deleted AND signed_date >= ?::date AND signed_date < ?::date",
                 (RowCallbackHandler) rs -> rows.add(new SourceRow("sale-contract:" + rs.getLong("id"), "auto:contract",
                         rs.getLong("total_cents"), getLong(rs, "author_user_id"),
                         rs.getDate("signed_date").toLocalDate(), "sale-contract:" + rs.getLong("id"))), org, from, to);

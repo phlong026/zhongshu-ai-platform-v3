@@ -409,8 +409,22 @@ def main():
     cyc_a = act(engineer_a, 'POST', '/franchise/performance/cycles/submit',
                 {'period': PERIOD, 'note': '工程经理周期提交'}, idem='pe-cy-a-' + run)
     assert cyc_a['status'] == 'PENDING_REVIEW', cyc_a
+    personal = act(engineer_a, 'GET', f'/franchise/performance/cycles?period={PERIOD}')
+    assert {str(row['userId']) for row in personal} == {str(engineer_a['userId'])}, personal
+    assert all(not row['canReview'] for row in personal), personal
+    managerial = act(boss, 'GET', f'/franchise/performance/cycles?period={PERIOD}')
+    seen = next(row for row in managerial if str(row['userId']) == str(engineer_a['userId']))
+    assert seen['canReview'] and json.loads(seen['submission'])['sources'], seen
+    new_submit = {'period': PERIOD, 'note': '补充本次核对说明', 'expectedRevision': seen['revision']}
+    updated = act(engineer_a, 'POST', '/franchise/performance/cycles/submit', new_submit, idem='pe-cy-update-' + run)
+    replay = act(engineer_a, 'POST', '/franchise/performance/cycles/submit', new_submit, idem='pe-cy-update-' + run)
+    assert replay['revision'] == updated['revision'], replay
+    act(boss, 'POST', '/franchise/performance/cycles/review',
+        {'period': PERIOD, 'userId': engineer_a['userId'], 'approve': True, 'expectedRevision': seen['revision']},
+        expect_code=409, idem='pe-cy-stale-' + run)
     cyc_a_reviewed = act(boss, 'POST', '/franchise/performance/cycles/review',
-                         {'period': PERIOD, 'userId': engineer_a['userId'], 'approve': True, 'note': '通过'},
+                         {'period': PERIOD, 'userId': engineer_a['userId'], 'approve': True, 'note': '通过',
+                          'expectedRevision': updated['revision']},
                          idem='pe-cy-ar-' + run)
     assert cyc_a_reviewed['status'] == 'REVIEWED', cyc_a_reviewed
     # P1-10：复核本人 000（owner 已在 AC7 前补目标，可提交本人周期）

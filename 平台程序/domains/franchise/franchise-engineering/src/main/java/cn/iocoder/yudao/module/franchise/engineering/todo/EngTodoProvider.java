@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ROUTING;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.CURRENT_POST;
 
 /**
  * 工程催收回访待办（D-10）：两期未收齐 → 待办（逾期/承诺过期回归分级同蓝本 tasks() 派生口径）。
@@ -58,7 +59,10 @@ public class EngTodoProvider implements TodoProvider {
     public List<TodoItem> list(PostSnapshot post) {
         List<TodoItem> todos = new ArrayList<>();
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
-        if ("store".equals(post.orgType()) && java.util.Set.of("engineer","project-manager").contains(post.roleCode())) {
+        boolean engineeringPost="store".equals(post.orgType()) && java.util.Set.of("engineer","project-manager").contains(post.roleCode());
+        boolean activeEngineer=engineeringPost && Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS("+CURRENT_POST+")",
+                Boolean.class,post.postId(),post.orgId(),post.userId()));
+        if (engineeringPost) {
             todos.addAll(rectifications(post,today));
         }
         for (FrEngProjectDO project : projects.selectList(
@@ -73,7 +77,7 @@ public class EngTodoProvider implements TodoProvider {
             }
             List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), project.getId());
             for (var n : nodes) {
-                if (cn.iocoder.yudao.module.franchise.engineering.content.EngProgress.overdue(n,today)
+                if (activeEngineer && cn.iocoder.yudao.module.franchise.engineering.content.EngProgress.overdue(n,today)
                         && !java.util.Set.of("DELIVERED","SETTLED","ARCHIVED").contains(project.getStatus())) {
                     int days=cn.iocoder.yudao.module.franchise.engineering.content.EngProgress.deviationDays(n,today);
                     todos.add(new TodoItem(domain(),"fr-eng:delay:"+n.getId(),

@@ -18,6 +18,12 @@ public class ExternalCommissionController {
     @GetMapping
     @PreAuthorize("@post.has('franchise:commission:query')")
     public CommonResult<View> get(@PathVariable long customerId) { return success(service.get(posts.require(), customerId)); }
+    @GetMapping("/measurements")
+    @PreAuthorize("@post.has('franchise:commission:query')")
+    public CommonResult<MeasurementPage> measurements(@PathVariable long customerId, @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return success(service.measurements(posts.require(), customerId, before, pageSize));
+    }
     @PostMapping
     @PreAuthorize("@post.has('franchise:commission:submit')")
     public CommonResult<View> register(@PathVariable long customerId, @RequestBody RequestCommand input, @RequestHeader("Idempotency-Key") String key) {

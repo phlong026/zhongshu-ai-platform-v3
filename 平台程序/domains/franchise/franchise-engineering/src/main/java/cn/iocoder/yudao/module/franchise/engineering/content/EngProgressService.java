@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.*;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.CURRENT_POST;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 @Service
@@ -25,14 +26,18 @@ public class EngProgressService {
     public List<Map<String,Object>> handlers(PostSnapshot post, long id) {
         var project=projects.requireProject(post,id);
         if(!EngProjectService.isFinanceOrAbove(post)) EngGuard.requireOwner(project,post.userId());
-        var ids=new LinkedHashSet<Long>();ids.add(project.getManagerUserId());
-        if(project.getAssignedEngineerUserId()!=null)ids.add(project.getAssignedEngineerUserId());
-        return directory.usersByIds(new ArrayList<>(ids)).stream().map(u->Map.<String,Object>of("id",String.valueOf(u.userId()),"name",Objects.toString(u.name(),"未填写姓名"))).toList();
+        var ids=projects.activeParticipantIds(project);
+        var names=new HashMap<Long,String>();
+        if(!ids.isEmpty()) directory.usersByIds(ids).forEach(u->names.put(u.userId(),u.name()));
+        return ids.stream().map(idValue->Map.<String,Object>of("id",idValue.toString(),"name",Objects.toString(names.get(idValue),"人员 "+idValue))).toList();
     }
     public record DelayCommand(String reason, Long ownerUserId, LocalDate recoveryDate, String action) { }
     @Transactional(rollbackFor=Exception.class)
     public Map<String,Object> save(PostSnapshot post,long projectId,long nodeId,DelayCommand cmd,String key) {
         var project=projects.requireOwned(post,projectId,"delay");
+        if(!Set.of("engineer","project-manager").contains(post.roleCode())||
+                jdbc.queryForList(CURRENT_POST+" FOR SHARE OF s",Long.class,post.postId(),post.orgId(),post.userId()).isEmpty())
+            throw exception(ENGINEERING_FORBIDDEN);
         var payload=new LinkedHashMap<String,Object>();payload.put("nodeId",nodeId);payload.put("reason",cmd.reason());
         payload.put("ownerUserId",cmd.ownerUserId());payload.put("recoveryDate",cmd.recoveryDate());payload.put("action",cmd.action());
         if(commands.replayed(post,key,payload).isPresent())return projects.detail(post,projectId);
@@ -41,8 +46,7 @@ public class EngProgressService {
         if(!EngProgress.overdue(node,today))throw exception(ENGINEERING_INPUT_INVALID,"仅未完成的延期节点需要登记处理");
         if(cmd.reason()==null||cmd.reason().isBlank()||cmd.reason().length()>1000||cmd.action()==null||cmd.action().isBlank()||cmd.action().length()>1000)
             throw exception(ENGINEERING_INPUT_INVALID,"请填写延期原因和处理措施（各不超过1000字）");
-        if(cmd.ownerUserId()==null||(!Objects.equals(cmd.ownerUserId(),project.getManagerUserId())&&!Objects.equals(cmd.ownerUserId(),project.getAssignedEngineerUserId())))
-            throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目负责人或指定工程师");
+        projects.requireActiveParticipant(project,cmd.ownerUserId());
         if(cmd.recoveryDate()==null||cmd.recoveryDate().isBefore(today))throw exception(ENGINEERING_INPUT_INVALID,"预计完成日期不能早于今天");
         payload.put("recordedAt",java.time.OffsetDateTime.now().toString());payload.put("actorUserId",post.userId());
         payload.put("deviationDays",EngProgress.deviationDays(node,today));

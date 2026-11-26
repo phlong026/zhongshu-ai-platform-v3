@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowFactsPort;
+import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowQuotePort;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowReferencePort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
@@ -64,6 +65,9 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         @Bean AssetAccessPort assets() { return mock(AssetAccessPort.class); }
         @Bean StoreServiceAccountPort accounts() { return mock(StoreServiceAccountPort.class); }
         @Bean SourceFacts facts() { return new SourceFacts(); }
+        @Bean CustomerWorkflowQuotePort quotes() {
+            return (post, customerId, quoteId) -> new CustomerWorkflowQuotePort.Quote(1_234_500L, "V1 · 原价目");
+        }
         @Bean CustomerWorkflowReferencePort references() {
             return (post, id) -> {
                 if (id != 7001) throw new ServiceException(404, "户型未公开");
@@ -141,6 +145,34 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void legacyQuotationSaveCannotSilentlyRemoveALinkedFormalQuote() {
+        long id = customer();
+        String quoteId = "1234567890123456789";
+        View saved = as(sales, () -> workflow.save(sales, id, "QUOTATION",
+                new SaveCommand(0, today(), "原备注",
+                        Map.of("quoteId", quoteId, "communicated", true, "result", "已发给客户"), List.of()), "linked-quote"));
+        var before = saved.steps().get(5);
+        var old = new SaveCommand(saved.revision(), today(), "只改备注",
+                Map.of("amountCents", "1234500", "versionLabel", "V1 · 原价目", "scope", "", "communicated", true), List.of());
+        assertThatThrownBy(() -> as(sales, () -> workflow.save(sales, id, "QUOTATION", old, "old-save")))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
+        View unchanged = as(sales, () -> workflow.get(sales, id));
+        assertThat(unchanged.revision()).isEqualTo(saved.revision());
+        assertThat(unchanged.steps().get(5)).isEqualTo(before);
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(1);
+
+        var external = new SaveCommand(saved.revision(), null, "", Map.of("quoteId", "", "communicated", false), List.of());
+        View switched = as(sales, () -> workflow.save(sales, id, "QUOTATION", external, "external-quote"));
+        assertThat(switched.steps().get(5).fields()).doesNotContainKey("quoteId").containsEntry("communicated", false);
+        assertThat(switched.steps().get(5).canComplete()).isFalse();
+        assertThat(as(sales, () -> workflow.save(sales, id, "QUOTATION", external, "external-quote")).revision())
+                .isEqualTo(switched.revision());
+        var history = as(sales, () -> workflow.records(sales, id, 1, 20)).getList();
+        assertThat(history).hasSize(2);
+        assertThat(history.get(1).fields()).containsEntry("quoteId", quoteId);
+    }
+
+    @Test
     void revisionConflictsAndReusedKeysRollbackWithoutExtraFacts() {
         long id = customer(), other = customer();
         as(sales, () -> workflow.save(sales, id, "INVITATION", invitation(0), "one-key"));
@@ -169,6 +201,52 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(completed.progressPercent()).isEqualByComparingTo("12.5");
         assertThat(completed.currentStepCode()).isEqualTo("INVITATION"); // historical records may be supplemented out of order
         verify(assets, atLeastOnce()).validateReference(argThat(actor -> actor.userId() == sales.userId()), eq(9001L), anySet());
+    }
+
+    @Test
+    void externalCustomDirectionRequiresAnExplicitChoiceAndCustomerConfirmationWithoutInventingAnAttachment() {
+        long id = customer();
+        String step = "HOUSE_SELECTION", direction = "一层无台阶，老人房朝南，厨房临院";
+        var incomplete = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", direction, "confirmed", false);
+        var draft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", incomplete, List.of()), "direction-draft"));
+        assertThat(draft.steps().get(2).canComplete()).isFalse();
+        failure(400, () -> as(sales, () -> workflow.complete(sales, id, step, draft.revision(), "unconfirmed")));
+        var confirmed = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", direction, "confirmed", true);
+        var doneDraft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", confirmed, List.of()), "direction-confirmed"));
+        var done = as(sales, () -> workflow.complete(sales, id, step, doneDraft.revision(), "direction-done"));
+        assertThat(done.steps().get(2).attachments()).isEmpty();
+        assertThat(done.steps().get(2).fields()).containsAllEntriesOf(confirmed).doesNotContainKeys("referenceCaseId", "versionLabel");
+        assertThat(done.completedCount()).isEqualTo(1);
+        assertThat(as(sales, () -> workflow.complete(sales, id, step, doneDraft.revision(), "direction-done")).revision()).isEqualTo(done.revision());
+        assertThat(as(boss, () -> workflow.records(boss, id, 1, 20)).getList()).filteredOn(row -> row.type().equals("COMPLETE"))
+                .singleElement().satisfies(row -> assertThat(row.fields()).containsAllEntriesOf(confirmed));
+        failure(1_110_000_000, () -> as(colleague, () -> workflow.records(colleague, id, 1, 20)));
+    }
+
+    @Test
+    void anUnselectedDirectionOrBareConfirmationCannotReplaceAnExistingHousePlan() {
+        long id = customer();
+        String step = "HOUSE_SELECTION";
+        for (var bad : List.of(Map.<String, Object>of("selectionMode", "OTHER", "confirmed", true),
+                Map.<String, Object>of("customDirection", "庭院", "confirmed", true),
+                Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "referenceCaseId", "7001", "customDirection", "庭院"),
+                Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "referenceCaseName", "假原单", "confirmed", true))) {
+            failure(400, () -> as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", bad, List.of()), "invalid-direction")));
+        }
+        var blank = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", "  ", "confirmed", true);
+        var draft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", blank, List.of()), "empty-direction"));
+        assertThat(draft.steps().get(2).completionErrors()).anyMatch(error -> error.contains("定制方向"));
+        failure(400, () -> as(sales, () -> workflow.complete(sales, id, step, draft.revision(), "empty-done")));
+        var onlyMode = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", "外部定制", "confirmed", true);
+        var placeholder = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", onlyMode, List.of()), "mode-as-direction"));
+        assertThat(placeholder.steps().get(2).canComplete()).isFalse();
+        var legacy = Map.<String, Object>of("selectionResult", "已确定外部方案", "confirmed", true);
+        var missing = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-no-proof"));
+        assertThat(missing.steps().get(2).canComplete()).isFalse();
+        var file = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(missing.revision(), today(), "", legacy,
+                List.of(new Attachment("9001", "客户原户型.pdf"))), "old-external-plan"));
+        assertThat(file.steps().get(2).canComplete()).isTrue();
+        assertThat(file.steps().get(2).fields()).doesNotContainKeys("selectionMode", "customDirection");
     }
 
     @Test

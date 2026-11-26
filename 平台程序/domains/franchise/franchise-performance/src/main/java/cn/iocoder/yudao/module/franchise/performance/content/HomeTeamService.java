@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.jdbc.core.JdbcTemplate;
 import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ROUTING;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ACTIVE_POSTS;
 import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.STATE_LABEL;
 import org.springframework.stereotype.Service;
 import java.time.YearMonth;
@@ -30,9 +31,15 @@ public class HomeTeamService {
         facts AS (
           SELECT p.manager_user_id member,'projects' kind,p.id::text id,p.name title,p.status note,p.customer_id::text customer_id,p.id::text project_id,NULL::text node_id FROM projects p
             WHERE p.status='IN_PROGRESS'
-          UNION ALL SELECT COALESCE(n.delay_owner_user_id,n.responsible_user_id,p.manager_user_id),'overdue',n.id::text,p.name,n.name,p.customer_id::text,p.id::text,n.id::text
-            FROM projects p JOIN fr_eng_plan_node n ON n.project_id=p.id AND n.company_id=p.company_id,cfg
-            WHERE n.status<>'DONE' AND n.end_date<cfg.today AND p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER')
+          UNION ALL SELECT handler.user_id,'overdue',n.id::text,p.name,n.name,p.customer_id::text,p.id::text,n.id::text
+            FROM projects p JOIN fr_eng_plan_node n ON n.project_id=p.id AND n.company_id=p.company_id
+            LEFT JOIN LATERAL (SELECT s.user_id
+          """+ACTIVE_POSTS+"""
+              AND s.org_id=p.company_id AND s.user_id IN(p.manager_user_id,p.assigned_engineer_user_id)
+              ORDER BY CASE s.user_id WHEN n.delay_owner_user_id THEN 1 WHEN n.responsible_user_id THEN 2
+                       WHEN p.manager_user_id THEN 3 ELSE 4 END,s.id LIMIT 1
+            ) handler ON true,cfg
+            WHERE n.status<>'DONE' AND COALESCE(n.baseline_end_date,n.end_date)<cfg.today AND p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER')
           UNION ALL SELECT routing.handler,'issue',r.id::text,p.name,r.title||
           """+STATE_LABEL+"""
             ,p.customer_id::text,p.id::text,NULL FROM projects p JOIN fr_eng_rectification r ON r.project_id=p.id AND r.company_id=p.company_id
@@ -75,7 +82,7 @@ public class HomeTeamService {
                  FROM fr_eng_plan_node n WHERE n.company_id=p.company_id AND n.project_id=p.id) timeline
             FROM fr_eng_project p LEFT JOIN system_users u ON u.id=p.manager_user_id
             WHERE p.company_id=? AND p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER')
-            ORDER BY CASE WHEN EXISTS(SELECT 1 FROM fr_eng_plan_node n WHERE n.project_id=p.id AND n.company_id=p.company_id AND n.status<>'DONE' AND n.end_date<(now() AT TIME ZONE 'Asia/Shanghai')::date) THEN 0 ELSE 1 END,p.create_time DESC,p.id LIMIT 11 OFFSET ?
+            ORDER BY CASE WHEN EXISTS(SELECT 1 FROM fr_eng_plan_node n WHERE n.project_id=p.id AND n.company_id=p.company_id AND n.status<>'DONE' AND COALESCE(n.baseline_end_date,n.end_date)<(now() AT TIME ZONE 'Asia/Shanghai')::date) THEN 0 ELSE 1 END,p.create_time DESC,p.id LIMIT 11 OFFSET ?
             """;
         var rows=jdbc.queryForList(sql,p.orgId(),(page-1)*10);
         return Map.of("rows",rows.subList(0,Math.min(10,rows.size())),"more",rows.size()>10,"total",rows.isEmpty()?0:rows.get(0).get("total"));

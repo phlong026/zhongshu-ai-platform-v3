@@ -86,6 +86,24 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 .hasMessageContaining("状态");
     }
 
+    @Test void installedClientCanCreateOneUnassignedIssueAndKeepItsOriginalReceipt() {
+        var oldClient=issue("create",null,null,null,"旧版只登记现场情况");
+        String request=key();
+        long id=issues.change(engineer,projectId,oldClient,request);
+        assertThat(issues.change(engineer,projectId,oldClient,request)).isEqualTo(id);
+        var row=issueDetail(engineer,id);
+        assertThat(row).containsEntry("state","OPEN").containsEntry("ownerUserId",null).containsEntry("dueDate",null);
+        assertThat((List<?>)row.get("history")).hasSize(1);
+        assertThat(issues.list(engineer,projectId)).hasSize(1);
+        assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id)
+                && t.status().equals("待分派"));
+        issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today,"补齐负责人和期限"),key());
+        assertThat(issueDetail(engineer,id)).containsEntry("ownerUserId",Long.toString(engineer.userId()))
+                .containsEntry("dueDate",today.toString());
+        assertThat((List<?>)issueDetail(engineer,id).get("history")).hasSize(2);
+        assertThat(issues.change(engineer,projectId,oldClient,request)).isEqualTo(id);
+    }
+
     @Test void rectificationDoesNotInventOldAssignmentsOrAcceptAnotherProjectOrCompany() {
         long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         jdbc.update("INSERT INTO fr_eng_rectification(id,company_id,project_id,title,state,created_by) VALUES(?,?,?,'旧单','OPEN',?)",id,engineer.orgId(),projectId,engineer.userId());
@@ -103,7 +121,8 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id) && t.status().contains("待分派"));
         var other=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
-        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,null,"缺少分派"),key())).hasMessageContaining("负责人");
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,today,"缺负责人"),key())).hasMessageContaining("负责人");
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,engineer.userId(),null,"缺期限"),key())).hasMessageContaining("期限");
         assertThatThrownBy(()->issues.change(engineer,projectId,issue("assign",id,other.userId(),today,"其他项目人员"),key())).hasMessageContaining("本项目");
         assertThatThrownBy(()->issueDetail(other,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         var foreign=fixture.post(fixture.store().orgId(),"engineer",null);
@@ -208,6 +227,32 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(todos.list(engineer)).noneMatch(t->t.key().equals("fr-eng:delay:"+node(2)));
         assertThat(jdbc.queryForObject("SELECT delay_reason FROM fr_eng_plan_node WHERE id=?",String.class,node(2))).isEqualTo("连续降雨");
     }
+    @Test void revokedPersonnelCannotReceiveDelayWorkAndRecordedResponsibilitySurvives() {
+        var assigned=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
+        var foreign=fixture.store();
+        fixture.postFor(assigned.userId(),foreign.orgId(),"engineer",foreign.engineeringTeam());
+        var finance=fixture.postFor(assigned.userId(),engineer.orgId(),"finance",null);
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",assigned.userId(),projectId);
+        var date=EngProgress.today();
+        plans.savePlan(engineer,projectId,input(date.minusDays(3)),key());
+        long id=node(2);
+        var original=new EngProgressService.DelayCommand("现场复核",assigned.userId(),date.plusDays(2),"排水");
+        var originalKey=key();
+        progress.save(engineer,projectId,id,original,originalKey);
+        jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",engineer.userId(),assigned.postId());
+        assertThat(progress.handlers(engineer,projectId)).extracting(r->r.get("id")).containsExactly(Long.toString(engineer.userId()));
+        assertThatThrownBy(()->progress.save(engineer,projectId,id,original,key())).hasMessageContaining("有效工程任职");
+        progress.save(engineer,projectId,id,original,originalKey);
+        assertThat(todos.list(assigned)).noneMatch(item->item.key().equals("fr-eng:delay:"+id));
+        assertThat(todos.list(finance)).noneMatch(item->item.key().equals("fr-eng:delay:"+id));
+        var activeOwner=new EngProgressService.DelayCommand("无此岗位权限",engineer.userId(),date.plusDays(2),"排水");
+        assertThatThrownBy(()->progress.save(assigned,projectId,id,activeOwner,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->progress.save(finance,projectId,id,activeOwner,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(todos.list(engineer)).anyMatch(item->item.key().equals("fr-eng:delay:"+id));
+        assertThat(jdbc.queryForObject("SELECT delay_history->0->>'ownerUserId' FROM fr_eng_plan_node WHERE id=?",String.class,id)).isEqualTo(Long.toString(assigned.userId()));
+        progress.save(engineer,projectId,id,new EngProgressService.DelayCommand("继续复核",engineer.userId(),date.plusDays(3),"重新排水"),key());
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(delay_history) FROM fr_eng_plan_node WHERE id=?",Integer.class,id)).isEqualTo(2);
+    }
     @Test void dailyMessagesAreDeduplicatedAndStopAfterCompletion(){
         plans.savePlan(engineer,projectId,input(today.minusDays(3)),key());
         reminders.scanAt(today);reminders.scanAt(today);
@@ -217,6 +262,26 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("UPDATE fr_eng_plan_node SET status='DONE',completed_at=? WHERE project_id=?",today,projectId);
         reminders.scanAt(today.plusDays(1));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_message WHERE sender_domain='fr-eng-progress' AND object_id=?",Integer.class,projectId)).isEqualTo(count);
+    }
+    @Test void aProjectManagersNameDoesNotBecomeAnUnrecordedDelayAssignment() {
+        var directory=cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory.INSTANCE;
+        long managerId=directory.createUser("原项目经理","13600000111",engineer.teamId());
+        var manager=fixture.postFor(managerId,engineer.orgId(),"project-manager",engineer.teamId());
+        long assignedId=directory.createUser("现场工程师","13600000222",engineer.teamId());
+        fixture.postFor(assignedId,engineer.orgId(),"engineer",engineer.teamId());
+        jdbc.update("UPDATE fr_eng_project SET manager_user_id=?,assigned_engineer_user_id=? WHERE id=?",managerId,assignedId,projectId);
+        currentPost.use(manager);
+        LocalDate date=EngProgress.today();
+        plans.savePlan(manager,projectId,input(date.minusDays(3)),key());
+        plans.savePlan(manager,projectId,input(date.plusDays(2)),key());
+        long nodeId=node(2);
+        var before=(List<Map<String,Object>>)projects.detail(manager,projectId).get("nodes");
+        assertThat(before).anySatisfy(row->assertThat(row).containsEntry("id",nodeId)
+                .containsEntry("delayOwnerUserId",null).containsEntry("delayOwnerName","").containsEntry("recoveryDate",null));
+        progress.save(manager,projectId,nodeId,new EngProgressService.DelayCommand("雨水积压",assignedId,date.plusDays(3),"排水后复核"),key());
+        var after=(List<Map<String,Object>>)projects.detail(manager,projectId).get("nodes");
+        assertThat(after).anySatisfy(row->assertThat(row).containsEntry("id",nodeId).containsEntry("delayOwnerUserId",assignedId)
+                .containsEntry("delayOwnerName","现场工程师").containsEntry("recoveryDate",date.plusDays(3)));
     }
     @Test void cameraBindingPlaybackAndIsolationKeepAddressesOutOfListsAndAudit(){
         String url="https://video.example.com/site/live.m3u8?token=secret";
