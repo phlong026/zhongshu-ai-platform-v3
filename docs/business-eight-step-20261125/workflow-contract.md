@@ -35,7 +35,7 @@
 
 `invitationResult=CONFIRMED/PENDING/DECLINED`；`appointmentAt` 为本地 ISO 日期时间；数值允许数字字符串，保存时规范化，ID 一律字符串。附件 ID 必须为当前调用人有权引用的受控资产，不接受外部 URL。未填完可以保存草稿。
 
-专用资料槽位（2026-11-27）：第 05 步 `designContractAssetId/designContractName` 存已签设计合同（选填），第 06 步 `designFileAssetId/designFileName` 存外部软件导出的设计文件（选填，是否作为完成条件待业务确认）。文件引用存在步骤 `fields` 里，与通用附件列表分开；保存时与附件走同一资产归属校验，下载票据同样接受 fields 引用。整字段替换会清掉未知键，已登记槽位的保存若漏发对应键会被拒绝（与 quoteId 守卫同款），只有显式空值才能清除；是否设为完成条件确定前，完成校验不检查槽位。
+专用资料槽位（2026-11-27）：第 05 步 `designContractAssetId/designContractName` 存已签设计合同（选填），第 06 步 `designFileAssetId/designFileName` 存外部软件导出的设计文件（选填，是否作为完成条件待业务确认）。文件引用存在步骤 `fields` 里，与通用附件列表分开；保存时与附件走同一资产归属校验，下载票据同样接受 fields 引用。旧版保存若省略槽位编号则保留已登记的文件和名称；明确传空字符串才清除编号及名称；是否设为完成条件确定前，完成校验不检查槽位。
 
 ## 响应
 
