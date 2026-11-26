@@ -23,63 +23,84 @@ const actions = {
     const kind = e && e.currentTarget && e.currentTarget.dataset.kind;
     if (!SHEET_TITLE[kind] || (this.data.statusSheet && this.data.statusSheet.busy)) return;
     if (typeof this.statusContext !== 'function' || !this.statusContext()) return;
-    this.setData({ statusSheet: { kind, title: SHEET_TITLE[kind], reasonCode: '', reasonText: '', nextFollowOn: '', error: '', busy: false } });
+    if (this.__statusCommand) return;
+    this.setData({ statusSheet: { kind, title: SHEET_TITLE[kind], reasonCode: '', reasonText: '', nextFollowOn: '', error: '', busy: false, pending: false } });
   },
   statusPick(e) {
     const sheet = this.data.statusSheet;
-    if (!sheet || sheet.busy) return;
+    if (!sheet || sheet.busy || this.__statusCommand) return;
     this.setData({ 'statusSheet.reasonCode': String(e.currentTarget.dataset.code || ''), 'statusSheet.error': '' });
   },
   statusInput(e) {
     const sheet = this.data.statusSheet;
-    if (!sheet || sheet.busy) return;
+    if (!sheet || sheet.busy || this.__statusCommand) return;
     this.setData({ 'statusSheet.reasonText': String(e.detail.value || ''), 'statusSheet.error': '' });
   },
   statusDate(e) {
     const sheet = this.data.statusSheet;
-    if (!sheet || sheet.busy) return;
+    if (!sheet || sheet.busy || this.__statusCommand) return;
     this.setData({ 'statusSheet.nextFollowOn': String(e.detail.value || ''), 'statusSheet.error': '' });
   },
   closeStatus() {
     const sheet = this.data.statusSheet;
-    if (sheet && sheet.busy) return;
+    if (sheet && (sheet.busy || this.__statusCommand)) return;
     this.setData({ statusSheet: null });
   },
   async submitStatus() {
     const sheet = this.data.statusSheet;
     if (!sheet || sheet.busy) return;
     const fail = error => this.setData({ 'statusSheet.busy': false, 'statusSheet.error': error });
-    const text = String(sheet.reasonText || '').trim();
-    const body = { status: sheet.kind === 'lost' ? 'LOST' : sheet.kind === 'paused' ? 'PAUSED' : 'ACTIVE' };
-    if (sheet.kind === 'lost') {
-      if (!sheet.reasonCode) return fail('请选择流失原因');
-      if (sheet.reasonCode === 'OTHER' && !text) return fail('请填写流失原因');
-      if (text.length > 1000) return fail('原因不超过 1000 字');
-      body.reasonCode = sheet.reasonCode;
-      body.reason = text;
-    }
-    if (sheet.kind === 'paused') {
-      if (!text) return fail('请填写暂缓原因');
-      if (text.length > 1000) return fail('原因不超过 1000 字');
-      if (!sheet.nextFollowOn || sheet.nextFollowOn <= today()) return fail('请选择晚于今天的再联系日期');
-      body.reason = text;
-      body.nextFollowOn = sheet.nextFollowOn;
-    }
     const context = this.statusContext();
     if (!context) return fail('当前岗位不能办理该客户');
-    // 结果未知时沿用原键重试，服务端按幂等返回同一次变更。
-    if (!this.__statusCommand || this.__statusCommand.kind !== sheet.kind) this.__statusCommand = { kind: sheet.kind, key: PF.commandKey('workflow-status') };
+    const sameContext = () => {
+      const active = this.statusContext();
+      return active && active.scope === context.scope && active.customerId === context.customerId && this.data.statusSheet?.kind === sheet.kind;
+    };
+    let pending = this.__statusCommand;
+    if (pending && (pending.scope !== context.scope || pending.customerId !== context.customerId || pending.kind !== sheet.kind)) return;
+    if (!pending) {
+      const text = String(sheet.reasonText || '').trim();
+      const body = { status: sheet.kind === 'lost' ? 'LOST' : sheet.kind === 'paused' ? 'PAUSED' : 'ACTIVE' };
+      if (sheet.kind === 'lost') {
+        if (!sheet.reasonCode) return fail('请选择流失原因');
+        if (sheet.reasonCode === 'OTHER' && !text) return fail('请填写流失原因');
+        if (text.length > 1000) return fail('原因不超过 1000 字');
+        body.reasonCode = sheet.reasonCode;
+        body.reason = text;
+      }
+      if (sheet.kind === 'paused') {
+        if (!text) return fail('请填写暂缓原因');
+        if (text.length > 1000) return fail('原因不超过 1000 字');
+        if (!sheet.nextFollowOn || sheet.nextFollowOn <= today()) return fail('请选择晚于今天的再联系日期');
+        body.reason = text;
+        body.nextFollowOn = sheet.nextFollowOn;
+      }
+      pending = { kind: sheet.kind, scope: context.scope, customerId: context.customerId, key: PF.commandKey('workflow-status'), body, ready: false };
+      this.__statusCommand = pending;
+    }
     this.setData({ 'statusSheet.busy': true, 'statusSheet.error': '' });
+    const current = () => sameContext() && this.__statusCommand === pending;
     try {
-      const view = await context.api.workflow(context.customerId);
-      await context.api.workflowStatus(context.customerId, { ...body, revision: view.revision }, this.__statusCommand.key);
+      if (!pending.ready) {
+        const view = await context.api.workflow(context.customerId);
+        if (!current()) return;
+        // 不确定是否已保存时只能重发首次内容，不能用刷新后的版本覆盖原编号。
+        pending.body = { ...pending.body, revision: view.revision };
+        pending.ready = true;
+      }
+      await context.api.workflowStatus(context.customerId, pending.body, pending.key);
     } catch (error) {
-      if (error && (error.code === -1 || (error.code >= 500 && error.code < 600))) return fail('未收到保存确认，可直接重试');
+      if (!current()) return;
+      if (pending.ready && error && (error.code === -1 || (error.code >= 500 && error.code < 600))) {
+        this.setData({ 'statusSheet.pending': true });
+        return fail('未收到保存确认，可重试原提交');
+      }
       this.__statusCommand = null;
+      this.setData({ 'statusSheet.pending': false });
       return fail(PF.errorMessage(error));
     }
+    if (!current()) return;
     this.__statusCommand = null;
-    if (this.__unloaded || this.__disposed) return;
     this.setData({ statusSheet: null });
     wx.showToast({ title: sheet.kind === 'lost' ? '已标记流失' : sheet.kind === 'paused' ? '已暂缓跟进' : '已恢复跟进', icon: 'none' });
     await this.statusDone();
