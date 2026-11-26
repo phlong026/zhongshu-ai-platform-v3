@@ -50,10 +50,15 @@ async function verify() {
   assert.equal(context.canRegister, true); assert.equal(context.requests.length, 0);
   assert.equal(context.currentPlan.source, 'CONTRACT'); assert.equal(context.currentPlan.rows.length, 2);
   const formalPlan = context.currentPlan;
-  const registerBody = Entrust.payload('register', { ...Entrust.requestForm(context), entrustedOn: fixture.today,
+  const requestFields = { entrustedOn: fixture.today,
     providerName: '配对验收外部设计方', providerReference: 'paired-' + customerId,
-    text: '按客户已确认的测量资料完成外部设计', scope: '设计成果、施工图及专业审核依据', area: '260', floors: '2' }, context, fixture.today);
-  context = readEntrust(await entrust.register(customerId, registerBody, key('register')));
+    text: '按客户已确认的测量资料完成外部设计', scope: '设计成果、施工图及专业审核依据', area: '260', floors: '2' };
+  if (fixture.measurementEventId) {
+    context = readEntrust(await require('./paired-measurement-request.cjs')(fixture, requestFields, entrust));
+  } else {
+    const registerBody = Entrust.payload('register', { ...Entrust.requestForm(context), ...requestFields }, context, fixture.today);
+    context = readEntrust(await entrust.register(customerId, registerBody, key('register')));
+  }
   const commissionId = context.commissionId;
   assert.ok(commissionId); assert.equal(context.status, 'EXTERNAL_PENDING');
   assert.equal(context.requests.length, 1); assert.equal(context.request.plan.source, 'CONTRACT');
@@ -106,7 +111,7 @@ async function verify() {
   // Deliberately reuse the original revision/body/key after acceptance, as an uncertain-result retry would.
   accepted(readHandover(await handover.receive(commissionId, receiveBody, receiveKey)));
   accepted(readHandover(await handover.get(commissionId)));
-  process.stdout.write(JSON.stringify({ done: true, commissionId, projectId }) + '\n');
+  process.stdout.write(JSON.stringify({ done: true, commissionId, projectId, measurementEventId: context.request.data.measurementRef?.eventId }) + '\n');
 }
 
 verify().catch(error => { console.error(error); process.exitCode = 1; })

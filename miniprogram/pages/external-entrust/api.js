@@ -2,6 +2,7 @@ const http = require('../../api/http');
 const base = id => '/franchise/customers/' + encodeURIComponent(id) + '/external-entrust';
 module.exports = {
   get: id => http.get(base(id)),
+  measurements: (id, before) => http.get(base(id) + '/measurements?pageSize=20' + (before ? '&before=' + encodeURIComponent(before) : '')),
   resolve: id => http.get('/franchise/commissions/' + encodeURIComponent(id)),
   register: (id, body, key) => http.post(base(id), body, { 'Idempotency-Key': key }),
   convert: (id, body, key) => http.post(base(id) + '/convert-legacy', body, { 'Idempotency-Key': key }),

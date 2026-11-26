@@ -8,19 +8,20 @@ const model = require('./model');
 const api = require('./api');
 const errorText = error => String(error?.msg || error?.message || '操作未完成，请重试');
 const revoked = error => error?.postInvalid || [401, 403, 404, 1110000000, 1110000001, 1112000000].includes(Number(error?.code));
+const emptyMeasurements = () => ({ measurements: [], measurementNext: '', measurementsOpen: false, measurementsLoading: false, measurementsError: '' });
 
 Page({
   ...require('./files'),
   data: { loading: false, ready: false, context: null, tab: 'request', form: null, editing: '', dirty: false, today: '',
     requestFields: model.requestFields, fileSlots: [], historyKey: '', busy: false, uploading: false, uploadFailed: false,
-    uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error: '' },
+    uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error: '', ...emptyMeasurements() },
   onLoad(options = {}) {
     this._routeCustomerId = model.id(options.customerId); this._routeCommissionId = model.id(options.commissionId);
     this.customerId = this._routeCustomerId;
     this.setData({ today: day(Date.now()), tab: ['request', 'result', 'history'].includes(options.tab) ? options.tab : 'request' });
   },
   onShow() { this._visible = true; this.setData({ today: day(Date.now()) }); return this.load(); },
-  onHide() { this._visible = false; this._read = null; this._preview = null; },
+  onHide() { this._visible = false; this._read = null; this._preview = null; this._measurementRead = null; this.setData(emptyMeasurements()); },
   onUnload() { this._disposed = true; this.onHide(); this.clear(); },
   alive(savedScope = this._scope) {
     const post = auth.currentApiPost();
@@ -28,13 +29,15 @@ Page({
   },
   clear(error = '') {
     this._read = null; this._preview = null; this._pending = null; this._pendingFile = null; this._localFiles = {}; this._edit = null;
-    this.setData({ loading: false, ready: false, context: null, form: null, editing: '', dirty: false, fileSlots: [], historyKey: '',
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), loading: false, ready: false, context: null, form: null, editing: '', dirty: false, fileSlots: [], historyKey: '',
       busy: false, uploading: false, uploadFailed: false, uploadRetryable: false, uploadRestartAllowed: false, uploadName: '', uncertain: false, conflict: false, error });
   },
   apply(context) {
     this._read = null; this._preview = null; this._pendingFile = null; this._localFiles = {}; this._edit = null;
     this._baseRevision = context.revision; this._basePlanRef = model.copy(context.planRef);
-    this.setData({ loading: false, ready: true, context, form: null, editing: '', dirty: false, conflict: false,
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), loading: false, ready: true, context, form: null, editing: '', dirty: false, conflict: false,
       uploadFailed: false, uploadName: '', uploadRestartAllowed: false, fileSlots: this.slotsFor(context.result?.data), error: '' });
     if (!context.commissionId && context.canRegister && this.data.tab === 'request') this.startEdit({ currentTarget: { dataset: { action: 'register' } } });
   },
@@ -78,8 +81,44 @@ Page({
     const context = this.data.context; this._read = null; this._preview = null; this._pendingFile = null; this._localFiles = {}; this._edit = {};
     this._baseRevision = context.revision; this._basePlanRef = model.copy(context.planRef);
     const form = action === 'results' ? model.resultForm(context) : model.requestForm(context);
-    this.setData({ form, editing: action, tab: action === 'results' ? 'result' : 'request', dirty: false, conflict: false, error: '',
+    this.setData({ ...emptyMeasurements(), form, editing: action, tab: action === 'results' ? 'result' : 'request', dirty: false, conflict: false, error: '',
       fileSlots: this.slotsFor(action === 'results' ? form : context.result?.data), uploadFailed: false, uploadName: '', uploadRestartAllowed: false });
+  },
+  async loadMeasurements(event) {
+    if (!this._visible || !this.editable() || this.data.editing === 'results' || this.data.measurementsLoading) return;
+    const more = event?.currentTarget?.dataset?.more === '1';
+    const before = more ? this.data.measurementNext : '';
+    if (more && !before) return;
+    const savedScope = this._scope, edit = this._edit, customer = this.customerId;
+    const token = this._measurementRead = {};
+    const current = () => this._visible && this._measurementRead === token && this._edit === edit && customer === this.customerId && this.alive(savedScope);
+    this.setData({ measurementsOpen: true, measurementsLoading: true, measurementsError: '', ...(!more ? { measurements: [], measurementNext: '' } : {}) });
+    try {
+      const page = await api.measurements(customer, before);
+      if (!current()) return;
+      if (model.id(page?.customerId) !== customer || !Array.isArray(page.list) || (page.nextBeforeId != null && !model.id(page.nextBeforeId)))
+        throw Error('测量记录响应不匹配，请重试');
+      const values = page.list.map(row => model.measurement(row, customer));
+      const rows = [...(more ? this.data.measurements : []), ...values];
+      this.setData({ measurements: [...new Map(rows.map(row => [row.eventId, row])).values()],
+        measurementNext: model.id(page.nextBeforeId), measurementsLoading: false });
+    } catch (error) {
+      if (!current()) return;
+      if (revoked(error)) return this.clear(errorText(error));
+      this.setData({ measurementsLoading: false, measurementsError: errorText(error) });
+    }
+  },
+  chooseMeasurement(event) {
+    if (!this._visible || !this.editable() || this.data.editing === 'results') return;
+    const selected = this.data.measurements.find(row => row.eventId === model.id(event.currentTarget.dataset.id));
+    if (!selected) return;
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: selected }, dirty: true, error: '' });
+  },
+  removeMeasurement() {
+    if (!this._visible || !this.editable() || this.data.editing === 'results') return;
+    this._measurementRead = null;
+    this.setData({ ...emptyMeasurements(), form: { ...this.data.form, measurementRef: null }, dirty: true, error: '' });
   },
   input(event) {
     const key = event.currentTarget.dataset.key;
