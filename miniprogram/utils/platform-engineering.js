@@ -63,7 +63,7 @@ function nodeRows(nodes) {
     id: String(n.id), nodeIndex: n.nodeIndex, name: n.name,
     start: dateOf(n.startDate), end: dateOf(n.endDate),
     status: nodeStatusView(n.status), milestone: n.milestone === 'TOPPING' ? 'topping' : n.milestone === 'START' ? 'start' : '',
-    baselineEnd:dateOf(n.baselineEndDate),deviationDays:n.deviationDays,delayReason:n.delayReason||'',delayOwnerUserId:String(n.delayOwnerUserId||''),delayOwnerName:n.delayOwnerName||'',recoveryDate:dateOf(n.recoveryDate),recoveryAction:n.recoveryAction||'',delayHistory:parseJsonList(n.delayHistory),
+    baselineEnd:dateOf(n.baselineEndDate),deviationDays:n.deviationDays,delayReason:n.delayReason||'',delayOwnerUserId:String(n.delayOwnerUserId||''),delayOwnerName:n.delayOwnerUserId?n.delayOwnerName||'':'',recoveryDate:dateOf(n.recoveryDate),recoveryAction:n.recoveryAction||'',delayHistory:parseJsonList(n.delayHistory),
     pace:n.deviationDays==null?'':n.deviationDays>0?(n.status==='DONE'?'延期完成 ':'延期 ')+n.deviationDays+'天':n.status==='DONE'?(n.deviationDays<0?'提前 '+Math.abs(n.deviationDays)+'天':'按期完成'):'按计划',
     completedAt: dateOf(n.completedAt), corrections: n.corrections, reopenHistory: n.reopenHistory
   }));
@@ -349,6 +349,7 @@ async function perform(action, id, form, node, key, batchExpected) {
       }, key);
     }
     case 'delay':
+      if(!f.delayOwnerUserId||!f.recoveryDate)throw Error('请选择处理责任人及预计完成日期');
       return api.progress.save(id,node.id,{reason:f.delayReason,ownerUserId:f.delayOwnerUserId,recoveryDate:f.recoveryDate,action:f.recoveryAction},key);
     case 'camera-save':
       return api.cameras.save(id,{cameraId:f.cameraId||null,name:f.cameraName,location:f.cameraLocation,url:f.cameraUrl||'',enabled:f.cameraEnabled!==false},key);
@@ -571,6 +572,9 @@ function recordView(bundle, ctx) {
   const node = (view === 'start' && nodes.find(n => n.milestone === 'start'))
     || ((opts.nodeId || materialNodeId) && nodes.find(n => n.id === String(opts.nodeId || materialNodeId)))
     || nodes.find(n => n.status !== '已完成') || nodes[nodes.length - 1] || null;
+  if(opts.nodeId&&['node','delay'].includes(view)&&node?.id!==String(opts.nodeId))throw Error('原施工节点已变化，请返回刷新');
+  if(node?.delayOwnerUserId&&!node.delayOwnerName)
+    node.delayOwnerName=(opts.handlers||[]).find(h=>String(h.id)===node.delayOwnerUserId)?.name||node.delayOwnerUserId;
   const inspections = (d.siteRecords || []).filter(r => r.completion && String(r.node_id) === node?.id).map(r => ({
     id: String(r.id), date: timestampDate(r.occurred_at), result: r.note || '已完成',
     person: r.operator_name || r.author_name || (r.author_user_id ? '经办人 ' + r.author_user_id : '经办人未留存'),
@@ -615,7 +619,7 @@ function recordView(bundle, ctx) {
       noMaterials: false, adjustReason: '', correctId: '', correctActual: '', correctReason: '',
       siteId: '', siteNote: '', siteFile: null, siteReason: '',
       nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '', nodeRecordId: '', nodeReplaceAssetId: '',
-      delayReason:node?.delayReason||'',delayOwnerUserId:node?.delayOwnerUserId||String(d.managerUserId||''),delayOwnerName:node?.delayOwnerName||p.manager,recoveryDate:node?.recoveryDate||today,recoveryAction:node?.recoveryAction||'',
+      delayReason:node?.delayReason||'',delayOwnerUserId:node?.delayOwnerUserId||'',delayOwnerName:node?.delayOwnerName||'',recoveryDate:node?.recoveryDate||'',recoveryAction:node?.recoveryAction||'',
       promiseDate: ''
     };
     if (view === 'prepare') {

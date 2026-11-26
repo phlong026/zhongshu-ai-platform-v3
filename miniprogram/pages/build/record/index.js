@@ -5,6 +5,7 @@ const P=require('../../../utils/platform-engineering'); // 工程域纯函数+�
 const EH=require('../external-handover');
 const Nav=require('../../../utils/page-navigation');
 const ManagerTransfer=require('./manager-transfer');
+const Delay=require('./delay');
 const {makeFormHandlers}=require('../../../utils/view-container');
 const baseHandlers=makeFormHandlers();
 const titles={cameras:'工地实景',delay:'进度偏差处理',overview:'工程项目',prepare:'开工准备',start:'正式开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',expenses:'项目费用',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
@@ -13,7 +14,7 @@ Page({
  ...baseHandlers,
  ...ManagerTransfer.handlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
- input(e){if(this.data.busy||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
+ input(e){if(this.data.busy||(this.data.view==='delay'&&Delay.held(this))||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
  data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',expenseSaveState:'',expenseSaveLabel:'',externalHandoverUrl:'',externalHandoverVersion:0},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'start');this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
  onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__expenseSave=null;this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,expenseSaveState:'',expenseSaveLabel:'',docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id&&!this.showExpenseResult())this.refresh();
@@ -127,16 +128,19 @@ Page({
     const toolIcons=['/pages/engineering/assets/calendar.png','/pages/engineering/assets/folder.png','/pages/engineering/assets/material.png','/assets/money.png','/pages/engineering/assets/inspection.png','/assets/money.png'];
     data.projectTools=(data.links||[]).map((l,i)=>({...l,label:toolNames[i]||l.label,icon:toolIcons[i]}));
     data.projectTools.splice(3,0,{label:'工地实景',url:data.cameraUrl,icon:'/assets/home-video-icon.png',count:(data.cameras||[]).length});
+    data.error='';data.busy=false;
+    if(view==='delay')Delay.apply(this,data,handlers);
     this.setData({...data,view:this.data.view,title:titles[this.data.view],nodeId:this.nodeId,
-      error:'',platEng:true,busy:false});
+      platEng:true});
    }catch(e){if(!alive())return; // 失败显示错误态（不回落本地演示数据），平台错误以 toast 保留
     const msg=P.errorText(e&&e.data?e.data:e);
-    if(this.__externalProject)EH.clear(this,msg);else this.setData({p:null,form:{},fields:[],actions:[],paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},error:msg});
+    if(this.__externalProject)EH.clear(this,msg);else this.setData({p:null,node:null,delayHistory:[],handlers:[],delayUrl:'',form:{},fields:[],actions:[],paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},busy:false,error:msg});
     wx.showToast({title:msg,icon:'none'});
    }
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(action==='delay')return Delay.save(this,f||this.data.form,node||this.data.node);
    if(action==='expense-register')return this.saveExpense(f||this.data.form);
    if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
    this.__paymentRead=(this.__paymentRead||0)+1;
@@ -273,7 +277,7 @@ Page({
   }
   Nav.open('/pages/admin/home/index?view=operating&id='+encodeURIComponent(p.projectId)+((this.data.view==='funding'||this.data.view==='node')&&this.data.node?'&nodeId='+encodeURIComponent(this.data.node.id):''));
  },
- pickDelayOwner(e){const p=(this.data.handlers||[])[Number(e.detail.value)];if(p)this.setData({'form.delayOwnerUserId':String(p.id),'form.delayOwnerName':p.name});},
+ pickDelayOwner(e){if(this.data.busy||(this.data.view==='delay'&&Delay.held(this)))return;const p=(this.data.handlers||[])[Number(e.detail.value)];if(p)this.setData({'form.delayOwnerUserId':String(p.id),'form.delayOwnerName':p.name});},
  editCamera(e){if(!this.data.canManageCameras)return;const c=this.data.cameras.find(c=>String(c.id)===String(e.currentTarget.dataset.id));this.setData({cameraFormOpen:true,playbackUrl:'',playingCameraId:'','form.cameraId':c?.id||'','form.cameraName':c?.name||'','form.cameraLocation':c?.location||'','form.cameraUrl':'','form.cameraEnabled':c?c.enabled:true});},
  closeCameraForm(){this.setData({cameraFormOpen:false,'form.cameraUrl':''});},
  toggleCameraEnabled(){this.setData({'form.cameraEnabled':!this.data.form.cameraEnabled});},
