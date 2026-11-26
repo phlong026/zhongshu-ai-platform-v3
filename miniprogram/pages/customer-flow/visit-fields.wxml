@@ -1,0 +1,8 @@
+<view wx:if="{{step.canWrite&&item.key==='appointmentAt'}}" class="flow-inline-actions"><button wx:for="{{visitTimes}}" wx:key="label" wx:for-item="choice" class="flow-link" data-kind="time" data-index="{{index}}" bindtap="chooseVisitEntry" disabled="{{busy||uploading||uncertain||conflict}}">{{choice.label}}</button></view>
+<block wx:if="{{step.canWrite&&step.code==='SITE_VISIT'&&item.key==='siteName'}}">
+  <text wx:if="{{visitSites.length}}" class="flow-muted">本客户已办带看地点</text>
+  <button wx:for="{{visitSites}}" wx:key="id" wx:for-item="site" class="flow-link" data-kind="site" data-index="{{index}}" bindtap="chooseVisitEntry" disabled="{{busy||uploading||uncertain||conflict}}">{{site.label}}</button>
+  <text wx:if="{{visitSiteError}}" class="flow-muted">{{visitSiteError}}</text>
+  <button wx:if="{{visitSiteMore}}" class="flow-link" bindtap="moreVisitSites" loading="{{visitSiteLoading}}" disabled="{{visitSiteLoading}}">{{visitSiteError?'重试读取':'从更早记录查找地点'}}</button>
+</block>
+<view wx:if="{{step.canWrite&&item.key==='feedback'&&visitFeedback.length}}" class="flow-inline-actions"><button wx:for="{{visitFeedback}}" wx:key="*this" wx:for-item="choice" class="flow-link" data-kind="feedback" data-index="{{index}}" bindtap="chooseVisitEntry" disabled="{{busy||uploading||uncertain||conflict}}">{{choice}}</button></view>
