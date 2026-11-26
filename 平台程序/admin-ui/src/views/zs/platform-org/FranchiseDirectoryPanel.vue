@@ -28,7 +28,7 @@
           ><strong>{{ row.name || row.originalRegionText }}</strong
           ><div class="muted">{{ row.brandName || row.brand }}</div
           ><div v-if="row.publicName" class="muted">地图名称：{{ row.publicName }}</div
-          ><div v-if="row.publicAddressAuthorized && row.publicAddress" class="muted">公开地址：{{ row.publicAddress }}</div></template
+          ><div v-if="row.recordType === 'FRANCHISE' && row.publicAddressAuthorized && row.publicAddress" class="muted">公开地址：{{ row.publicAddress }}</div></template
         >
       </el-table-column>
       <el-table-column label="地区资料" min-width="240">
