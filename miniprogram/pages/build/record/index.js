@@ -1,5 +1,6 @@
 const R=require('../../../utils/engineering-records'),X=require('../../../utils/access'),O=require('../../../utils/organization'),Files=require('../../../utils/sample-files'),SI=require('../schedule-import');
 const Payments=require('../payment-plan');
+const MaterialFlow=require('../material-flow/entry');
 const P=require('../../../utils/platform-engineering'); // 工程域纯函数+在线编排（阶段 2）
 const EH=require('../external-handover');
 const Nav=require('../../../utils/page-navigation');
@@ -107,6 +108,7 @@ Page({
       financeRole:O.has(apiRole,'finance'),
       termsRole:apiPost?.orgType==='store'&&(O.has(apiRole,'finance')||['boss','owner'].includes(apiRole)),
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
+    if(view==='material')MaterialFlow.apply(data,bundle);
     Payments.apply(data,bundle,payment,{view,reset:!this.initialized||reset});
     this.__externalProject=bundle.detail?.handoverMode==='EXTERNAL';
     if(this.__externalProject){await EH.bind(bundle.detail,data,alive);if(!alive())return;}
@@ -161,7 +163,8 @@ Page({
     this.__idemKeys[idemId]=cached;
    }
    try{
-    const result=await P.perform(action,String(this.id),f0,node||this.data.node,cached.key);
+    const batch=action==='arrival'?MaterialFlow.expected(f0.batchExpected):undefined;
+    const result=await P.perform(action,String(this.id),f0,node||this.data.node,cached.key,batch);
     if(!alive())return;
     delete this.__idemKeys[idemId]; // 成功后释放；失败保留，同目标同内容重试复用同键（指纹匹配时）
     wx.showToast({title:result&&result.stageStatus==='PENDING_CONFIRMATION'?'已提交，待财务核实':'已在线保存',icon:result&&result.stageStatus==='PENDING_CONFIRMATION'?'none':'success'});
