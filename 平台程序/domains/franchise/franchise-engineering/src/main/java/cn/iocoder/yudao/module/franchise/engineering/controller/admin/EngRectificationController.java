@@ -15,6 +15,8 @@ public class EngRectificationController {
     public EngRectificationController(EngRectificationService service,CurrentPost current){this.service=service;this.current=current;}
     @GetMapping @PreAuthorize("@post.has('franchise:engineering:query')")
     public CommonResult<?> list(@PathVariable long project){return success(service.list(current.require(),project));}
+    @GetMapping("/handlers") @PreAuthorize("@post.has('franchise:engineering:query')")
+    public CommonResult<?> handlers(@PathVariable long project){return success(service.handlers(current.require(),project));}
     @GetMapping("/{issue}") @PreAuthorize("@post.has('franchise:engineering:query')")
     public CommonResult<?> detail(@PathVariable long project,@PathVariable long issue){return success(service.detail(current.require(),project,issue));}
     @PostMapping @PreAuthorize("@post.has('franchise:engineering:write')")

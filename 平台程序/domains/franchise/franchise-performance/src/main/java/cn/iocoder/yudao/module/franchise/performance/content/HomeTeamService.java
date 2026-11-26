@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.jdbc.core.JdbcTemplate;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ROUTING;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.STATE_LABEL;
 import org.springframework.stereotype.Service;
 import java.time.YearMonth;
 import java.util.*;
@@ -31,11 +33,11 @@ public class HomeTeamService {
           UNION ALL SELECT COALESCE(n.delay_owner_user_id,n.responsible_user_id,p.manager_user_id),'overdue',n.id::text,p.name,n.name,p.customer_id::text,p.id::text,n.id::text
             FROM projects p JOIN fr_eng_plan_node n ON n.project_id=p.id AND n.company_id=p.company_id,cfg
             WHERE n.status<>'DONE' AND n.end_date<cfg.today AND p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER')
-          UNION ALL SELECT CASE WHEN r.owner_user_id IN (p.manager_user_id,p.assigned_engineer_user_id) THEN r.owner_user_id ELSE p.manager_user_id END,
-            'issue',r.id::text,p.name,r.title||CASE WHEN r.owner_user_id IS NULL THEN ' · 待分派'
-              WHEN r.owner_user_id IS DISTINCT FROM p.manager_user_id AND r.owner_user_id IS DISTINCT FROM p.assigned_engineer_user_id THEN ' · 待重新分派'
-              ELSE '' END,p.customer_id::text,p.id::text,NULL FROM projects p
-            JOIN fr_eng_rectification r ON r.project_id=p.id AND r.company_id=p.company_id WHERE r.state<>'CLOSED'
+          UNION ALL SELECT routing.handler,'issue',r.id::text,p.name,r.title||
+          """+STATE_LABEL+"""
+            ,p.customer_id::text,p.id::text,NULL FROM projects p JOIN fr_eng_rectification r ON r.project_id=p.id AND r.company_id=p.company_id
+          """+ROUTING+"""
+            WHERE r.state<>'CLOSED'
           UNION ALL SELECT p.manager_user_id,'quality',r.id::text,p.name,'待处置材料质检',p.customer_id::text,p.id::text,r.supply_id::text FROM projects p
             JOIN fr_eng_supply_receipt r ON r.project_id=p.id AND r.company_id=p.company_id
             WHERE r.quality='REJECTED' AND r.quality_resolution->>'result' IS DISTINCT FROM '更换后合格')
@@ -55,7 +57,7 @@ public class HomeTeamService {
         var begin=YearMonth.parse(period).atDay(1);
         // Include staff without facts and past staff who still own work or recorded a visit during this month.
         return jdbc.queryForList(cte+", members AS (SELECT DISTINCT user_id FROM pf_staff_post,cfg WHERE org_id=cfg.org AND status='ACTIVE' AND role_code IN ("+roles+
-                ") UNION SELECT member FROM facts) SELECT m.user_id::text id,COALESCE(u.nickname,'待核对人员') name,"+
+                ") UNION SELECT member FROM facts WHERE member IS NOT NULL) SELECT m.user_id::text id,COALESCE(u.nickname,'待核对人员') name,"+
                 "count(*) FILTER(WHERE f.kind IN ('customers','projects')) assigned,count(*) FILTER(WHERE f.kind IN ('followups','overdue','issue','quality')) pending,"+
                 "count(*) FILTER(WHERE f.kind='visitCustomers') visits FROM members m LEFT JOIN system_users u ON u.id=m.user_id "+
                 "LEFT JOIN facts f ON f.member=m.user_id GROUP BY m.user_id,u.nickname ORDER BY name,m.user_id",p.orgId(),begin,begin.plusMonths(1));

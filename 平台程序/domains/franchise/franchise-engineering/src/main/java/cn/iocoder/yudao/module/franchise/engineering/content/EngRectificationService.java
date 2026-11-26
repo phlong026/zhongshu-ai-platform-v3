@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ACTIVE_POSTS;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.ENGINEERING_INPUT_INVALID;
 
@@ -49,6 +50,16 @@ public class EngRectificationService {
         var rows=jdbc.queryForList(ISSUE+" ORDER BY (r.state='CLOSED'),r.create_time DESC,r.id DESC",post.orgId(),project);
         addNames(rows);
         return rows;
+    }
+
+    public List<Map<String,String>> handlers(PostSnapshot post,long project) {
+        var p=projects.requireProject(post,project);
+        EngGuard.requireOwner(p,post.userId());
+        var ids=jdbc.queryForList("SELECT DISTINCT s.user_id "+ACTIVE_POSTS+
+                " AND s.org_id=? AND s.user_id IN (?,?) ORDER BY s.user_id",Long.class,post.orgId(),p.getManagerUserId(),p.getAssignedEngineerUserId());
+        var names=new HashMap<Long,String>();
+        if (!ids.isEmpty()) directory.usersByIds(ids).forEach(u->names.put(u.userId(),u.name()));
+        return ids.stream().map(id->Map.of("id",id.toString(),"name",Objects.toString(names.get(id),"人员 "+id))).toList();
     }
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
@@ -145,9 +156,11 @@ public class EngRectificationService {
         return id;
     }
 
-    private static void requireAssignment(FrEngProjectDO project,Change cmd) {
-        if (cmd.ownerUserId()==null || !(cmd.ownerUserId().equals(project.getManagerUserId()) || cmd.ownerUserId().equals(project.getAssignedEngineerUserId())))
-            throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目负责人或指定工程师");
+    private void requireAssignment(FrEngProjectDO project,Change cmd) {
+        if (cmd.ownerUserId()==null || !(cmd.ownerUserId().equals(project.getManagerUserId()) || cmd.ownerUserId().equals(project.getAssignedEngineerUserId()))
+                || jdbc.queryForList("SELECT s.id "+ACTIVE_POSTS+" AND s.org_id=? AND s.user_id=? ORDER BY s.id FOR SHARE OF s",
+                    Long.class,project.getCompanyId(),cmd.ownerUserId()).isEmpty())
+            throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目仍有有效工程任职的负责人或指定工程师");
         if (cmd.dueDate()==null) throw exception(ENGINEERING_INPUT_INVALID,"请填写整改期限");
     }
 }

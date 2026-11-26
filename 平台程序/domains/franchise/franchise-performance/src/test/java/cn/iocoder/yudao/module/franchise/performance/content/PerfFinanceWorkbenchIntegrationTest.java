@@ -355,13 +355,21 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   var unassigned=(List<Map<String,Object>>)home.detail(manager,"engineering","2026-11","rectifications",1).get("rows");
   assertThat(unassigned).extracting(r->r.get("id")).containsExactlyInAnyOrder("52","55");
   assertThat(unassigned).allMatch(r->r.get("date")==null && r.get("subtitle").toString().contains("分派"));
-  var orgRows=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","rectifications",1).get("rows");
-  assertThat(orgRows).extracting(r->r.get("id")).containsExactlyInAnyOrder("51","52","55");
+  for(String view:List.of("owner","engineering")) {
+   var orgRows=(List<Map<String,Object>>)home.detail(boss,view,"2026-11","rectifications",1).get("rows");
+   assertThat(orgRows).extracting(r->r.get("id")).containsExactlyInAnyOrder("51","52","55");
+  }
   var teams=new HomeTeamService(jdbc);
   var pending=(List<Map<String,Object>>)teams.records(boss,"engineering","2026-11",assigned.userId(),"pending",1).get("rows");
   assertThat(pending).extracting(r->r.get("id")).containsExactly("51");
   var managerRows=(List<Map<String,Object>>)teams.records(boss,"engineering","2026-11",manager.userId(),"pending",1).get("rows");
   assertThat(managerRows).extracting(r->r.get("id")).containsExactlyInAnyOrder("52","55");
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),assigned.postId());
+  var reassigned=(List<Map<String,Object>>)home.detail(manager,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(reassigned).anyMatch(r->"51".equals(r.get("id"))&&r.get("subtitle").toString().contains("重新分派"));
+  jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",boss.userId(),manager.postId());
+  var unresolved=(List<Map<String,Object>>)home.detail(boss,"engineering","2026-11","rectifications",1).get("rows");
+  assertThat(unresolved).hasSize(3).allMatch(r->r.get("subtitle").toString().contains("待组织分派"));
  }
 
  private void createHomeTables(){

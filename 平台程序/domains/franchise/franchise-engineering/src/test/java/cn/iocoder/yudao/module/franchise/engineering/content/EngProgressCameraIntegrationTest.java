@@ -122,6 +122,22 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(history.get(1)).containsEntry("ownerUserId",Long.toString(engineer.userId())).containsEntry("dueDate",today.toString());
     }
 
+    @Test void suspendedPostCannotReceiveNewOrPersonalWorkWhileOwnershipRemainsOnTheProject() {
+        var assigned=fixture.post(engineer.orgId(),"engineer",engineer.teamId()); long target=assigned.userId();
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",target,projectId);
+        String originalKey=key();
+        var original=issue("create",null,target,today,"指派时岗位有效");
+        long id=issues.change(engineer,projectId,original,originalKey);
+        jdbc.update("UPDATE pf_staff_post SET status='REVOKED',revoked_at=now(),revoked_by=? WHERE id=?",engineer.userId(),assigned.postId());
+        assertThat(issues.handlers(engineer,projectId)).extracting(row->row.get("id")).containsExactly(Long.toString(engineer.userId()));
+        assertThat(issues.change(engineer,projectId,original,originalKey)).isEqualTo(id);
+        assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id)&&t.status().contains("重新分派"));
+        assertThat(todos.list(assigned)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("assign",id,target,today,"岗位已经撤销"),key()))
+                .hasMessageContaining("本项目");
+        assertThat(issues.detail(engineer,projectId,id)).containsEntry("ownerUserId",Long.toString(target));
+    }
+
     @Test void manualProjectLinksSignedIdentityOnceAndHandoverReusesTheSameProject() {
         long customer = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         long contract = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
