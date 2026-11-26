@@ -20,9 +20,11 @@ import cn.iocoder.yudao.module.franchise.crm.workflow.*;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Attachment;
 import cn.iocoder.yudao.module.franchise.engineering.*;
 import cn.iocoder.yudao.module.franchise.engineering.content.*;
+import cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.*;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
+import cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageDO;
 import cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
@@ -334,7 +336,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Test void allEightStepsUseActualExternalEvidenceSignedContractNetCollectionAndEngineeringStart() throws Exception {
         long customer=customerFromPublishedWork(), document=upload(sales,"BUSINESS_DOCUMENT");
         var publishedSources = growth.customerSources(sales, customer);
-        completeManualSix(customer,document);
+        completeManualSix(customer,document,document);
         assertProgress(customer,6);
         saveDraft(customer,0,100000);
         var ready=ready(customer);
@@ -388,7 +390,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         Assumptions.assumeTrue(client!=null && !client.isBlank(),"Run with the pinned mini program in paired-release");
         assertThat(java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client))).isTrue();
         long customer=customer(sales);
-        completeManualSix(customer,upload(sales,"BUSINESS_DOCUMENT"));
+        long workflowEvidence=upload(sales,"BUSINESS_DOCUMENT");
+        completeManualSix(customer,workflowEvidence,workflowEvidence);
         saveDraft(customer,0,100000);
         var contract=signed(customer);
         assertProgress(customer,7);
@@ -477,7 +480,17 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         Assumptions.assumeTrue(entry!=null && !entry.isBlank(),"Run with the paired mini program");
         var client=java.nio.file.Path.of(entry).toAbsolutePath().resolveSibling("paired-contract-installments.cjs");
         Assumptions.assumeTrue(java.nio.file.Files.isRegularFile(client),"Older applications lack the engineering declaration action");
-        long customer=customer(sales);
+        long customer=customerFromPublishedWork();
+        var sources=growth.customerSources(sales, customer);
+        long quotationFile=upload(sales,"BUSINESS_DOCUMENT");
+        completeManualSix(customer,upload(sales,"BUSINESS_DOCUMENT"),quotationFile);
+        var quoted=reads.readAuthorized(tenant,sales.orgId(),customer);
+        assertThat(quoted.completedCount()).isEqualTo(6);
+        var quotation=quoted.steps().get(5);
+        assertThat(quotation.code()).isEqualTo("QUOTATION");
+        assertThat(quotation.fields()).containsEntry("communicated",true).containsEntry("versionLabel","V1");
+        assertThat(String.valueOf(quotation.fields().get("amountCents"))).isEqualTo("100000");
+        assertThat(quotation.attachments()).extracting(Attachment::assetId).containsExactly(Long.toString(quotationFile));
         saveDraft(customer,0,150000);
         var request=ready(customer);
         assertThat(request.currentRequest().paymentPlan().source()).isEqualTo("DRAFT");
@@ -515,6 +528,64 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(audit(declaration,"eng-collection-declare")).isEqualTo(1);
         var ticket=as(finance,()->assets.createDownloadUrl(actor(finance),corrected));
         assertThat(as(finance,()->assets.readDownload(actor(finance),corrected,token(ticket.downloadUrl()))).bytes()).isEqualTo(PDF);
+
+        assertProgress(customer,7);
+        prepare(project,engineer);
+        long startEvidence=upload(engineer,"ENG_SITE_PHOTO");
+        var start=new EngPlanService.NodeRecordCommand(today(),"现场四通一平已核对，业主和项目经理确认开工",startEvidence,true);
+        assertError(FranchiseEngineeringErrorCodes.GATE_NOT_MET.getCode(),
+                ()->as(engineer,()->plans.start(engineer,project,start,key())));
+        assertProgress(customer,7);
+        var stages=as(sales,()->saleStages.selectByContract(contract));
+        assertThat(stages).hasSize(2);
+        var first=stages.get(0);
+        long startReceipt=declareAndConfirm(project,first,"150.00");
+        String startKey=key();
+        as(engineer,()->plans.start(engineer,project,start,startKey));
+        as(engineer,()->plans.start(engineer,project,start,startKey));
+        var started=reads.readAuthorized(tenant,sales.orgId(),customer);
+        assertThat(started.completedCount()).isEqualTo(8);
+        assertThat(started.steps().get(7).fields()).containsEntry("projectId",Long.toString(project))
+                .containsEntry("actualStartAt",today().toString());
+        assertThat(audit(project,"eng-start")).isOne();
+
+        var second=stages.get(1);
+        assertThat(second.getTriggerType()).isEqualTo("NODE_COMPLETED");
+        long node=jdbc.queryForObject("SELECT id FROM fr_eng_plan_node WHERE project_id=? AND node_index=?",
+                Long.class,project,second.getTriggerNodeIndex());
+        var milestone=new EngPlanService.NodeRecordCommand(today(),"核对本期工程节点的现场验收资料",upload(engineer,"ENG_SITE_PHOTO"),true);
+        as(engineer,()->plans.completeNode(engineer,project,node,milestone,key()));
+        long nextReceipt=declareAndConfirm(project,second,"200.00");
+        var salesBalance=as(sales,()->contracts.stageSummary(sales,contract));
+        assertThat(salesBalance).extracting(row->row.get("collectedCents"),row->row.get("balanceCents"))
+                .containsExactly(tuple(40000L,0L),tuple(20000L,40000L));
+        assertThat(as(engineer,()->collections.summary(engineer,project)))
+                .extracting(row->row.get("confirmedCents"),row->row.get("remainingCents"))
+                .containsExactly(tuple(40000L,0L),tuple(20000L,40000L));
+        var receipts=jdbc.queryForList("""
+                SELECT r.id FROM fr_fin_receipt r JOIN fr_sale_stage_receipt a ON a.receipt_id=r.id
+                WHERE r.customer_id=? AND a.contract_id=? ORDER BY r.id
+                """,Long.class,customer,contract);
+        assertThat(receipts).hasSize(4).doesNotHaveDuplicates().contains(receipt,startReceipt,nextReceipt);
+        assertThat(jdbc.queryForObject("SELECT sum(amount_cents) FROM fr_fin_receipt WHERE customer_id=?",Long.class,customer)).isEqualTo(60000);
+        assertThat(growth.customerSources(sales,customer)).containsExactlyInAnyOrderElementsOf(sources);
+        assertThat(count("fr_sale_contract","customer_id",customer)).isOne();
+        assertThat(count("fr_eng_project","sale_contract_id",contract)).isOne();
+        System.out.printf("CUSTOMER_JOURNEY work=%s publication=%s leads=%s customer=%d quoteFile=%d commission=%d contract=%d "
+                        +"project=%d start=%s steps=%d/%d node=%d correctedDeclaration=%d receipts=%s "
+                        +"amountPaidRemainingCents=%s%n",
+                sources.get(0).get("workId"),sources.get(0).get("publicationId"),sources.stream().map(row->row.get("leadId")).toList(),
+                customer,quotationFile,commission,contract,project,today(),started.completedCount(),started.totalSteps(),node,declaration,receipts,
+                salesBalance.stream().map(row->List.of(row.get("amountCents"),row.get("collectedCents"),row.get("balanceCents"))).toList());
+    }
+
+    private long declareAndConfirm(long project,SalePaymentStageDO stage,String yuan) throws Exception {
+        var command=new EngCollectionService.CollectCommand(stage.getStage(),new BigDecimal(yuan),key(),today(),
+                upload(engineer,"FIN_VOUCHER"),stage.getId(),stage.getPlanVersion().longValue());
+        var submitted=as(engineer,()->collections.register(engineer,project,command,key()));
+        long declaration=((Number)submitted.get("declarationId")).longValue();
+        var confirmed=as(finance,()->contracts.confirmDeclaration(finance,declaration,key()));
+        return ((Number)confirmed.get("receiptId")).longValue();
     }
 
     @Test void oneInstallmentRequiresAnAgreedDateOrEventAtSigningAndKeepsTheWholeContractTotal() throws Exception {
@@ -1114,7 +1185,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long stage=jdbc.queryForObject("SELECT id FROM fr_sale_payment_stage WHERE contract_id=? AND trigger_type='BEFORE_START'",Long.class,contract);
         as(finance,()->contracts.collect(finance,stage,new SaleContractService.CollectCommand(40000,"bank",key(),today()),key()));
     }
-    private void completeManualSix(long customer,long document) {
+    private void completeManualSix(long customer,long document,long quotationFile) {
         List<Map<String,Object>> fields=List.of(
                 Map.of("contactMethod","微信","invitationResult","CONFIRMED","appointmentAt",today()+"T10:00:00"),
                 Map.of("receptionist","业务经办人","requirements","两层乡墅","feedback","已确认需求"),
@@ -1126,7 +1197,9 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         for(int n=0;n<6;n++) {
             String code=CustomerWorkflowModel.Step.values()[n].name();
             String note = n == 4 ? "旧测量原文：东侧有台坎。\n当时未量落差。" : "已完成当次沟通与资料核对";
-            var input=new CustomerWorkflowModel.SaveCommand(revision,today(),note,fields.get(n),List.of(new Attachment(Long.toString(document),"外部正式资料")));
+            var attachment=n == 5 ? new Attachment(Long.toString(quotationFile),"外部正式报价 V1")
+                    : new Attachment(Long.toString(document),"外部正式资料");
+            var input=new CustomerWorkflowModel.SaveCommand(revision,today(),note,fields.get(n),List.of(attachment));
             var saved=as(sales,()->workflow.save(sales,customer,code,input,key()));
             revision=as(sales,()->workflow.complete(sales,customer,code,saved.revision(),key())).revision();
         }
