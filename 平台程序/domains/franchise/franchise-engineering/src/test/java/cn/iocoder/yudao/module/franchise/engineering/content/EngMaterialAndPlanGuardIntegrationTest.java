@@ -1158,11 +1158,17 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         row = onlyMaterialSummaryLine();
         assertThat((java.util.List<?>) row.get("pendingReships")).isEmpty();
         assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("3.500");
+        assertThat((BigDecimal) row.get("allocationShortfallQuantity")).isEqualByComparingTo("0");
+        jdbc.update("INSERT INTO fr_eng_material_movement(id,company_id,project_id,material_id,kind,quantity,author_user_id) " +
+                "VALUES (?,?,?,?,'CONSUME',4.250,?)", IDS.incrementAndGet(), store.orgId(), projectId, materialId, engineer.userId());
+        row = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("0");
+        assertThat((BigDecimal) row.get("allocationShortfallQuantity")).isEqualByComparingTo("0.750");
 
         var sales = fixture.post(store.orgId(), "sales", null);
         var plans = (java.util.List<java.util.Map<String, Object>>) materialsService.summary(sales, projectId, null).get("plans");
         var limited = (java.util.List<java.util.Map<String, Object>>) plans.get(0).get("lines");
-        assertThat(limited.get(0)).doesNotContainKeys("consumedQuantity", "availableQuantity", "movements", "pendingReships");
+        assertThat(limited.get(0)).doesNotContainKeys("consumedQuantity", "availableQuantity", "allocationShortfallQuantity", "movements", "pendingReships");
         var foreign = fixture.post(fixture.store().orgId(), "finance", null);
         assertThatThrownBy(() -> materialsService.summary(foreign, projectId, null)).isInstanceOf(ServiceException.class);
     }

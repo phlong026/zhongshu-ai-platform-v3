@@ -791,6 +791,7 @@ public class EngMaterialService {
                 }
                 line.put("consumedQuantity", consumed);
                 line.put("availableQuantity", received.subtract(allocated).max(BigDecimal.ZERO));
+                line.put("allocationShortfallQuantity", allocated.subtract(received).max(BigDecimal.ZERO));
                 line.put("movements", history.stream().map(EngMaterialService::movementView).toList());
                 line.put("pendingReships", receipts.stream()
                         .filter(r -> FrEngSupplyReceiptDO.KIND_RESHIP.equals(r.getKind()) && r.getActualQuantity() == null)
