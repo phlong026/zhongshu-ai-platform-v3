@@ -6,7 +6,7 @@ const sessionInvalid = err => err && (err.postInvalid || Number(err.code) === 40
 const loadError = '积分信息加载失败，请稍后重试';
 const initial = () => ({ state: 'loading', balanceText: '--', usedText: '--', balanceLabel: '可用余额',
   emptyMessage: '公司积分池暂未开通', errorMessage: '', balanceError: false, usageError: false,
-  purchaseAvailable: false, refreshing: false });
+  purchaseAvailable: false, hasRechargeOrder: false, refreshing: false });
 
 Component({
   data: { visible: true, ...initial() },
@@ -20,7 +20,6 @@ Component({
   },
   methods: {
     stop() { this.__hidden = true; this.__loadId = (this.__loadId || 0) + 1; this.__reading = null; },
-    openPackages() { return this.openRecharge(); },
     refresh() {
       if (this.__hidden) return;
       const key = points.fingerprint(), sameScope = key === this.__pointKey;
@@ -29,10 +28,10 @@ Component({
       this.__reading = null;
       const loadId = this.__loadId = (this.__loadId || 0) + 1;
       if (!http.token() || !http.currentPostId()) {
-        this.setData({ ...initial(), visible: !!http.token(), hasPost: false, state: 'empty', emptyMessage: '请选择工作身份' });
+        this.setData({ ...initial(), visible: !!http.token(), state: 'empty', emptyMessage: '请选择工作身份' });
         return;
       }
-      this.setData({ ...(sameScope ? {} : initial()), visible: true, hasPost: true, refreshing: true, errorMessage: '' });
+      this.setData({ ...(sameScope ? {} : initial()), visible: true, refreshing: true, errorMessage: '' });
       let blocked = false;
       const alive = () => {
         if (blocked || this.__hidden || loadId !== this.__loadId) return false;
@@ -57,6 +56,7 @@ Component({
         if (metric === 'balance') {
           patch.state = !invalidValue && ['ready','suspended'].includes(this.data.state) ? this.data.state : 'error';
           patch.purchaseAvailable = false;
+          patch.hasRechargeOrder = false;
           if (invalidValue) patch.balanceText = '--';
         } else if (invalidValue) patch.usedText = '--';
         update(patch);
@@ -65,28 +65,23 @@ Component({
       const balanceRead = points.summary({ fresh: true }).then(summary => {
         if (!alive()) return;
         if (summary === null) {
-          update({ state: 'empty', balanceText: '--', balanceError: false, purchaseAvailable: false });
+          update({ state: 'empty', balanceText: '--', balanceError: false, purchaseAvailable: false, hasRechargeOrder: false });
           return;
         }
         if (!summary || summary.balance === undefined) throw { code: 'INVALID_CREDIT_VALUE' };
         const balanceText = points.formatCredits(summary.balance);
-        if (summary.status === 'ACTIVE') {
-          update({ balanceText, balanceError: false, state: 'ready', balanceLabel: '可用余额' });
-          if (points.packages) points.packages().then(plans => {
-            if (alive()) this.setData({ purchaseAvailable: !!plans.length });
-          }).catch(err => {
-            if (!alive() || points.isStale(err)) return;
-            // Missing recharge permission says nothing about the successful read permissions.
-            if (sessionInvalid(err)) invalidate();
-            else this.setData({ purchaseAvailable: false });
-          });
-          return;
-        }
-        if (summary.status === 'SUSPENDED') {
-          update({ balanceText, balanceError: false, state: 'suspended', balanceLabel: '账户余额', purchaseAvailable: false });
-          return;
-        }
-        throw { code: 'UNKNOWN_COMPANY_POINT_STATUS' };
+        const active = summary.status === 'ACTIVE';
+        if (!active && summary.status !== 'SUSPENDED') throw { code: 'UNKNOWN_COMPANY_POINT_STATUS' };
+        update({ balanceText, balanceError: false, state: active ? 'ready' : 'suspended',
+          balanceLabel: active ? '可用余额' : '账户余额', purchaseAvailable: active && this.data.purchaseAvailable });
+        points.rechargeCatalog().then(catalog => {
+          if (alive()) this.setData({ purchaseAvailable: active && catalog?.enabled === true && !!catalog.plans?.length,
+            hasRechargeOrder: !!catalog?.currentOrder?.id });
+        }).catch(err => {
+          if (!alive() || points.isStale(err)) return;
+          if (sessionInvalid(err)) invalidate();
+          else this.setData({ purchaseAvailable: false, hasRechargeOrder: false });
+        });
       }).catch(err => failRead('balance', err));
       const usageRead = points.myUsage({ page: 1, size: 1, fresh: true }).then(usage => {
         if (!alive()) return;
@@ -98,7 +93,9 @@ Component({
       });
     },
     openRecharge() {
-      if (http.token() && http.currentPostId()) wx.navigateTo({ url: '/pages/wallet/company-recharge/index' });
+      if (this.__pointKey === points.fingerprint() && (this.data.purchaseAvailable || this.data.hasRechargeOrder) && http.token() && http.currentPostId()) {
+        wx.navigateTo({ url: '/pages/wallet/company-recharge/index' });
+      }
     },
     retry() { return this.refresh(); }
   }
