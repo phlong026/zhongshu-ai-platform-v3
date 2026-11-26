@@ -147,6 +147,45 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
         }
     }
 
+    @Test void legacyQuotationSaveCannotSilentlyRemoveALinkedFormalQuote() {
+        bindWorkflowTenant();
+        try {
+            var date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var original = as(() -> quotes.create(sales, command("12", "原价目"), key()));
+            String originalId = original.getId().toString();
+            var saved = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(0, date, "原备注",
+                            Map.of("quoteId", originalId, "communicated", true, "result", "已发给客户"), List.of()), key()));
+
+            // The legacy form submits the displayed amount and version but has no quoteId field.
+            var originalFields = saved.steps().get(5).fields();
+            var legacy = new SaveCommand(saved.revision(), date, "旧版只改备注",
+                    Map.of("amountCents", originalFields.get("amountCents"), "versionLabel", originalFields.get("versionLabel"),
+                           "scope", "", "communicated", true), List.of());
+            assertThatThrownBy(() -> as(() -> workflow.save(sales, customer, "QUOTATION", legacy, key())))
+                    .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
+            var unchanged = as(() -> workflow.get(sales, customer));
+            assertThat(unchanged.revision()).isEqualTo(saved.revision());
+            assertThat(unchanged.steps().get(5).fields()).isEqualTo(originalFields);
+            assertThat(unchanged.steps().get(5).note()).isEqualTo("原备注");
+            assertThat(as(() -> workflow.records(sales, customer, 1, 20)).getList()).hasSize(1);
+
+            var external = new SaveCommand(saved.revision(), null, "主动改用外部报价",
+                    Map.of("quoteId", "", "communicated", false), List.of());
+            String externalKey = key();
+            var switched = as(() -> workflow.save(sales, customer, "QUOTATION", external, externalKey));
+            assertThat(switched.steps().get(5).fields()).doesNotContainKey("quoteId").containsEntry("communicated", false);
+            assertThat(switched.steps().get(5).canComplete()).isFalse();
+            assertThat(as(() -> workflow.save(sales, customer, "QUOTATION", external, externalKey)).revision())
+                    .isEqualTo(switched.revision());
+            var history = as(() -> workflow.records(sales, customer, 1, 20)).getList();
+            assertThat(history).hasSize(2);
+            assertThat(history.get(1).fields()).containsEntry("quoteId", originalId);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
     @Test void reopenedQuotationKeepsTheOldCommunicationAndRequiresAResultForTheReplacement() {
         bindWorkflowTenant();
         try {
