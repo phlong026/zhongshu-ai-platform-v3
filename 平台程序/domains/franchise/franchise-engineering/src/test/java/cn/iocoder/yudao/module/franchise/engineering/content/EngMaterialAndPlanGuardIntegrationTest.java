@@ -1001,6 +1001,10 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         var revised = new EngClosureService.DeliverCommand(delivery.date(), delivery.recipient(),
                 ownerEvidence, validEvidence, "改写交付备注");
         var settlement = new EngClosureService.SettleCommand(delivery.date(), "核对结算", validEvidence);
+        var invalidEvidence = new EngClosureService.SettleCommand(delivery.date(), "核对结算", fakeId);
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> closuresService.settle(engineer, projectId, invalidEvidence, idem())),
+                cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.ENGINEERING_INPUT_INVALID);
         String settleKey = idem();
         as(engineer, () -> closuresService.settle(engineer, projectId, settlement, settleKey));
         for (boolean historical : new boolean[]{false, true}) {
