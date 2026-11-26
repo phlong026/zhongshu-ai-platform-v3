@@ -45,7 +45,7 @@ Page({
   let view=requested?(requested==='arrival'?'customer':requested):'customer';
   if(view==='budget-result')view='budget';// 结果为页面内态；深链直达回参数页
   if(view!=='customers'&&!this.id)view='customers';
-  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite'),canDesign:DESIGN_ROLES.includes(post.roleCode)});
+  this.setData({platformMode:true,view,title:V.titles[view]||'客户工作区',transferMode:0,customer:null,sections:[],form:{},modal:'',error:'',busy:false,blocked:null,customerTabs:['概况','跟进'],activeCustomerTab:view==='customer'&&String(options.tab)==='1'?1:0,todayStr:PF.today(),role:Job.roles[post.roleCode]||post.roleCode,isBossView:['boss','owner'].includes(post.roleCode),saleWrite:PF.can(post,'saleWrite'),canDesign:DESIGN_ROLES.includes(post.roleCode)});
   // 加载统一由 onShow→refresh 触发（onLoad→onShow 连续生命周期，避免重复请求）
   if(options.modal&&view==='customers')this.openModal(options.modal);
  },
