@@ -63,6 +63,7 @@
         "department/index",
         "performance/index",
         "tasks/index",
+        "tasks/cycle",
         "todos/index",
         "profile/index",
         "detail/index",
