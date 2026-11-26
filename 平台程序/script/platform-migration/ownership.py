@@ -17,7 +17,12 @@ LOCATIONS = (
 )
 CREATE_TABLE = re.compile(r"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)", re.I)
 CREATE_SEQUENCE = re.compile(r"\bCREATE\s+SEQUENCE\s+([A-Za-z0-9_]+)", re.I)
-IDENTITY_COLUMN = re.compile(r"\bid\s+BIGINT\s+GENERATED\s+BY\s+DEFAULT\s+AS\s+IDENTITY", re.I)
+IMPLICIT_SEQUENCE_COLUMN = re.compile(
+    r"[(,]\s*([A-Za-z_][A-Za-z0-9_]*)\s+"
+    r"(?:SMALLSERIAL|BIGSERIAL|SERIAL(?:2|4|8)?|"
+    r"(?:SMALLINT|INTEGER|BIGINT|INT(?:2|4|8)?)\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY)\b",
+    re.I,
+)
 STRATEGIES = {"filtered-copy", "rebuild", "retain-source", "transform", "subset-review"}
 WRITERS = {
     "platform-http", "franchise-http", "legacy-session", "identity-provision",
@@ -114,8 +119,8 @@ def validate_manifest(manifest, source_root=None):
             found_sequences.update(name.lower() for name in CREATE_SEQUENCE.findall(text))
             for index, match in enumerate(table_matches):
                 end = table_matches[index + 1].start() if index + 1 < len(table_matches) else len(text)
-                if IDENTITY_COLUMN.search(text[match.end():end]):
-                    found_sequences.add(match.group(1).lower() + "_id_seq")
+                for column in IMPLICIT_SEQUENCE_COLUMN.findall(text[match.end():end]):
+                    found_sequences.add(f"{match.group(1)}_{column}_seq".lower())
         demand(tables == found_tables, "TABLE_COVERAGE_CHANGED")
         demand(sequence_names == found_sequences, "SEQUENCE_COVERAGE_CHANGED")
 
