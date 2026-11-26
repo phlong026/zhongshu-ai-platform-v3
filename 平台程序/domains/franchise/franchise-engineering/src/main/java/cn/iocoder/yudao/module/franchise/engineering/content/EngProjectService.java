@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ACTIVE_POSTS;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 /**
@@ -353,6 +354,19 @@ public class EngProjectService {
         return projects;
     }
 
+    List<Long> activeParticipantIds(FrEngProjectDO project) {
+        return jdbcTemplate.queryForList("SELECT DISTINCT s.user_id "+ACTIVE_POSTS+
+                " AND s.org_id=? AND s.user_id IN (?,?) ORDER BY s.user_id",Long.class,
+                project.getCompanyId(),project.getManagerUserId(),project.getAssignedEngineerUserId());
+    }
+
+    void requireActiveParticipant(FrEngProjectDO project,Long userId) {
+        if (userId==null || !(userId.equals(project.getManagerUserId()) || userId.equals(project.getAssignedEngineerUserId()))
+                || jdbcTemplate.queryForList("SELECT s.id "+ACTIVE_POSTS+" AND s.org_id=? AND s.user_id=? ORDER BY s.id FOR SHARE OF s",
+                    Long.class,project.getCompanyId(),userId).isEmpty())
+            throw exception(ENGINEERING_INPUT_INVALID,"请选择本项目仍有有效工程任职的负责人或指定工程师");
+    }
+
     // ===================== 换负责人 =====================
 
     public List<Map<String, Object>> managerCandidates(PostSnapshot post, long projectId) {
@@ -516,15 +530,13 @@ public class EngProjectService {
             return row;
         }).toList());
         var progressOwners = new java.util.LinkedHashSet<Long>();
-        if (project.getManagerUserId() != null) progressOwners.add(project.getManagerUserId());
         nodes.stream().map(FrEngPlanNodeDO::getDelayOwnerUserId).filter(java.util.Objects::nonNull).forEach(progressOwners::add);
         var progressNames = new java.util.HashMap<Long,String>();
-        systemDirectory.usersByIds(new java.util.ArrayList<>(progressOwners)).forEach(u -> progressNames.put(u.userId(),java.util.Objects.toString(u.name(),"")));
+        if (!progressOwners.isEmpty()) systemDirectory.usersByIds(new java.util.ArrayList<>(progressOwners))
+                .forEach(u -> progressNames.put(u.userId(),java.util.Objects.toString(u.name(),"")));
         view.put("nodes", nodes.stream().map(n -> {
             var row=nodeView(n);
-            Long owner=n.getDelayOwnerUserId()==null?project.getManagerUserId():n.getDelayOwnerUserId();
-            row.put("delayOwnerName", progressNames.getOrDefault(owner,""));
-            row.put("delayOwnerUserId", owner);
+            row.put("delayOwnerName", progressNames.getOrDefault(n.getDelayOwnerUserId(),""));
             return row;
         }).toList());
         // R2 P1-4：现场记录透出（批次#36 在线 site/site-correct 链数据源；corrections/file_asset_ids 原样 JSONB 文本）

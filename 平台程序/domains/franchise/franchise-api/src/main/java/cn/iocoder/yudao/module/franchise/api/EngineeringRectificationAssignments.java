@@ -9,6 +9,8 @@ public final class EngineeringRectificationAssignments {
         WHERE s.status='ACTIVE' AND s.role_code IN ('engineer','project-manager')
         """;
 
+    public static final String CURRENT_POST = "SELECT s.id "+ACTIVE_POSTS+" AND s.id=? AND s.org_id=? AND s.user_id=?";
+
     /** Join after the business row r and its project p. Personal work can only be routed to an active participant. */
     public static final String ROUTING = """
         CROSS JOIN LATERAL (
