@@ -27,6 +27,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -58,6 +59,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "zhongshu.org-point.headquarters-tenant-id=1"
 })
 @Import({AnnouncementIntegrationTest.Config.class, AnnouncementAccess.class, AnnouncementService.class})
+@Sql("/fixtures/operations-system-users.sql")
 class AnnouncementIntegrationTest extends PlatformPgIntegrationTest {
     @TestConfiguration
     static class Config {
@@ -79,7 +81,6 @@ class AnnouncementIntegrationTest extends PlatformPgIntegrationTest {
     @BeforeEach
     void setup() {
         jdbc.execute("ALTER TABLE system_role ADD COLUMN IF NOT EXISTS deleted int2 DEFAULT 0");
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,tenant_id bigint,nickname text,mobile text,username text,password text,status int DEFAULT 0,deleted int2 DEFAULT 0,update_time timestamptz)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS system_user_role(id bigserial PRIMARY KEY,user_id bigint,role_id bigint,tenant_id bigint,deleted int2 DEFAULT 0)");
         reset(staff, directory);
         posts.clear();
