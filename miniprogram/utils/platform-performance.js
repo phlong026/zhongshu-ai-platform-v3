@@ -230,8 +230,11 @@ function commissionRowView(row, roleCode, projectName) {
         ? null : Math.max(0, stage.requiredCents - stage.receivedCents));
       const reviewedRefund = settled && stage.reviewDue === false
         && (stage.settledReviewCurrent === true || stage.eligible === false);
+      const paymentReturned = stage.appliedPaymentReturnCents > 0 && stage.outstandingCents > 0;
       let reason;
-      if (settled) {
+      if (paymentReturned) {
+        reason = stage.reviewDue ? '提成付款有退回，请老板先核对差额。' : '已按退回后的净付金额显示。';
+      } else if (settled) {
         reason = stage.reviewDue ? '回款有变动，已付提成保留待老板核对。'
           : reviewedRefund && !stage.eligible ? '业主待补回款 ' + gapText : '';
       } else if (stage.reviewDue) {
@@ -254,13 +257,13 @@ function commissionRowView(row, roleCode, projectName) {
         requiredText: centsText(stage.requiredCents),
         receivedText: centsText(stage.receivedCents),
         amountText: centsText(stage.amountCents),
-        paidText: centsText(stage.paidCents),
+        paidText: centsText(stage.paidCents), paymentReturned,
         settled, gapText, diffText: centsText(stage.paidDiffCents),
         outstandingText: centsText(stage.outstandingCents),
         canRelease: finance && stage.amountCents > 0 && stage.eligible && !stage.payableId,
         canPay: finance && !!stage.payableId && !stage.reviewDue && stage.eligible && stage.outstandingCents > 0,
         // M10-T05/R2 P2：已付差额核对入口（paid>0 即使净额不足也可核对——后端已付留痕路径）
-        canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.paidCents || 0) > 0),
+        canReconcile: actualBoss && stage.reviewDue && (stage.eligible || (stage.grossPaidCents || stage.paidCents || 0) > 0),
         reason
       };
     })
