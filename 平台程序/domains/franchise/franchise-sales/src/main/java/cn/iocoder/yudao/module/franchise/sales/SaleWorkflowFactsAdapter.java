@@ -80,7 +80,7 @@ public class SaleWorkflowFactsAdapter implements CustomerWorkflowFactsPort, Cont
             fields.put("status", status);
             fields.put("sourceRevision", rs.getLong("revision"));
             List<String> missing = new ArrayList<>();
-            if (!"SIGNED".equals(status)) missing.add("请在合同模块办理正式签约");
+            if (!"SIGNED".equals(status)) missing.add("请在合同模块签署正式施工合同");
             if (signed == null || signed.isAfter(LocalDate.now(ZoneId.of("Asia/Shanghai")))) missing.add("待补录有效签约日期");
             if (asset == null || asset <= 0) missing.add("待补录已签合同附件");
             if (total <= 0) missing.add("待补录合同金额");
