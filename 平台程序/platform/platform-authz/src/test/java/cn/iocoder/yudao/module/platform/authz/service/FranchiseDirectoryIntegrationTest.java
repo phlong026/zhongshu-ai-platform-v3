@@ -191,6 +191,9 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThatThrownBy(()->directory.updateMapDisplay(original.id(),
                 new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店","门店联系电话13900001341",true,original.version()),7))
                 .isInstanceOf(ServiceException.class).hasMessageContaining("联系方式");
+        assertThatThrownBy(()->directory.updateMapDisplay(original.id(),
+                new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店",publicAddress+"李秘密",true,original.version()),7))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("人员姓名");
         var updated=directory.updateMapDisplay(original.id(),
                 new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店",publicAddress,true,original.version()),7);
         assertThat(updated.publicAddress()).isEqualTo(publicAddress);
