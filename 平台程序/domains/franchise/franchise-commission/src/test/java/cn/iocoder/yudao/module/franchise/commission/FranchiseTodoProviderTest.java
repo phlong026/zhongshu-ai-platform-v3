@@ -106,6 +106,49 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     }
 
     @Test
+    void followupReminderOpensItsCustomerOnceAndMovesToTheNewOwner() {
+        long id = capture(salesA1).customerId();
+        var path = "/pages/workflow/index?view=customer&id=" + id + "&tab=1";
+        var today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var visitKey = "franchise:visit:" + id + ":" + today;
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:first-follow:" + id))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        var reminder = new cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand("已联系，按约再访", today);
+        String key = commandKey();
+        var detail = as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
+        as(salesA1, () -> customers.follow(salesA1, id, reminder, key));
+        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals(visitKey))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain("franchise:first-follow:" + id);
+        as(boss, () -> customers.transfer(boss, id, new cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand(
+                salesB.userId(), "由新负责人继续回访"), detail.customer().getRevision(), commandKey()));
+        assertThat(todos(salesA1)).extracting(TodoItem::key).doesNotContain(visitKey);
+        assertThat(todos(salesB)).filteredOn(t -> t.key().equals(visitKey))
+                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(path));
+        as(salesB, () -> customers.follow(salesB, id,
+                new cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand("本次回访已完成", null), commandKey()));
+        assertThat(todos(salesB)).extracting(TodoItem::key).doesNotContain(visitKey);
+    }
+
+    @Test
+    void appointmentIsDueAtShanghaiMidnightEvenIfTheHostUsesUtc() {
+        long id = capture(salesA1).customerId();
+        var due = LocalDate.of(2035, 1, 2);
+        as(salesA1, () -> customers.follow(salesA1, id,
+                new cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand("跨时区的预约", due), commandKey()));
+        var midnight = java.time.Instant.parse("2035-01-01T16:00:00Z");
+        var shanghai = java.time.ZoneId.of("Asia/Shanghai");
+        var hostClock = java.time.Clock.fixed(midnight, java.time.ZoneOffset.UTC);
+        var storeClock = hostClock.withZone(shanghai);
+        try (var clocks = org.mockito.Mockito.mockStatic(java.time.Clock.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            clocks.when(java.time.Clock::systemDefaultZone).thenReturn(hostClock);
+            clocks.when(() -> java.time.Clock.system(shanghai)).thenReturn(storeClock);
+            assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:visit:" + id + ":" + due))
+                    .singleElement().satisfies(t -> assertThat(t.since().toInstant()).isEqualTo(midnight));
+        }
+    }
+
+    @Test
     void bossApprovesFeeWithAmountAndDesignAdminTakesOver() {
         long customerId = customerWithBudget();
         var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
