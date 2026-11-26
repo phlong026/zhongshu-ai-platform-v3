@@ -7,7 +7,7 @@
       <text wx:if="{{context&&context.planVersion}}" class="plan-muted">{{drafting?'付款草案':'付款计划'}} V{{context.planVersion}}</text><text wx:if="{{drafting}}" class="plan-muted">客户编号 {{context.customerId}}</text><text wx:if="{{drafting}}" class="plan-muted">草案供委托沟通，正式收款按已签合同执行。</text><text wx:if="{{creating&&draftSource}}" class="plan-muted">已带入付款草案 V{{draftSource}}，请核对后创建合同。</text>
       <text wx:if="{{creating&&quoteSource}}" class="plan-muted">已带入{{quoteSource}}，请按正式约定填写付款节点。</text>
       <view wx:if="{{!editing}}" class="plan-total">¥ {{context.totalText}}</view>
-      <view class="plan-summary-actions"><text class="plan-muted">{{refreshing?'正在更新…':context&&!context.canEdit?'只读查看':''}}</text><button wx:if="{{context&&!drafting}}" class="plan-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回付款计划':'变更记录'}}</button></view>
+      <view class="plan-summary-actions"><text class="plan-muted">{{refreshing?'正在更新…':context.status==='SIGNED'?'施工合同已签署，付款计划已锁定':context&&!context.canEdit?'只读查看':''}}</text><button wx:if="{{context&&!drafting}}" class="plan-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回付款计划':'变更记录'}}</button></view>
     </view>
     <view wx:if="{{error||uncertain}}" class="plan-error"><text>{{error||'保存结果尚未确认，请重试核对'}}</text><button wx:if="{{uncertain}}" class="plan-link" bindtap="runPending" disabled="{{busy}}" loading="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="plan-link" bindtap="reloadLatest">载入最新</button></view>
     <view wx:if="{{conflict}}" class="plan-error"><text>{{creating?'所选报价或付款约定已有变化，请核对后重新办理。':'付款约定已有更新，请载入最新版本后调整。'}}</text><button class="plan-link" bindtap="reloadLatest">载入最新</button></view>
