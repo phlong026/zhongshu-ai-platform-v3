@@ -6,6 +6,7 @@ const EH=require('../external-handover');
 const Nav=require('../../../utils/page-navigation');
 const ManagerTransfer=require('./manager-transfer');
 const Delay=require('./delay');
+const StartRecord=require('./start-record');
 const {makeFormHandlers}=require('../../../utils/view-container');
 const baseHandlers=makeFormHandlers();
 const titles={cameras:'工地实景',delay:'进度偏差处理',overview:'工程项目',prepare:'开工准备',start:'正式开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',expenses:'项目费用',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
@@ -14,10 +15,10 @@ Page({
  ...baseHandlers,
  ...ManagerTransfer.handlers,
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
- input(e){if(this.data.busy||(this.data.view==='delay'&&Delay.held(this))||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
- data:{view:'overview',title:'工程项目',p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',expenseSaveState:'',expenseSaveLabel:'',externalHandoverUrl:'',externalHandoverVersion:0},
+ input(e){if(this.data.busy||(this.data.view==='start'&&this.data.startSaveState)||(this.data.view==='delay'&&Delay.held(this))||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
+ data:{view:'overview',title:'工程项目',startSaveState:'',startCanRetry:false,p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',expenseSaveState:'',expenseSaveLabel:'',externalHandoverUrl:'',externalHandoverVersion:0},
  onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'start');this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
- onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__expenseSave=null;this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,expenseSaveState:'',expenseSaveLabel:'',docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id&&!this.showExpenseResult())this.refresh();
+ onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__expenseSave=null;this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',startSaveState:'',startCanRetry:false,p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,expenseSaveState:'',expenseSaveLabel:'',docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id&&!this.showExpenseResult())this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
  jumpNodeSection(e){const selector=e.currentTarget.dataset.section==='inspection'?'.node-inspection':this.data.fields.length&&(this.data.node?.status!=='已完成'||this.data.expanded.nodeEdit)?'.record-fields':'.node-site-records',info=getApp().globalData.windowInfo||wx.getWindowInfo(),header=(info.statusBarHeight||20)+(info.windowWidth||375)*87/750+12;const q=wx.createSelectorQuery();q.select(selector).boundingClientRect();q.selectViewport().scrollOffset();q.exec(r=>{if(r[0])wx.pageScrollTo({scrollTop:Math.max(0,r[0].top+(r[1]?.scrollTop||0)-header),duration:150});});},
@@ -33,7 +34,7 @@ Page({
  applyTemplate(e){try{const nodes=R.applyTemplate(this.data.p,this.data.templates[this.data.templateIndex]);this.setData({'form.nodes':nodes,error:''});wx.showToast({title:'已恢复标准节点清单，请逐项填写日期',icon:'none',duration:2500});}catch(err){this.fail(err.message);}},
  importPlan(){wx.chooseMessageFile({count:1,type:'file',extension:['xlsx'],success:r=>{try{const f=r.tempFiles[0];if(!f)return;if(Number(f.size)>SI.MAX_FILE_BYTES)return this.fail('进度表文件不能超过2MB');const res=SI.importNodes(wx.getFileSystemManager().readFileSync(f.path));this.setData({'form.nodes':res.nodes,error:''});wx.showToast({title:res.notice||'已导入'+res.nodes.length+'个节点，请核对日期',icon:'none',duration:2500});}catch(err){this.fail(err.message);}},fail:e=>{if(!/cancel/i.test(String(e&&e.errMsg||'')))this.fail('选择进度表失败，请重试');}});},
  addLine(){this.setData({'form.lines':this.data.form.lines.concat({name:'',spec:'',quantity:'',unit:'包'})});},
- fileSelectionGuard(){const http=require('../../../api/http'),current=http.sessionGuard(),post=http.currentPostId(),id=this.id,view=this.data.view;return()=>current()&&!this.__disposed&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);},
+ fileSelectionGuard(){const http=require('../../../api/http'),current=http.sessionGuard(),post=http.currentPostId(),id=this.id,view=this.data.view;return()=>current()&&!this.__disposed&&!(view==='start'&&this.data.startSaveState)&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post);},
   selectNodeReplacement(e){
    if(this.data.busy)return;const index=Number(e.detail.value),selected=(this.data.nodeEvidenceOptions||[])[index];if(!selected)return;
    this.__fileSelectionGeneration=(this.__fileSelectionGeneration||0)+1;
@@ -41,6 +42,7 @@ Page({
   },
   toggleInspectionHistory(e){const id=String(e.currentTarget.dataset.id);this.setData({inspectionHistoryId:this.data.inspectionHistoryId===id?'':id});},
   upload(e){
+   if(this.data.view==='start'&&this.data.startSaveState)return;
    const generation=this.__fileSelectionGeneration=(this.__fileSelectionGeneration||0)+1,current=this.fileSelectionGuard(),alive=()=>current()&&generation===this.__fileSelectionGeneration;
    const key=e.currentTarget.dataset.key||'file',multi=this.data.view==='node'&&key==='file',demo=!Files.release()&&X.context().demo,itemList=['拍照或从相册选择','选择聊天文件'];
   if(demo)itemList.push('使用参考凭据');
@@ -55,7 +57,7 @@ Page({
   }});
  },
  useSampleFile(e){try{const key=e.currentTarget.dataset.sampleKey||e.currentTarget.dataset.key||'file',p=this.data.p,form=this.data.form,node=this.data.node,plan=this.data.plan,purpose={termsFile:'实际采购凭据',nodeFile:'节点验收更正凭据',siteFile:'现场记录更正凭据'}[key]||({prepare:'双方已签工程合同',start:'实际开工凭据',collection:'实际收款凭据',material:'实际到货凭据',node:'现场及验收凭据',delivery:'业主签收凭据',settlement:'结算确认凭据'}[this.data.view]||titles[this.data.view]+'办理凭据'),details=['工程阶段：'+titles[this.data.view],node?'施工节点：'+node.name+'（'+node.id+'）':'',form.date?'记录日期：'+form.date:'',form.total?'合同总额：'+form.total+'元':'',form.first?'开工款：'+form.first+'元':'',form.amount?'本次金额：'+form.amount+'元':'',form.transaction?'流水编号：'+form.transaction:'',form.receiver?'实际收款方：'+form.receiver:'',form.recipient?'签收人：'+form.recipient:'',plan?'材料计划：'+plan.id+' · '+plan.lines.map(line=>line.name).join('、'):'',form.note?'记录说明：'+form.note:''].filter(Boolean),sourceParty=form.receiver||form.recipient||X.context().name,confirmationParty=this.data.view==='delivery'?form.recipient:'',flowVersion=p.recordFlow?.version||1,version=['prepare','start','collection'].includes(this.data.view)?'工程合同V'+(p.recordFlow?.contract?.version||flowVersion):plan?'材料计划 '+plan.id:node?'施工计划V'+(p.plan?.version||flowVersion)+' · 节点'+node.id:p.drawingVersion||'工程资料V'+flowVersion;this.setFile(key,Files.reference({scope:'project',name:purpose+'参考凭据.pdf',customer:p.customer,customerId:p.sourceCustomerId,project:p.name,projectId:p.projectId||p.id,version,sourceParty,confirmationParty,purpose,details}));}catch(error){this.fail(error.message);}},
- setFile(key,file){this.setData({['form.'+key]:file,...(this.data.view==='node'&&key==='file'?{'form.files':[file]}:{}),['fileNames.'+key]:Files.displayFile(file).name});},
+ setFile(key,file){if(this.data.view==='start'&&this.data.startSaveState)return;this.setData({['form.'+key]:file,...(this.data.view==='node'&&key==='file'?{'form.files':[file]}:{}),['fileNames.'+key]:Files.displayFile(file).name});},
  setPhotos(key,files,multi){if(!files.length)return;this.setData({['form.'+key]:files[0],...(multi?{['form.files']:files}:{}),['fileNames.'+key]:files.length>1?'已选'+files.length+'张照片':Files.displayFile(files[0]).name});},
  preview(e){const raw=e.currentTarget.dataset.file;if(raw&&raw.text&&!raw.assetId){this.setData({samplePreview:{name:raw.name||'项目资料',text:raw.text}});return;}if(raw&&raw.assetId)return this.previewAsset({currentTarget:{dataset:raw}});const f=Files.displayFile(raw);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else if(P.online())this.fail('资料尚未关联有效文件，请联系业务人员补充');else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
@@ -74,8 +76,8 @@ Page({
    wx.openDocument({filePath:file.tempFilePath,...(/application\/pdf/i.test(file.contentType)?{fileType:'pdf'}:{}),showMenu:true,fail:()=>{if(alive())this.fail('文档打开失败');}});
   }catch(err){if(alive())this.fail((err&&err.msg)||(err&&err.message)||'授权查看失败，请重试');}
  },
- onHide(){this.__inactive=true;this.__previewClosed=true;this.__externalPreview=null;this.setData({playbackUrl:'',playingCameraId:''});},
- onUnload(){this.__disposed=true;this.__previewClosed=true;this.__externalPreview=null;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;this.__expenseSave=null;},
+ onHide(){this.__inactive=true;if(this.data.view==='start')StartRecord.hide(this,require('../../../api/http'));this.__previewClosed=true;this.__externalPreview=null;this.setData({playbackUrl:'',playingCameraId:''});},
+ onUnload(){this.__disposed=true;if(this.data.view==='start')StartRecord.hide(this,require('../../../api/http'));this.__previewClosed=true;this.__externalPreview=null;this.__managerRead=null;this.__managerChoice=null;this.__managerCommand=null;this.__expenseSave=null;},
  closeSamplePreview(){this.setData({samplePreview:null});},
   async refreshOnline(reset){
    if(this.data.paymentUncertain||this.__paymentPending||this.__expenseSave)return;
@@ -83,6 +85,7 @@ Page({
    const http=require('../../../api/http'),current=http.requestGuard('engineering-record:'+this.id+':'+this.data.view),id=this.id,view=this.data.view,post=http.currentPostId(),epoch=this.__accessEpoch||0;
    const alive=()=>current()&&!this.__disposed&&!this.__inactive&&id===this.id&&view===this.data.view&&String(http.currentPostId())===String(post)&&paymentRead===this.__paymentRead&&(this.__accessEpoch||0)===epoch;
    this.__externalPreview=null;
+   if(view==='start')StartRecord.enter(this,http);
    try{
     // 费用视图并行预拉清单（失败不阻断详情渲染，清单区显示空）
     const expensePull=this.data.view==='expenses'
@@ -129,17 +132,20 @@ Page({
     data.projectTools=(data.links||[]).map((l,i)=>({...l,label:toolNames[i]||l.label,icon:toolIcons[i]}));
     data.projectTools.splice(3,0,{label:'工地实景',url:data.cameraUrl,icon:'/assets/home-video-icon.png',count:(data.cameras||[]).length});
     data.error='';data.busy=false;
+    if(view==='start')StartRecord.reconcile(this,data,bundle.detail,http);
     if(view==='delay')Delay.apply(this,data,handlers);
     this.setData({...data,view:this.data.view,title:titles[this.data.view],nodeId:this.nodeId,
       platEng:true});
    }catch(e){if(!alive())return; // 失败显示错误态（不回落本地演示数据），平台错误以 toast 保留
     const msg=P.errorText(e&&e.data?e.data:e);
+    if(view==='start')StartRecord.readFailed(this,http,e);
     if(this.__externalProject)EH.clear(this,msg);else this.setData({p:null,node:null,delayHistory:[],handlers:[],delayUrl:'',form:{},fields:[],actions:[],paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,docs:[],fileNames:{},busy:false,error:msg});
     wx.showToast({title:msg,icon:'none'});
    }
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(action==='start')return StartRecord.begin(this,require('../../../api/http'),require('../../../api/franchise/engineering'),f||this.data.form);
    if(action==='delay')return Delay.save(this,f||this.data.form,node||this.data.node);
    if(action==='expense-register')return this.saveExpense(f||this.data.form);
    if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);
@@ -231,6 +237,7 @@ Page({
    if(this.__inactive||!ticket?.valid()||ticket.state!=='unknown')return;
    return this.sendExpense(ticket);
   },
+  retryStart(){return StartRecord.retry(this,require('../../../api/http'),require('../../../api/franchise/engineering'));},
   retryPayment(){return Payments.retry(this);},
   reloadPayment(){if(!this.data.busy&&!this.data.paymentUncertain)return this.refreshOnline(false);},
   perform(e){if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.paymentConflict||this.data.managerTransferPending)return; // 本地 R.run 分支已下线：无条件在线；离线态 fields/actions 为空天然禁用
