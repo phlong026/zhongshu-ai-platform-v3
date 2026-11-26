@@ -4,6 +4,7 @@ const apiScope = require('../../utils/api-scope');
 const navigation = require('../../utils/page-navigation');
 const api = require('./api');
 const model = require('./model');
+const visitEntry = require('./visit-entry');
 const commandKey = require('../../utils/platform-crm').commandKey;
 const scope = () => http.token() ? JSON.stringify([apiScope(), auth.currentApiPost()?.brandId || '']) : '';
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -16,6 +17,7 @@ function quoteSourceChanged(previous, next) {
 const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 1110000001].includes(Number(error.code));
 
 Page({
+  ...visitEntry.actions,
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
     uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
@@ -25,8 +27,10 @@ Page({
   onHide() { this._visible = false; this._request = null; this._historyRequest = null; this._quoteRequest = null; },
   onUnload() { this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
   clear(error = '') {
+    this._visitEntry = null;
     this._request = null; this._historyRequest = null; this._quoteRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
+      visitSites: [], visitTimes: [], visitFeedback: [], visitSiteMore: false, visitSiteLoading: false, visitSiteError: '',
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
       journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error });
@@ -73,6 +77,7 @@ Page({
     this.selectedCode = code;
     this._quoteRequest = null;
     const form = draft ? clone(draft.form) : model.form(step);
+    if (!draft) visitEntry.defaultDate(step, form);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
     const workflow = this.data.workflow;
     const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
@@ -81,6 +86,7 @@ Page({
       nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error: '' });
     if (code === 'QUOTATION' && step.canWrite) this.loadQuotes();
+    visitEntry.prepare(this, step, draft, auth.currentApiPost(), http.currentUserId?.(), api);
   },
   journeyLocked() { return this.data.busy || this.data.uploading || this.data.uploadFailed || this.data.uncertain; },
   showJourney() {

@@ -22,10 +22,11 @@ function harness(options = {}) {
   let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
   const calls = [], navigations = [], toasts = [];
   const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download', 'listQuotes'].map(name => [name, async (...args) => {
+  const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download', 'listQuotes', 'entryCustomer', 'entryProfile'].map(name => [name, async (...args) => {
     calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
+    if (name === 'entryCustomer' || name === 'entryProfile') return null;
     if (name === 'records') return { list: [], total: 0 };
     if (name === 'listQuotes') return [];
     if (name === 'download') return { downloadUrl: 'https://storage.test/file', expiresAt: '2026-11-25T12:00:00Z' };
@@ -39,10 +40,11 @@ function harness(options = {}) {
     if (name === 'reopen') Object.assign(step, { status: 'DRAFT', canWrite: true, canReopen: false });
     return copy(h.state);
   }]));
-  const http = { token: () => 'token', currentPostId: () => post?.postId || '' };
+  const http = { token: () => 'token', currentUserId: () => options.loginUser || '', currentPostId: () => post?.postId || '' };
   const requires = {
     '../../api/http': http, '../../api/auth': { currentApiPost: () => post }, '../../utils/api-scope': () => JSON.stringify([session, post?.postId]),
     '../../utils/page-navigation': { open: url => navigations.push({ url }), back: value => navigations.push({ back: value }) },
+    './visit-entry': require('../miniprogram/pages/customer-flow/visit-entry'),
     '../../utils/platform-crm': { commandKey: prefix => prefix + '-' + ++keyCount }, './api': api, './model': model,
     '../../utils/finance-date': require('../miniprogram/utils/finance-date'),
     './upload': { run: options.upload || (async () => ({ assetId: '800', title: '资料.pdf', mimeType: 'application/pdf' })) },
@@ -603,4 +605,67 @@ test('明确未上传后页面允许换票重传，保留文件字节并清除�
   const wxml = fs.readFileSync(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), 'utf8');
   assert.match(wxml, /wx:if="\{\{uploadRestartAllowed\}\}"[^>]+bindtap="restartUpload"/);
   assert.match(wxml, /wx:if="\{\{uploadRetryable\}\}"[^>]+bindtap="retryUpload"/);
+});
+
+
+test('新办理日取上海当天，快捷到店含具体日期时间，确认与历史留给经办人', async () => {
+  const entry = require('../miniprogram/pages/customer-flow/visit-entry');
+  const before = Date.parse('2026-11-26T15:59:59.000Z'), after = before + 1000;
+  const h = harness(), raw = h.state.steps[0], a = model.form(raw), b = model.form(raw);
+  entry.defaultDate(raw, a, before); entry.defaultDate(raw, b, after);
+  assert.equal(a.occurredOn, '2026-11-26'); assert.equal(b.occurredOn, '2026-11-27');
+  assert.deepEqual(entry.appointmentTimes(before)[0], { date: '2026-11-27', time: '09:00', label: '明天 11-27 09:00' });
+  await h.open(); const page = h.page;
+  const choose = (kind,index=0) => page.chooseVisitEntry({ currentTarget: { dataset: { kind,index } } });
+  assert.equal(page.data.form.fields.invitationResult, ''); assert.equal(page.data.form.appointmentDate, '');
+  choose('time'); assert.equal(page.data.form.appointmentDate, page.data.visitTimes[0].date); assert.equal(page.data.form.appointmentTime, page.data.visitTimes[0].time);
+  assert.equal(page.data.form.fields.invitationResult, ''); assert.equal(h.callsFor('save').length+h.callsFor('complete').length,0);
+  page.input(event('occurredOn','')); page.select('SITE_VISIT'); page.select('INVITATION'); assert.equal(page.data.form.occurredOn,'');
+  const historical={...raw,status:'DRAFT',revision:2,occurredOn:'2026-11-15'}; const old=model.form(historical);entry.defaultDate(historical,old,after);assert.equal(old.occurredOn,'2026-11-15');
+  const unknown={...historical,occurredOn:null}, blank=model.form(unknown);entry.defaultDate(unknown,blank,after);assert.equal(blank.occurredOn,'');
+  assert.ok(!h.callsFor('save').length && !h.callsFor('complete').length);
+});
+
+test('讲解仅带同一客户档案与当前任职本人的资料，可编辑反馈且不会保存', async () => {
+  const profile=deferred(), customer=deferred(), h=harness({step:'INTRODUCTION',post:{userId:'9007199254740993121',orgId:'9'},loginUser:'9007199254740993121',
+    api:{entryProfile:()=>profile.promise,entryCustomer:()=>customer.promise}});
+  await h.open();profile.resolve({id:'9007199254740993121',nickname:'孙老师'});customer.resolve({customer:{id:'42',summary:'两层半、老人房在一楼'}});await tick();
+  const p=h.page;assert.equal(p.data.form.fields.receptionist,'孙老师');assert.equal(p.data.form.fields.requirements,'两层半、老人房在一楼');assert.equal(p.data.dirty,false);
+  p.input(event('feedback','已看展厅'));const feedbackEvent={currentTarget:{dataset:{kind:'feedback',index:0}}};p.chooseVisitEntry(feedbackEvent);p.chooseVisitEntry(feedbackEvent);
+  assert.equal(p.data.form.fields.feedback,'已看展厅\n想进一步了解');p.input(event('feedback','家人讨论后再联系'));assert.equal(p.data.form.fields.feedback,'家人讨论后再联系');
+  assert.deepEqual(h.callsFor('entryCustomer')[0].args,['42']);assert.equal(h.callsFor('entryProfile').length,1);assert.equal(h.callsFor('save').length+h.callsFor('complete').length,0);
+  const mismatch=harness({step:'INTRODUCTION',post:{userId:'55',orgId:'9'},loginUser:'55',api:{entryCustomer:async()=>({customer:{id:'43',summary:'其他客户'}}),entryProfile:async()=>({id:'56',nickname:'他人'})}});
+  await mismatch.open();await tick();assert.equal(mismatch.page.data.form.fields.requirements,'');assert.equal(mismatch.page.data.form.fields.receptionist,'');
+});
+
+test('切公司、已有历史、用户开始输入后，迟到的默认来源均不覆盖草稿', async () => {
+  const source=deferred(), me=deferred();const h=harness({step:'INTRODUCTION',post:{userId:'20',orgId:'9'},loginUser:'20',api:{entryCustomer:()=>source.promise,entryProfile:()=>me.promise}});
+  await h.open();h.page.input(event('requirements','手填新的需求'));source.resolve({customer:{id:'42',summary:'过期'}});me.resolve({id:'20',nickname:'自动名'});await tick();
+  assert.equal(h.page.data.form.fields.requirements,'手填新的需求');assert.equal(h.page.data.form.fields.receptionist,'');
+  const returned=deferred(),p=harness({step:'INTRODUCTION',api:{entryCustomer:()=>returned.promise}});await p.open();p.switchSession();returned.resolve({customer:{id:'42',summary:'旧岗'}});await tick();assert.equal(p.page.data.form.fields.requirements,'');
+  const old=harness({step:'INTRODUCTION'});Object.assign(old.state.steps[1],{status:'DRAFT',revision:4,occurredOn:'2026-10-01',fields:{feedback:'先前'}});await old.open();assert.equal(old.callsFor('entryCustomer').length,0);assert.equal(old.page.data.form.fields.receptionist,'');assert.equal(old.page.data.form.occurredOn,'2026-10-01');
+  const ro=harness({step:'INTRODUCTION'});ro.state.canWrite=false;await ro.open();assert.equal(ro.callsFor('entryCustomer').length,0);assert.equal(ro.page.data.form.occurredOn,'');assert.deepEqual(ro.page.data.visitFeedback,[]);
+});
+
+test('带看仅选本客户已办快照，排除草稿和其他步骤，分页与手填反馈均可用', async () => {
+  const first={id:'9007199254740993133',stepCode:'SITE_VISIT',type:'COMPLETE',fields:{siteName:'一号工地',address:'杨柳村'}}, second={...first,id:'9007199254740993134',fields:{siteName:'二号工地',address:'河西'}};
+  const h=harness({step:'SITE_VISIT',api:{records:async(id,p)=>{assert.equal(id,'42');assert.equal(p,2);return{total:23,list:[first,second,{...first,customerId:'88',id:'55',fields:{siteName:'他客工地'}}]};}}});
+  h.state.events=[first,{...first,id:'20',type:'SAVE',fields:{siteName:'拟带看'}},{...second,stepCode:'MEASUREMENT'}];h.state.hasMoreEvents=true;await h.open();
+  assert.deepEqual(h.page.data.visitSites.map(s=>s.name),['一号工地']);await h.page.moreVisitSites();assert.deepEqual(h.page.data.visitSites.map(s=>s.name),['一号工地','二号工地']);
+  h.page.chooseVisitEntry({currentTarget:{dataset:{kind:'site',index:1}}});assert.equal(h.page.data.form.fields.siteName,'二号工地');assert.equal(h.page.data.form.fields.address,'河西');
+  h.page.chooseVisitEntry({currentTarget:{dataset:{kind:'feedback',index:0}}});h.page.input(event('feedback','业主希望下周再看基础做法'));assert.equal(h.page.data.form.fields.feedback,'业主希望下周再看基础做法');assert.equal(h.callsFor('save').length+h.callsFor('complete').length,0);
+  const none=harness({step:'SITE_VISIT'});await none.open();assert.deepEqual(none.page.data.visitSites,[]);none.page.input(event('siteName','手填地点'));assert.equal(none.page.data.form.fields.siteName,'手填地点');
+});
+
+
+test('当前客户读权撤回会清除建议，较早历史失败可重试且不能覆写另一客户', async () => {
+  const h=harness({step:'INTRODUCTION',api:{entryCustomer:async()=>{throw {code:1110000001,message:'客户已转交'};}}});
+  await h.open();await tick();assert.equal(h.page.data.workflow,null);assert.equal(h.page.data.form,null);assert.deepEqual(h.page.data.visitSites,[]);
+  const held=deferred(), history=harness({step:'SITE_VISIT',api:{records:()=>held.promise}});
+  history.state.hasMoreEvents=true;await history.open();const pending=history.page.moreVisitSites();history.page.select('INVITATION');
+  held.resolve({total:25,list:[{id:'198',stepCode:'SITE_VISIT',type:'COMPLETE',fields:{siteName:'上一步记录'}}]});await pending;assert.deepEqual(history.page.data.visitSites,[]);
+  const render = require('./role-page-runtime.cjs').render, file = path.join(root,'miniprogram/pages/customer-flow/index.wxml');
+  const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
+  assert.ok(flatten(render(file,history.page.data)).some(n=>n.attrs?.['data-kind']==='time' && n.attrs?.bindtap==='chooseVisitEntry'));
+  history.state.canWrite=false;await history.open();assert.ok(!flatten(render(file,history.page.data)).some(n=>n.attrs?.bindtap==='chooseVisitEntry'));
 });

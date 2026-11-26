@@ -46,10 +46,13 @@ function mount(page) {
   global.Component=value=>{component=value;};
   require(path.join(drawer,'supplements/index.js'));delete global.Component;
   const writes=[],downloads=[],files=new Map();let loseReceipt=true;
+  const customer=String(fixture.customerId);
+  let signedInProfile, customerArchive;
   wx.request = request => {
     const url=new URL(request.url);const endpoint=url.pathname.replace(/^\/admin-api/,'');
     if(endpoint==='/platform/posts/mine') {setImmediate(()=>request.success({statusCode:200,data:{code:0,data:[fixture[actor()]]}}));return {};}
-    assert.ok(endpoint.startsWith('/franchise/customers/'),endpoint);
+    const ownProfile=request.method==='GET' && endpoint==='/platform/profile/mine';
+    assert.ok(ownProfile || endpoint.startsWith('/franchise/customers/'),endpoint);
     if(request.method==='GET')for(const [name,value] of Object.entries(request.data||{}))url.searchParams.set(name,String(value));
     const role=actor(),cmd={actor:role,method:request.method,path:endpoint+url.search};
     if(request.method!=='GET')cmd.body=request.data||{};
@@ -57,6 +60,10 @@ function mount(page) {
     const creating=request.method==='POST'&&endpoint.endsWith('/supplements');
     if(creating)writes.push(structuredClone(cmd));
     bridge(cmd).then(body=>{
+      if(role==='sales' && request.method==='GET' && body.code===0) {
+        if(ownProfile) signedInProfile=body.data;
+        if(endpoint==='/franchise/customers/'+customer) customerArchive=body.data.customer;
+      }
       if(creating && loseReceipt && body.code===0) {loseReceipt=false;request.fail({errMsg:'fixture: response lost after commit'});}
       else request.success({statusCode:200,data:body});
     });
@@ -84,7 +91,6 @@ function mount(page) {
   // The fixture has already accepted these exact bytes through the production upload service.
   // Return its receipt at the upload boundary, then use real component commands and authorized downloads.
   upload.run=async (job,alive)=>{assert.ok(alive());const asset=fixture.assets.find(f=>f.title===job.file.name);assert.ok(asset);return {assetId:String(asset.assetId),title:asset.title};};
-  const customer=String(fixture.customerId);
   async function open(role,step) {
     login(role);
     await runtime.callWxMethod('reLaunch',{url:'/pages/customer-flow/index?customerId='+customer+'&step='+step});
@@ -110,6 +116,13 @@ function mount(page) {
   for(const code of steps.slice(1)) {
     page.selectStep({currentTarget:{dataset:{code}}});assert.equal(page.data.step.code,code);
     view=mount(page);await view.ready;assert.ok(view.data.canWrite,code);
+    if(code==='INTRODUCTION') {
+      await wait(()=>signedInProfile && customerArchive && page.data.form.fields.receptionist && page.data.form.fields.requirements);
+      assert.equal(String(signedInProfile.id),String(fixture.sales.userId));
+      assert.equal(String(customerArchive.id),customer);
+      assert.equal(page.data.form.fields.receptionist,signedInProfile.nickname);
+      assert.equal(page.data.form.fields.requirements,customerArchive.summary);
+    }
     if(['CONTRACT','START'].includes(code)) {
       assert.equal(page.data.step.status,'COMPLETED',code);
       assert.ok(flat(render(path.join(drawer,'index.wxml'),page.data)).some(n=>n.attrs?.bindtap==='openSource'));
