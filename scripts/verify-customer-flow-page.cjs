@@ -62,6 +62,34 @@ function harness(options = {}) {
   return h;
 }
 
+test('第03步外部定制由客户确认实际方向，标准户型和旧外部资料仍可选择', async () => {
+  const h = harness({ step: 'HOUSE_SELECTION' }); await h.open();
+  const picker = () => h.page.data.fields.find(row => row.key === 'selectionMode');
+  assert.ok(picker());
+  assert.equal(h.page.data.fields.some(row => row.type === 'reference'), true);
+  h.page.chooseReference();
+  const originalPicker = h.navigations.at(-1);
+  h.page.pick(event('selectionMode', 1));
+  assert.equal(h.page.data.fields.some(row => row.type === 'reference'), false);
+  assert.ok(h.page.data.fields.some(row => row.key === 'customDirection' && row.type === 'textarea'));
+  originalPicker.events.workflowReference({ caseId: '7001', title: '旧目录回调' });
+  assert.equal(h.page.data.form.fields.referenceCaseId, '');
+  h.page.input(event('customDirection', '一层无台阶，老人房朝南'));
+  h.page.toggle(event('confirmed', true));
+  assert.match(h.page.data.form.occurredOn, /^\d{4}-\d{2}-\d{2}$/);
+  h.page.input(event('customDirection', '一层无台阶，厨房临院'));
+  assert.equal(h.page.data.form.fields.confirmed, false);
+  h.page.toggle(event('confirmed', true));
+  await h.page.submit({currentTarget:{dataset:{action:'complete'}}});
+  const body = h.callsFor('save')[0].args[2];
+  assert.deepEqual(body.fields, { selectionMode: 'EXTERNAL_CUSTOM', customDirection: '一层无台阶，厨房临院', confirmed: true });
+  assert.deepEqual(body.attachments, []);
+  const old = harness({ step: 'HOUSE_SELECTION' });
+  Object.assign(old.state.steps[2], { status: 'COMPLETED', canWrite: false, fields: { selectionResult: '沿用纸质方案', confirmed: true },
+    attachments: [{assetId:'7002',title:'原户型.pdf'}] });
+  await old.open();assert.equal(old.page.data.form.attachments[0].assetId, '7002');assert.equal(old.page.data.form.fields.selectionMode, '');
+});
+
 test('进度卡与全部步骤按原单状态显示，跨步补录与切换保留草稿', async () => {
   const { render } = require('./role-page-runtime.cjs');
   const h = harness();

@@ -209,7 +209,7 @@ Component({
         if (!this.visible(context))return;
         this._read=null;this.projectDraft(context);
         this.setData({writeError:'',rows:[row,...this.data.rows.filter(r=>r.id!==row.id)]});
-        wx.showToast({title:'补充资料已保存',icon:'success'});await this.refresh();
+        wx.showToast({title:'附加资料已保存',icon:'success'});await this.refresh();
       });
       return watcher.done;
     },
@@ -222,7 +222,7 @@ Component({
       this.setData({previewError:''});
       try {
         const ticket=await api.download(context.customer,context.code,file.assetId);if(!alive())return;
-        const opened=await require('../../../utils/b-asset-download').downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive,label:'补充资料'});
+        const opened=await require('../../../utils/b-asset-download').downloadTicketFile({http,downloadUrl:ticket.downloadUrl,alive,label:'附加资料'});
         if(!alive())return;
         const fail=()=>{if(alive())this.setData({previewError:'附件未能打开，请重试'});};
         if (/^image\//.test(opened.contentType||'') || /\.(jpe?g|png)$/i.test(file.title)) wx.previewImage({urls:[opened.tempFilePath],fail});
