@@ -1,1 +1,1 @@
-{"usingComponents":{"business-header":"/components/business-header/index"},"disableScroll":false}
+{"usingComponents":{"business-header":"/components/business-header/index","step-supplements":"./supplements/index"},"disableScroll":false}

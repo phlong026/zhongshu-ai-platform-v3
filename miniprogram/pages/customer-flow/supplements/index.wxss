@@ -1,0 +1,7 @@
+@import "../index.wxss";
+.entry,.record{display:flex;flex-direction:column;gap:14rpx;margin-top:20rpx}
+.note{box-sizing:border-box;width:100%;min-height:128rpx;max-height:260rpx}
+.save{align-self:flex-start}
+.record{border-top:1rpx solid #eee6db;padding-top:18rpx;overflow-wrap:anywhere}
+.record-note{white-space:pre-wrap}
+.message{color:#9e3529;font-size:26rpx}
