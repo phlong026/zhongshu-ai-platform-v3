@@ -25,7 +25,9 @@ function plan(value, customerId, companyId) {
   let sum = 0;
   const rows = value.stages.map((row, index) => {
     const cents = Number(row.amountCents); if (!Number.isSafeInteger(cents) || cents < 0) throw Error('付款节点金额无效'); sum += cents;
-    return { label: String(row.label || '第' + (index + 1) + '期'), sequence: row.sequence ?? index + 1, amountText: (cents / 100).toFixed(2),
+    const paid = row.collectedCents == null ? null : Number(row.collectedCents);
+    if (paid != null && (!Number.isSafeInteger(paid) || paid < 0 || paid > cents || value.source !== 'CONTRACT')) throw Error('合同分期已收金额无效');
+    return { ...(paid == null ? {} : { paidText: (paid / 100).toFixed(2), remainingText: ((cents - paid) / 100).toFixed(2) }), label: String(row.label || '第' + (index + 1) + '期'), sequence: row.sequence ?? index + 1, amountText: (cents / 100).toFixed(2),
       condition: (triggers[row.trigger] || '待核对条件') + (row.trigger === 'NODE_COMPLETED' && row.nodeIndex != null ? ' · 节点 ' + row.nodeIndex : ''),
       dueDate: day(row.dueDate), ratioText: row.ratioBps == null ? '' : (Number(row.ratioBps) / 100).toFixed(2).replace(/\.00$/, '') + '%' };
   });
@@ -59,6 +61,10 @@ function detail(value, commissionId, companyId, post) {
     canSubmit: writer && value.canSubmit === true && positive(value.resultVersion) && ['EXTERNAL_READY', 'HANDOVER_RETURNED'].includes(value.status) && value.allowedActions.includes('external-packet-submit'),
     canReceive: decider && value.canDecide === true && value.allowedActions.includes('external-packet-receive'),
     canReturn: decider && value.canDecide === true && value.allowedActions.includes('external-packet-return'),
+    currentContractTerms: value.currentContractTerms ? plan(value.currentContractTerms, customerId, companyId) : null,
+    submissionTerms: value.submissionTerms ? { plan: plan(value.submissionTerms.plan, customerId, companyId),
+      checkedContract: value.submissionTerms.plan?.source === 'CONTRACT'
+        ? { id: id(value.submissionTerms.plan.contractId), version: value.submissionTerms.plan.contractPlanVersion } : { id: null, version: null } } : null,
     currentPacket, packets: packets.sort((a, b) => b.version - a.version) };
 }
 function source(value, context, companyId) {
@@ -71,7 +77,7 @@ function source(value, context, companyId) {
     return { slot: slot.slot, assetId, title: slot.label, kind: 'results', version: record.version };
   });
   return { resultVersion: record.version, requestVersion: request.version, drawingVersion: String(record.data.drawingVersion || ''),
-    deliveredOn: day(record.data.deliveredOn), files, plan: plan(request.paymentPlan, context.customerId, companyId) };
+    deliveredOn: day(record.data.deliveredOn), files, plan: context.submissionTerms?.plan || plan(request.paymentPlan, context.customerId, companyId) };
 }
 function receivers(values, post) {
   if (!Array.isArray(values)) throw Error('接收人列表无效，请重试');
@@ -95,7 +101,7 @@ function payload(action, form, context, receivers, today) {
     if (!id(form.managerUserId) || !receivers.some(person => person.userId === id(form.managerUserId))) throw Error('请选择有效的工程接收人');
     if (form.confirmed !== true) throw Error('请确认已核对客户确认、成果资料及付款约定');
     return { revision: context.revision, resultVersion: context.resultVersion, confirmationAssetId: id(form.confirmationAssetId), confirmationDate: date,
-      note: text(form.note, 1000, true, '交底说明'), managerUserId: id(form.managerUserId), confirmed: true };
+      note: text(form.note, 1000, true, '交底说明'), managerUserId: id(form.managerUserId), confirmed: true, ...(context.submissionTerms ? { checkedContract: context.submissionTerms.checkedContract } : {}) };
   }
   if (!(action === 'receive' ? context.canReceive : action === 'return' && context.canReturn) || !context.currentPacket) throw Error('当前移交不能办理接收或退回');
   if (action === 'receive' && form.confirmed !== true) throw Error('请确认已核对本版移交资料');

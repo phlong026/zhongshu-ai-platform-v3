@@ -36,6 +36,19 @@ function apply(data, bundle, response, options = {}) {
     const part = data.installments.find(r => r.key === data.form.stage);
     data.partLabel = part?.name || '付款节点不存在，请返回项目刷新';
     data.dunning = data.dunning.filter(r => r.stage === part?.key);
+    const statuses = { PENDING: '待财务核实', RETURNED: '已退回', SUPERSEDED: '已重新提交', CONFIRMED: '已核实到账' };
+    data.collectionDeclarations = (bundle.collections?.declarations || []).filter(row => row.stage === part?.key).map(row => ({
+      id: id(row.id), amountText: money(row.amountCents), date: day(row.receivedDate), transactionNo: row.transactionNo,
+      status: statuses[row.status] || '待核对', reason: row.returnReason, receiptId: id(row.receiptId)
+    }));
+    const term = bundle.collections?.stages?.find(row => row.stage === part?.key);
+    if (data.own && part?.stageId && Array.isArray(bundle.collections?.declarations) && Number.isSafeInteger(term?.remainingCents)
+        && Number.isSafeInteger(term.planVersion) && data.actions.some(a => a.action === 'dunning')) {
+      part.remainingCents = term.remainingCents; part.planVersion = term.planVersion;
+      data.fields.push(field('amount','本次到账金额（元）','digit'),field('date','实际到账日期','date'),
+        field('transaction','本笔流水号'),field('file','本笔到账凭据（图片或 PDF）','file'));
+      data.actions.push({ action: 'declare', label: '提交到账凭据给财务' });
+    }
     if (!part) { data.fields = []; data.actions = []; }
   }
   if (response === undefined) return;
@@ -88,6 +101,14 @@ function apply(data, bundle, response, options = {}) {
   data.pending = (data.pending || []).map(row => row.id === 'next' && data.next ? { ...row, title: data.next.title, url: data.next.url } : row);
 }
 function payload(page, action, form) {
+  if (action === 'declare') {
+    const stage = page.data.installments.find(row => row.key === form.stage);
+    const value = String(form.amount || '').trim(), transactionNo = String(form.transaction || '').trim();
+    if (!stage?.collectible || !stage.stageId || stage.waitingForWork) throw Error('请核对当前收款节点');
+    if (!/^\d{1,10}(?:\.\d{1,2})?$/.test(value) || Number(value) <= 0 || Math.round(Number(value) * 100) > stage.remainingCents) throw Error('本次金额须大于零且不超过该期余款');
+    if (!transactionNo || !day(form.date) || !form.file?.path) throw Error('请填写到账日期、流水号并选择本笔到账凭据');
+    return { stage: stage.key, stageId: stage.stageId, planVersion: stage.planVersion, amount: value, occurredAt: day(form.date), transactionNo };
+  }
   if (action === 'dunning') {
     const part = page.data.installments.find(r => r.key === form.stage);
     if (!part || !part.collectible || part.waitingForWork) throw Error('本节点暂不满足催收条件，请刷新核对');
@@ -108,7 +129,7 @@ function submit(page, action, form) {
   if (page.__identity !== String(http.currentPostId()) + ':' + http.sessionGeneration() || String(page.data.p?.id) !== String(page.id)) return page.setData({ error: '工作身份或项目已变化，请重新加载' });
   try {
     const body = payload(page, action, form), guard = http.sessionGuard(), post = http.currentPostId(), projectId = String(page.id);
-    page.__paymentPending = { action, body, projectId, key: 'eng-plan-' + action + '-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+    page.__paymentPending = { action, body, projectId, filePath: action === 'declare' ? form.file.path : null, key: 'eng-plan-' + action + '-' + Date.now() + '-' + Math.random().toString(36).slice(2),
       alive: () => guard() && !page.__disposed && String(page.id) === projectId && String(http.currentPostId()) === String(post) };
     return retry(page);
   } catch (error) { page.setData({ error: errorText(error) }); }
@@ -119,13 +140,27 @@ async function retry(page) {
   page.__paymentRead = (page.__paymentRead || 0) + 1;
   page.setData({ busy: true, paymentUncertain: false, error: '' });
   try {
-    const result = command.action === 'prepare' ? await api.plan.prepare(command.projectId, command.body, command.key)
-      : await api.collections.dunning(command.projectId, command.body.stage, command.body.promiseDate, command.body.note, command.key);
+    let result;
+    if (command.action === 'declare') {
+      if (!command.body.fileAssetId) {
+        const assetId = await api.uploadVoucher(command.filePath, 'FIN_VOUCHER');
+        if (!command.alive() || page.__paymentPending !== command) return;
+        if (!id(assetId)) throw Error('上传凭据待核对，请重试');
+        command.body = { ...command.body, fileAssetId: id(assetId) };
+      }
+      if (page.__inactive) throw Error('请返回工程收款继续提交已上传的凭据');
+      result = await api.collections.register(command.projectId, command.body, command.key);
+      if (result?.stageStatus !== 'PENDING_CONFIRMATION' || !id(result.declarationId)) throw Error('申报回执待核对，请重试');
+    } else if (command.action === 'prepare') {
+      result = await api.plan.prepare(command.projectId, command.body, command.key);
+    } else {
+      result = await api.collections.dunning(command.projectId, command.body.stage, command.body.promiseDate, command.body.note, command.key);
+    }
     if (!command.alive() || page.__paymentPending !== command) return;
     if (command.action === 'prepare' && id(result?.id) !== command.projectId) throw Error('保存结果尚未确认，请重试核对');
     page.__paymentPending = null;
     page.setData({ busy: false, paymentUncertain: false, paymentConflict: false });
-    wx.showToast({ title: command.action === 'prepare' ? '开工准备已保存' : '催收已登记', icon: 'none' });
+    wx.showToast({ title: command.action === 'declare' ? '已提交财务核实' : command.action === 'prepare' ? '开工准备已保存' : '催收已登记', icon: 'none' });
     if (!page.__inactive) return page.refreshOnline(true);
     page.initialized = false;
   } catch (error) {
