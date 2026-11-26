@@ -131,3 +131,16 @@ test('在途登记返回原步骤时清除已入账草稿，其余步骤的文�
   await c.switchStep('INVITATION');assert.equal(c.data.note,'');await c.saveSupplement();assert.equal(h.call('add').length,1);
   await c.switchStep('INTRODUCTION');assert.equal(c.data.note,'店面阶段未保存');
 });
+
+test('读取原件或保存时撤权会清空旧内容，并可从当前步骤重新核对授权', async()=>{
+  const h=harness(),c=h.c;
+  h.rows=[record('CONTRACT',{attachments:[{assetId:ASSET,title:'原件.pdf'}]})];
+  await c.start();
+  h.download=async()=>{throw {code:403,message:'该资料权限已收回'};};
+  await c.openAttachment({currentTarget:{dataset:{id:c.data.rows[0].id,asset:ASSET}}});
+  assert.match(c.data.loadError,/权限已收回/);assert.equal(c.data.rows.length,0);
+  await c.refresh();assert.equal(c.data.rows.length,1);
+  h.add=async()=>{throw {code:403,message:'工作岗位已调整'};};
+  h.input('试记');await c.saveSupplement();assert.match(c.data.loadError,/工作岗位已调整/);assert.equal(c.data.canWrite,false);
+  h.write=false;await c.refresh();assert.equal(c.data.rows.length,1);assert.equal(c.data.note,'');
+});

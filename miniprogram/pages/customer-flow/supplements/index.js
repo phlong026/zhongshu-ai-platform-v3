@@ -195,8 +195,8 @@ Component({
         if(!this.same(context) || this._watch!==watcher)return;
         this._watch=null;
         if (error) {
-          if (denied(error)) this.clearAccess(context);
-          if (this.visible(context)) this.setData({saving:false,uncertain:commands.get(context.key)===cmd,writeError:model.errorText(error)});
+          if (denied(error)) { this.clearAccess(context); this.setData({loadError:model.errorText(error)}); }
+          else if (this.visible(context)) this.setData({saving:false,uncertain:commands.get(context.key)===cmd,writeError:model.errorText(error)});
           return;
         }
         this._drafts?.delete(context.code);
@@ -223,8 +223,8 @@ Component({
         else wx.openDocument({filePath:opened.tempFilePath,showMenu:true,fail});
       } catch(error) {
         if(!alive())return;
-        if(denied(error))this.clearAccess(context);
-        this.setData({previewError:model.errorText(error)});
+        if(denied(error)) { this.clearAccess(context); this.setData({loadError:model.errorText(error)}); }
+        else this.setData({previewError:model.errorText(error)});
       }
     }
   }
