@@ -404,6 +404,8 @@ test('工程负责人按期申报部分到账，回执丢失时沿用同一原�
     if (++tries === 1) throw Error('未收到回执');
     return { stageStatus: 'PENDING_CONFIRMATION', declarationId: '900719925474009999' };
   } });
+  h.bundle.detail.managerUserId = '82';
+  h.bundle.detail.assignedEngineerUserId = '11';
   h.bundle.collections.declarations = [];
   const target = h.bundle.collections.stages[1]; h.page.stage = target.stage; await h.open();
   assert.deepEqual(clone(h.page.data.actions.map(action => action.action)), ['dunning', 'declare']);
@@ -419,6 +421,9 @@ test('工程负责人按期申报部分到账，回执丢失时沿用同一原�
   assert.equal(attempts[0][2].stageId, target.stageId); assert.ok(attempts[0][2].fileAssetId);
   assert.equal(h.calls.filter(([kind]) => kind === 'upload').length, 1);
   assert.equal(h.page.data.paymentUncertain, false);
+  h.bundle.detail.assignedEngineerUserId = '83';
+  await h.page.refreshOnline(true);
+  assert.ok(!h.page.data.actions.some(action => action.action === 'declare'));
 });
 
 test('稳定CAP_DONE深链仍保留原封顶收款门槛，不因URL改为key绕过原界面条件', () => {
