@@ -2027,6 +2027,32 @@
         "resource": "db/migration/franchise/V20261126.1002__personal_work_trash.sql",
         "sha256": "3c29e97b33dbedfb06aa72e88795f0d511bf69fab8d7aa22f7537f73f773f1e3"
       }
+    },
+    {
+      "path": "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261126.1006__engineering_rectification_assignment.sql",
+      "location": "franchise",
+      "version": "20261126.1006",
+      "source_sha256": "7684234009596c5fa06cc75e745bea8645f01d05ce5e26ec0f67773a455a08fe",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "resource": "db/migration/franchise/V20261126.1006__engineering_rectification_assignment.sql",
+        "source": "yudao-domain-franchise-engineering-2026.08-SNAPSHOT.jar",
+        "sha256": "7684234009596c5fa06cc75e745bea8645f01d05ce5e26ec0f67773a455a08fe"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-finance/src/main/resources/db/migration/franchise/V20261126.1070__fr_payroll_payment_source.sql",
+      "location": "franchise",
+      "version": "20261126.1070",
+      "source_sha256": "f173da75aa973b4e723aadf5f79f4cfa39b366686febf138f13d33364d0b2f43",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "resource": "db/migration/franchise/V20261126.1070__fr_payroll_payment_source.sql",
+        "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
+        "sha256": "f173da75aa973b4e723aadf5f79f4cfa39b366686febf138f13d33364d0b2f43"
+      }
     }
   ],
   "tables": [
@@ -4761,12 +4787,12 @@
   "freeze_ready": false,
   "artifact_evidence": {
     "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
-    "source_commit": "323e6106a61ef52bf8b45dd595025e43fa1e9df6",
-    "sha256": "47edd1edd66a41105cb8e04b4b19acc9e66150be22399e8cdc140e5de329e043",
-    "artifact_bytes": 190156903,
-    "resource_count": 155,
+    "source_commit": "04e641f6a410ebf5bdcfbcc50e08f22da57aa41a",
+    "sha256": "f04b845317a9daf2606e0624935b09d193f6173ad26ba32043b3da2ada7cd4e2",
+    "artifact_bytes": 190172104,
+    "resource_count": 157,
     "location_counts": {
-      "franchise": 79,
+      "franchise": 81,
       "franchise-asset": 7,
       "franchise-design-remote": 5,
       "franchise-system": 10,
@@ -4775,7 +4801,7 @@
       "platform-bootstrap": 2,
       "platform-wallet": 17
     },
-    "resource_index_sha256": "6aa122f5f1a6e4b3b763f7a1cd03650a6e2dd7ed888655c48b51178ce7f3654e",
+    "resource_index_sha256": "3ff95b8e1c59f3a4dba135367184f9e5cdf132990fc6476e47d70f68b507c6a7",
     "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
     "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
     "database_history_verified": false,
@@ -4899,5 +4925,29 @@
         "execution_verified": false
       }
     ]
-  }
+  },
+  "artifact_evidence_history": [
+    {
+      "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
+      "source_commit": "323e6106a61ef52bf8b45dd595025e43fa1e9df6",
+      "sha256": "47edd1edd66a41105cb8e04b4b19acc9e66150be22399e8cdc140e5de329e043",
+      "artifact_bytes": 190156903,
+      "resource_count": 155,
+      "location_counts": {
+        "franchise": 79,
+        "franchise-asset": 7,
+        "franchise-design-remote": 5,
+        "franchise-system": 10,
+        "pf": 30,
+        "platform": 5,
+        "platform-bootstrap": 2,
+        "platform-wallet": 17
+      },
+      "resource_index_sha256": "6aa122f5f1a6e4b3b763f7a1cd03650a6e2dd7ed888655c48b51178ce7f3654e",
+      "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
+      "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+      "database_history_verified": false,
+      "note": "核对 B 启动 JAR 的 BOOT-INF/classes 和所有内嵌依赖 JAR 中八个 Flyway 位置的正向资源。包括实际打包的 yudao-platform-operations 模块，生产 Flyway 历史、行级归属和回滚演练另行验收。"
+    }
+  ]
 }
