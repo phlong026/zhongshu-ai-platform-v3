@@ -27,14 +27,14 @@ const ACTIONS = {
 };
 // actions that need a signed-in account
 const LOGIN_ONLY = ['profile', 'messages', 'announcements', 'performance', 'storeMap', 'academy'];
-const emptyCourse = () => ({ learningLabel: '', courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
+const emptyCourse = () => ({ courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
 const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
 const profileScope = () => {
   const key = apiScope();
   return key && JSON.stringify([key, auth.currentApiPost()?.brandId]);
 };
 const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyProfile().avatar, unread: 0, role: '', company: '',
-  identityText: '', identityOrganization: '', identityRole: '', announcementTitle: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
+  identityOrganization: '', identityRole: '', announcementTitle: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
   showAdminMap:false, showStoreMap:false });
 
 // Keep one entry per company setting; task access stays in the profile quick card.
@@ -103,8 +103,8 @@ module.exports = function (tabIndex) {
       const company = apiLoggedIn ? (apiPost.orgName || '') : (c ? c.name : '');
       const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
       this.setData({
-        identityText: Profile.compactIdentity(company,role), identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
-        ...(sameScope ? {} : { ...emptyCourse(), announcementTitle: '', learningLabel: course ? course.category+'培训' : '', courseId: course ? course.id : '',
+        identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
+        ...(sameScope ? {} : { ...emptyCourse(), announcementTitle: '', courseId: course ? course.id : '',
           courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
         learningAvailable: storeProfile || apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
         engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || storeProfile || actor.orgType === 'headquarters',
@@ -162,7 +162,7 @@ module.exports = function (tabIndex) {
         const fallback = next?.category === '经营管理' ? '/assets/profile-management-course.jpg' : A.courseImage;
         const image = cover && cover === this.__courseCover ? this.data.courseImage : fallback;
         this.__courseCover = cover;
-        this.setData({ learningLoading: false, learningLabel: next ? next.category+'培训' : '', courseId: next ? next.id : '',
+        this.setData({ learningLoading: false, courseId: next ? next.id : '',
           courseTitle: next ? next.title : '', courseImage: next ? image : '',
           progress: { completed: next ? next.completed : 0, total: next ? next.lessons : 0, percent: next ? next.percent : 0 } });
         if (next && next.coverVersionId) return training.ticket(next.id,next.coverVersionId,'poster').then(async t => {

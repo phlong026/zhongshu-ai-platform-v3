@@ -100,6 +100,7 @@
         <text class="row-body">用户协议</text><view class="chevron"/>
       </button>
     </view>
+    <button wx:if="{{loggedIn}}" class="section profile-logout" bindtap="logout">退出登录</button>
   </view>
 </view>
 </template>

@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const automator = require('miniprogram-automator');
 const notices = require('./preview-profile-announcements.cjs');
+const { trainingByRole } = notices;
+const { roles } = require('../miniprogram/utils/organization');
 
 const profile = 'pages/profile/index';
 const list = 'pages/account/announcements/index';
@@ -57,7 +59,7 @@ async function main() {
     await waitFor(profile, data => data.announcementTitle === notices[0].title && data.courseId === 'management' && data.unread === 3 && data.name === '陈明');
     await delay(300);
     fs.mkdirSync(output, { recursive: true });
-    const selectors = ['.profile-card', '#company-points', '.announcement-section', '.message-section', '.management-section', '.franchise-section', '.academy-section', '.support-section'];
+    const selectors = ['.profile-card', '#company-points', '.announcement-section', '.message-section', '.management-section', '.franchise-section', '.academy-section', '.support-section', '.profile-logout'];
     const geometry = await mp.evaluate(selectors => new Promise(resolve => {
       const query = wx.createSelectorQuery();
       selectors.forEach(selector => query.select(selector).boundingClientRect());
@@ -66,7 +68,7 @@ async function main() {
     }), selectors);
     const { windowWidth, windowHeight, platform } = await mp.systemInfo();
     const tiles = geometry.pop();
-    assert.ok(geometry.every(Boolean), 'All eight sections exist');
+    assert.ok(geometry.every(Boolean), 'All eight sections and the logout button exist');
     for (const [i, rect] of geometry.entries()) {
       assert.ok(rect.height > 0 && rect.left >= 0 && rect.right <= windowWidth + 1, selectors[i] + ' fits width');
       if (i) assert.ok(rect.top >= geometry[i - 1].bottom - 1, selectors[i] + ' preserves section order');
@@ -76,7 +78,7 @@ async function main() {
     assert.equal(tiles[2].top, tiles[3].top);
     assert.ok(tiles[2].top >= tiles[0].bottom);
     await shot('我的-首屏');
-    await scroll(geometry[5].top - 55);
+    await scroll(9999);
     await shot('我的-下半屏');
     await scroll(0);
     await tap('.announcement-section button');
@@ -96,15 +98,20 @@ async function main() {
     await search.input('账本');
     await tap('.search-submit');
     await waitFor(list, data => data.items.length === 1 && data.items[0].id === notices[2].id);
-    for (const role of storeRoles) {
+    const checkedRoles = [];
+    for (const role of ['sales', 'engineer', 'finance']) {
       const route = ['finance', 'finance-lead'].includes(role) ? 'pages/admin/finance-desk/index?view=profile' : profile;
+      const [courseId, title, , resource, completed] = trainingByRole[role];
+      process.stdout.write('Checking the native profile for ' + role + '\n');
       await mp.evaluate(({ role, route }) => {
         wx.setStorageSync('zs-api-post-v1', 'preview-' + role);
         wx.reLaunch({ url: '/' + route });
         return true;
       }, { role, route });
-      const data = await waitFor(route.split('?')[0], data => data.announcementTitle === notices[0].title && !data.learningLoading);
-      assert.equal(!!data.courseId, ['boss', 'owner'].includes(role), role);
+      const data = await waitFor(route.split('?')[0], data => data.announcementTitle === notices[0].title && data.role === roles[role]);
+      assert.equal(data.courseId, courseId, role);
+      assert.equal(data.courseTitle, title, role);
+      assert.equal(data.progress.completed, completed, role);
       const fixed = await mp.evaluate(() => new Promise(resolve => {
         const query = wx.createSelectorQuery();
         ['.announcement-section', '.franchise-section', '.academy-section'].forEach(selector => query.select(selector).boundingClientRect());
@@ -113,6 +120,13 @@ async function main() {
       }));
       assert.ok(fixed.slice(0, 3).every(rect => rect && rect.height > 0), role + ' has all three fixed sections');
       assert.equal(fixed[3].length, 4, role + ' has all four franchise services');
+      await scroll(9999);
+      await tap('.academy-section .text-link');
+      const catalog = await waitFor('pages/account/training/index', data => data.visibleCourses?.length === 1);
+      assert.equal(catalog.visibleCourses[0].title, title, role);
+      assert.deepEqual(catalog.visibleResources.map(row => row.name), [resource], role);
+      await delay(500);
+      checkedRoles.push(role);
     }
     await mp.evaluate(url => {
       wx.setStorageSync('zs-api-post-v1', 'preview-boss');
@@ -121,7 +135,7 @@ async function main() {
     }, '/' + profile);
     await waitFor(profile, data => data.announcementTitle === notices[0].title);
     assert.equal(errors.length, 0, JSON.stringify(errors));
-    const result = { platform, windowWidth, windowHeight, geometry, storeRoles, announcements: notices.map(row => row.title) };
+    const result = { platform, windowWidth, windowHeight, geometry, checkedRoles, announcements: notices.map(row => row.title) };
     fs.writeFileSync(path.join(output, 'native-result.json'), JSON.stringify(result, null, 2));
     process.stdout.write(JSON.stringify(result) + '\n');
   } finally {

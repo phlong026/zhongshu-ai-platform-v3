@@ -40,3 +40,4 @@
 .progress-track{height:8rpx;background:#e4dfd9;border-radius:8rpx;margin:8rpx 0;overflow:hidden}
 .progress-value{height:100%;background:#985523}
 .continue{align-self:flex-end;margin-top:auto;padding:2rpx 20rpx;border-radius:9rpx;background:#985523;color:var(--zs-card);font-size:24rpx;line-height:43rpx}
+.profile-page .profile-logout{width:100%;min-height:84rpx;border:1rpx solid #d6bba7;color:var(--zs-brand)}

@@ -63,6 +63,7 @@ test('所有加盟商岗位和总部代表岗位都能从我的打开公告列�
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('学习培训'));
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('消息'));
     assert.ok(profileText.indexOf('学习培训') < profileText.indexOf('帮助与反馈'));
+    assert.ok(profileText.indexOf('账号与隐私') < profileText.indexOf('退出登录'));
     if (orgType === 'store') {
       const rendered = flat(env.render(page));
       const sections = rendered.map(node => node.attrs?.class || '');
@@ -92,6 +93,7 @@ test('所有加盟商岗位和总部代表岗位都能从我的打开公告列�
 test('游客不显示内部公告入口，列表和详情深链接转登录且保留原目标', async () => {
   const env = await setup(null), profile = await env.open('/pages/profile/index');
   assert.equal(text(env.render(profile)).includes('公司公告'), false);
+  assert.equal(text(env.render(profile)).includes('退出登录'), false);
   const redirects = [];
   wx.redirectTo = options => redirects.push(options.url);
   for (const route of [LIST, DETAIL + '?id=' + LONG_ID]) {
@@ -101,6 +103,25 @@ test('游客不显示内部公告入口，列表和详情深链接转登录且�
     assert.equal(login.searchParams.get('return'), route);
   }
   assert.equal(env.reads().length, 0);
+});
+
+test('页尾退出登录先提示确认，仅确认后清除当前账号与岗位', async () => {
+  const env = await setup('boss');
+  await env.open('/pages/profile/index', 'reLaunch');
+  let modal;
+  wx.showModal = options => { modal = options; };
+  const logout = await (await env.runtime.currentPage()).$('.profile-logout');
+  await logout.tap();
+  assert.equal(modal.title, '退出登录');
+  modal.success({ confirm: false });
+  assert.equal(http.token(), 'test-token');
+  assert.equal(http.currentPostId(), env.post.postId);
+  await logout.tap();
+  modal.success({ confirm: true });
+  await flush();
+  assert.equal(http.token(), '');
+  assert.equal(http.currentPostId(), '');
+  assert.equal(getCurrentPages().at(-1).data.loggedIn, false);
 });
 
 test('我的页只显示当前品牌获准看到的公告，忽略同岗位旧品牌回包', async () => {

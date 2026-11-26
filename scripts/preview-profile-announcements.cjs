@@ -27,14 +27,22 @@ const notices = [
   }
 ].map(notice => ({ ...notice, status: 'PUBLISHED', revision: 1 }));
 
-const course = { id: 'management', title: '门店经营与团队管理', category: '经营管理', completed: 2, lessons: 6, percent: 33 };
+const trainingByRole = {
+  boss: ['management', '门店经营与团队管理', '经营管理', '门店经营月度复盘表', 2],
+  owner: ['store-owner', '门店日常经营与人员协作', '经营管理', '门店交接检查表', 1],
+  sales: ['sales', '客户跟进与正式报价', '业务销售', '客户跟进记录表', 1],
+  'sales-lead': ['sales-lead', '销售团队管理与客户交接', '业务销售', '销售团队交接清单', 2],
+  engineer: ['engineering', '乡墅开工与现场交底', '工程施工', '开工交底检查表', 1],
+  'project-manager': ['project-manager', '项目排期与现场质量复验', '工程施工', '施工节点复验清单', 2],
+  finance: ['finance', '财务收支与项目对账', '财务对账', '项目对账核对表', 1],
+  'finance-lead': ['finance-lead', '财务复核与月度结账', '财务对账', '月度结账复核清单', 2]
+};
 const replies = new Map([
   ['/platform/profile/mine', { id: '701', nickname: '陈明', avatar: '/assets/account-avatar.jpg' }],
   ['/platform/messages/center/summary', { count: 3 }],
   ['/franchise/company-points/summary', { balance: 9300, status: 'ACTIVE' }],
   ['/franchise/company-points/my-usage', { used: 0, list: [], total: 0 }],
-  ['/franchise/company-points/recharge/catalog', { enabled: false }],
-  ['/training/app/materials', []]
+  ['/franchise/company-points/recharge/catalog', { enabled: false }]
 ]);
 
 if (require.main === module) {
@@ -47,8 +55,21 @@ if (require.main === module) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const path = url.pathname.replace(/^\/admin-api/, '');
     if (path === '/health') return send({ ready: true });
-    if (path === '/training/app/courses') {
-      return send(['preview-boss', 'preview-owner'].includes(req.headers['x-post-id']) ? [course] : []);
+    if (path.startsWith('/training/app/')) {
+      const role = String(req.headers['x-post-id'] || '').replace(/^preview-/, '');
+      const seed = Object.hasOwn(trainingByRole, role) ? trainingByRole[role] : null;
+      if (!seed) return send([]);
+      const [id, title, category, name, completed] = seed;
+      const course = { id, title, category, completed, lessons: 6, percent: Math.round(completed / 6 * 100), summary: '本地模拟岗位课程' };
+      if (path === '/training/app/courses') return send([course]);
+      if (path === '/training/app/materials') {
+        return send([{ courseId: id, category, courseTitle: title, versionId: id + '-fixture', name, fileName: name + '.pdf', extension: 'pdf', version: 1 }]);
+      }
+      if (path === '/training/app/courses/' + id) {
+        return send({ ...course, lessons: ['岗位职责', '办理流程', '常见问题', '资料核对', '实际演练', '复盘总结']
+          .map((lesson, index) => ({ id: 'lesson-' + index, title: lesson, chapter: '岗位实操', completed: index < completed })) });
+      }
+      return send(null, 403, '当前模拟岗位无此课程权限');
     }
     const endpoint = '/platform/announcements/app';
     if (path === endpoint) {
@@ -67,3 +88,4 @@ if (require.main === module) {
 }
 
 module.exports = notices;
+module.exports.trainingByRole = trainingByRole;
