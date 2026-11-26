@@ -145,6 +145,69 @@ public class CustomerService {
         return result;
     }
 
+    public record StableCustomerPage(PageResult<CustomerDO> page, String prefix, boolean changed) {}
+
+    /**
+     * 禁止在客户分组、排序或权限变化后，把新一页拼到旧名单。
+     * 只读取前序名单的 ID，查询与本页保持在同一个只读快照；不跨请求缓存任何身份或记录。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public StableCustomerPage stablePage(PostSnapshot post, PageParam page, String keyword, String status,
+                                        Long ownerUserId, CustomerMapper.FollowFilter followFilter, String previousPrefix) {
+        long offset = ((long) page.getPageNo() - 1L) * page.getPageSize();
+        var visibility = CustomerAccess.visibleTo(post);
+        java.util.function.Consumer<cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<CustomerDO>> scoped = query -> {
+            query.eq(CustomerDO::getCompanyId, post.orgId());
+            visibility.accept(query);
+        };
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        if (offset > 0 && (previousPrefix == null || !previousPrefix.matches("[a-f0-9]{64}"))) {
+            return new StableCustomerPage(PageResult.empty(), null, true);
+        }
+        // 前缀凭据只判断能否拼页，不作鉴权或替代当前岗位查询。
+        // 跟进筛选按同一个上海业务日；普通名单翻页不因日期滚动失效。
+        var prefixScope = (post.orgId() + ":" + post.userId() + ":" + post.postId() + ":" + post.roleCode()
+                + "|" + status + "|" + ownerUserId + "|" + followFilter + "|" + (followFilter == null ? "" : today)
+                + "|" + (keyword == null ? "" : keyword.trim()) + "\0").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var digest = prefixDigest(prefixScope);
+        var result = customerMapper.selectPage(page, customerMapper.pageQuery(scoped, keyword, status, ownerUserId, followFilter, today));
+        if (offset > 0) {
+            if (result.getTotal() < offset) {
+                return new StableCustomerPage(PageResult.empty(), null, true);
+            }
+            var prefixQuery = customerMapper.pageQuery(scoped, keyword, status, ownerUserId, followFilter, today);
+            prefixQuery.select(CustomerDO::getId).last("LIMIT " + offset);
+            var verify = prefixDigest(prefixScope);
+            customerMapper.selectList(prefixQuery, context -> {
+                CustomerDO previous = context.getResultObject();
+                byte[] entry = prefixEntry(previous);
+                digest.update(entry);
+                verify.update(entry);
+            });
+            if (!java.util.HexFormat.of().formatHex(verify.digest()).equals(previousPrefix)) {
+                return new StableCustomerPage(PageResult.empty(), null, true);
+            }
+        }
+        result.getList().forEach(customer -> digest.update(prefixEntry(customer)));
+        enrichDesignStatus(post, result.getList());
+        enrichWorkflowSummary(post, result.getList());
+        return new StableCustomerPage(result, java.util.HexFormat.of().formatHex(digest.digest()), false);
+    }
+
+    private static java.security.MessageDigest prefixDigest(byte[] scope) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            digest.update(scope);
+            return digest;
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        }
+    }
+
+    private static byte[] prefixEntry(CustomerDO customer) {
+        return (customer.getId() + ";").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     /** 负责人筛选名册：可见范围内出现过的负责人（含已停用账号，历史客资仍需按原负责人筛）。 */
     public List<OwnerOption> ownerOptions(PostSnapshot post) {
         List<Long> ids = customerMapper.selectOwnerIds(CustomerAccess.visibleTo(post));

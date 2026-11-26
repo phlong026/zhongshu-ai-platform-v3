@@ -46,6 +46,12 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
 
     default PageResult<CustomerDO> selectPage(PageParam page, Consumer<LambdaQueryWrapperX<CustomerDO>> visibility,
                                               String keyword, String status, Long ownerUserId, FollowFilter followFilter) {
+        return selectPage(page, pageQuery(visibility, keyword, status, ownerUserId, followFilter,
+                LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))));
+    }
+
+    default LambdaQueryWrapperX<CustomerDO> pageQuery(Consumer<LambdaQueryWrapperX<CustomerDO>> visibility,
+            String keyword, String status, Long ownerUserId, FollowFilter followFilter, LocalDate today) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();
         visibility.accept(query);
         if (keyword != null && !keyword.isBlank()) {
@@ -58,7 +64,6 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         query.eqIfPresent(CustomerDO::getStatus, status);
         query.eqIfPresent(CustomerDO::getOwnerUserId, ownerUserId);
         if (followFilter != null) {
-            LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
             switch (followFilter) {
                 case DUE -> query.and(q -> q.isNull(CustomerDO::getLastFollowAt)
                         .or().le(CustomerDO::getNextVisitDate, today)).orderByAsc(CustomerDO::getNextVisitDate);
@@ -67,7 +72,8 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
                         + " AND f.company_id = fr_customer.company_id AND f.contact_kind = 'VISIT'");
             }
         }
-        return selectPage(page, query.orderByDesc(CustomerDO::getUpdateTime).orderByDesc(CustomerDO::getId));
+        query.orderByDesc(CustomerDO::getUpdateTime).orderByDesc(CustomerDO::getId);
+        return query;
     }
 
     /** 当前可见范围内出现过的负责人（去重），供 Web 负责人筛选下拉。 */

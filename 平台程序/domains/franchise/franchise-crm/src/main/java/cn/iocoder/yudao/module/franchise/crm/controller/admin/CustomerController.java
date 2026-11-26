@@ -72,22 +72,45 @@ public class CustomerController {
                                                       @RequestParam(required = false) String status,
                                                       @RequestParam(required = false) Long ownerUserId,
                                                       @RequestParam(required = false) FollowFilter followFilter) {
-        status = cn.hutool.core.util.StrUtil.trimToNull(status);
+        return success(pageRows(customerService.page(currentPost.require(), page, keyword,
+                customerStatus(status), ownerUserId, followFilter)));
+    }
+
+    public record StablePageRows(java.util.List<CustomerRow> list, long total, String prefix, boolean changed) {}
+
+    @GetMapping(params = "stablePrefix=true")
+    @PreAuthorize("@post.has('franchise:customer:query')")
+    public CommonResult<StablePageRows> stablePage(@Valid PageParam page,
+                                                    @RequestParam(required = false) String keyword,
+                                                    @RequestParam(required = false) String status,
+                                                    @RequestParam(required = false) Long ownerUserId,
+                                                    @RequestParam(required = false) FollowFilter followFilter,
+                                                    @RequestParam(required = false) String previousPrefix) {
+        var result = customerService.stablePage(currentPost.require(), page, keyword,
+                customerStatus(status), ownerUserId, followFilter, previousPrefix);
+        var rows = pageRows(result.page());
+        return success(new StablePageRows(rows.getList(), rows.getTotal(), result.prefix(), result.changed()));
+    }
+
+    private static String customerStatus(String value) {
+        String status = cn.hutool.core.util.StrUtil.trimToNull(value);
         if (status != null
                 && !CustomerDO.STATUS_REGISTERED.equals(status) && !CustomerDO.STATUS_FOLLOWING.equals(status)) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "状态只支持 REGISTERED/FOLLOWING");
         }
-        // record 转换必须走显式工厂：BeanUtils(hutool) 对 record 反射拷贝产出全默认值（P1 客户接入前置补丁 S1-11d）
-        PageResult<CustomerDO> result = customerService.page(currentPost.require(), page, keyword, status, ownerUserId, followFilter);
+        return status;
+    }
+
+    private PageResult<CustomerRow> pageRows(PageResult<CustomerDO> result) {
         var ownerNames = result.getList().isEmpty() ? java.util.Map.<Long, String>of()
                 : systemDirectory.usersByIds(result.getList().stream().map(CustomerDO::getOwnerUserId).distinct().toList())
                         .stream().collect(java.util.stream.Collectors.toMap(
                                 SystemDirectory.UserBrief::userId, SystemDirectory.UserBrief::name));
-        return success(new PageResult<>(result.getList().stream().map(c -> new CustomerRow(
+        return new PageResult<>(result.getList().stream().map(c -> new CustomerRow(
                 c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(), c.getProvince(),
                 c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                 ownerNames.getOrDefault(c.getOwnerUserId(), ""), c.getNextVisitDate(), c.getLastFollowAt(),
-                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus(),c.getWorkflow())).toList(), result.getTotal()));
+                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus(),c.getWorkflow())).toList(), result.getTotal());
     }
 
     @GetMapping("/owner-options")
