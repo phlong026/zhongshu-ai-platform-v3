@@ -183,7 +183,8 @@ public class EngCollectionService {
         payload.put("stage", stage);
         payload.put("amountCents", amount);
         payload.put("transactionNo", transactionNo);
-        payload.put("occurredAt", date.toString());
+        // Keep an omitted input stable across midnight. Only the posted receipt needs the default date.
+        payload.put("occurredAt", cmd.occurredAt() == null ? null : cmd.occurredAt().toString());
         payload.put("fileAssetId", cmd.fileAssetId());
 
         var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload);
