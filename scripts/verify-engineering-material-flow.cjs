@@ -76,6 +76,8 @@ test('工程原单可领用、退料、查看待结算和进入原收货质检�
   const read = await open('finance');
   assert.equal(read.page.data.editable,false);
   await read.page.submitMovement(); assert.equal(read.calls.length,0);
+  read.row.availableQuantity=0;read.row.allocationShortfallQuantity=0.125;await read.page.load();
+  assert.match(read.text(), /已登记去向超出合格实收 0\.125吨/);
 });
 
 test('退料仅登记原材料去向，补发实收绑定待补原行及凭据', async () => {

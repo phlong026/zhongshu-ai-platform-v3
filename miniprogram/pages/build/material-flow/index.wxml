@@ -10,6 +10,7 @@
       <view class="eng-section">
         <view class="eng-heading"><text>{{line.name}} {{line.spec}}</text></view>
         <view class="flow-totals"><view><text>合格实收</text><text>{{line.received}}{{line.unit}}</text></view><view><text>已领用</text><text>{{line.consumedQuantity}}{{line.unit}}</text></view><view><text>可分配</text><text>{{line.availableQuantity}}{{line.unit}}</text></view></view>
+        <text wx:if="{{line.allocationShortfallQuantity>0}}" class="flow-error">已登记去向超出合格实收 {{line.allocationShortfallQuantity}}{{line.unit}}，请核对原收货和去向记录。</text>
       </view>
       <view wx:if="{{uncertain}}" class="eng-section"><text>上次提交的结果待核对</text><button wx:if="{{editable}}" class="eng-outline" bindtap="retry" disabled="{{saving}}" loading="{{saving}}">重试原请求</button></view>
       <view wx:if="{{editable&&!uncertain}}" class="eng-section">
