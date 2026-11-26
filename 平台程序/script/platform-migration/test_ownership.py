@@ -153,6 +153,30 @@ class OwnershipTest(unittest.TestCase):
             with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_SET_CHANGED"):
                 ownership.validate_manifest(manifest, root)
 
+    def test_operations_migrations_ship_with_b_and_legacy_server_migrations_do_not(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            suffix = "src/main/resources/db/migration/pf/V1__operations.sql"
+            shipped = root / "yudao-platform-operations" / suffix
+            legacy = root / "yudao-server" / suffix
+            for sql in (shipped, legacy):
+                sql.parent.mkdir(parents=True)
+                sql.write_text("CREATE TABLE operations_job (id BIGINT);\n")
+            self.assertEqual(ownership.migration_paths(root), [shipped])
+            with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_PATH_INVALID"):
+                ownership.valid_migration_path(legacy.relative_to(root).as_posix(), "pf")
+            relative = shipped.relative_to(root).as_posix()
+            manifest = {"format": ownership.MANIFEST_FORMAT, "locations": list(ownership.LOCATIONS),
+                        "migrations": [{"path": relative, "location": "pf", "version": "1",
+                                        "source_sha256": ownership.digest(shipped)}],
+                        "tables": [{"name": "operations_job", "owner": "B", "strategy": "filtered-copy",
+                                    "source_migrations": [relative], "selector": "fixture"}],
+                        "sequences": []}
+            ownership.validate_manifest(manifest, root)
+            shipped.with_name("V2__later.sql").write_text("SELECT 1;\n")
+            with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_SET_CHANGED"):
+                ownership.validate_manifest(manifest, root)
+
     def test_unlisted_identity_sequence_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
