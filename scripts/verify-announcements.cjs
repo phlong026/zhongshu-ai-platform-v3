@@ -54,7 +54,8 @@ test('业务、老板、工程和总部财务的我的共用独立公告入口�
     assert.ok(control, role + ' has an announcement entry');
     const profileText = text(env.render(page));
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('学习培训'));
-    assert.ok(profileText.indexOf('帮助与反馈') < profileText.indexOf('学习培训'));
+    assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('消息'));
+    assert.ok(profileText.indexOf('学习培训') < profileText.indexOf('帮助与反馈'));
     await control.tap(); await flush();
     const list = getCurrentPages().at(-1);
     assert.equal(list.route, LIST.slice(1));
@@ -76,6 +77,33 @@ test('游客不显示内部公告入口，列表和详情深链接转登录且�
     assert.equal(login.searchParams.get('return'), route);
   }
   assert.equal(env.reads().length, 0);
+});
+
+test('我的页只显示当前品牌获准看到的公告，忽略同岗位旧品牌回包', async () => {
+  const env = await setup();
+  const pending = [];
+  env.handler = (url, request) => {
+    if (url !== API) return undefined;
+    assert.deepEqual(request.data, { pageNo: 1, pageSize: 1 });
+    pending.push(request);
+    return { pending: true };
+  };
+  const page = await env.open('/pages/profile/index', 'reLaunch');
+  reply(pending[0], { list: [announcement(LONG_ID, { title: '原公告' })], total: 1 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '原公告');
+  page.onShow();
+  auth.savePosts([{ ...env.post, brandId: 'brand-2' }]);
+  page.onShow();
+  assert.equal(page.data.announcementTitle, '');
+  reply(pending[2], { list: [announcement(LONG_ID, { title: '新品牌公告' })], total: 1 });
+  reply(pending[1], { list: [announcement(LONG_ID, { title: '旧品牌迟到回包' })], total: 1 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '新品牌公告');
+  page.onShow();
+  reply(pending[3], { list: [], total: 0 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '');
 });
 
 test('缺失或缓存不匹配的当前岗位不发起公告请求', async () => {
