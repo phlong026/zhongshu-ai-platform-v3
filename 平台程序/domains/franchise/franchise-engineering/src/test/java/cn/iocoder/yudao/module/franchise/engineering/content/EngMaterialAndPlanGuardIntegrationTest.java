@@ -862,6 +862,53 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void materialMovementsCanUseTheExactAcceptedBalanceWithoutChargingTheProjectAgain() {
+        as(engineer, () -> materialsService.terms(engineer, supplyId,
+                new EngMaterialService.TermsCommand("钢材供应商", BigDecimal.TEN, BigDecimal.ZERO, null, null, "采购合同"), idem()));
+        insertArrivalForCorrection("2.002");
+        as(engineer, () -> materialsService.movement(engineer, projectId,
+                new EngMaterialService.MovementCommand(materialId, "DAMAGE", new BigDecimal("1.001"), "破损", null), idem()));
+
+        var excess = new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("1.002"), "现场领用", 41L);
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.movement(engineer, projectId, excess, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("可分配材料不足");
+        var remainder = new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("1.001"), "现场领用", 41L);
+        String key = idem();
+        as(engineer, () -> materialsService.movement(engineer, projectId, remainder, key));
+        as(engineer, () -> materialsService.movement(engineer, projectId, remainder, key));
+        var smallest = new EngMaterialService.MovementCommand(materialId, "RETURN", new BigDecimal("0.001"), "余料退回", null);
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.movement(engineer, projectId, smallest, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("可分配材料不足");
+        assertThat(jdbc.queryForList("SELECT quantity FROM fr_eng_material_movement WHERE material_id=? ORDER BY id",
+                BigDecimal.class, materialId)).hasSize(2).allSatisfy(q -> assertThat(q).isEqualByComparingTo("1.001"));
+        assertThat(jdbc.queryForList("SELECT total_cents FROM fr_fin_payable WHERE project_id=?", Long.class, projectId))
+                .containsExactly(10000L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE project_id=?", Long.class, projectId)).isZero();
+    }
+
+    @Test
+    void arrivalCorrectionPreservesAllocatedQuantityUsingOnlyAcceptedReceipts() {
+        long receipt = insertArrivalForCorrection("4.002");
+        insertArrivalForCorrection("0.999");
+        long rejected = insertArrivalForCorrection("1.500");
+        jdbc.update("UPDATE fr_eng_supply_receipt SET quality='REJECTED' WHERE id=?", rejected);
+        as(engineer, () -> materialsService.movement(engineer, projectId,
+                new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("3.500"), "已领用", 41L), idem()));
+
+        var tooLow = new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2.500"), "核对送货单");
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receipt, tooLow, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("已登记去向");
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id=?", BigDecimal.class, receipt))
+                .isEqualByComparingTo("4.002");
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receipt,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2.501"), "合格实到与领用相等"), idem()));
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, rejected,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("0.500"), "复核未通过质检的数量"), idem()));
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id=?", BigDecimal.class, rejected))
+                .isEqualByComparingTo("0.500");
+    }
+
+    @Test
     void arrivalCorrectionAcceptsExactPlanAndReplaysWithoutAnotherCorrection() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
         jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);
