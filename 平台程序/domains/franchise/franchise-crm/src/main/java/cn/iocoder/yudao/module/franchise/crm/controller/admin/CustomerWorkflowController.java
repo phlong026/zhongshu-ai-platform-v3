@@ -66,6 +66,13 @@ public class CustomerWorkflowController {
         return success(workflows.reopen(posts.require(), id, step, body, key));
     }
 
+    @PostMapping("/{id}/workflow/steps/SITE_VISIT/skip")
+    @PreAuthorize("@post.has('franchise:customer:write')")
+    public CommonResult<View> skipVisit(@PathVariable long id, @RequestBody SkipVisitCommand body,
+                                        @RequestHeader("Idempotency-Key") String key) {
+        return success(workflows.skipVisit(posts.require(), id, body, key));
+    }
+
     @PostMapping("/{id}/workflow/status")
     @PreAuthorize("@post.has('franchise:customer:write')")
     public CommonResult<View> status(@PathVariable long id, @RequestBody StatusCommand body,

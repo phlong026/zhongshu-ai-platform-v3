@@ -28,6 +28,7 @@ public final class CustomerWorkflowModel {
     public record SaveCommand(long revision, LocalDate occurredOn, String note,
                               Map<String, Object> fields, List<Attachment> attachments) { }
     public record RevisionCommand(long revision) { }
+    public record SkipVisitCommand(long revision, String reason) { }
     public record ReopenCommand(long revision, String reason) { }
     public record StatusCommand(long revision, String status, String reason) { }
 

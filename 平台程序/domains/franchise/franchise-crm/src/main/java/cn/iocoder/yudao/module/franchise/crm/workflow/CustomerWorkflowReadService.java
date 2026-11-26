@@ -150,6 +150,12 @@ public class CustomerWorkflowReadService {
             for (Step code : Step.values()) {
                 if (code.manual()) {
                     StepRow row = rows.get(code.name());
+                    if (code == Step.SITE_VISIT && row != null && "COMPLETED".equals(row.status()) && row.fields().get("visitSkip") instanceof Map<?,?> skip) {
+                        steps.add(new StepView(code.name(), code.label, code.ordinal() + 1, "SKIPPED", row.revision(),
+                                null, String.valueOf(skip.get("reason")), Map.of("visitSkip", skip), List.of(), row.completedAt(),
+                                false, false, writable && active, List.of(), "MANUAL"));
+                        continue;
+                    }
                     List<String> errors = CustomerWorkflowRules.missing(code, row == null ? null : row.occurredOn(),
                             row == null ? Map.of() : row.fields(), row == null ? List.of() : row.attachments());
                     boolean completed = row != null && "COMPLETED".equals(row.status());
@@ -169,7 +175,7 @@ public class CustomerWorkflowReadService {
                             false, false, false, errors, code == Step.CONTRACT ? "CONTRACT" : "ENGINEERING"));
                 }
             }
-            List<StepView> remaining = steps.stream().filter(step -> !"COMPLETED".equals(step.status())).toList();
+            List<StepView> remaining = steps.stream().filter(step -> !"COMPLETED".equals(step.status()) && !"SKIPPED".equals(step.status())).toList();
             int completed = 8 - remaining.size();
             String status = !active ? workflow.status() : completed == 8 ? "COMPLETED" : "ACTIVE";
             var summary = new Summary(workflow == null ? null : Long.toString(workflow.id()), completed, 8,
@@ -203,8 +209,16 @@ public class CustomerWorkflowReadService {
         Map<Long, String> names = new LinkedHashMap<>();
         directory.usersByIds(records.stream().map(record -> Long.parseLong(record.actorUserId())).distinct().toList())
                 .forEach(user -> names.put(user.userId(), user.name() == null ? "" : user.name()));
-        return records.stream().map(record -> new RecordView(record.id(), record.stepCode(), record.type(), record.occurredOn(), record.note(),
-                record.createdAt(), record.actorUserId(), names.getOrDefault(Long.parseLong(record.actorUserId()), ""), record.revision(), record.fields(), record.attachments())).toList();
+        return records.stream().map(record -> {
+            String actor = names.getOrDefault(Long.parseLong(record.actorUserId()), "");
+            String type = record.type();
+            if ("SITE_VISIT".equals(record.stepCode()) && "STATUS".equals(type) && record.fields().get("visitSkip") instanceof Map<?,?> skip) {
+                type = "SKIP";
+                if (skip.get("actorName") instanceof String original && !original.isBlank()) actor = original;
+            }
+            return new RecordView(record.id(), record.stepCode(), type, record.occurredOn(), record.note(),
+                    record.createdAt(), record.actorUserId(), actor, record.revision(), record.fields(), record.attachments());
+        }).toList();
     }
 
     private CustomerDO authorizedCustomer(long tenant, long company, long customerId) {

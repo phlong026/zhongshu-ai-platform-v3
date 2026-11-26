@@ -364,6 +364,90 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(resumed.events()).extracting(RecordView::type).containsExactly("STATUS", "STATUS", "SAVE");
     }
 
+    @Test
+    void skippingVisitCountsProgressAndPreservesBothDraftAndSeparateAudit() {
+        long id = customer();
+        String code = Step.SITE_VISIT.name();
+        var draft = new SaveCommand(0, today(), "之前记下的草稿", Map.of("siteName", "备选现场", "feedback", "先核对地址"),
+                List.of(new Attachment("9001", "带看草稿.pdf")));
+        as(sales, () -> workflow.save(sales, id, code, draft, "draft"));
+        var command = new SkipVisitCommand(1, "客户决定此次免带看");
+        var skipped = as(sales, () -> workflow.skipVisit(sales, id, command, "skip"));
+        var step = skipped.steps().get(3);
+        assertThat(step.status()).isEqualTo("SKIPPED");
+        assertThat(step.note()).isEqualTo(command.reason());
+        assertThat(step.completedAt()).isNotNull();
+        assertThat(step.occurredOn()).isNull();
+        assertThat(step.attachments()).isEmpty();
+        assertThat(step.fields()).containsOnlyKeys("visitSkip");
+        assertThat(step.canWrite()).isFalse();
+        assertThat(step.canReopen()).isTrue();
+        assertThat(skipped.completedCount()).isOne();
+        assertThat(skipped.progressPercent()).isEqualByComparingTo("12.5");
+        assertThat(as(sales, () -> workflow.summaries(sales, List.of(id))).get(id).completedCount()).isOne();
+        var headquarters = reads.readAuthorized(tenant, store.orgId(), id).steps().get(3);
+        assertThat(headquarters.status()).isEqualTo("SKIPPED");
+        assertThat(headquarters.canReopen()).isFalse();
+        var history = reads.recordsAuthorized(tenant, store.orgId(), id, 1, 20).getList();
+        assertThat(history).extracting(RecordView::type).containsExactly("SKIP", "SAVE");
+        assertThat(history.get(0).actorUserId()).isEqualTo(Long.toString(sales.userId()));
+        assertThat(history.get(0).createdAt()).isNotNull();
+        assertThat(history.get(0).fields()).isEqualTo(step.fields());
+        assertThat(as(sales, () -> workflow.skipVisit(sales, id, command, "skip"))).isEqualTo(skipped);
+        assertThatThrownBy(() -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(1, "另一个原因"), "skip"))).isInstanceOf(ServiceException.class);
+        failure(409, () -> as(sales, () -> workflow.complete(sales, id, code, 2, "legacy-complete")));
+        var reopened = as(sales, () -> workflow.reopen(sales, id, code, new ReopenCommand(2, "客户重新预约"), "reopen"));
+        assertThat(reopened.completedCount()).isZero();
+        assertThat(reopened.steps().get(3).fields()).isEqualTo(draft.fields());
+        assertThat(reopened.steps().get(3).note()).isEqualTo(draft.note());
+        assertThat(reopened.steps().get(3).attachments()).isEqualTo(draft.attachments());
+        var visited = as(sales, () -> workflow.complete(sales, id, code, 3, "actual"));
+        assertThat(visited.steps().get(3).status()).isEqualTo("COMPLETED");
+        assertThat(visited.events()).extracting(RecordView::type).containsExactly("COMPLETE", "REOPEN", "SKIP", "SAVE");
+        failure(409, () -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(4, "已实际带看"), "cannot-replace")));
+    }
+
+    @Test
+    void onlyCurrentWriterCanSkipAnActiveVisitWithExplicitReason() {
+        long id = customer();
+        var requested = new SkipVisitCommand(0, "客户已确认免带看");
+        failure(400, () -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(0, "  "), "empty-reason")));
+        failure(400, () -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(0, "长".repeat(1001)), "length")));
+        for (var reader : List.of(boss, otherSales, colleague)) {
+            assertThatThrownBy(() -> as(reader, () -> workflow.skipVisit(reader, id, requested, "reader"))).isInstanceOf(ServiceException.class);
+        }
+        failure(400, () -> as(sales, () -> workflow.save(sales, id, "SITE_VISIT",
+                new SaveCommand(0, null, "", Map.of("visitSkip", Map.of("reason","伪造")), List.of()), "normal-save")));
+        assertThat(count("fr_customer_workflow", id)).isZero();
+        as(sales, () -> workflow.save(sales, id, "INVITATION", invitation(0), "first"));
+        as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "PAUSED", "暂缓"), "pause"));
+        failure(409, () -> as(sales, () -> workflow.skipVisit(sales, id, new SkipVisitCommand(2, "免带看"), "paused")));
+        assertThat(as(sales, () -> workflow.get(sales, id)).completedCount()).isZero();
+    }
+
+    @Test
+    void concurrentFirstSkipWritesOneProgressCreditAndOneOriginalEvent() throws Exception {
+        long id = customer();
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<View> request = () -> {
+                TenantContextHolder.setTenantId(tenant);
+                try {
+                    assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                    return workflow.skipVisit(sales, id, new SkipVisitCommand(0, "客户已看本村同类工程"), "same-skip");
+                } finally { TenantContextHolder.clear(); }
+            };
+            var first = executor.submit(request);
+            var second = executor.submit(request);
+            start.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS).completedCount()).isOne();
+            assertThat(second.get(10, TimeUnit.SECONDS).revision()).isOne();
+        } finally { executor.shutdownNow(); }
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList()).singleElement()
+                .satisfies(e -> assertThat(e.type()).isEqualTo("SKIP"));
+    }
+
     private long customer() { return as(sales, () -> capture(sales)); }
     private long capture(PostSnapshot post) {
         return leads.capture(post, new LeadService.CaptureCommand("陈先生", Long.toString(PHONES.incrementAndGet()), "建房咨询", "到店"), null).customerId();
