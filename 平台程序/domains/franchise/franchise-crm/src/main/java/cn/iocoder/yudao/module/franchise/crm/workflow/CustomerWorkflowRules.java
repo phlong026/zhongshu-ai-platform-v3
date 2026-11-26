@@ -32,8 +32,13 @@ public final class CustomerWorkflowRules {
     private static final Set<String> QUOTE_SNAPSHOT_FIELDS = Set.of("amountCents", "scope", "versionLabel");
 
     public static SaveCommand normalize(Step step, SaveCommand input) {
+        SaveCommand normalized = normalizeForReplay(step, input);
+        validateSaveDates(normalized, today());
+        return normalized;
+    }
+
+    static SaveCommand normalizeForReplay(Step step, SaveCommand input) {
         if (!step.manual() || input == null || input.revision() < 0) throw invalid("跟进记录参数无效");
-        if (input.occurredOn() != null && input.occurredOn().isAfter(today())) throw invalid("发生日期不能晚于今天");
         Map<String, Object> fields = new TreeMap<>();
         Map<String, Object> source = input.fields() == null ? Map.of() : input.fields();
         boolean linkedQuote = step == Step.QUOTATION && present(source, "quoteId");
@@ -86,7 +91,6 @@ public final class CustomerWorkflowRules {
             try { fields.put("nextContactOn", LocalDate.parse(String.valueOf(fields.get("nextContactOn"))).toString()); }
             catch (RuntimeException error) { throw invalid("下次联系日期格式无效"); }
         }
-        if (input.nextFollowOn() != null && input.nextFollowOn().isBefore(today())) throw invalid("下次跟进日期不能早于今天");
         return new SaveCommand(input.revision(), input.occurredOn(), text(input.note(), 4000),
                 new LinkedHashMap<>(fields), attachments(input.attachments()), input.nextFollowOn());
     }
@@ -183,6 +187,11 @@ public final class CustomerWorkflowRules {
     private static void positive(List<String> errors, Map<String, Object> fields, String key, String label) {
         if (!present(fields, key) || decimal(fields.get(key), key).signum() <= 0) errors.add("请填写有效的" + label);
     }
+    static void validateSaveDates(SaveCommand input, LocalDate today) {
+        if (input.occurredOn() != null && input.occurredOn().isAfter(today)) throw invalid("发生日期不能晚于今天");
+        if (input.nextFollowOn() != null && input.nextFollowOn().isBefore(today)) throw invalid("下次跟进日期不能早于今天");
+    }
+
     static LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Shanghai")); }
     public static ServiceException invalid(String message) { return new ServiceException(400, message); }
 }
