@@ -123,6 +123,25 @@ test('旧页面发生签署或签前保存超时，丢弃未确认的调整并�
   }
 });
 
+test('回页重新查证失败时旧表单不可提交，作废或未知状态均只读', async () => {
+  const h = harness(); await h.open(); h.edit();
+  h.page.onHide();
+  const pending = deferred(); h.overrides.get = () => pending.promise; const reopening = h.open();
+  await h.page.submit(); assert.equal(h.page.data.ready, false);
+  pending.reject({ code: -1, msg: '暂时无法读取合同' }); await reopening;
+  h.edit(); await h.page.submit();
+  assert.equal(h.callsFor('save').length, 0);
+  assert.equal(h.nodes().some(n => n.attrs?.bindtap === 'submit'), false);
+  delete h.overrides.get;
+  for (const status of ['VOIDED', 'COMPLETED', null]) {
+    h.state.contract.status = status;
+    await h.open(); h.edit(); await h.page.submit();
+    assert.equal(h.page.data.context.canEdit, false); assert.equal(h.page.data.dirty, false);
+    assert.equal(h.nodes().some(n => n.attrs?.bindtap === 'startEdit'), false);
+    assert.equal(h.callsFor('save').length, 0);
+  }
+});
+
 test('创建合同按任意期数提交统一比例，保留需求引用且不发送固定三期字段', async () => {
   const h = harness({ create: true, role: 'sales' }); await h.open();
   h.page.input(event('total', '100')); h.page.chooseMode(tap({ mode: 'RATIO' }));

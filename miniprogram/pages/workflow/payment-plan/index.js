@@ -24,7 +24,10 @@ Page({
     this.setData({ today: require('../../../utils/finance-date').day(Date.now()) });
   },
   onShow() { this._visible = true; return this.load(); },
-  onHide() { this._visible = false; this._read = null; this._historyRead = null; this.setData({ historyLoading: false }); },
+  onHide() {
+    this._visible = false; this._read = null; this._historyRead = null;
+    this.setData({ historyLoading: false, ...(this.contractId ? { ready: false } : {}) });
+  },
   onUnload() { this._disposed = true; this.onHide(); this._pending = null; },
   alive(savedScope = this._scope) {
     const post = auth.currentApiPost();
@@ -98,7 +101,7 @@ Page({
     } catch (error) {
       if (!current()) return;
       if (revoked(error)) this.clear(errorText(error));
-      else this.setData({ loading: false, refreshing: false, error: errorText(error) });
+      else this.setData({ loading: false, refreshing: false, ...(this.contractId ? { ready: false } : {}), error: errorText(error) });
     }
   },
   displayContract(context, keep) {
@@ -109,11 +112,11 @@ Page({
       editing: keep && this.data.editing, form, summary: model.preview(form), dirty: keep,
       uncertain: !!this._pending && this.data.uncertain, conflict: keep && this._baseRevision !== context.revision });
   },
-  editable() { return this.alive() && this.data.editing && (this.data.creating || this.data.context?.canEdit)
+  editable() { return this._visible && this.data.ready && this.alive() && this.data.editing && (this.data.creating || this.data.context?.canEdit)
     && !this.data.busy && !this.data.uncertain && !this.data.conflict; },
   setForm(form) { this.setData({ form, summary: model.preview(form), dirty: true, error: '' }); },
   startEdit() {
-    if (!this.alive() || !this.data.context?.canEdit || this.data.busy || this.data.uncertain) return;
+    if (!this._visible || !this.data.ready || !this.alive() || !this.data.context?.canEdit || this.data.busy || this.data.uncertain) return;
     this._baseRevision = this.data.context.revision;
     const form = clone(this.data.context.form);
     this.setData({ editing: true, showHistory: false, dirty: false, conflict: false, form, summary: model.preview(form), error: '' });
