@@ -318,19 +318,23 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void collectionWithoutDateReplaysAfterTheServerDayChanges() {
+    void collectionWithoutDateReplaysAfterTheBusinessDayChanges() {
         String key = idem();
         String transactionNo = txn();
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+        var zone = java.time.ZoneId.of("Asia/Shanghai");
+        LocalDate yesterday = LocalDate.now(zone).minusDays(1);
+        var firstClock = java.time.Clock.fixed(yesterday.atTime(23, 55).atZone(zone).toInstant(), java.time.ZoneOffset.UTC);
+        var retryClock = java.time.Clock.fixed(yesterday.plusDays(1).atTime(0, 5).atZone(zone).toInstant(), java.time.ZoneOffset.UTC);
         var command = new EngCollectionService.CollectCommand(
                 SIGN_AFTER, new java.math.BigDecimal("100.00"), transactionNo, null, 9002L);
         Map<String, Object> first;
-        try (var dates = org.mockito.Mockito.mockStatic(LocalDate.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            dates.when(LocalDate::now).thenReturn(yesterday);
+        Map<String, Object> replay;
+        try (var clock = org.mockito.Mockito.mockStatic(java.time.Clock.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            clock.when(java.time.Clock::systemUTC).thenReturn(firstClock);
             first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+            clock.when(java.time.Clock::systemUTC).thenReturn(retryClock);
+            replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
         }
-
-        var replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
         assertThat(replay.get("replayed")).isEqualTo(true);
         assertThat(replay.get("collectionId")).isEqualTo(first.get("collectionId"));
         assertThat(replay.get("receiptId")).isEqualTo(first.get("receiptId"));

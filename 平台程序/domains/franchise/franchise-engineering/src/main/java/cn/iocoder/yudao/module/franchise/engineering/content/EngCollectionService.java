@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,6 +36,8 @@ import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngin
  */
 @Service
 public class EngCollectionService {
+
+    private static final ZoneId COLLECTION_BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     public static final String AGGREGATE = "fr-eng-project";
 
@@ -65,6 +69,16 @@ public class EngCollectionService {
         this.unifiedStages = unifiedStages;
         this.saleContracts = saleContracts;
         this.planService = planService;
+    }
+
+    /** Use the same business day for engineering declarations and collections regardless of server time zone. */
+    static LocalDate resolveCollectionDate(LocalDate requestedDate, Clock clock) {
+        LocalDate today = LocalDate.now(clock.withZone(COLLECTION_BUSINESS_ZONE));
+        if (requestedDate == null) return today;
+        if (requestedDate.isAfter(today)) {
+            throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
+        }
+        return requestedDate;
     }
 
     public record CollectCommand(String stage, BigDecimal amount, String transactionNo,
@@ -189,11 +203,7 @@ public class EngCollectionService {
         if (StrUtil.isBlank(transactionNo) || cmd.fileAssetId() == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写收款流水并留存凭据");
         }
-        LocalDate today = LocalDate.now();
-        LocalDate date = cmd.occurredAt() == null ? today : cmd.occurredAt();
-        if (date.isAfter(today)) {
-            throw exception(ENGINEERING_INPUT_INVALID, "收款日期不能晚于今天");
-        }
+        LocalDate date = resolveCollectionDate(cmd.occurredAt(), Clock.systemUTC());
         long amount = EngGuard.requirePositiveCents(cmd.amount());
 
         Map<String, Object> legacyPayload = new LinkedHashMap<>();
@@ -226,7 +236,8 @@ public class EngCollectionService {
             Map<String, Object> recordedPayload = new LinkedHashMap<>(payload);
             recordedPayload.remove("dateProvided");
             if (cmd.occurredAt() == null) {
-                // The former default was the server's posting day. A backdated explicit date could not be that default.
+                // The legacy fingerprint used the server's posting day, not the new business zone.
+                // A backdated explicit date could not be that former default.
                 var day = event.getOccurredAt().atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate();
                 recordedPayload.put("occurredAt", day.toString());
             }
