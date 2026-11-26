@@ -1,0 +1,42 @@
+.journey-card{margin-bottom:24rpx;padding:24rpx 24rpx 18rpx;background:linear-gradient(180deg,#fff 65%,#fffdfa);border:1rpx solid #ede4d8;border-radius:28rpx;box-shadow:0 8rpx 22rpx rgba(86,57,32,.055)}
+.journey-client,.journey-labels,.journey-bottom{display:flex;align-items:center;justify-content:space-between;gap:12rpx}
+.journey-client>view{display:flex;align-items:center;gap:13rpx;min-width:0}
+.journey-person{max-width:290rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:38rpx;font-weight:650;color:#30271f;line-height:48rpx}
+.journey-state{white-space:nowrap;border-radius:30rpx;background:#f4ede3;color:#785b40;padding:5rpx 12rpx;font-size:20rpx;line-height:28rpx}
+.journey-link{flex:none;display:flex;align-items:center;gap:8rpx;font-size:24rpx;color:#80512f;line-height:38rpx;padding:2rpx 0}
+.journey-chevron{font-size:33rpx;line-height:36rpx;color:#a8805b}
+.journey-divider{height:1rpx;background:#f1e9e0;margin:18rpx 0 12rpx}
+.journey-label{font-size:24rpx;font-weight:550;color:#635244}
+.journey-score{display:flex;align-items:baseline;line-height:44rpx;color:#81532f;white-space:nowrap}
+.journey-number{font-size:35rpx;font-weight:650;font-variant-numeric:tabular-nums}
+.journey-fraction{font-size:25rpx;color:#91765e}
+.journey-score-divider{display:block;width:1rpx;height:23rpx;align-self:center;background:#eaddcf;margin:0 12rpx}
+.journey-percent{font-size:25rpx;font-weight:600;font-variant-numeric:tabular-nums}
+.journey-rail{display:flex;align-items:center;margin:13rpx 0 12rpx;min-height:64rpx}
+.journey-node{display:flex;justify-content:center;align-items:center;flex:none;width:43rpx;height:43rpx;border:1rpx solid #e2d4c5;border-radius:999rpx;background:#fcf8f3;color:#92795e;font-size:20rpx;font-weight:600;line-height:41rpx}
+.journey-node-done{border-color:#e5d3be;background:#efe1d0;color:#815436;font-size:24rpx}
+.journey-node-active{width:auto;gap:8rpx;height:56rpx;padding:0 13rpx 0 9rpx;background:#89512a;color:#fff;box-shadow:0 4rpx 10rpx rgba(116,69,37,.20);border:0}
+.journey-node-active .journey-point{display:flex;align-items:center;justify-content:center;width:35rpx;height:35rpx;line-height:35rpx;font-size:18rpx;border-radius:999rpx;background:rgba(255,255,255,.19)}
+.journey-active-name{font-size:23rpx;font-weight:600;white-space:nowrap;line-height:34rpx}
+.journey-connector{flex:1;min-width:6rpx;height:2rpx;background:#e9ddd0}
+.journey-connector-done{background:#c8a484}
+.journey-bottom{min-height:39rpx}
+.journey-next{display:flex;align-items:center;gap:9rpx;line-height:32rpx;color:#8d7864;font-size:23rpx}
+.journey-next>text+text{color:#664b37;font-weight:550}
+.journey-stage-heading{margin-bottom:13rpx}
+.journey-stage-heading>text{font-size:31rpx;font-weight:650;letter-spacing:.25rpx;color:#37291e}
+.journey-dim{position:fixed;inset:0;z-index:110;background:rgba(40,30,24,.41);display:flex;align-items:flex-end}
+.journey-sheet{background:#fffdf9;width:100%;padding:22rpx 30rpx calc(22rpx + env(safe-area-inset-bottom));border-radius:34rpx 34rpx 0 0;box-sizing:border-box}
+.journey-sheet-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8rpx;color:#3d2e22;font-size:34rpx;font-weight:650;line-height:52rpx}
+.journey-row{position:relative;display:flex;align-items:center;gap:16rpx;min-height:73rpx;padding:0 16rpx;text-align:left;width:100%;border-radius:15rpx;color:#463226}
+.journey-row-active{background:#f6eadb;color:#673b20}
+.journey-row-line{position:absolute;left:34rpx;top:0;bottom:0;width:2rpx;background:#ebddcd}
+.journey-row-first .journey-row-line{top:50%}
+.journey-row-last .journey-row-line{bottom:50%}
+.journey-row-num{position:relative;flex:none;display:flex;justify-content:center;align-items:center;width:38rpx;height:38rpx;line-height:38rpx;border:1rpx solid #e4d7c8;border-radius:999rpx;background:#fffaf4;color:#896b4d;font-size:20rpx}
+.journey-row-active .journey-row-num{background:#89512a;border-color:#89512a;color:white}
+.journey-row-done{background:#efe1d0;color:#815436}
+.journey-row-name{flex:1;font-size:27rpx;font-weight:550}
+.journey-row-status{color:#897763;font-size:23rpx;white-space:nowrap}
+.journey-sheet-list{max-height:65vh}
+
