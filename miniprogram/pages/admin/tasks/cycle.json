@@ -1,0 +1,4 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": { "owner-header": "../owner-header/index" }
+}

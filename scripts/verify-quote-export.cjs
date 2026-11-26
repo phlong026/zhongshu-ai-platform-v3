@@ -32,7 +32,7 @@ assert(js.includes('分项超出打印模板容量'), '打印模板容量上限�
 assert(js.includes('exportImage') && js.includes('exportPdf') && js.includes('sharePdf'), '图片/PDF/分享导出动作保留');
 assert(js.includes('quote-canvas'), 'canvas 渲染管线在位');
 assert(wxml.includes('quote-canvas') && wxml.includes('exportImage') && wxml.includes('exportPdf'), 'wxml 导出入口绑定在位');
-assert(wxml.includes('刷新报价单预览'), '刷新预览按钮保留');
+assert(/bindtap="generate"[^>]*>刷新预览<\/button>/.test(wxml), '刷新预览按钮保持可操作');
 assert(!wxml.includes('补充表格信息'), '本地表单编辑区（补充表格信息）不得复活');
 
 // 4) 入口与 sheet 契约

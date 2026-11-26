@@ -333,8 +333,62 @@ test('真实登录完成流程等待有效岗位，再恢复公告列表及UUID/
   }
 });
 
+test('业务员和门店老板核实任职后回到所选积分页，进入充值页面只读取套餐', async () => {
+  const wallet = '/pages/wallet/company-recharge/index';
+  const profile = '/pages/profile/index';
+  for (const role of ['sales', 'boss']) {
+    for (const destination of [wallet, profile]) {
+      const env = await setup(null);
+      env.post.roleCode = role;
+      let postsRequest;
+      env.handler = (url, request) => {
+        if (url === '/platform/posts/mine') { postsRequest = request; return { pending: true }; }
+        if (url === '/franchise/company-points/recharge/catalog') return { companyName: '测试门店', enabled: true, plans: [] };
+      };
+      const login = destination === wallet ? await env.open('/pages/wallet/packages/index', 'reLaunch')
+        : await env.open('/pages/account/index?view=login&return=' + encodeURIComponent(profile), 'reLaunch');
+      assert.equal(login.route, 'pages/account/index');
+      assert.equal(decodeURIComponent(login.options.return), destination);
+      const generation = login.cancelLoginFlow({ clearSensitive: true });
+      login.finishAccountLogin({ accessToken: 'fixture-token', userId: env.post.userId, preferredPostId: env.post.postId }, generation);
+      await flush();
+      assert.equal(getCurrentPages().at(-1), login);
+      const walletReads = () => env.requests.filter(item => item.url === '/franchise/company-points/recharge/catalog');
+      assert.equal(walletReads().length, 0);
+      const resumed = [];
+      for (const method of ['reLaunch', 'switchTab']) {
+        const original = wx[method];
+        wx[method] = options => { resumed.push({ method, url: options.url }); return original(options); };
+      }
+      reply(postsRequest, [env.post]); await flush();
+      const page = getCurrentPages().at(-1);
+      try {
+        assert.equal('/' + page.route, destination, role);
+        assert.ok(resumed.some(item => item.url === destination && item.method === (destination === profile ? 'switchTab' : 'reLaunch')));
+        if (destination === wallet) assert.equal(walletReads()[0].request.header['X-Post-Id'], env.post.postId);
+        assert.ok(!env.requests.some(item => item.url.startsWith('/franchise/company-points/recharge/') && item.request.method === 'POST'));
+      } finally { page.onHide?.(); }
+    }
+  }
+});
+
+test('没有有效任职不能从登录回到充值页或我的积分', async () => {
+  for (const route of ['/pages/profile/index', '/pages/wallet/company-recharge/index']) {
+    const env = await setup(null);
+    env.handler = url => url === '/platform/posts/mine' ? [] : undefined;
+    const login = await env.open('/pages/account/index?view=login&return=' + encodeURIComponent(route), 'reLaunch');
+    const generation = login.cancelLoginFlow({ clearSensitive: true });
+    login.finishAccountLogin({ accessToken: 'fixture-token', userId: env.post.userId }, generation); await flush();
+    assert.equal(getCurrentPages().at(-1), login);
+    assert.match(login.data.error, /暂无有效任职/);
+    assert.equal(http.token(), '');
+    assert.ok(!env.requests.some(item => item.url.startsWith('/franchise/company-points/')));
+  }
+});
+
 test('登录return白名单拒绝外链、其他模块、路径穿越、无效ID及额外参数', async () => {
   for (const destination of ['https://example.test/', '//example.test/', '/pages/workflow/index?view=customer',
+    '/pages/profile/index?next=other', '/pages/wallet/company-recharge/index?plan=1', '/pages/wallet/packages/index',
     LIST + '?other=1', DETAIL + '?id=../profile', DETAIL + '?id=invalid', DETAIL + '?id=' + UUID + '&extra=1']) {
     const env = await setup(null);
     env.post = { ...env.post, roleCode: 'hq-admin', orgType: 'headquarters' };

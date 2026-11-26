@@ -5,7 +5,7 @@
 <view wx:if="{{growthStats}}" class="section">
   <view class="section-heading"><text class="section-title">内容获客总览</text></view>
   <text class="row">门店已发布 {{growthStats.publishedCount}} 条 · 有效咨询 {{growthStats.consultations}} 次</text>
-  <text class="row">关联客户 {{growthStats.linkedCustomers}} 人 · 已签约 {{growthStats.signedCustomers}} 人 · 有净实收 {{growthStats.netPaidCustomers}} 人</text>
+  <text class="row">关联客户 {{growthStats.linkedCustomers}} 人，其中已签约 {{growthStats.signedCustomers}} 人 · 有净实收 {{growthStats.netPaidCustomers}} 人</text>
   <text class="hint">咨询和客户按当前岗位统计。签约和净实收按关联客户当前有效合同统计，净实收已扣除核实退款。总览按客户去重。</text>
 </view>
 <view wx:elif="{{publicationError}}" class="section" role="alert"><text>{{publicationError}}</text><button size="mini" bindtap="syncGrowth">重新加载</button></view>
@@ -13,9 +13,9 @@
   <view class="section-heading"><text class="section-title">按发布查看</text></view>
   <navigator wx:for="{{published}}" wx:key="publicationId" class="record" url="/pages/studio/index?view=detail&record={{item.publicationId}}">
     <text>{{item.title}}</text><text>有效咨询 {{item.consultations}} 次 · 关联客户 {{item.linkedCustomers}} 人</text>
-    <text>已签约 {{item.signedCustomers}} 人 · 有净实收 {{item.netPaidCustomers}} 人</text>
+    <text>关联客户中已签约 {{item.signedCustomers}} 人 · 有净实收 {{item.netPaidCustomers}} 人</text>
   </navigator>
-  <text class="hint">同一客户可能出现在多条发布的明细中。</text>
+  <text class="hint">这里显示关联客户的当前状态，不代表本作品带来的签约或收款。同一客户可出现在多条发布中。</text>
 </view>
 <view class="section"><view class="section-heading"><text class="section-title">{{canManage?'团队内容与发布':'本人内容与发布'}}</text></view><button wx:for="{{contents}}" wx:key="id" class="record" data-view="content" data-id="{{item.id}}" bindtap="open"><text>{{item.pack.title}}</text><text>{{item.status}} · V{{item.versions.length}}</text></button><text wx:if="{{!contents.length}}" class="hint">暂无已提交作品</text></view>
 <view class="section"><view class="section-heading"><text class="section-title">{{canManage?'团队客资与跟进':'本人客资与跟进'}}</text></view><view wx:if="{{canManage && (pendingLeads.length||pendingError)}}" class="section"><view class="section-heading"><text class="section-title">待关联客资</text></view><button wx:for="{{pendingLeads}}" wx:key="leadId" class="record"><text>{{item.name}} · {{item.phone}}</text><view style="display:flex;gap:12rpx;margin-top:8rpx"><button size="mini" data-lead-id="{{item.leadId}}" disabled="{{item.busy}}" bindtap="onlineLinkLead">关联原客户</button><button size="mini" data-lead-id="{{item.leadId}}" disabled="{{item.busy}}" bindtap="onlineInvalidateLead">作废</button></view></button><text class="hint">手机号重复，待负责人关联或作废</text><view wx:if="{{pendingError}}" class="hint">{{pendingError}} <button size="mini" bindtap="loadPendingLeads">重试</button></view></view><button wx:for="{{leads}}" wx:key="id" class="record" data-view="lead" data-id="{{item.id}}" bindtap="open"><text>{{item.name}} · {{item.status}}</text><text>{{item.source}} · {{item.need}}</text></button><text wx:if="{{!leads.length}}" class="hint">暂无我的客资</text></view>

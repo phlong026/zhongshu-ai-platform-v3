@@ -12,10 +12,23 @@ module.exports = {
     if (!this.editable() || this._pendingFile) return;
     const slot = event.currentTarget.dataset.slot || 'attachments', savedScope = this._scope, edit = this._edit;
     if (slot === 'attachments' ? this.data.editing === 'results' || this.data.form.attachments.length >= 20 : this.data.editing !== 'results' || !model.slots.some(item => item.key === slot)) return;
-    const options = { count: 1, success: result => { if (this.alive(savedScope) && this._edit === edit && this.editable() && result.tempFiles?.[0]) this.startUpload(result.tempFiles[0], slot); },
-      fail: error => { if (this.alive(savedScope) && this._edit === edit && !/cancel/i.test(error.errMsg || '')) this.setData({ error: '文件选择失败，请重试' }); } };
+    const picker = this._picker = { scope: savedScope, edit, slot };
+    const options = { count: 1, success: result => {
+      if (this._picker !== picker || !this.alive(savedScope) || this._edit !== edit) return;
+      picker.file = result.tempFiles?.[0]; this.finishPicker();
+    }, fail: error => {
+      if (this._picker !== picker) return;
+      this._picker = null;
+      if (this.alive(savedScope) && this._edit === edit && this.data.ready && !/cancel/i.test(error.errMsg || '')) this.setData({ error: '文件选择失败，请重试' });
+    } };
     if (photo) wx.chooseMedia({ ...options, mediaType: ['image'], sourceType: ['album', 'camera'] });
     else wx.chooseMessageFile({ ...options, type: 'file', extension: ['pdf', 'jpg', 'jpeg', 'png'] });
+  },
+  finishPicker() {
+    const picker = this._picker;
+    if (!picker?.file || !this._visible || !this.data.ready) return;
+    this._picker = null;
+    if (this.alive(picker.scope) && this._edit === picker.edit && this.editable()) return this.startUpload(picker.file, picker.slot);
   },
   startUpload(file, slot = 'attachments') {
     if (!this.editable() || this._pendingFile) return;
@@ -24,8 +37,11 @@ module.exports = {
   },
   async retryUpload() {
     const pending = this._pendingFile;
-    if (!pending || !this.editable() || pending.rejected || !this.alive(pending.scope) || this._edit !== pending.edit) return;
-    const alive = () => this.alive(pending.scope) && this._pendingFile === pending && this._edit === pending.edit;
+    if (!pending || pending.inFlight || !this.editable() || pending.rejected || !this.alive(pending.scope) || this._edit !== pending.edit) return;
+    pending.inFlight = true;
+    const view = this._view;
+    const ownsFile = () => this.alive(pending.scope) && this._pendingFile === pending && this._edit === pending.edit;
+    const alive = () => ownsFile() && this._view === view && this.data.ready;
     this.setData({ uploading: true, uploadFailed: false, uploadRestartAllowed: false, uploadName: pending.file.name || '现场照片', error: '' });
     try {
       const file = await require('./upload').run(pending, alive); if (!alive()) return;
@@ -42,6 +58,10 @@ module.exports = {
       if (revoked(error)) return this.recheckAccess(error);
       this.setData({ uploading: false, uploadFailed: true, uploadRetryable: !pending.rejected, uploadRestartAllowed: !!pending.restartRequired,
         error: pending.restartRequired ? '文件尚未上传完成，可再次核对，或重新上传获取新凭据' : errorText(error) });
+    } finally {
+      pending.inFlight = false;
+      if (ownsFile() && this._view !== view && this.data.ready) this.setData({ uploading: false, uploadFailed: true, uploadRetryable: !pending.rejected,
+        uploadRestartAllowed: !!pending.restartRequired, error: '请核对上次选择文件的上传状态' });
     }
   },
   restartUpload() {

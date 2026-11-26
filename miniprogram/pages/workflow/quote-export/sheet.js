@@ -21,5 +21,6 @@ function build(c,kind,version,metadata={}){
  const p=r.parameters||{},address=[c.province,c.city,f.county,f.town,f.village].filter(Boolean).join(' ');
  return {kind,version:r.version,date:r.date||'',name:c.name||'',phone:c.phone||'',projectId:c.projectId||c.id,address,form:f,width:p.width||'',depth:p.depth||'',area:r.area||p.area||'',floors:p.floors||'',main,decor,mainTotal,decorTotal,insurance,management,total,title:'建造参考预算',basis:'前期预算，非施工结算依据',demo:/^demo/.test(r.priceVersion||'')||r.sample===true,priceVersion:r.priceVersion||''};
 }
-function filename(doc,extension){const id=String(doc.projectId||'project').replace(/[^a-zA-Z0-9_-]/g,'_').slice(-24);return (doc.name+'_'+doc.title+'_V'+doc.version).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').slice(0,54)+'_'+id+'.'+extension;}
-module.exports={fields,choices,options,clean,defaults,record,build,money,filename};
+function versionLabel(doc){return doc.versionLabel||'V'+doc.version;}
+function filename(doc,extension){const id=String(doc.projectId||'project').replace(/[^a-zA-Z0-9_-]/g,'_').slice(-24);return (doc.name+'_'+doc.title+'_'+versionLabel(doc)).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').slice(0,54)+'_'+id+'.'+extension;}
+module.exports={fields,choices,options,clean,defaults,record,build,money,filename,versionLabel};

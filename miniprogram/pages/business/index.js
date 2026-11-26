@@ -68,7 +68,7 @@ recentCustomer:desk[0]?{id:desk[0].id,initial:desk[0].initial,name:desk[0].name,
 recentCreation:(works&&works[0])?{id:'work:'+(works[0].workId!=null?works[0].workId:works[0].id),title:String(works[0].title||'我的作品'),badge:'我的作品',image:'/assets/business-video.jpg'}:null};
 if(['boss','owner'].includes(post.roleCode)){
 const leads=g.consultations??'—',converted=g.linkedCustomers??'—',signed=g.signedCustomers??'—';
-const metrics=[['已发布',g.publishedCount],['有效咨询',leads],['关联客户',converted],['已签约客户',signed],['有净实收客户',g.netPaidCustomers]];
+const metrics=[['已发布',g.publishedCount],['有效咨询',leads],['关联客户',converted],['关联客户已签约',signed],['关联客户有净实收',g.netPaidCustomers]];
 const max=Math.max(1,...metrics.map(([,v])=>Number(v)||0));
 const funnel=metrics.map(([label,v])=>({label,value:v??'—',width:Math.round(100*(Number(v)||0)/max)}));
 patch.isSalesHome=false;patch.isBossBiz=true;patch.bizDate=dateText;
