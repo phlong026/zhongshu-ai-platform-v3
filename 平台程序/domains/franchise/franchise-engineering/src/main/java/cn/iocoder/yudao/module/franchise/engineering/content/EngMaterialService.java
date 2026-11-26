@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.franchise.engineering.content;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort;
 import cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialDO;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 /**
@@ -290,10 +292,13 @@ public class EngMaterialService {
         return supplyView(post, supplies.selectById(supplyId));
     }
 
-    /** qualityResolution 内嵌 receiptId 解析（与 requireReceipt 同口径，供 payload 归一先行使用）。 */
-    private static long receiptIdOf(Map<String, Object> resolution) {
-        Object raw = resolution.get("receiptId");
-        return raw instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(raw));
+    /** 质检处置中的编号兼容小程序字符串及整数输入。 */
+    private static long resolutionId(Map<String, Object> resolution, String field) {
+        try {
+            return Long.parseLong(String.valueOf(resolution.get(field)).trim());
+        } catch (NumberFormatException invalid) {
+            throw exception(ENGINEERING_INPUT_INVALID, "质检处置缺少有效的批次或凭证");
+        }
     }
 
     private static Map<String, Object> termsPayload(long supplyId, TermsCommand cmd) {
@@ -316,28 +321,49 @@ public class EngMaterialService {
         if (supply == null || supply.getCompanyId() != post.orgId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "供应事项不存在");
         }
-        FrEngProjectDO project = projects.selectById(supply.getProjectId());
-        EngGuard.requireActionAllowed(projectService.closureOf(post, supply.getProjectId()), "materials");
+        projects.lockById(supply.getProjectId());
         projectService.requireOwned(post, supply.getProjectId(), "materials");
         // 分支判定+payload 归一先于重放：重放输入=落账输入，三形态同形（评审十三 P1-3）
         // 形态③：质检处置（对既有 REJECTED 行补「更换后合格」；顶层凭据/流水不适用）
         String command;
-        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, Object> legacy = new LinkedHashMap<>();
         if (cmd.qualityResolution() != null && cmd.parentReceiptId() == null && cmd.actual() == null) {
             command = "eng-supply-quality";
-            payload.put("receiptId", receiptIdOf(cmd.qualityResolution()));
+            legacy.put("receiptId", resolutionId(cmd.qualityResolution(), "receiptId"));
         } else if (cmd.parentReceiptId() != null) {
             command = "eng-reship-receive";
-            payload.put("receiptId", cmd.parentReceiptId());
-            payload.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
+            legacy.put("receiptId", cmd.parentReceiptId());
+            legacy.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
         } else {
             command = "eng-supply-arrival";
-            payload.put("supplyId", supplyId);
-            payload.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
-            payload.put("quality", StrUtil.blankToDefault(cmd.quality(), FrEngSupplyReceiptDO.QUALITY_OK));
+            legacy.put("supplyId", supplyId);
+            legacy.put("actual", EngGuard.requireQuantity(cmd.actual()).toPlainString());
+            legacy.put("quality", StrUtil.blankToDefault(cmd.quality(), FrEngSupplyReceiptDO.QUALITY_OK));
         }
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        var payload = new LinkedHashMap<>(legacy);
+        payload.put("command", command);
+        payload.put("supplyId", supplyId);
+        if ("eng-supply-quality".equals(command)) {
+            payload.put("fileAssetId", resolutionId(cmd.qualityResolution(), "fileAssetId"));
+            payload.put("note", java.util.Objects.toString(cmd.qualityResolution().get("note"), ""));
+        } else {
+            payload.put("expected", cmd.expected() == null ? null : cmd.expected().stripTrailingZeros().toPlainString());
+            payload.put("quality", StrUtil.blankToDefault(cmd.quality(), FrEngSupplyReceiptDO.QUALITY_OK));
+            payload.put("transactionNo", StrUtil.trim(cmd.transactionNo()));
+            payload.put("fileAssetId", cmd.fileAssetId());
+            payload.put("occurredAt", cmd.occurredAt() == null ? null : cmd.occurredAt().toString());
+            payload.put("note", StrUtil.nullToEmpty(cmd.note()));
+        }
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            var event = replayed.get();
+            if (!command.equals(event.getCommand()) || !AGGREGATE.equals(event.getAggregateType())
+                    || !supply.getProjectId().equals(event.getAggregateId())) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
+            if (!JsonUtils.parseTree(event.getPayload()).has("command")) {
+                EngLegacyArrival.verify(command, cmd, payload, event, supplyReceipts.selectBySupply(post.orgId(), supplyId));
+            }
             return supplyView(post, supply);
         }
         LocalDate occurredAt = cmd.occurredAt() == null ? LocalDate.now() : cmd.occurredAt();
@@ -346,16 +372,9 @@ public class EngMaterialService {
         }
         if (cmd.qualityResolution() != null && cmd.parentReceiptId() == null && cmd.actual() == null) {
             // R3 P1-5：质检处置凭据无条件过域侧校验（Number/String 双形状解析——假 ID/跨组织/未 ACCEPTED/类型不符全拒）
-            Object resolutionAsset = cmd.qualityResolution().get("fileAssetId");
-            long resolutionAssetId = -1;
-            if (resolutionAsset instanceof Number) {
-                resolutionAssetId = ((Number) resolutionAsset).longValue();
-            } else if (resolutionAsset != null) {
-                try { resolutionAssetId = Long.parseLong(String.valueOf(resolutionAsset).trim()); }
-                catch (NumberFormatException e) { resolutionAssetId = -1; }
-            }
+            long resolutionAssetId = resolutionId(cmd.qualityResolution(), "fileAssetId");
             planService.requireValidAsset(post, resolutionAssetId,
-                    java.util.Set.of("ENG_SITE_PHOTO"), "质检处置"); // -1 必拒（validateReference 不存在）
+                    java.util.Set.of("ENG_SITE_PHOTO"), "质检处置");
             FrEngSupplyReceiptDO receipt = requireReceipt(post, cmd.qualityResolution());
             if (!java.util.Objects.equals(receipt.getSupplyId(), supply.getId())) throw exception(ENGINEERING_INPUT_INVALID, "收货批次与供货单不符");
             resolveQuality(post, receipt, cmd.qualityResolution());
@@ -402,7 +421,7 @@ public class EngMaterialService {
     }
 
     private FrEngSupplyReceiptDO requireReceipt(PostSnapshot post, Map<String, Object> resolution) {
-        long receiptId = receiptIdOf(resolution);
+        long receiptId = resolutionId(resolution, "receiptId");
         FrEngSupplyReceiptDO receipt = supplyReceipts.selectById(receiptId);
         if (receipt == null || receipt.getCompanyId() != post.orgId()
                 || !FrEngSupplyReceiptDO.QUALITY_REJECTED.equals(receipt.getQuality())) {
@@ -412,15 +431,14 @@ public class EngMaterialService {
     }
 
     private void resolveQuality(PostSnapshot post, FrEngSupplyReceiptDO receipt, Map<String, Object> resolution) {
-        String note = String.valueOf(resolution.getOrDefault("note", ""));
-        Object fileAssetId = resolution.get("fileAssetId");
-        if (StrUtil.isBlank(note) || fileAssetId == null) {
+        String note = java.util.Objects.toString(resolution.get("note"), "");
+        if (StrUtil.isBlank(note)) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写质检处置说明并留存凭据");
         }
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("result", "更换后合格");
         row.put("note", note);
-        row.put("fileAssetId", fileAssetId instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(fileAssetId)));
+        row.put("fileAssetId", resolutionId(resolution, "fileAssetId"));
         int updated = jdbcTemplate.update("UPDATE fr_eng_supply_receipt SET quality_resolution = CAST(? AS jsonb), "
                         + "update_time = now() WHERE id = ? AND company_id = ? AND quality_resolution->>'result' IS DISTINCT FROM '更换后合格'",
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(row),
@@ -441,7 +459,6 @@ public class EngMaterialService {
             throw exception(ENGINEERING_INPUT_INVALID, "请选择有效质量结论");
         }
         // 行锁（FOR UPDATE）串行化累计上限读-判-写（评审十三 P2-1：并发到货可越过计划量）
-        projects.lockById(supply.getProjectId());
         BigDecimal received = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
         BigDecimal expected = cmd.expected() != null ? cmd.expected()
                 : material.getQuantity().subtract(received).max(BigDecimal.ZERO);
