@@ -231,6 +231,45 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
+    void omittedCollectionDateCanReplayOnAnotherDay() {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        String key = idem();
+        var command = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), null, 9002L);
+        try (var dates = org.mockito.Mockito.mockStatic(LocalDate.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            dates.when(LocalDate::now).thenReturn(yesterday);
+            var first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+            dates.when(LocalDate::now).thenReturn(today);
+            var retry = as(finance, () -> collectionService.register(finance, projectId, command, key));
+            assertThat(retry).containsEntry("collectionId", first.get("collectionId"))
+                    .containsEntry("receiptId", first.get("receiptId")).containsEntry("replayed", true);
+            assertThat(jdbc.queryForObject("SELECT occurred_at FROM fr_eng_collection WHERE id=?",
+                    LocalDate.class, first.get("collectionId"))).isEqualTo(yesterday);
+        }
+    }
+
+    @Test
+    void legacyCollectionReplayChecksTheOriginalReceiptFacts() {
+        String key = idem();
+        String txn = txn();
+        LocalDate date = LocalDate.now().minusDays(1);
+        var command = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), txn, date, 9002L);
+        var first = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        String legacy = "{\"stage\":\"SIGN_AFTER\",\"amount\":\"100.00\",\"transactionNo\":\"" + txn + "\"}";
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-collect'",
+                legacy, cn.hutool.crypto.digest.DigestUtil.sha256Hex(legacy), first.get("collectionId"))).isOne();
+        var replay = as(finance, () -> collectionService.register(finance, projectId, command, key));
+        assertThat(replay).containsEntry("collectionId", first.get("collectionId"))
+                .containsEntry("receiptId", first.get("receiptId")).containsEntry("replayed", true);
+        var changed = new EngCollectionService.CollectCommand(SIGN_AFTER, command.amount(), txn, date, 9003L);
+        assertError(() -> as(finance, () -> collectionService.register(finance, projectId, changed, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    @Test
     void collectionRegistrationRejectsSameKeyWhenProjectDateOrEvidenceChanges() {
         String key = idem();
         String transactionNo = txn();
