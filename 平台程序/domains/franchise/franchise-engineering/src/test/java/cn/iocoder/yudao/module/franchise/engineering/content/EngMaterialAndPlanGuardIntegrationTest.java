@@ -844,15 +844,76 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 "OK", "legacy-expected-" + supplyId, asset, null, "首批", null);
         String key = idem();
         as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
-        var old = new java.util.LinkedHashMap<String, Object>();
-        old.put("supplyId", supplyId);
-        old.put("actual", "6");
-        old.put("quality", "OK");
-        replaceReceiptEvent("eng-supply-arrival", old);
+        useLegacyArrival(key, original);
         as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
         var withoutExpected = new EngMaterialService.ArrivalCommand(null, null, original.actual(), original.quality(),
                 original.transactionNo(), asset, null, original.note(), null);
         assertArrivalConflict(key, withoutExpected);
+    }
+
+    @Test
+    void legacyDefaultUsesThePlanAndAcceptedReceiptsAtTheOriginalRevision() {
+        long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var first = new EngMaterialService.ArrivalCommand(null, BigDecimal.ONE, BigDecimal.ONE, "REJECTED",
+                "rejected-" + supplyId, asset, null, "首批", null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, first, idem()));
+        long firstId = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE transaction_no=?",
+                Long.class, first.transactionNo());
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, qualityCommand(firstId, "复验合格", asset), idem()));
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, firstId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2"), "更正前批实收"), idem()));
+        var partial = new EngMaterialService.ArrivalCommand(null, new BigDecimal("3"), BigDecimal.ONE, "OK",
+                "partial-" + supplyId, asset, null, "分批实收", null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, partial, idem()));
+        long partialId = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE transaction_no=?",
+                Long.class, partial.transactionNo());
+        long pending = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE parent_receipt_id=?",
+                Long.class, partialId);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, new EngMaterialService.ArrivalCommand(
+                pending, null, BigDecimal.ONE, "OK", "reship-" + supplyId, asset, null, "补收", null), idem()));
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, partialId,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2"), "复核合格批次实到"), idem()));
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("12"), "增加需用量"), idem()));
+
+        var target = new EngMaterialService.ArrivalCommand(null, null, new BigDecimal("3"), "OK",
+                "default-before-change-" + supplyId, asset, null, "第二批", null);
+        String key = idem();
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, target, key));
+        assertThat(jdbc.queryForObject("SELECT expected_quantity FROM fr_eng_supply_receipt WHERE transaction_no=?",
+                BigDecimal.class, target.transactionNo())).isEqualByComparingTo("7");
+        useLegacyArrival(key, target);
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("15"), "后续增加需用量"), idem()));
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, target, key));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_supply_receipt WHERE transaction_no=?",
+                Integer.class, target.transactionNo())).isOne();
+    }
+
+    @Test
+    void legacyDefaultWithoutItsOriginalPlanRequestsReconciliation() {
+        long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var original = new EngMaterialService.ArrivalCommand(null, null, BigDecimal.ONE, "OK",
+                "no-original-plan-" + supplyId, asset, null, "历史收货", null);
+        String key = idem();
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
+        useLegacyArrival(key, original);
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(new BigDecimal("8"), "调整后需用量"), idem()));
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key)))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("核对原到货单");
+    }
+
+    private void useLegacyArrival(String key, EngMaterialService.ArrivalCommand command) {
+        var old = new java.util.LinkedHashMap<String, Object>();
+        old.put("supplyId", supplyId);
+        old.put("actual", EngGuard.requireQuantity(command.actual()).toPlainString());
+        old.put("quality", command.quality());
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-supply-arrival' AND idempotency_key=?",
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), projectId,
+                "franchise:" + engineer.userId() + ":" + key)).isOne();
     }
 
     private void verifyArrivalRetry(String key, EngMaterialService.ArrivalCommand original, long anotherAsset) {

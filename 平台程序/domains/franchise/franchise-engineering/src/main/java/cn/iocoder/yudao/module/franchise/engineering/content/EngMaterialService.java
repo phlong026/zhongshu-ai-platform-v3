@@ -362,7 +362,8 @@ public class EngMaterialService {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             if (!JsonUtils.parseTree(event.getPayload()).has("command")) {
-                EngLegacyArrival.verify(command, cmd, payload, event, supplyReceipts.selectBySupply(post.orgId(), supplyId));
+                EngLegacyArrival.verify(command, cmd, payload, event, supplyReceipts.selectBySupply(post.orgId(), supplyId),
+                        jdbcTemplate);
             }
             return supplyView(post, supply);
         }
