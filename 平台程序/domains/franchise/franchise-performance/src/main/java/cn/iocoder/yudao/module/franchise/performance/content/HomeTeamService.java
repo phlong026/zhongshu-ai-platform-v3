@@ -31,7 +31,10 @@ public class HomeTeamService {
           UNION ALL SELECT COALESCE(n.delay_owner_user_id,n.responsible_user_id,p.manager_user_id),'overdue',n.id::text,p.name,n.name,p.customer_id::text,p.id::text,n.id::text
             FROM projects p JOIN fr_eng_plan_node n ON n.project_id=p.id AND n.company_id=p.company_id,cfg
             WHERE n.status<>'DONE' AND n.end_date<cfg.today AND p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER')
-          UNION ALL SELECT p.manager_user_id,'issue',r.id::text,p.name,r.title,p.customer_id::text,p.id::text,NULL FROM projects p
+          UNION ALL SELECT CASE WHEN r.owner_user_id IN (p.manager_user_id,p.assigned_engineer_user_id) THEN r.owner_user_id ELSE p.manager_user_id END,
+            'issue',r.id::text,p.name,r.title||CASE WHEN r.owner_user_id IS NULL THEN ' · 待分派'
+              WHEN r.owner_user_id IS DISTINCT FROM p.manager_user_id AND r.owner_user_id IS DISTINCT FROM p.assigned_engineer_user_id THEN ' · 待重新分派'
+              ELSE '' END,p.customer_id::text,p.id::text,NULL FROM projects p
             JOIN fr_eng_rectification r ON r.project_id=p.id AND r.company_id=p.company_id WHERE r.state<>'CLOSED'
           UNION ALL SELECT p.manager_user_id,'quality',r.id::text,p.name,'待处置材料质检',p.customer_id::text,p.id::text,r.supply_id::text FROM projects p
             JOIN fr_eng_supply_receipt r ON r.project_id=p.id AND r.company_id=p.company_id

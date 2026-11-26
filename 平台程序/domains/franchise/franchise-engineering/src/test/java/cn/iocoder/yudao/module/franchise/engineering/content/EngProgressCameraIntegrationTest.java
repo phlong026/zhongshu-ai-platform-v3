@@ -22,6 +22,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
     @Resource EngPlanService plans;
     @Resource EngProgressService progress;
     @Resource EngRectificationService issues;
+    @Resource FranchiseCommands commands;
     @Resource EngCameraService cameras;
     @Resource EngProgressReminder reminders;
     @Resource cn.iocoder.yudao.module.franchise.engineering.todo.EngTodoProvider todos;
@@ -47,9 +48,8 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(body),EngRectificationService.Change.class);
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String,Object> issueDetail(PostSnapshot post,long id) {
-        return org.springframework.test.util.ReflectionTestUtils.invokeMethod(issues,"detail",post,projectId,id);
+        return issues.detail(post,projectId,id);
     }
 
     @Test void rectificationAssignmentAndHistoryDriveTheRealEngineeringTodo() {
@@ -90,6 +90,15 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_eng_rectification_event(id,issue_id,actor_id,action,note) VALUES(?,?,?,'create','纸质单转录')",id+1,id,engineer.userId());
         var old=issues.list(engineer,projectId).get(0);
         assertThat(old).containsEntry("ownerUserId",null).containsEntry("dueDate",null);
+        record OldChange(String action, Long issueId, Long nodeId, String title, String note) {}
+        var oldInput=new LinkedHashMap<String,Object>();
+        oldInput.put("project",projectId);
+        oldInput.put("change",new OldChange("create",null,null,"二层钢筋整改","纸质单转录"));
+        String oldKey=key();
+        commands.record(engineer,"site-rectification",id,1,"rectification-create",oldInput,oldKey);
+        assertThat(issues.change(engineer,projectId,issue("create",null,null,null,"纸质单转录"),oldKey)).isEqualTo(id);
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,engineer.userId(),today,"纸质单转录"),oldKey))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id) && t.status().contains("待分派"));
         var other=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
         assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,null,"缺少分派"),key())).hasMessageContaining("负责人");

@@ -15,6 +15,8 @@ public class EngRectificationController {
     public EngRectificationController(EngRectificationService service,CurrentPost current){this.service=service;this.current=current;}
     @GetMapping @PreAuthorize("@post.has('franchise:engineering:query')")
     public CommonResult<?> list(@PathVariable long project){return success(service.list(current.require(),project));}
+    @GetMapping("/{issue}") @PreAuthorize("@post.has('franchise:engineering:query')")
+    public CommonResult<?> detail(@PathVariable long project,@PathVariable long issue){return success(service.detail(current.require(),project,issue));}
     @PostMapping @PreAuthorize("@post.has('franchise:engineering:write')")
     public CommonResult<?> change(@PathVariable long project,@RequestBody EngRectificationService.Change cmd,@RequestHeader("Idempotency-Key") String key){
         return success(service.change(current.require(),project,cmd,key));

@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectMapper;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.workflow.TodoItem;
 import cn.iocoder.yudao.module.platform.workflow.TodoProvider;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -32,17 +33,19 @@ public class EngTodoProvider implements TodoProvider {
     private final FrEngPlanNodeMapper planNodes;
     private final FrEngFollowupMapper followups;
     private final cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages;
+    private final JdbcTemplate jdbc;
 
     public EngTodoProvider(FrEngProjectMapper projects, FrEngCollectionTermMapper collectionTerms,
                            FrEngCollectionMapper collections, FrEngPlanNodeMapper planNodes,
                            FrEngFollowupMapper followups,
-                           cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages) {
+                           cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort unifiedStages, JdbcTemplate jdbc) {
         this.projects = projects;
         this.collectionTerms = collectionTerms;
         this.collections = collections;
         this.planNodes = planNodes;
         this.followups = followups;
         this.unifiedStages = unifiedStages;
+        this.jdbc = jdbc;
     }
 
     @Override
@@ -54,6 +57,9 @@ public class EngTodoProvider implements TodoProvider {
     public List<TodoItem> list(PostSnapshot post) {
         List<TodoItem> todos = new ArrayList<>();
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        if ("store".equals(post.orgType()) && java.util.Set.of("engineer","project-manager").contains(post.roleCode())) {
+            todos.addAll(rectifications(post,today));
+        }
         for (FrEngProjectDO project : projects.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<FrEngProjectDO>()
                         .eq(FrEngProjectDO::getCompanyId, post.orgId())
@@ -106,6 +112,27 @@ public class EngTodoProvider implements TodoProvider {
         }
         return todos;
     }
+    private List<TodoItem> rectifications(PostSnapshot post,LocalDate today) {
+        return jdbc.query("""
+            SELECT r.id,r.project_id,r.title,p.name,r.state,r.due_date,r.create_time,
+                   r.owner_user_id IS NULL AS unassigned,
+                   r.owner_user_id IS DISTINCT FROM p.manager_user_id AND r.owner_user_id IS DISTINCT FROM p.assigned_engineer_user_id AS reassignment
+            FROM fr_eng_rectification r JOIN fr_eng_project p ON p.id=r.project_id AND p.company_id=r.company_id
+            WHERE r.company_id=? AND r.state IN ('OPEN','REVIEW') AND (?=p.manager_user_id OR ?=p.assigned_engineer_user_id)
+              AND CASE WHEN r.owner_user_id IN (p.manager_user_id,p.assigned_engineer_user_id) THEN r.owner_user_id ELSE p.manager_user_id END=?
+            ORDER BY r.due_date NULLS LAST,r.id
+            """,(rs,index)->{
+                long id=rs.getLong("id");
+                LocalDate due=rs.getObject("due_date",LocalDate.class);
+                String status=rs.getBoolean("unassigned")?"待分派":rs.getBoolean("reassignment")?"待重新分派":
+                        "REVIEW".equals(rs.getString("state"))?"待复验":"待整改";
+                if (due!=null && due.isBefore(today)) status+=" · 已逾期";
+                return new TodoItem(domain(),"fr-eng:rectification:"+id,rs.getString("title")+" · "+rs.getString("name"),
+                        status,null,true,null,"/pages/build/issues/index?project="+rs.getLong("project_id")+"&issue="+id,
+                        rs.getObject("create_time",java.time.OffsetDateTime.class));
+            },post.orgId(),post.userId(),post.userId(),post.userId());
+    }
+
     /** M07-T06 三期待办标题 */
     private static String stageTitle(String stage) {
         return switch (stage) {
