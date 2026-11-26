@@ -72,7 +72,7 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
 });
 
 function studioFixture(overrides = {}, wxOverrides = {}) {
-  let worksResult = Promise.resolve([]), workResult = Promise.resolve(null);
+  let worksResult = Promise.resolve([]), workResult = Promise.resolve(null), trashResult = Promise.resolve();
   let recordsResult = Promise.resolve([]);
   let tasksResult = Promise.resolve([]);
   let dismissResult = Promise.resolve();
@@ -84,7 +84,11 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   const calls = { tasks: 0, works: 0, records: 0, dismiss: 0, retrySave: 0 }, sequences = {};
   const result = value => typeof value === 'function' ? value() : value;
   const api = {
-    drafts: { works() { calls.works++; return result(worksResult); }, work(id) { calls.work=id; return result(workResult); } },
+    drafts: {
+      works(trashed) { calls.works++; calls.trashFilter = !!trashed; return result(worksResult); },
+      work(id) { calls.work=id; return result(workResult); },
+      trash(id, trashed, revision) { (calls.trashWrites ||= []).push([id, trashed, revision]); return result(trashResult); }
+    },
     publications: { page() { calls.records++; return result(recordsResult); } },
     tasks: { page() { calls.tasks++; return result(tasksResult); }, dismiss() { calls.dismiss++; return result(dismissResult); }, retrySave() { calls.retrySave++; return result(retrySaveResult); } }
   };
@@ -117,6 +121,7 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   return {
     page, calls,
     setWorks(value) { worksResult = value; },
+    setTrash(value) { trashResult = value; },
     setWork(value) { workResult = value; },
     setEditorTitle(value) { editorTitle = value; },
     setRecords(value) { recordsResult = value; },
@@ -248,6 +253,54 @@ test('LIVE-04 works view requests drafts and distinguishes loading, empty and er
   assert.equal(fixture.page.data.worksLoading, false);
   assert.equal(fixture.page.data.worksError, '作品接口超时');
   assert.deepEqual(plain(fixture.page.data.works.map(item => item.id)), ['8']);
+});
+
+test('personal works keeps the original ID and version when moving to trash and back', async () => {
+  const modals = [], f = studioFixture({}, {showModal(options) { modals.push(options); }});
+  const row = {id:'90071992547409931', title:'原文', kind:'remix', status:'saved', revision:0, canManage:true};
+  const tap = {currentTarget:{dataset:{id:row.id}}};
+  f.setWorks(Promise.resolve([row]));
+  await f.page.refreshData();
+  f.page.workTrashTap(tap);
+  assert.equal(modals.length, 1);
+  assert.equal(f.calls.trashWrites, undefined);
+  f.setWorks(Promise.resolve([]));
+  modals[0].success({confirm:true});
+  await flush();
+  assert.deepEqual(f.calls.trashWrites, [[row.id, true, 0]]);
+  assert.equal(f.page.data.works.length, 0);
+  f.setWorks(Promise.resolve([{...row, trashed:true, revision:1}]));
+  await f.page.selectWorkTrash({currentTarget:{dataset:{trash:true}}});
+  assert.equal(f.calls.trashFilter, true);
+  f.setWorks(Promise.resolve([]));
+  await f.page.workTrashTap(tap);
+  assert.deepEqual(f.calls.trashWrites, [[row.id,true,0],[row.id,false,1]]);
+});
+
+test('switching work folders or identity discards late reads and open confirmations', async () => {
+  const modals = [], f = studioFixture({}, {showModal(o){modals.push(o);}});
+  const row = {id:'88', kind:'remix', title:'本人原稿', revision:0, canManage:true};
+  f.setWorks(Promise.resolve([row])); await f.page.refreshData();
+  f.page.workTrashTap({currentTarget:{dataset:{id:'88'}}});
+  const pending = deferred(); f.setWorks(pending.promise);
+  const old = f.page.refreshData();
+  f.setWorks(Promise.resolve([]));
+  await f.page.selectWorkTrash({currentTarget:{dataset:{trash:true}}});
+  pending.resolve([row]); await old;
+  assert.equal(f.page.data.works.length,0);
+  f.switchScope('another-post');
+  modals[0].success({confirm:true});
+  assert.equal(f.calls.trashWrites,undefined);
+});
+
+test('a saved work without an original task opens its own saved text', async () => {
+  const modals = [], f = studioFixture({}, {showModal(options){modals.push(options);}});
+  const id='90071992547409939';
+  f.setWorks(Promise.resolve([{id, taskId:0, title:'旧作品', kind:'remix'}])); await f.page.refreshData();
+  f.setWork(Promise.resolve({workId:id, title:'旧作品', script:'保存的原文'}));
+  await f.page.openWork({currentTarget:{dataset:{id}}});
+  assert.equal(f.calls.work,id);
+  assert.equal(modals[0].content,'保存的原文');
 });
 
 test('LIVE-04 records view maps publication statuses and ignores stale session responses', async () => {
