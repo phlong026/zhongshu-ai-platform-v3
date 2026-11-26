@@ -1,0 +1,29 @@
+<!-- 客户跟进状态弹层：标记流失 / 暂缓跟进 / 恢复跟进。客户工作区与八步跟进页共用，行为见 utils/customer-status-sheet.js。 -->
+<template name="customer-status-sheet">
+  <view wx:if="{{sheet}}" class="css-mask" catchtap="closeStatus">
+    <view class="css-sheet" catchtap="noop">
+      <view class="css-head">
+        <text>{{sheet.title}}</text>
+        <button class="css-close" bindtap="closeStatus" aria-label="关闭"><text>×</text></button>
+      </view>
+      <text class="css-sub">{{sheet.kind==='lost'?'流失后不再进入待跟进，跟进记录全部保留，可随时恢复。':sheet.kind==='paused'?'到再联系日期自动回到「今日待跟进」。':'恢复后下次跟进日期落到今天，重新进入待跟进。'}}</text>
+      <block wx:if="{{sheet.kind==='lost'}}">
+        <text class="css-label">流失原因</text>
+        <view class="css-reasons">
+          <button wx:for="{{reasons}}" wx:key="code" class="css-reason {{sheet.reasonCode===item.code?'selected':''}}" data-code="{{item.code}}" bindtap="statusPick" disabled="{{sheet.busy}}">{{item.label}}</button>
+        </view>
+        <textarea wx:if="{{sheet.reasonCode==='OTHER'}}" class="css-textarea" placeholder="请填写流失原因" value="{{sheet.reasonText}}" bindinput="statusInput" maxlength="1000" disabled="{{sheet.busy}}" show-confirm-bar="{{false}}" />
+      </block>
+      <block wx:if="{{sheet.kind==='paused'}}">
+        <text class="css-label">再联系日期</text>
+        <picker mode="date" start="{{todayStr}}" value="{{sheet.nextFollowOn}}" bindchange="statusDate" disabled="{{sheet.busy}}"><view class="css-input {{sheet.nextFollowOn?'':'css-placeholder'}}">{{sheet.nextFollowOn||'选择日期'}}<text>⌄</text></view></picker>
+        <text class="css-label">暂缓原因</text>
+        <textarea class="css-textarea" placeholder="例如：等宅基地批复，客户说年后再谈" value="{{sheet.reasonText}}" bindinput="statusInput" maxlength="1000" disabled="{{sheet.busy}}" show-confirm-bar="{{false}}" />
+      </block>
+      <text wx:if="{{sheet.error}}" class="css-error" role="alert">{{sheet.error}}</text>
+      <view class="css-actions">
+        <button loading="{{sheet.busy}}" disabled="{{sheet.busy}}" class="css-submit" bindtap="submitStatus">{{sheet.kind==='lost'?'确认流失':sheet.kind==='paused'?'确认暂缓':'恢复跟进'}}</button>
+      </view>
+    </view>
+  </view>
+</template>

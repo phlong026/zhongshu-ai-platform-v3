@@ -11,6 +11,8 @@ module.exports = {
   complete: (id, code, body, key) => http.post(step(id, code) + '/complete', body, headers(key)),
   skipVisit: (id, body, key) => http.post(step(id, 'SITE_VISIT') + '/skip', body, headers(key)),
   reopen: (id, code, body, key) => http.post(step(id, code) + '/reopen', body, headers(key)),
+  /** 流程状态：{revision,status,reasonCode?,reason?,nextFollowOn?} → 最新八步视图 */
+  status: (id, body, key) => http.post(base(id) + '/status', body, headers(key)),
   records: (id, pageNo) => http.get(base(id) + '/records', { pageNo, pageSize: 20 }),
   listSupplements: (id, code, pageNo) => http.get(step(id, code) + '/supplements', { pageNo, pageSize: 20 }),
   addSupplement: (id, code, body, key) => http.post(step(id, code) + '/supplements', body, headers(key)),

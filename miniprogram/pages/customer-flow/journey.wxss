@@ -39,3 +39,9 @@
 .journey-row-name{flex:1;font-size:27rpx;font-weight:550}
 .journey-row-status{color:#897763;font-size:23rpx;white-space:nowrap}
 .journey-sheet-list{max-height:65vh}
+/* 流程状态可点：进行中可暂缓或标记流失，其余可恢复。 */
+button.journey-state.journey-state{display:inline-block;width:auto;margin:0;padding:5rpx 12rpx;line-height:28rpx;font-size:20rpx;vertical-align:middle}
+.journey-state-tappable{padding-right:8rpx}
+.journey-state::after{border:0}
+.journey-note{display:block;margin-top:12rpx;font-size:23rpx;line-height:36rpx;color:#8d7864}
+.flow-dates{display:grid;grid-template-columns:1fr 1fr;gap:14rpx}

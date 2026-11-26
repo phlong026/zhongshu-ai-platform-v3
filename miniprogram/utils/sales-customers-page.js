@@ -1,9 +1,9 @@
 const Job=require('./organization');
 const PF=require('./platform-crm'),http=require('../api/http');
 const SERVER_PAGE_SIZE=50,MAX_WINDOW_PAGES=4;
-const TABS=[['due','今日待跟进'],['appointments','预约回访'],['all','全部'],['visited','已到店']];
-const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约回访的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
-const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约回访客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'};
+const TABS=[['due','今日待跟进'],['appointments','预约跟进'],['all','全部'],['visited','已到店']];
+const EMPTY={due:'今天的跟进都办完了',appointments:'暂无预约跟进的客户',visited:'暂无已到店的客户',all:'当前没有可见客户，可先登记客户。'};
+const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约跟进客户',visited:'暂无已到店客户',all:'当前没有可见客户，可先登记客户。'};
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',platformRefreshing:false,authError:false},
  onLoad(o={}){this.applyEntryIntent(o);},
@@ -139,7 +139,7 @@ module.exports=()=>({
  open(e){const id=e.currentTarget.dataset.id;
   if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:this.data.intent==='commission'&&this.data.canRegister?'/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id));
-  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.flowUrl||row.url});}},
+  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.lost?row.url:(row.flowUrl||row.url)});}},
  call(e){const dial=(this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id))||{}).dial;
   if(!/^1\d{10}$/.test(dial||''))return wx.showToast({title:'该号码不可拨打',icon:'none'});wx.makePhoneCall({phoneNumber:dial,fail(){}});},
 });

@@ -24,6 +24,14 @@ module.exports = async function recordSiteObservations(fixture) {
   assert.equal(page.data.form.fields.siteElevationNote,notes.siteElevationNote);
   assert.equal(page.data.form.fields.checked,false);
   await (await screen.$('switch[data-key="checked"]')).trigger('change',{value:true});
+  // 完成本步必须约定下次跟进日期：没有可沿用的约定时，直接完成会被拦下，选了日期才能完成
+  if (!page.data.form.nextFollowOn) {
+    await (await screen.$('button[data-action="complete"]')).tap();
+    assert.equal(page.data.error,'请先约定下次跟进日期');
+    assert.equal(page.data.step.status,'DRAFT');
+    await (await screen.$('picker[data-key="nextFollowOn"]')).trigger('change',{value:page.data.todayStr});
+    assert.equal(page.data.form.nextFollowOn,page.data.todayStr);
+  }
   await (await screen.$('button[data-action="complete"]')).tap();
   assert.equal(page.data.step.status,'COMPLETED',page.data.error);
   assert.equal(page.data.workflow.completedCount,7);

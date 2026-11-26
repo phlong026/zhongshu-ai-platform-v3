@@ -22,6 +22,14 @@ test('八步表单只序列化本步字段，报价和参考资料不会串到�
   assert.equal(body.fields.unexpected, undefined);
   assert.equal(body.revision, 4);
   assert.equal(body.completed, undefined, '保存草稿不能冒充完成命令');
+  assert.equal(body.fields.nextContactOn, undefined, '新记录不带升级前的“下次联系”');
+  // 升级前保存的第 1 步“下次联系”不再是表单项，保存时原样带回，不影响客户的下次跟进日期
+  const legacy = model.form({ code: 'INVITATION', nextFollowOn: '2026-12-03', fields: { contactMethod: '微信', nextContactOn: '2026-11-25' }, attachments: [] }, '2026-12-01');
+  assert.equal(legacy.fields.nextContactOn, undefined, '旧日期不进入表单项');
+  assert.equal(legacy.nextFollowOn, '2026-12-03');
+  const kept = model.payload('INVITATION', legacy, 5).fields;
+  assert.equal(kept.nextContactOn, '2026-11-25');
+  assert.equal(model.payload('INTRODUCTION', { ...model.form({ code: 'INTRODUCTION', fields: { nextContactOn: '2026-11-25' } }) }, 5).fields.nextContactOn, undefined);
 });
 
 test('客户和资产ID保持字符串，拒绝不安全数字和任意URL附件', () => {
@@ -53,13 +61,13 @@ test('实际开工是业务日期，不把日期字段显示成虚构的北京�
 });
 
 const { customerRow, tabFilter } = require('../miniprogram/utils/platform-crm');
-test('客户列表的预约回访与八步邀约日期分开，筛选和卡片使用同一日期', () => {
+test('客户列表的预约跟进与八步邀约日期分开，筛选和卡片使用同一日期', () => {
   const today='2026-11-26';
   const common={id:'1',name:'测试客户',lastFollowAt:'2026-11-25',workflow:{nextContactOn:'2026-11-25',currentStepName:'邀约确认'}};
   const booked=customerRow({...common,nextVisitDate:[2026,12,1]},{today});
   assert.equal(booked.appointment,'2026-12-01');
   assert.doesNotMatch(booked.cue,/逾期/);
-  assert.match(booked.cue,/回访/);
+  assert.match(booked.cue,/跟进/);
   assert.equal(booked.workflow.nextContactOn,'2026-11-25');
   assert.deepEqual(tabFilter([booked],'appointments',{today}),[booked]);
   const cleared=customerRow({...common,nextVisitDate:null},{today});
