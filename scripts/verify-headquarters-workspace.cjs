@@ -173,6 +173,26 @@ test('客户八步展示实际字段与外部成果，合同和开工按真实�
   assert.equal(api.attachmentPath(action), PREFIX + '/customers/' + LONG + '/workflow/HOUSE_SELECTION/assets/65/content');
 });
 
+test('总部户型选择展示本次及历史版本各自确认的定制方向', async () => {
+  const env = await setup();
+  const detail = customer();
+  const selection = detail.workflow.steps.find(step => step.code === 'HOUSE_SELECTION');
+  selection.fields = { selectionMode: 'EXTERNAL_CUSTOM', customDirection: 'T 形布局，两户共用院子', confirmed: true };
+  selection.attachments = [];
+  env.handler = route => {
+    if (route === PREFIX + '/customers/' + LONG) return detail;
+    if (route.endsWith('/workflow-records')) return pageResult([{ id: '100', stepCode: 'HOUSE_SELECTION', type: 'COMPLETE',
+      fields: { selectionMode: 'EXTERNAL_CUSTOM', customDirection: '原版沿街留院', confirmed: true }, attachments: [] }]);
+  };
+  const page = await env.open(DETAIL + '?kind=customers&id=' + LONG);
+  await page.expandStep({ currentTarget: { dataset: { code: 'HOUSE_SELECTION' } } });
+  assert.ok(env.text(page).includes('外部定制'));
+  assert.ok(env.text(page).includes('T 形布局，两户共用院子'));
+  await page.toggleHistory(); await flush();
+  assert.ok(env.text(page).includes('原版沿街留院'));
+  assert.ok(env.reads().every(call => call.request.method === 'GET'));
+});
+
 test('总部外部委托需求与成果只读分页，保存的付款版本和附件均对应真实版本', async () => {
   const env = await setup();
   env.handler = (route, request) => /\/external-entrust\/(requests|results)$/.test(route)
