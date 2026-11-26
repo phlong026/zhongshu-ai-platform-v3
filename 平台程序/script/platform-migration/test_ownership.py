@@ -117,7 +117,10 @@ class OwnershipTest(unittest.TestCase):
             result = subprocess.run([sys.executable, "-I", str(DIRECTORY / "ownership.py")],
                                     cwd=temporary, capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads(result.stdout)["status"], "STATIC_INVENTORY_ONLY")
+            plan = json.loads(result.stdout)
+            self.assertEqual(plan["status"], "STATIC_INVENTORY_ONLY")
+            for field in ("freeze_ready", "database_connected", "migration_ready", "production_verified"):
+                self.assertIs(plan[field], False)
             self.assertEqual(list(Path(temporary).iterdir()), [])
             rejected = subprocess.run([sys.executable, "-I", str(DIRECTORY / "ownership.py"), "--execute"],
                                       cwd=temporary, capture_output=True, timeout=10)
@@ -172,7 +175,11 @@ class OwnershipTest(unittest.TestCase):
     def test_writer_inventory_matches_gate_without_claiming_live_coverage(self):
         coverage = ownership.read_json(DIRECTORY / "writer-coverage.json")
         ownership.validate_coverage(coverage, DIRECTORY.parents[1])
-        self.assertTrue(all(writer["status"] == "NOT_WIRED" for writer in coverage["writers"]))
+        for status in ("NOT_WIRED", "WIRED"):
+            with self.subTest(source_status=status):
+                sample = copy.deepcopy(coverage)
+                sample["writers"][0]["status"] = status
+                ownership.validate_coverage(sample)
 
     def test_missing_or_duplicate_writer_is_rejected(self):
         original = ownership.read_json(DIRECTORY / "writer-coverage.json")
@@ -192,8 +199,13 @@ class OwnershipTest(unittest.TestCase):
             coverage[field] = True
             with self.subTest(field=field), self.assertRaisesRegex(ownership.EvidenceError, "STATIC_COVERAGE_ONLY"):
                 ownership.validate_coverage(coverage)
-        original["writers"][0]["status"] = "WIRED"
-        with self.assertRaisesRegex(ownership.EvidenceError, "STATIC_COVERAGE_ONLY"):
+        for field in ("instance_acknowledgements", "watermarks"):
+            coverage = copy.deepcopy(original)
+            coverage[field] = {"instance": "claimed"}
+            with self.subTest(field=field), self.assertRaisesRegex(ownership.EvidenceError, "STATIC_COVERAGE_ONLY"):
+                ownership.validate_coverage(coverage)
+        original["writers"][0]["status"] = "PRODUCTION_VERIFIED"
+        with self.assertRaisesRegex(ownership.EvidenceError, "WRITER_STATUS_INVALID"):
             ownership.validate_coverage(original)
 
     def test_writer_candidate_path_escape_is_rejected(self):
