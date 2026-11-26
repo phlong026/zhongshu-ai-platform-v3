@@ -516,15 +516,13 @@ public class EngProjectService {
             return row;
         }).toList());
         var progressOwners = new java.util.LinkedHashSet<Long>();
-        if (project.getManagerUserId() != null) progressOwners.add(project.getManagerUserId());
         nodes.stream().map(FrEngPlanNodeDO::getDelayOwnerUserId).filter(java.util.Objects::nonNull).forEach(progressOwners::add);
         var progressNames = new java.util.HashMap<Long,String>();
-        systemDirectory.usersByIds(new java.util.ArrayList<>(progressOwners)).forEach(u -> progressNames.put(u.userId(),java.util.Objects.toString(u.name(),"")));
+        if (!progressOwners.isEmpty()) systemDirectory.usersByIds(new java.util.ArrayList<>(progressOwners))
+                .forEach(u -> progressNames.put(u.userId(),java.util.Objects.toString(u.name(),"")));
         view.put("nodes", nodes.stream().map(n -> {
             var row=nodeView(n);
-            Long owner=n.getDelayOwnerUserId()==null?project.getManagerUserId():n.getDelayOwnerUserId();
-            row.put("delayOwnerName", progressNames.getOrDefault(owner,""));
-            row.put("delayOwnerUserId", owner);
+            row.put("delayOwnerName", progressNames.getOrDefault(n.getDelayOwnerUserId(),""));
             return row;
         }).toList());
         // R2 P1-4：现场记录透出（批次#36 在线 site/site-correct 链数据源；corrections/file_asset_ids 原样 JSONB 文本）

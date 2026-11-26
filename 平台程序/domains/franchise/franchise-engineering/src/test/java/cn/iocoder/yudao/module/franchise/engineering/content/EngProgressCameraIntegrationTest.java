@@ -218,6 +218,26 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         reminders.scanAt(today.plusDays(1));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_message WHERE sender_domain='fr-eng-progress' AND object_id=?",Integer.class,projectId)).isEqualTo(count);
     }
+    @Test void aProjectManagersNameDoesNotBecomeAnUnrecordedDelayAssignment() {
+        var directory=cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory.INSTANCE;
+        long managerId=directory.createUser("原项目经理","13600000111",engineer.teamId());
+        var manager=fixture.postFor(managerId,engineer.orgId(),"project-manager",engineer.teamId());
+        long assignedId=directory.createUser("现场工程师","13600000222",engineer.teamId());
+        fixture.postFor(assignedId,engineer.orgId(),"engineer",engineer.teamId());
+        jdbc.update("UPDATE fr_eng_project SET manager_user_id=?,assigned_engineer_user_id=? WHERE id=?",managerId,assignedId,projectId);
+        currentPost.use(manager);
+        LocalDate date=EngProgress.today();
+        plans.savePlan(manager,projectId,input(date.minusDays(3)),key());
+        plans.savePlan(manager,projectId,input(date.plusDays(2)),key());
+        long nodeId=node(2);
+        var before=(List<Map<String,Object>>)projects.detail(manager,projectId).get("nodes");
+        assertThat(before).anySatisfy(row->assertThat(row).containsEntry("id",nodeId)
+                .containsEntry("delayOwnerUserId",null).containsEntry("delayOwnerName","").containsEntry("recoveryDate",null));
+        progress.save(manager,projectId,nodeId,new EngProgressService.DelayCommand("雨水积压",assignedId,date.plusDays(3),"排水后复核"),key());
+        var after=(List<Map<String,Object>>)projects.detail(manager,projectId).get("nodes");
+        assertThat(after).anySatisfy(row->assertThat(row).containsEntry("id",nodeId).containsEntry("delayOwnerUserId",assignedId)
+                .containsEntry("delayOwnerName","现场工程师").containsEntry("recoveryDate",date.plusDays(3)));
+    }
     @Test void cameraBindingPlaybackAndIsolationKeepAddressesOutOfListsAndAudit(){
         String url="https://video.example.com/site/live.m3u8?token=secret";
         var cmd=new EngCameraService.CameraCommand(null,"东侧施工区","入口立杆",url,true);String key=key();

@@ -382,7 +382,7 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   java.time.LocalDate today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
   String period=today.toString().substring(0,7);
   jdbc.execute("ALTER TABLE fr_eng_project ADD manager_user_id bigint, ADD assigned_engineer_user_id bigint, ADD customer_name text, ADD status text, ADD create_time timestamptz, ADD area numeric");
-  jdbc.execute("ALTER TABLE fr_eng_plan_node ADD name text, ADD delay_owner_user_id bigint, ADD responsible_user_id bigint, ADD baseline_end_date date");
+  jdbc.execute("ALTER TABLE fr_eng_plan_node ADD name text, ADD delay_owner_user_id bigint, ADD responsible_user_id bigint");
   jdbc.execute("CREATE TEMP TABLE fr_eng_rectification(id bigint,company_id bigint,project_id bigint,title text,state text,owner_user_id bigint,due_date date)");
   jdbc.execute("CREATE TEMP TABLE fr_eng_supply_receipt(id bigint,company_id bigint,project_id bigint,supply_id bigint,quality text,quality_resolution jsonb)");
   jdbc.execute("CREATE TEMP TABLE system_users(id bigint,nickname text)");
@@ -415,7 +415,7 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   createTables();
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");
   jdbc.execute("ALTER TABLE fr_eng_project ADD name text");
-  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_eng_plan_node(id bigint,company_id bigint,project_id bigint,milestone text,status text,node_index int,start_date date,end_date date,baseline_end_date date)");
   jdbc.execute("ALTER TABLE fr_sale_stage_receipt ADD amount_cents bigint");
   jdbc.execute("ALTER TABLE fr_sale_payment_stage ADD customer_id bigint, ADD stage text");
   jdbc.execute("ALTER TABLE fr_fin_receipt ADD customer_id bigint, ADD project_id bigint, ADD deleted boolean DEFAULT false, ADD transaction_no text, ADD voucher_file_id bigint");
