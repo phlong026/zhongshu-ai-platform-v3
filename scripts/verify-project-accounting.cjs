@@ -15,7 +15,7 @@ const allText = nodes => nodes.map(node => (node.text || '') + allText(node.chil
 const fixture = patch => ({ projectId: project, projectName: '甲公司乡墅', basisCode: 'CONTRACT_CONFIRMED_COST_V1',
   basisLabel: '合同金额减已确认项目费用；员工垫付与报销只计一次费用，不含未归属费用和公司公共费用分摊',
   contractId: '51', contractRevenueCents: '10000000', confirmedCostCents: '7000000', netReceivedCents: '6000000',
-  companyNetPaidCents: '4000000', cashNetCents: '2000000', grossProfitCents: '3000000', receivableCents: '4000000',
+  companyNetPaidCents: '4000000', cashNetCents: '2000000', grossProfitCents: '3000000', receivableCents: '4000000', payableOutstandingCents: '1234500',
   engineeringSettled: true, sourceHash: hash, latestSnapshot: null, version: 0, state: 'UNCONFIRMED', ready: true, canConfirm: true, ...patch });
 function snapshot(row, version = 1) {
   const facts = clone(row); delete facts.latestSnapshot;
@@ -66,6 +66,21 @@ test('真实页面展示现金、毛利和口径，并有原账与确认记录�
   assert.match(text, /现金结余不表示项目利润/); assert.match(text, /核算确认记录/);
   assert.equal(env.requests.find(row => row.route === base).request.header['X-Post-Id'], '42');
   assert.equal(env.requests.find(row => row.route === base).request.header['tenant-id'], '1');
+});
+
+test('项目待付款使用后端金额，历史版本独立保留，旧版本显示未记录', async () => {
+  const env = await setup();
+  env.rows = [snapshot(fixture({ payableOutstandingCents: '501' }), 2), snapshot(fixture({ payableOutstandingCents: undefined }), 1)];
+  const page = await env.open(), text = env.text(page);
+  assert.equal(page.data.row.metrics.find(row => row.key === 'payableOutstandingCents')?.value, '12,345.00');
+  assert.deepEqual(page.data.history.map(row => row.outstandingText), ['5.01', '—']);
+  assert.match(text, /项目待付款/);
+  assert.match(text, /12,345\.00/);
+  assert.match(text, /5\.01/);
+  assert.match(text, /当时待付款[^¥]*¥\s*—/);
+  const old = model.view(fixture({ payableOutstandingCents: undefined }), project);
+  assert.equal(old.metrics.find(row => row.key === 'payableOutstandingCents')?.value, '—');
+  assert.throws(() => model.view(fixture({ payableOutstandingCents: 'broken' }), project), /金额/);
 });
 
 test('门店财务可确认，老板和业主只读，总部和业务岗位不能通过门店页面写入', async () => {
