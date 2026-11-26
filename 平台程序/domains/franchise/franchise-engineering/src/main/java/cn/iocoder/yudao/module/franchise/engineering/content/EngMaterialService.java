@@ -477,6 +477,14 @@ public class EngMaterialService {
                     .setQuality(StrUtil.blankToDefault(cmd.quality(), FrEngSupplyReceiptDO.QUALITY_OK))
                     .setTransactionNo(StrUtil.trim(cmd.transactionNo())).setOccurredAt(occurredAt)
                     .setFileAssetId(cmd.fileAssetId()).setNote(StrUtil.nullToEmpty(cmd.note())));
+            // Physical shortages remain linked to the original delivery; failed quality is handled separately.
+            if (reship.getExpectedQuantity() != null) {
+                BigDecimal outstanding = reship.getExpectedQuantity().subtract(actual);
+                if (outstanding.signum() > 0) {
+                    insertPendingReship(post, supply, reship.getParentReceiptId(), outstanding, occurredAt,
+                            cmd.fileAssetId(), "本次补发未到齐，待补 " + outstanding.toPlainString());
+                }
+            }
             commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
                 "eng-reship-receive", payload, idempotencyKey);
@@ -551,20 +559,26 @@ public class EngMaterialService {
         receipt.setId(receiptId); // 行由 jdbc 落库（jsonb 列禁 MP insert），补 id 供补发行挂靠
         // ◆差异自动补发行（数量=应到-实到，待补发到货回填 actual）
         if (expected.subtract(actual).compareTo(new BigDecimal("0.0001")) > 0) {
-            long reshipId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
-            jdbcTemplate.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, "
-                            + "kind, parent_receipt_id, transaction_no, expected_quantity, occurred_at, "
-                            + "file_asset_id, note, author_user_id, create_time, update_time) "
-                            + "VALUES (?,?,?,?,?,?,?, ?,?,?,?, ?,now(),now())",
-                    reshipId, post.orgId(), supply.getProjectId(), supply.getId(),
-                    FrEngSupplyReceiptDO.KIND_RESHIP, receipt.getId(), "RESHIP-" + reshipId,
-                    expected.subtract(actual), occurredAt, cmd.fileAssetId(),
-                    "差异自动补发（应到" + expected + "，实到" + actual + "）", post.userId());
+            insertPendingReship(post, supply, receipt.getId(), expected.subtract(actual), occurredAt,
+                    cmd.fileAssetId(), "差异自动补发（应到" + expected + "，实到" + actual + "）");
         }
         commands.record(post, AGGREGATE, supply.getProjectId(),
                 projectService.bumpRevision(post, projectService.requireProject(post, supply.getProjectId())),
                 command, payload, idempotencyKey);
         return supplyView(post, supply);
+    }
+
+    private void insertPendingReship(PostSnapshot post, FrEngSupplyDO supply, long parentReceiptId,
+                                     BigDecimal expected, LocalDate occurredAt, long fileAssetId, String note) {
+        long reshipId = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbcTemplate.update("INSERT INTO fr_eng_supply_receipt (id, company_id, project_id, supply_id, "
+                        + "kind, parent_receipt_id, transaction_no, expected_quantity, occurred_at, "
+                        + "file_asset_id, note, author_user_id, create_time, update_time) "
+                        + "VALUES (?,?,?,?,?,?,?, ?,?,?,?, ?,now(),now())",
+                reshipId, post.orgId(), supply.getProjectId(), supply.getId(),
+                FrEngSupplyReceiptDO.KIND_RESHIP, parentReceiptId, "RESHIP-" + reshipId,
+                expected, occurredAt, fileAssetId,
+                note, post.userId());
     }
 
     private void requireTxnFree(PostSnapshot post, String transactionNo) {
