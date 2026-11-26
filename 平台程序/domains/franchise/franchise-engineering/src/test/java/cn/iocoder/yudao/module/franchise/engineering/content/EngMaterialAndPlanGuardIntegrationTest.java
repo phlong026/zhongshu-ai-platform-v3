@@ -823,6 +823,52 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void correctionReplayChecksOriginalReasonAndMaterialMovementChecksReceiver() {
+        long receiptId = insertArrivalForCorrection("3");
+        String correctKey = idem();
+        var correction = new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("4"), "复核交货单");
+        var wrongReason = new EngMaterialService.ArrivalCorrectionCommand(correction.actual(), "改写原因为损耗");
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId, correction, correctKey));
+        String moveKey = idem();
+        var move = new EngMaterialService.MovementCommand(materialId, "CONSUME", BigDecimal.ONE, "一层领用", 41L);
+        as(engineer, () -> materialsService.movement(engineer, projectId, move, moveKey));
+        for (boolean historical : new boolean[]{false, true}) {
+            if (historical) {
+                var old = new java.util.LinkedHashMap<String, Object>();
+                old.put("receiptId", receiptId);
+                old.put("to", "4");
+                useOldMaterialEvent("eng-arrival-correct", old);
+                old.clear();
+                old.put("materialId", materialId);
+                old.put("kind", "CONSUME");
+                old.put("quantity", "1");
+                useOldMaterialEvent("eng-material-movement", old);
+            }
+            as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId, correction, correctKey));
+            as(engineer, () -> materialsService.movement(engineer, projectId, move, moveKey));
+            var reused = cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
+            cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                    () -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receiptId, wrongReason, correctKey)), reused);
+            for (var changed : java.util.List.of(
+                    new EngMaterialService.MovementCommand(materialId, move.kind(), move.quantity(), "二层领用", 41L),
+                    new EngMaterialService.MovementCommand(materialId, move.kind(), move.quantity(), move.note(), 42L))) {
+                cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                        () -> as(engineer, () -> materialsService.movement(engineer, projectId, changed, moveKey)), reused);
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(corrections) FROM fr_eng_supply_receipt WHERE id=?",
+                Integer.class, receiptId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fr_eng_material_movement WHERE material_id=?",
+                Integer.class, materialId)).isOne();
+    }
+
+    private void useOldMaterialEvent(String command, java.util.Map<String, Object> input) {
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(input);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? WHERE aggregate_id=? AND command=?",
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), projectId, command)).isOne();
+    }
+
+    @Test
     void arrivalCorrectionKeepsExactDecimalUpperAndCompletedNodeLowerBounds() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
         jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);
