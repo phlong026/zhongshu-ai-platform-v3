@@ -5,19 +5,33 @@
     <view wx:if="{{!loading}}" class="flow-inline-actions"><button class="flow-secondary" bindtap="load">重新加载</button><button class="flow-primary" bindtap="chooseIdentity">登录／切换身份</button></view>
   </view>
   <view wx:else class="flow-body">
-    <view class="flow-card flow-overview">
-      <view class="flow-title-row"><text class="flow-customer-name">{{workflow.customerName || '当前客户'}}</text><button class="flow-link" bindtap="openCustomer">客户资料 ›</button></view>
-      <view class="flow-progress-copy"><text>{{workflow.currentStepName}}</text><text>{{workflow.completedCount}}/8 · {{workflow.progressPercent}}%</text></view>
-      <view class="flow-progress-track"><view class="flow-progress-fill" style="width:{{workflow.progressPercent}}%" /></view>
-      <view class="flow-overview-foot"><text>业务跟进 · {{workflow.statusLabel}}</text><text wx:if="{{refreshing}}">正在更新…</text><text wx:elif="{{!workflow.canWrite}}">只读查看</text></view>
+    <view class="journey-card">
+      <view class="journey-client">
+        <view><text class="journey-person">{{workflow.customerName || '当前客户'}}</text><text class="journey-state">{{workflow.statusLabel}}</text></view>
+        <button class="journey-link" bindtap="openCustomer">客户资料 <text class="journey-chevron">›</text></button>
+      </view>
+      <view class="journey-divider"></view>
+      <view class="journey-labels">
+        <text class="journey-label">跟进进度</text>
+        <view class="journey-score"><text class="journey-number">{{workflow.completedCount}}</text><text class="journey-fraction"> / 8</text><text class="journey-score-divider"></text><text class="journey-percent">{{workflow.progressPercent}}%</text></view>
+      </view>
+      <view class="journey-rail">
+        <block wx:for="{{workflow.steps}}" wx:key="code">
+          <view wx:if="{{index}}" class="journey-connector {{workflow.steps[index-1].status==='COMPLETED'?'journey-connector-done':''}}"></view>
+          <button class="journey-node {{step.code===item.code?'journey-node-active':item.status==='COMPLETED'?'journey-node-done':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="{{item.number}} {{item.name}} {{item.statusLabel}}" aria-pressed="{{step.code===item.code}}">
+            <text class="journey-point">{{step.code!==item.code&&item.status==='COMPLETED'?'✓':item.number}}</text>
+            <text wx:if="{{step.code===item.code}}" class="journey-active-name">{{item.name}}</text>
+          </button>
+        </block>
+      </view>
+      <view class="journey-bottom">
+        <view wx:if="{{nextStepLabel}}" class="journey-next"><text>下一步</text><text>{{nextStepLabel}}</text></view>
+        <view wx:else class="journey-next"><text>{{workflow.completedCount===8?'八步流程已完成':'当前为最后待办步骤'}}</text></view>
+        <button class="journey-link" bindtap="showJourney" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-expanded="{{journeyOpen}}">全部步骤 <text class="journey-chevron">›</text></button>
+      </view>
+      <text wx:if="{{refreshing||!workflow.canWrite}}" class="flow-muted">{{refreshing?'正在更新…':'只读查看'}}</text>
     </view>
-    <view class="flow-step-grid">
-      <button wx:for="{{workflow.steps}}" wx:key="code" class="flow-step {{step.code===item.code?'selected':''}} {{item.status==='COMPLETED'?'completed':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}">
-        <view class="flow-step-top"><text class="flow-step-number">{{item.number}}</text><text wx:if="{{item.status==='COMPLETED'}}" class="flow-step-check">✓</text></view>
-        <text class="flow-step-name">{{item.name}}</text><text class="flow-step-state">{{item.statusLabel}}</text>
-      </button>
-    </view>
-    <view class="flow-section-heading"><text>{{step.number}} · {{step.name}}</text><button class="flow-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回本步':'查看记录'}}</button></view>
+    <view class="flow-section-heading journey-stage-heading"><text>{{step.number}} · {{step.name}}</text><button class="flow-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回本步':'查看记录'}}</button></view>
     <view wx:if="{{error||uncertain}}" class="flow-error" aria-live="polite"><text>{{error||'保存结果尚未确认，请重试核对'}}</text><button wx:if="{{uncertain}}" class="flow-link" bindtap="runPending" loading="{{busy}}" disabled="{{busy}}">重试核对</button><button wx:elif="{{!busy}}" class="flow-link" bindtap="reloadLatest">载入最新</button></view>
     <view wx:if="{{conflict}}" class="flow-error"><text>记录已更新，请载入最新版本后继续。</text><button class="flow-link" bindtap="reloadLatest">载入最新</button></view>
     <block wx:if="{{showHistory}}">
@@ -94,5 +108,18 @@
     </block>
   </view>
   <view wx:if="{{workflow&&step.canWrite&&!showHistory}}" class="flow-footer"><button class="flow-secondary" data-action="save" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}" loading="{{busy}}">保存记录</button><button class="flow-primary" data-action="complete" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}">完成本步</button></view>
+  <view wx:if="{{workflow&&journeyOpen}}" class="journey-dim" catchtap="hideJourney">
+    <view class="journey-sheet" catchtap="noop" aria-role="dialog" aria-label="全部步骤">
+      <view class="journey-sheet-title"><text>全部步骤</text><button class="journey-link" bindtap="hideJourney">关闭</button></view>
+      <scroll-view class="journey-sheet-list" scroll-y>
+        <button wx:for="{{workflow.steps}}" wx:key="code" class="journey-row {{index===0?'journey-row-first':''}} {{index===7?'journey-row-last':''}} {{step.code===item.code?'journey-row-active':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="{{item.number}} {{item.name}} {{item.statusLabel}}">
+          <view class="journey-row-line"></view>
+          <text class="journey-row-num {{item.status==='COMPLETED'?'journey-row-done':''}}">{{item.status==='COMPLETED'?'✓':item.number}}</text>
+          <text class="journey-row-name">{{item.name}}</text><text class="journey-row-status">{{item.statusLabel}}</text>
+          <text class="journey-chevron">›</text>
+        </button>
+      </scroll-view>
+    </view>
+  </view>
   <view wx:if="{{activeRecord}}" class="flow-sheet-mask" catchtap="closeRecord"><view class="flow-sheet" catchtap="noop"><view class="flow-title-row"><text>{{activeRecord.stepName}} · {{activeRecord.actionLabel}}</text><button class="flow-link" bindtap="closeRecord">关闭</button></view><scroll-view scroll-y class="flow-sheet-content"><text class="flow-muted">{{activeRecord.createdText}} · {{activeRecord.actorName || '经办人'}}</text><view wx:if="{{activeRecord.occurredText}}" class="flow-fact"><text>发生日期</text><text>{{activeRecord.occurredText}}</text></view><view wx:for="{{activeRecord.details}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value}}</text></view><button wx:if="{{activeRecord.stepCode==='QUOTATION'&&activeRecord.fields.quoteId}}" class="flow-link" bindtap="openLinkedQuote">查看本版报价原单</button><text wx:if="{{activeRecord.note}}" class="flow-record-note">{{activeRecord.note}}</text><button wx:for="{{activeRecord.attachments}}" wx:key="assetId" class="flow-file-name" data-id="{{item.assetId}}" bindtap="previewFile">{{item.title}}</button></scroll-view></view></view>
 </view>
