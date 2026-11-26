@@ -22,6 +22,7 @@ const STEPS = [
     field('floors', '层数', 'integer', { unit: '层' }), field('checked', '测量资料已核对', 'boolean')
   ] },
   { code: 'QUOTATION', name: '别墅报价', fields: [
+    field('quoteId', '正式报价原单', 'hidden'),
     field('amountCents', '正式报价金额', 'money', { unit: '元' }), field('scope', '报价范围', 'textarea'),
     field('versionLabel', '报价版本'), field('result', '沟通结果', 'textarea'), field('communicated', '已向客户说明报价', 'boolean')
   ] },
@@ -31,6 +32,7 @@ const STEPS = [
 const STATUS = { TODO: '待办理', DRAFT: '已记录', COMPLETED: '已完成' };
 const FLOW_STATUS = { ACTIVE: '跟进中', PAUSED: '已暂停', LOST: '已流失', COMPLETED: '已开工' };
 const EVENT = { SAVE: '保存记录', COMPLETE: '完成步骤', REOPEN: '重新办理', STATUS: '更新状态' };
+const QUOTE_SNAPSHOT_FIELDS = new Set(['amountCents', 'scope', 'versionLabel']);
 const definition = code => STEPS.find(step => step.code === code);
 function id(value) {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) return '';
@@ -43,7 +45,7 @@ function date(value) {
 }
 function dateTime(value) {
   if (!value) return '';
-  const timestamp = typeof value === 'number' ? value : Date.parse(value);
+  const timestamp = typeof value === 'number' ? (Math.abs(value) < 1e12 ? value * 1000 : value) : Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : '';
 }
 function fromCents(value) {
@@ -72,7 +74,9 @@ function form(step = {}) {
     attachments: attachments(step.attachments) };
 }
 function fieldRows(code, value) {
-  return (definition(code)?.fields || []).filter(row => row.type !== 'hidden').map(row => ({ ...row,
+  const linked = code === 'QUOTATION' && id(value.fields.quoteId);
+  return (definition(code)?.fields || []).filter(row => row.type !== 'hidden' &&
+    (!linked || (!QUOTE_SNAPSHOT_FIELDS.has(row.key) && !['communicated', 'result'].includes(row.key)))).map(row => ({ ...row,
     value: value.fields[row.key], optionLabel: row.options?.find(o => o.value === value.fields[row.key])?.label || '请选择',
     optionIndex: Math.max(0, row.options?.findIndex(o => o.value === value.fields[row.key]) || 0) }));
 }
@@ -81,6 +85,7 @@ function payload(code, value, revision) {
   if (!def || ['CONTRACT', 'START'].includes(code)) throw Error('签约与开工由业务事实同步');
   const fields = {};
   for (const row of def.fields) {
+    if (code === 'QUOTATION' && id(value.fields.quoteId) && QUOTE_SNAPSHOT_FIELDS.has(row.key)) continue;
     const input = value.fields[row.key];
     fields[row.key] = row.type === 'boolean' ? input === true : row.type === 'money' ? toCents(input) : String(input == null ? '' : input).trim();
   }
@@ -89,6 +94,18 @@ function payload(code, value, revision) {
   if (files.some(file => !file.assetId)) throw Error('资料尚未上传完成，请重试');
   return { revision, occurredOn: value.occurredOn || null, note: value.note.trim(), fields,
     attachments: files.map(({ assetId, title }) => ({ assetId, title })) };
+}
+function quoteOptions(rows, customerId, companyId) {
+  if (!Array.isArray(rows)) throw Error('报价列表格式有误，请重试');
+  return rows.flatMap(row => {
+    const quoteId = id(row.id), amount = fromCents(row.totalCents);
+    if (!quoteId || id(row.customerId) !== customerId || id(row.companyId) !== companyId || !amount || amount === '0.00') return [];
+    const price = String(row.priceVersion || '').trim();
+    const version = Number.isSafeInteger(row.budgetVersion) && row.budgetVersion > 0
+      ? 'V' + row.budgetVersion + (price ? ' · ' + price : '') : price || '报价 #' + quoteId;
+    const createdOn = Array.isArray(row.createTime) ? date(row.createTime.slice(0, 3)) : dateTime(row.createTime).slice(0, 10);
+    return [{ id: quoteId, amount, version, label: [createdOn, version, '¥' + amount].filter(Boolean).join(' · ') }];
+  });
 }
 function workflow(response, customerId) {
   if (!response || id(response.customerId) !== customerId) throw Error('客户流程响应不匹配，请重新加载');
@@ -121,4 +138,4 @@ function facts(step) {
   return [];
 }
 function errorText(error) { return String(error && (error.msg || error.message) || '操作未完成，请重试'); }
-module.exports = { STEPS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, workflow, records, facts, errorText };
+module.exports = { STEPS, definition, id, date, dateTime, fromCents, toCents, form, fieldRows, payload, quoteOptions, workflow, records, facts, errorText };
