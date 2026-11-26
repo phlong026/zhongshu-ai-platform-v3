@@ -222,9 +222,9 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO fr_eng_project (id, company_id, customer_id, customer_name, name, status, "
                         + "manager_user_id, assigned_engineer_user_id, sale_contract_id, source_commission_id, source_type, "
                         + "revision, author_user_id, create_time, update_time) "
-                        + "VALUES (?, ?, ?, '陈先生', '陈先生 · 乡墅', 'PENDING_START', ?, ?, ?, ?, 'HANDOVER', "
+                        + "VALUES (?, ?, ?, '陈先生', ?, 'PENDING_START', ?, ?, ?, ?, 'HANDOVER', "
                         + "1, ?, now(), now())",
-                projectId, store.orgId(), customerId, engineer.userId(), engineer.userId(),
+                projectId, store.orgId(), customerId, "陈先生 · 乡墅" + customerId, engineer.userId(), engineer.userId(),
                 created.getId(), IDS.incrementAndGet(), engineer.userId());
         jdbc.update("INSERT INTO fr_eng_closure (id, company_id, project_id, create_time) "
                 + "VALUES (?, ?, ?, now())", IDS.incrementAndGet(), store.orgId(), projectId);
