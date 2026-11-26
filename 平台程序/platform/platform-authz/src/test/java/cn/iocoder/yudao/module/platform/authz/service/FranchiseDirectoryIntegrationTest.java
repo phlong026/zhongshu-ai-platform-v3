@@ -195,6 +195,15 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
                 new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店",publicAddress,true,original.version()),7);
         assertThat(updated.publicAddress()).isEqualTo(publicAddress);
         assertThat(updated.publicAddressAuthorized()).isTrue();
+        assertThat(jdbc.queryForObject("SELECT public_address_authorized_by FROM pf_franchise_directory WHERE tenant_id=? AND id=?",
+                Long.class,tenant,original.id())).isEqualTo(7L);
+        assertThat(jdbc.queryForObject("SELECT public_address_authorized_at IS NOT NULL FROM pf_franchise_directory WHERE tenant_id=? AND id=?",
+                Boolean.class,tenant,original.id())).isTrue();
+        // Old clients that only update the public name must not accidentally revoke the address.
+        var renamed=directory.updateMapDisplay(original.id(),
+                new FranchiseDirectoryService.MapDisplayRequest("测试甲 · 武汉北部门店新版",null,null,updated.version()),7);
+        assertThat(renamed.publicAddress()).isEqualTo(publicAddress);
+        assertThat(renamed.publicAddressAuthorized()).isTrue();
 
         selected.value=new PostSnapshot(2,7,opened.orgId(),"store","sales",null,false,Set.of());
         var sameBrand=maps.snapshot();
@@ -214,9 +223,11 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
                 .allMatch(r->r.publicAddress().isEmpty());
 
         var revoked=directory.updateMapDisplay(original.id(),
-                new FranchiseDirectoryService.MapDisplayRequest(updated.publicName(),"",false,updated.version()),7);
+                new FranchiseDirectoryService.MapDisplayRequest(renamed.publicName(),"",false,renamed.version()),7);
         assertThat(revoked.publicAddress()).isEmpty();
         assertThat(revoked.publicAddressAuthorized()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT public_address_authorized_by IS NULL AND public_address_authorized_at IS NULL FROM pf_franchise_directory WHERE tenant_id=? AND id=?",
+                Boolean.class,tenant,original.id())).isTrue();
         selected.value=new PostSnapshot(2,7,opened.orgId(),"store","sales",null,false,Set.of());
         assertThat(records(maps.snapshot())).filteredOn(r->r.id().equals(original.id()))
                 .allMatch(r->r.publicAddress().isEmpty());
