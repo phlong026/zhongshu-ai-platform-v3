@@ -442,53 +442,62 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 IDS.incrementAndGet(), store.orgId(), projectId, supplyId, baseArrivalAsset, engineer.userId());
         as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
                 new EngPlanService.NodeRecordCommand(java.time.LocalDate.now(), "基础施工完成", validAsset, true), idem()));
-        // BASE_DONE 收款通过（留痕在前）
-        var view = as(engineer, () -> collectionsService.register(engineer, projectId,
+        // 工程已留痕，再由财务持收款凭据确认入账。
+        var finance = fixture.post(store.orgId(), "finance", null);
+        long voucher = insertAsset("FIN_VOUCHER", true, store.orgId());
+        var view = as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("150000"), "TXN-BASE",
-                        java.time.LocalDate.now(), validAsset), idem()));
+                        java.time.LocalDate.now(), voucher), idem()));
         assertThat(view.get("collectionId")).isNotNull();
         // R2 P2-8：统一链调用断言——Port.collectStage 收到 BASE_DONE 期分笔；工程留痕行引用统一 receiptId
         assertThat(Config.COLLECT_CALLS).anyMatch(c -> c.startsWith("BASE_DONE:15000000:TXN-BASE"));
         assertThat(jdbc.queryForObject(
                 "SELECT receipt_id FROM fr_eng_collection WHERE project_id = ? AND stage = 'BASE_DONE'",
                 Long.class, projectId)).isEqualTo(8001L);
+        // 财务原单仍支持旧版用现场图片留存收款证据的档案。
+        long historicPhoto = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(finance, () -> collectionsService.register(finance, projectId,
+                new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("50"), "TXN-OLD-PHOTO",
+                        java.time.LocalDate.now(), historicPhoto), idem()));
+        assertThat(as(engineer, () -> collectionsService.list(engineer, projectId))).anySatisfy(row ->
+                assertThat(row).containsEntry("fileAssetId", historicPhoto).containsEntry("transactionNo", "TXN-OLD-PHOTO"));
 
         // 作废重签拒绝（R2 P1-2）：冻结合同 900 ≠ 当前活跃 901 → 收款拒绝
         Config.ACTIVE_CONTRACT_ID.set(901L);
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("100000"), "TXN-BASE2",
-                        java.time.LocalDate.now(), validAsset), idem())))
+                        java.time.LocalDate.now(), voucher), idem())))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("统一建房合同已变更");
         Config.ACTIVE_CONTRACT_ID.set(900L);
         // 封顶期收款在封顶节点完成前拒绝（既有 toppingDone 门禁）
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("CAP_DONE", new BigDecimal("100000"), "TXN-CAP",
-                        java.time.LocalDate.now(), validAsset), idem())))
+                        java.time.LocalDate.now(), voucher), idem())))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("请先完成主体封顶");
     }
 
     @Test
     void collectVoucherAssetVerifiedWhenPresent() {
-        // M07-T04 批次#36：收款凭据资产域侧校验——填了即验（假 ID/未验收/类型不符全拒）；
-        // null 放行（既有可空行为，不收紧）——与 prepare/start 的必填语义区分
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        var finance = fixture.post(store.orgId(), "finance", null);
+        // 财务实收凭据须归属本组织、已验收、类型正确。
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC1",
                         java.time.LocalDate.now(), 9_999_999L), idem())))
                 .isInstanceOf(ServiceException.class); // 假 ID
-        long unaccepted = insertAsset("ENG_SITE_PHOTO", false, store.orgId());
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        long unaccepted = insertAsset("FIN_VOUCHER", false, store.orgId());
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC2",
                         java.time.LocalDate.now(), unaccepted), idem())))
                 .isInstanceOf(ServiceException.class); // 未验收
         long wrongType = insertAsset("DOC_OTHER", true, store.orgId());
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("1000"), "TXN-VC3",
                         java.time.LocalDate.now(), wrongType), idem())))
                 .isInstanceOf(ServiceException.class); // 类型不符（非 ENG 类）
         // 凭据缺失：既有必填校验（收款流水并留存凭据）先于域侧校验——语义锁定
-        assertThatThrownBy(() -> as(engineer, () -> collectionsService.register(engineer, projectId,
+        assertThatThrownBy(() -> as(finance, () -> collectionsService.register(finance, projectId,
                 new EngCollectionService.CollectCommand("BASE_DONE", new BigDecimal("500"), "TXN-VC4",
                         java.time.LocalDate.now(), null), idem())))
                 .isInstanceOf(ServiceException.class)

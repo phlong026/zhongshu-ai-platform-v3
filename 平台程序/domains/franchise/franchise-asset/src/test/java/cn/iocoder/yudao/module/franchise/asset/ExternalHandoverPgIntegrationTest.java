@@ -520,6 +520,11 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).containsEntry("remainingCents",39900L);
         assertThat(as(secondEngineer,()->collections.list(secondEngineer,project))).singleElement()
                 .satisfies(row->assertThat(row).containsEntry("transactionNo",confirmedTransaction).containsEntry("fileAssetId",registeredProof));
+        long sitePhoto=upload(secondEngineer,"ENG_SITE_PHOTO");
+        var wrongEvidence=new EngCollectionService.CollectCommand(claim.stage(),claim.amount(),claim.transactionNo(),today(),
+                sitePhoto,claim.stageId(),claim.planVersion());
+        assertThatThrownBy(()->as(secondEngineer,()->collections.register(secondEngineer,project,wrongEvidence,key())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请上传本人经办的本笔收款凭据");
         long declaration=(long)as(secondEngineer,()->collections.register(secondEngineer,project,claim,key())).get("declarationId");
         assertThat(as(engineer,()->collections.declarations(engineer,project))).singleElement()
                 .satisfies(row->assertThat(row).containsEntry("id",Long.toString(declaration)).containsEntry("status","PENDING"));
@@ -580,8 +585,11 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var submitted=submit(ready,evidence,engineer);
         assertThat(submitted.currentPacket().paymentPlan().contractId()).isEqualTo(contract.getId());
         var accepted=receive(submitted,engineer,key());
-        assertThat(accepted.projectId()).isNotNull(); assertThat(accepted.packets()).hasSize(2);
-        assertThat(accepted.packets()).anySatisfy(p->{assertThat(p.status()).isEqualTo("RETURNED");assertThat(p.paymentPlan().source()).isEqualTo("DRAFT");});
+        assertThat(accepted.projectId()).isNotNull();
+        assertThat(accepted.packets()).extracting(Packet::version).containsExactly(2);
+        var history=as(sales,()->handover.get(sales,commission)).packets();
+        assertThat(history).extracting(Packet::version).containsExactly(2,1);
+        assertThat(history).anySatisfy(p->{assertThat(p.status()).isEqualTo("RETURNED");assertThat(p.paymentPlan().source()).isEqualTo("DRAFT");});
         var ticket=as(sales,()->external.download(sales,customer,"requests",commissioned.currentRequest().version(),designFile));
         assertThat(as(sales,()->assets.readDownload(actor(sales),designFile,token(ticket.downloadUrl()))).bytes()).isEqualTo(PDF);
     }
@@ -1064,7 +1072,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     private void assertProgress(long customer,int completed) { assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).completedCount()).isEqualTo(completed); }
     private long upload(PostSnapshot post,String type) throws Exception {
         var image=new java.io.ByteArrayOutputStream();
-        boolean reference="DESIGN_REFERENCE".equals(type);
+        boolean reference=Set.of("DESIGN_REFERENCE","ENG_SITE_PHOTO").contains(type);
         if (reference) javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1,1,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
         byte[] bytes=reference?image.toByteArray():PDF;
         return as(post,()->{ var ticket=assets.createUploadTicket(actor(post),type,reference?"image/png":"application/pdf",bytes.length,sha(bytes));
