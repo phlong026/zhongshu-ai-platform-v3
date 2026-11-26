@@ -37,6 +37,32 @@ const trainingByRole = {
   finance: ['finance', '财务收支与项目对账', '财务对账', '项目对账核对表', 1],
   'finance-lead': ['finance-lead', '财务复核与月度结账', '财务对账', '月度结账复核清单', 2]
 };
+const brand = { id: 'preview-brand', name: '合家美宅', color: '#985523' };
+const province = { provinceCode: '360000', provinceName: '江西省' };
+const city = { ...province, cityCode: '360100', cityName: '南昌市' };
+const districts = [
+  ['360102', '东湖区', 28.686, 115.899],
+  ['360103', '西湖区', 28.657, 115.877],
+  ['360121', '南昌县', 28.545, 115.945]
+].map(([code, name, latitude, longitude]) => ({
+  ...city, code, name, level: 'district', parentCode: city.cityCode, districtCode: code, districtName: name, latitude, longitude
+}));
+const regions = [
+  { ...province, code: province.provinceCode, name: province.provinceName, level: 'province' },
+  { ...city, code: city.cityCode, name: city.cityName, level: 'city', parentCode: province.provinceCode },
+  ...districts
+];
+const stores = districts.map(district => ({
+  ...district, id: 'preview-store-' + district.code, brandId: brand.id, brandName: brand.name, brandColor: brand.color,
+  recordType: 'FRANCHISE', matchStatus: 'RESOLVED', regionCodes: [district.code],
+  name: district.name + '示例门店', publicAddress: city.cityName + district.name + '（演示资料）'
+}));
+const storeMap = {
+  scope: 'brand', schemaVersion: 2, publicProjectionVersion: 1, brandId: brand.id, brandName: brand.name, brands: [brand], records: stores,
+  points: stores.map(({ id, districtCode, latitude, longitude }) => ({
+    id: id + '-point', recordId: id, regionCode: districtCode, latitude, longitude, locationPrecision: 'district'
+  }))
+};
 const replies = new Map([
   ['/platform/profile/mine', { id: '701', nickname: '陈明', avatar: '/assets/account-avatar.jpg' }],
   ['/platform/messages/center/summary', { count: 3 }],
@@ -55,6 +81,13 @@ if (require.main === module) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const path = url.pathname.replace(/^\/admin-api/, '');
     if (path === '/health') return send({ ready: true });
+    if (path === '/franchise/store-map' || path === '/franchise/store-map/regions') {
+      const role = String(req.headers['x-post-id'] || '').replace(/^preview-/, '');
+      if (!Object.hasOwn(trainingByRole, role)) return send(null, 403, '请选择本地加盟商演示身份');
+      if (path === '/franchise/store-map') return send(storeMap);
+      const parent = url.searchParams.get('parentCode');
+      return send(parent ? regions.filter(row => row.parentCode === parent) : regions);
+    }
     if (path.startsWith('/training/app/')) {
       const role = String(req.headers['x-post-id'] || '').replace(/^preview-/, '');
       const seed = Object.hasOwn(trainingByRole, role) ? trainingByRole[role] : null;
