@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
-@Import({EngProjectService.class,EngPlanService.class,EngProgressService.class,EngCameraService.class,EngProgressReminder.class,
+@Import({EngProjectService.class,EngPlanService.class,EngProgressService.class,EngCameraService.class,EngProgressReminder.class,EngRectificationService.class,
     cn.iocoder.yudao.module.franchise.engineering.todo.EngTodoProvider.class,
     FranchiseCommands.class,CommandLogImpl.class,EngMaterialAndPlanGuardIntegrationTest.Config.class,
     cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,cn.iocoder.yudao.module.franchise.finance.FinRefundService.class})
@@ -21,6 +21,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
     @Resource EngProjectService projects;
     @Resource EngPlanService plans;
     @Resource EngProgressService progress;
+    @Resource EngRectificationService issues;
     @Resource EngCameraService cameras;
     @Resource EngProgressReminder reminders;
     @Resource cn.iocoder.yudao.module.franchise.engineering.todo.EngTodoProvider todos;
@@ -36,6 +37,72 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null,true),key()).get("id")).longValue();
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY,asset_type VARCHAR(64),accepted BOOLEAN,org_id BIGINT)");
     }
+    private EngRectificationService.Change issue(String action, Long id, Long owner, LocalDate due, String note) {
+        var body = new LinkedHashMap<String,Object>();
+        body.put("action",action); body.put("issueId",id); body.put("note",note);
+        if ("create".equals(action)) body.put("title","二层钢筋整改");
+        if (owner!=null) body.put("ownerUserId",owner.toString());
+        if (due!=null) body.put("dueDate",due.toString());
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(body),EngRectificationService.Change.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String,Object> issueDetail(PostSnapshot post,long id) {
+        return org.springframework.test.util.ReflectionTestUtils.invokeMethod(issues,"detail",post,projectId,id);
+    }
+
+    @Test void rectificationAssignmentAndHistoryDriveTheRealEngineeringTodo() {
+        var assignee=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",assignee.userId(),projectId);
+        LocalDate due=today.minusDays(1);
+        var command=issue("create",null,assignee.userId(),due,"钢筋间距需复核");
+        String key=key();
+        long id=issues.change(engineer,projectId,command,key);
+        assertThat(issues.change(engineer,projectId,command,key)).isEqualTo(id);
+        assertThat(issues.list(engineer,projectId)).singleElement().satisfies(row->assertThat(row)
+                .containsEntry("ownerUserId",Long.toString(assignee.userId())).containsEntry("dueDate",due.toString()));
+        assertThat(todos.list(assignee)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id)
+                && t.status().contains("逾期") && t.appPath().endsWith("issue="+id));
+        assertThat(todos.list(engineer)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,engineer.userId(),due,"钢筋间距需复核"),key))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        issues.change(assignee,projectId,issue("submit",id,null,null,"第一次提交复验"),key());
+        issues.change(engineer,projectId,issue("return",id,null,null,"尺量未通过"),key());
+        issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today.plusDays(2),"变更经办人与期限"),key());
+        assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        assertThat(todos.list(assignee)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        issues.change(engineer,projectId,issue("submit",id,null,null,"第二次复验"),key());
+        issues.change(assignee,projectId,issue("pass",id,null,null,"现场复验通过"),key());
+        var detail=issueDetail(engineer,id);
+        assertThat(detail).containsEntry("state","CLOSED").containsEntry("ownerUserId",Long.toString(engineer.userId()));
+        var history=(List<Map<String,Object>>)detail.get("history");
+        assertThat(history).extracting(e->e.get("action")).containsExactly("create","submit","return","assign","submit","pass");
+        assertThat(history.get(0)).containsEntry("ownerUserId",Long.toString(assignee.userId())).containsEntry("dueDate",due.toString());
+        assertThat(history.get(2)).containsEntry("note","尺量未通过").containsEntry("actorUserId",Long.toString(engineer.userId()));
+        assertThat(history.get(5).get("occurredAt")).isNotNull();
+        assertThat(todos.list(engineer)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+    }
+
+    @Test void rectificationDoesNotInventOldAssignmentsOrAcceptAnotherProjectOrCompany() {
+        long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_eng_rectification(id,company_id,project_id,title,state,created_by) VALUES(?,?,?,'旧单','OPEN',?)",id,engineer.orgId(),projectId,engineer.userId());
+        jdbc.update("INSERT INTO fr_eng_rectification_event(id,issue_id,actor_id,action,note) VALUES(?,?,?,'create','纸质单转录')",id+1,id,engineer.userId());
+        var old=issues.list(engineer,projectId).get(0);
+        assertThat(old).containsEntry("ownerUserId",null).containsEntry("dueDate",null);
+        assertThat(todos.list(engineer)).anyMatch(t->t.key().equals("fr-eng:rectification:"+id) && t.status().contains("待分派"));
+        var other=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("create",null,null,null,"缺少分派"),key())).hasMessageContaining("负责人");
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("assign",id,other.userId(),today,"其他项目人员"),key())).hasMessageContaining("本项目");
+        assertThatThrownBy(()->issueDetail(other,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        var foreign=fixture.post(fixture.store().orgId(),"engineer",null);
+        assertThatThrownBy(()->issueDetail(foreign,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today,"核对纸单后补录责任人和期限"),key());
+        var history=(List<Map<String,Object>>)issueDetail(engineer,id).get("history");
+        assertThat(history.get(0)).containsEntry("ownerUserId",null).containsEntry("dueDate",null);
+        assertThat(history.get(1)).containsEntry("ownerUserId",Long.toString(engineer.userId())).containsEntry("dueDate",today.toString());
+    }
+
     @Test void manualProjectLinksSignedIdentityOnceAndHandoverReusesTheSameProject() {
         long customer = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         long contract = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
