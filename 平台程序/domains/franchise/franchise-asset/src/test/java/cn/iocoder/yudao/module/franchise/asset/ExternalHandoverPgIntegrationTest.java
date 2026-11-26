@@ -89,6 +89,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource ExternalHandoverService handover;
     @Resource HandoverService legacyHandover;
     @Resource CommissionService legacyCommission;
+    @Resource CustomerService customers;
     @Resource CustomerPaymentPlanDraftService drafts;
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowReadService reads;
@@ -127,6 +128,125 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         TenantContextHolder.setTenantId(tenant); storage.beforeRead=null; currentPost.use(sales);
     }
     @AfterEach void clear() { storage.beforeRead=null; TenantContextHolder.clear(); }
+
+    @Test void existingCustomerCanListSavedMeasurementVersionsBeforeAnyCommission() throws Exception {
+        long customerId = customer(sales);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost)).build();
+        var reply = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                "/franchise/customers/" + customerId + "/external-entrust/measurements")).andReturn().getResponse();
+        assertThat(reply.getStatus()).isEqualTo(200);
+        var data = JsonUtils.parseTree(reply.getContentAsString()).path("data");
+        assertThat(data.path("customerId").asText()).isEqualTo(Long.toString(customerId));
+        assertThat(data.path("list").isArray()).isTrue();
+        assertThat(data.path("list").isEmpty()).isTrue();
+        assertThat(count("fr_commission","customer_id",customerId)).isZero();
+    }
+
+    @Test void commissionFreezesTheSelectedCheckedMeasurementAndReusesItsOriginalCustomerFiles() throws Exception {
+        long id = customer(sales), another = customer(sales);
+        long oldFile = upload(sales, "BUSINESS_DOCUMENT"), newFile = upload(sales, "BUSINESS_DOCUMENT"), manual = upload(sales, "BUSINESS_DOCUMENT");
+        var firstFile = new Attachment(Long.toString(oldFile), "首测图纸.pdf");
+        var secondFile = new Attachment(Long.toString(newFile), "复测图纸.pdf");
+        var manualFile = new Attachment(Long.toString(manual), "委托说明.pdf");
+        var fields = Map.<String,Object>of("address","实测地址","measurer","现场人员","width","10","depth","12","area","120","checked",true);
+        var first = as(sales, () -> workflow.save(sales, id, "MEASUREMENT",
+                new CustomerWorkflowModel.SaveCommand(0,today(),"首次核对",fields,List.of(firstFile)), key()));
+        var done = as(sales, () -> workflow.complete(sales,id,"MEASUREMENT",first.revision(),key()));
+        var reopened = as(sales, () -> workflow.reopen(sales,id,"MEASUREMENT",new CustomerWorkflowModel.ReopenCommand(done.revision(),"重新测量"),key()));
+        var newer = as(sales, () -> workflow.save(sales,id,"MEASUREMENT",
+                new CustomerWorkflowModel.SaveCommand(reopened.revision(),today(),"复测",fields,List.of(secondFile)),key()));
+        var unverified = as(sales, () -> workflow.save(sales,id,"MEASUREMENT",
+                new CustomerWorkflowModel.SaveCommand(newer.revision(),today(),"未核对",Map.of("address","新地址"),List.of(secondFile)),key()));
+        var latest = as(sales, () -> external.measurements(sales,id,null,1));
+        assertThat(latest.list()).singleElement().satisfies(row -> assertThat(row.attachments()).containsExactly(secondFile));
+        var earlier = as(sales, () -> external.measurements(sales,id,Long.valueOf(latest.nextBeforeId()),1)).list().get(0);
+        assertThat(earlier.revision()).isEqualTo(first.revision());
+        assertThat(earlier.attachments()).containsExactly(firstFile);
+        assertThat(as(boss, () -> external.measurements(boss,id,null,20)).list()).hasSize(2);
+        assertThatThrownBy(() -> as(colleague, () -> external.measurements(colleague,id,null,20))).isInstanceOf(ServiceException.class);
+        var identity = new ExternalCommissionModel.MeasurementRef(earlier.eventId(),earlier.revision(),"123",today(),Map.of("address","不可采信"),List.of(secondFile));
+        var initial = as(sales, () -> external.get(sales,id));
+        var command = measuredRequest(initial,identity,List.of(manualFile),null);
+        var originalKey = key();
+        var registered = as(sales, () -> external.register(sales,id,command,originalKey));
+        assertThat(registered.currentRequest().data().measurementRef()).isEqualTo(earlier);
+        assertThat(registered.currentRequest().data().attachments()).containsExactly(manualFile,firstFile);
+        assertThat(as(sales, () -> external.register(sales,id,command,originalKey)).revision()).isEqualTo(registered.revision());
+        var wrongRevision = new ExternalCommissionModel.MeasurementRef(earlier.eventId(),newer.revision(),null,null,null,null);
+        assertThatThrownBy(() -> as(sales, () -> external.register(sales,id,measuredRequest(registered,wrongRevision,List.of(),null),key()))).isInstanceOf(ServiceException.class);
+        var unrelated = as(sales, () -> external.get(sales,another));
+        assertThatThrownBy(() -> as(sales, () -> external.register(sales,another,measuredRequest(unrelated,identity,List.of(),null),key()))).isInstanceOf(ServiceException.class);
+        // A pre-feature client omits the optional source while changing the ordinary request fields.
+        var oldClient = as(sales, () -> external.register(sales,id,measuredRequest(registered,null,List.of(manualFile),null),key()));
+        assertThat(oldClient.currentRequest().data().measurementRef()).isEqualTo(earlier);
+        var changed = as(sales, () -> external.register(sales,id,measuredRequest(oldClient,latest.list().get(0),List.of(),null),key()));
+        assertThat(changed.currentRequest().data().attachments()).containsExactly(secondFile);
+        var removed = as(sales, () -> external.register(sales,id,measuredRequest(changed,null,List.of(manualFile),true),key()));
+        assertThat(removed.currentRequest().data().measurementRef()).isNull();
+        assertThat(removed.currentRequest().data().attachments()).containsExactly(manualFile);
+        var historical = as(boss, () -> external.download(boss,id,"requests",1,oldFile));
+        var measured = as(boss, () -> workflow.download(boss,id,"MEASUREMENT",oldFile));
+        assertThat(as(boss, () -> assets.readDownload(actor(boss),oldFile,token(historical.downloadUrl()))).bytes())
+                .isEqualTo(as(boss, () -> assets.readDownload(actor(boss),oldFile,token(measured.downloadUrl()))).bytes());
+        assertThatThrownBy(() -> as(boss, () -> external.download(boss,id,"requests",1,newFile))).isInstanceOf(ServiceException.class);
+        assertThat(as(sales, () -> workflow.get(sales,id)).revision()).isEqualTo(unverified.revision());
+    }
+
+    @Test void legacyClientCanResubmitMeasurementFilesWithEmptyAndLongOriginalTitles() throws Exception {
+        long customer = customer(sales), first = upload(sales,"BUSINESS_DOCUMENT"), second = upload(sales,"BUSINESS_DOCUMENT");
+        long whitespace = upload(sales,"BUSINESS_DOCUMENT");
+        String longTitle = "测".repeat(175) + "🏡" + "量".repeat(19) + ".PDF";
+        assertThat(longTitle).hasSize(200);
+        var originals = List.of(new Attachment(Long.toString(first), ""), new Attachment(Long.toString(second), longTitle),
+                new Attachment(Long.toString(whitespace), "\u00A0\u3000\uFEFF"));
+        var fields = Map.<String,Object>of("address","老址","measurer","测量员","width","9","depth","10","area","90","checked",true);
+        as(sales, () -> workflow.save(sales,customer,"MEASUREMENT",new CustomerWorkflowModel.SaveCommand(0,today(),"",fields,originals),key()));
+        var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
+        var empty = as(sales, () -> external.get(sales,customer));
+        var firstVersion = as(sales, () -> external.register(sales,customer,measuredRequest(empty,measurement,List.of(),null),key()));
+        var copiedFiles = firstVersion.currentRequest().data().attachments();
+        var oldCommand = measuredRequest(firstVersion,null,copiedFiles,null);
+        var next = as(sales, () -> external.register(sales,customer,oldCommand,key()));
+        assertThat(next.requests()).hasSize(2).allSatisfy(version -> {
+            assertThat(version.data().measurementRef().attachments()).isEqualTo(originals);
+            assertThat(version.data().attachments()).isEqualTo(copiedFiles);
+        });
+        assertThat(copiedFiles.get(0).title()).isNotBlank();
+        assertThat(copiedFiles.get(1).title()).isEqualTo("测".repeat(175) + ".PDF");
+        assertThat(copiedFiles.get(2).title()).isEqualTo(copiedFiles.get(0).title());
+        var download = as(sales, () -> external.download(sales,customer,"requests",1,second));
+        assertThat(as(sales, () -> assets.readDownload(actor(sales),second,token(download.downloadUrl()))).bytes()).isEqualTo(PDF);
+    }
+
+    @Test void withdrawnMeasurementFileCannotBeRegisteredAndPreFeatureRequestShapeIsUnchanged() throws Exception {
+        long id = customer(sales), file = upload(sales, "BUSINESS_DOCUMENT");
+        var sourceFields = Map.<String,Object>of("address","宅基地","measurer","现场人员","width","9","depth","9","area","81","checked",true);
+        as(sales, () -> workflow.save(sales,id,"MEASUREMENT",new CustomerWorkflowModel.SaveCommand(0,today(),"",sourceFields,
+                List.of(new Attachment(Long.toString(file),"现场资料.pdf"))),key()));
+        var source = as(sales, () -> external.measurements(sales,id,null,20)).list().get(0);
+        var initial = as(sales, () -> external.get(sales,id));
+        var ordinary = request(initial,"委托说明");
+        record OldBody(Long revision, LocalDate entrustedOn, String providerName, String providerReference, String text, String scope,
+                       BigDecimal area, Integer floors, List<Attachment> attachments, ExternalCommissionModel.PlanRef paymentPlanRef, String reason) {}
+        var legacy = new OldBody(ordinary.revision(),ordinary.entrustedOn(),ordinary.providerName(),ordinary.providerReference(),ordinary.text(),
+                ordinary.scope(),ordinary.area(),ordinary.floors(),ordinary.attachments(),ordinary.paymentPlanRef(),ordinary.reason());
+        assertThat(JsonUtils.toJsonString(ordinary)).isEqualTo(JsonUtils.toJsonString(legacy));
+        jdbc.update("UPDATE fr_asset SET deleted=true WHERE id=?",file);
+        assertThat(as(sales, () -> external.measurements(sales,id,null,20)).list()).isEmpty();
+        assertThatThrownBy(() -> as(sales, () -> external.register(sales,id,measuredRequest(initial,source,List.of(),null),key())))
+                .isInstanceOf(ServiceException.class);
+        assertThat(count("fr_commission","customer_id",id)).isZero();
+        var historical = as(sales, () -> external.register(sales,id,ordinary,key()));
+        assertThat(historical.currentRequest().data().measurementRef()).isNull();
+    }
+
+    private RequestCommand measuredRequest(ExternalCommissionModel.View view, ExternalCommissionModel.MeasurementRef source,
+                                            List<Attachment> files, Boolean remove) {
+        var base = request(view, "按已核对的测量资料办理");
+        return new RequestCommand(base.revision(),base.entrustedOn(),base.providerName(),base.providerReference(),base.text(),base.scope(),
+                base.area(),base.floors(),files,base.paymentPlanRef(),base.reason(),source,remove);
+    }
 
     @Test void allEightStepsUseActualExternalEvidenceSignedContractNetCollectionAndEngineeringStart() throws Exception {
         long customer=customerFromPublishedWork(), document=upload(sales,"BUSINESS_DOCUMENT");
@@ -192,6 +312,15 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var input=new LinkedHashMap<String,Object>();
         input.put("customerId",Long.toString(customer)); input.put("companyId",Long.toString(sales.orgId()));
         input.put("today",today().toString()); input.put("sales",miniActor(sales)); input.put("engineer",miniActor(engineer));
+        boolean measurementClient = java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client).toAbsolutePath()
+                .resolveSibling("paired-measurement-request.cjs"));
+        var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
+        if (measurementClient) {
+            input.put("measurementEventId", measurement.eventId());
+            input.put("measurementAssetId", measurement.attachments().get(0).assetId());
+            input.put("transfer", Map.of("targetId",Long.toString(colleague.userId()),
+                    "revision",as(boss, () -> customers.get(boss,customer)).customer().getRevision()));
+        }
         for(String key:List.of("resultAssetId","drawingAssetId","reviewAssetId","confirmationAssetId"))
             input.put(key,Long.toString(upload(sales,"BUSINESS_DOCUMENT")));
 
@@ -202,6 +331,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var json=builder.build();
         var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
+                new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController(customers,currentPost,FakeSystemDirectory.INSTANCE),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
         // The pinned client expects JSON in argv[2]. Passing it through the environment preserves
@@ -220,8 +350,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                     var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
                     if(request.path("done").asBoolean()) { completed=request; break; }
                     String role=request.path("actor").asText(), method=request.path("method").asText();
-                    assertThat(role).isIn("sales","engineer"); assertThat(method).isIn("GET","POST");
-                    currentPost.use("sales".equals(role)?sales:engineer);
+                    assertThat(role).isIn("sales","engineer","boss"); assertThat(method).isIn("GET","POST");
+                    currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; default -> engineer; });
                     String response;
                     try {
                         var http=org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -247,6 +377,20 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
 
         long commission=Long.parseLong(completed.path("commissionId").asText());
         long project=Long.parseLong(completed.path("projectId").asText());
+        if (measurementClient) {
+            assertThat(completed.path("measurementEventId").asText()).isEqualTo(measurement.eventId());
+            assertThat(completed.path("verifiedCustomerTransfer").asBoolean()).isTrue();
+            var versions = as(sales, () -> external.get(sales,customer)).requests();
+            assertThat(versions).hasSize(1);
+            var original = versions.get(0);
+            assertThat(original.data().measurementRef()).isEqualTo(measurement);
+            assertThat(original.data().attachments()).containsExactlyElementsOf(measurement.attachments());
+            long file = Long.parseLong(measurement.attachments().get(0).assetId());
+            var ticket = as(sales, () -> external.download(sales,customer,"requests",original.version(),file));
+            var workflowTicket = as(sales, () -> workflow.download(sales,customer,"MEASUREMENT",file));
+            assertThat(as(sales, () -> assets.readDownload(actor(sales),file,token(ticket.downloadUrl()))).bytes())
+                    .isEqualTo(as(sales, () -> assets.readDownload(actor(sales),file,token(workflowTicket.downloadUrl()))).bytes());
+        }
         assertThat(count("fr_commission","customer_id",customer)).isEqualTo(1);
         assertThat(count("fr_eng_project","source_commission_id",commission)).isEqualTo(1);
         assertThat(audit(commission,"external-packet-receive")).isEqualTo(1);
