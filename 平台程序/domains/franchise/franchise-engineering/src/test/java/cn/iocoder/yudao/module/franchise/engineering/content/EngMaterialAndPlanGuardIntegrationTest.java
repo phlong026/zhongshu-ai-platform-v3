@@ -1030,6 +1030,12 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
             cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
                     () -> as(engineer, () -> closuresService.settle(engineer, projectId, otherAsset, settleKey)), reused);
         }
+        long otherProject = insertProject("另一工程结算核对");
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> closuresService.settle(engineer, otherProject, settlement, settleKey)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        as(engineer, () -> closuresService.archive(engineer, projectId, idem()));
+        as(engineer, () -> closuresService.settle(engineer, projectId, settlement, settleKey));
         // 库内交付行仍是原凭据（未被换资产覆盖）
         assertThat(jdbc.queryForObject(
                 "SELECT file_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
@@ -1037,6 +1043,35 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(jdbc.queryForObject(
                 "SELECT owner_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
                 .isEqualTo(ownerEvidence); // R4 P2：双凭据保留断言闭环
+    }
+
+    @Test
+    void simultaneousSettlementRetriesReadTheSameReceipt() throws Exception {
+        jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE WHERE project_id=?", projectId);
+        String key = idem();
+        var command = new EngClosureService.SettleCommand(null, "核实施工结算", null);
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waiting = new java.util.concurrent.atomic.AtomicInteger();
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        try {
+            var second = tx.execute(status -> {
+                int firstPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                as(engineer, () -> closuresService.settle(engineer, projectId, command, key));
+                var replay = pool.submit(() -> tx.execute(other -> {
+                    waiting.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                    return as(engineer, () -> closuresService.settle(engineer, projectId, command, key));
+                }));
+                org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(() ->
+                        waiting.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                                "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, firstPid, waiting.get())));
+                return replay;
+            });
+            assertThat(second.get(10, java.util.concurrent.TimeUnit.SECONDS)).isNotEmpty();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-settle'",
+                    Integer.class, projectId)).isOne();
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     private void useOldClosureEvent(String command, java.util.Map<String, Object> old) {
