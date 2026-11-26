@@ -803,6 +803,101 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void arrivalAndReshipReplayVerifyTheFullReceipt() {
+        long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        long anotherAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var date = java.time.LocalDate.now().minusDays(1);
+        String firstKey = idem();
+        var initial = new EngMaterialService.ArrivalCommand(null, BigDecimal.TEN, new BigDecimal("6"),
+                "OK", "first-" + supplyId, asset, date, "首批", null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, initial, firstKey));
+        long reship = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE supply_id=? AND kind='RESHIP'",
+                Long.class, supplyId);
+        String secondKey = idem();
+        var second = new EngMaterialService.ArrivalCommand(reship, null, new BigDecimal("4"),
+                "OK", "second-" + supplyId, anotherAsset, date, "补发", null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, second, secondKey));
+
+        for (boolean historical : new boolean[]{false, true}) {
+            if (historical) {
+                var old = new java.util.LinkedHashMap<String, Object>();
+                old.put("supplyId", supplyId);
+                old.put("actual", "6");
+                old.put("quality", "OK");
+                replaceReceiptEvent("eng-supply-arrival", old);
+                old.clear();
+                old.put("receiptId", reship);
+                old.put("actual", "4");
+                replaceReceiptEvent("eng-reship-receive", old);
+            }
+            verifyArrivalRetry(firstKey, initial, anotherAsset);
+            verifyArrivalRetry(secondKey, second, asset);
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fr_eng_supply_receipt WHERE supply_id=?",
+                Integer.class, supplyId)).isEqualTo(2);
+    }
+
+    private void verifyArrivalRetry(String key, EngMaterialService.ArrivalCommand original, long anotherAsset) {
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
+        Long parent = original.parentReceiptId();
+        BigDecimal expected = original.expected();
+        BigDecimal actual = original.actual();
+        String txn = original.transactionNo();
+        Long asset = original.fileAssetId();
+        var date = original.occurredAt();
+        String note = original.note();
+        for (var changed : java.util.List.of(
+                new EngMaterialService.ArrivalCommand(parent, BigDecimal.ONE, actual, "OK", txn, asset, date, note, null),
+                new EngMaterialService.ArrivalCommand(parent, expected, actual, "OK", txn + "x", asset, date, note, null),
+                new EngMaterialService.ArrivalCommand(parent, expected, actual, "OK", txn, anotherAsset, date, note, null),
+                new EngMaterialService.ArrivalCommand(parent, expected, actual, "OK", txn, asset, date.plusDays(1), note, null),
+                new EngMaterialService.ArrivalCommand(parent, expected, actual, "OK", txn, asset, date, "另一备注", null),
+                new EngMaterialService.ArrivalCommand(parent, expected, actual, "REJECTED", txn, asset, date, note, null))) {
+            assertArrivalConflict(key, changed);
+        }
+    }
+
+    private void assertArrivalConflict(String key, EngMaterialService.ArrivalCommand changed) {
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> materialsService.arrival(engineer, supplyId, changed, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    private void replaceReceiptEvent(String command, java.util.Map<String, Object> old) {
+        String text = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? WHERE aggregate_id=? AND command=?",
+                text, cn.hutool.crypto.digest.DigestUtil.sha256Hex(text), projectId, command)).isOne();
+    }
+
+    @Test
+    void qualityReplayVerifiesTheResolutionNoteAndAsset() {
+        long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        long other = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        String txn = "rejected-" + supplyId;
+        var rejected = new EngMaterialService.ArrivalCommand(null, BigDecimal.ONE, BigDecimal.ONE, "REJECTED",
+                txn, asset, null, "质检不合格", null);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, rejected, idem()));
+        long receipt = jdbc.queryForObject("SELECT id FROM fr_eng_supply_receipt WHERE supply_id=? AND transaction_no=?",
+                Long.class, supplyId, txn);
+        String key = idem();
+        var resolution = qualityCommand(receipt, "补件验收合格", asset);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, resolution, key));
+        for (boolean historical : new boolean[]{false, true}) {
+            if (historical) replaceReceiptEvent("eng-supply-quality", java.util.Map.of("receiptId", receipt));
+            as(engineer, () -> materialsService.arrival(engineer, supplyId, resolution, key));
+            assertArrivalConflict(key, qualityCommand(receipt, "其他说明", asset));
+            assertArrivalConflict(key, qualityCommand(receipt, "补件验收合格", other));
+        }
+        assertThat(jdbc.queryForObject("SELECT quality_resolution->>'note' FROM fr_eng_supply_receipt WHERE id=?",
+                String.class, receipt)).isEqualTo("补件验收合格");
+    }
+
+    private EngMaterialService.ArrivalCommand qualityCommand(long receipt, String note, long asset) {
+        return new EngMaterialService.ArrivalCommand(null, null, null, null, null, null, null, null,
+                java.util.Map.of("receiptId", receipt, "fileAssetId", asset, "note", note));
+    }
+
+    @Test
     void arrivalCorrectionAcceptsExactPlanAndReplaysWithoutAnotherCorrection() {
         jdbc.update("UPDATE fr_eng_material SET quantity = 100 WHERE id = ?", materialId);
         jdbc.update("UPDATE fr_eng_supply SET quantity = 100 WHERE id = ?", supplyId);
