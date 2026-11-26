@@ -100,6 +100,7 @@ public class RechargePaymentService {
     }
 
     private OrderResponse createOrder(long planId, String key, Long version) {
+        requireOnlineRecharge();
         requireChannel();
         PointAccountService.requireText(key, 128);
         return transaction("createOrder", () -> {
@@ -180,6 +181,7 @@ public class RechargePaymentService {
 
     public Map<String, String> payParams(String id, String code, String attemptKey, boolean company) {
         requireNoTransaction();
+        requireOnlineRecharge();
         if (company) requireCompanyRecovery();
         PaymentPort port = requireChannel();
         PointAccountService.requireText(code, 512);
@@ -343,8 +345,16 @@ public class RechargePaymentService {
         });
     }
 
+    boolean onlineRechargeEnabled() {
+        return properties.isOnlineRechargeEnabled();
+    }
+
+    private void requireOnlineRecharge() {
+        if (!onlineRechargeEnabled()) throw new ServiceException(403, "线上充值暂未开放");
+    }
+
     boolean companyPaymentsEnabled() {
-        return recoveryEnabled && channelEnabled();
+        return onlineRechargeEnabled() && recoveryEnabled && channelEnabled();
     }
 
     private void requireCompanyRecovery() {

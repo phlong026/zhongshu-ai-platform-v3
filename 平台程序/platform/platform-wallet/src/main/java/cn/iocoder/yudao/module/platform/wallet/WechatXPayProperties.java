@@ -10,6 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "platform.wallet.payment")
 public class WechatXPayProperties {
     private boolean enabled;
+    /** 独立控制新充值与签名。关闭后继续处理原订单通知、对账和退款。 */
+    private boolean onlineRechargeEnabled;
     private String appid;
     private String appSecret;
     private String offerId;
