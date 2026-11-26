@@ -30,3 +30,10 @@ test('delay history renders the first three recorded updates and expands to incl
  assert.match(history(false),/现场复核4/);assert.match(history(false),/分段排水2/);assert.doesNotMatch(history(false),/现场复核1/);
  assert.match(history(true),/现场复核1/);
 });
+test('a former delay owner stays in the record while the next editable command needs a current participant',()=>{
+ const {P}=harness(),b=bundle();
+ const opts={view:'delay',nodeId:'102',writeRole:true,userId:'148',handlers:[{id:'149',name:'现任工程师'}]};
+ const result=P.recordView(b,opts);
+ assert.equal(result.node.delayOwnerName,'李琦');assert.equal(result.node.delayOwnerUserId,'148');
+ assert.equal(result.form.delayOwnerUserId,'');assert.equal(result.form.delayOwnerName,'');assert.equal(result.form.recoveryDate,'2026-11-20');
+});
