@@ -13,13 +13,13 @@ import java.util.concurrent.atomic.AtomicLong;
 public class FakeSystemDirectoryForOnboard implements SystemDirectory {
 
     private final AtomicLong deptIds = new AtomicLong(System.nanoTime() % 1_000_000_000L);
-    final Map<Long, Long> deptParent = new HashMap<>();
-    final Map<Long, String> deptNames = new HashMap<>();
+    final Map<Long, Long> deptParent = new ConcurrentHashMap<>();
+    final Map<Long, String> deptNames = new ConcurrentHashMap<>();
     public final Map<String, Long> roleIdsByCode = new ConcurrentHashMap<>();
     public final Set<Long> users = ConcurrentHashMap.newKeySet();
     public final Map<Long, String> userMobiles = new ConcurrentHashMap<>();
     public final Map<Long, Boolean> userActive = new ConcurrentHashMap<>();
-    final Map<Long, Set<Long>> userRoles = new HashMap<>();
+    final Map<Long, Set<Long>> userRoles = new ConcurrentHashMap<>();
     private final AtomicLong userIds = new AtomicLong(System.nanoTime() % 1_000_000_000L);
 
     @Override
