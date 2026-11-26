@@ -7,6 +7,11 @@ const event = (key, value) => ({ currentTarget: { dataset: { key } }, detail: { 
 const actionEvent = action => ({ currentTarget: { dataset: { action } } });
 const tabEvent = tab => ({ currentTarget: { dataset: { tab } } });
 const tick = () => new Promise(resolve => setImmediate(resolve));
+test('委托编辑可选择当前客户已核对的测量记录', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/external-entrust/index.wxml'), 'utf8');
+  assert.match(page, /bindtap="loadMeasurements"/);
+  assert.match(page, /选择已核对的测量记录/);
+});
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 function load(file, mocks, globals = {}) {
   const filename = path.join(root, file), real = createRequire(filename), module = { exports: {} };
