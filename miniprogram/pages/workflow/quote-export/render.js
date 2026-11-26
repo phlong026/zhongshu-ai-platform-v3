@@ -16,7 +16,7 @@ function render(ctx,doc){
  function band(label,y,height){ctx.fillStyle='#a38780';ctx.fillRect(x,y,w,height);text(label,x,y,w,height,15,true,'#fff');}
  function options(items,left,top,width,height,size=11,columns=items.length){const count=Math.ceil(items.length/columns),rowHeight=height/count,colWidth=width/columns;items.forEach((item,index)=>{const cx=left+(index%columns+0.5)*colWidth,cy=top+(Math.floor(index/columns)+0.5)*rowHeight;ctx.font=size+'px "SimSun", "Songti SC", serif';const labelWidth=ctx.measureText(item.label).width,bx=cx+(labelWidth+14)/2-10; text(item.label,cx-(labelWidth+14)/2-6,cy-rowHeight/2,labelWidth+12,rowHeight,size);ctx.strokeStyle='#333';ctx.lineWidth=0.8;ctx.strokeRect(bx,cy-4.5,9,9);if(item.checked){ctx.beginPath();ctx.moveTo(bx+1.5,cy);ctx.lineTo(bx+4,cy+3);ctx.lineTo(bx+8,cy-3);ctx.stroke();}});}
  const selected=(values,value)=>values.map(label=>({label,checked:label===value}));
- text(doc.title+' V'+doc.version,x,17,w,22,14,true);
+ text(doc.title+' '+S.versionLabel(doc),x,17,w,22,14,true);
  let y=52;const start=y;band('客户基本信息',y,40);y+=40;
  cell(c[0],y,74,56,'业主信息',14,true);cell(c[1],y,80,28,'业主姓名');cell(c[2],y,162,28,doc.name);cell(c[4],y,100,28,'联系方式');cell(c[5],y,290,28,doc.phone);y+=28;
  cell(c[1],y,80,28,'地址');cell(c[2],y,w-154,28,doc.address);y+=28;

@@ -103,7 +103,8 @@ function quoteOptions(rows, customerId, companyId) {
     const price = String(row.priceVersion || '').trim();
     const version = Number.isSafeInteger(row.budgetVersion) && row.budgetVersion > 0
       ? 'V' + row.budgetVersion + (price ? ' · ' + price : '') : price || '报价 #' + quoteId;
-    return [{ id: quoteId, amount, version, label: [date(row.createTime), version, '¥' + amount].filter(Boolean).join(' · ') }];
+    const createdOn = typeof row.createTime === 'number' ? dateTime(row.createTime).slice(0, 10) : date(row.createTime);
+    return [{ id: quoteId, amount, version, label: [createdOn, version, '¥' + amount].filter(Boolean).join(' · ') }];
   });
 }
 function workflow(response, customerId) {

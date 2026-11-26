@@ -64,7 +64,7 @@ function harness(options = {}) {
 
 test('step six uses an exact quote for this customer and submits a communication without entering amounts or uploading a file', async () => {
   const quote = { id: '900719925474099999', customerId: '42', companyId: '9', totalCents: '1234500',
-    budgetVersion: 3, priceVersion: '门店价目', createTime: '2026-11-25T09:00:00+08:00' };
+    budgetVersion: 3, priceVersion: '门店价目', createTime: Date.parse('2026-11-24T16:05:00Z') };
   const h = harness({ step: 'QUOTATION', api: { listQuotes: async () => [
     { ...quote, id: '888', customerId: '43' }, quote, { ...quote, id: '777', companyId: '8' },
     { ...quote, id: '776', totalCents: '0' }
@@ -78,12 +78,13 @@ test('step six uses an exact quote for this customer and submits a communication
   assert.ok(controls().some(node => node.attrs?.bindchange === 'chooseQuote'));
   assert.ok(controls().some(node => node.attrs?.bindtap === 'openBudget'));
   assert.deepEqual(h.page.data.quoteOptions.map(item => item.id), [quote.id]);
+  assert.match(h.page.data.quoteOptions[0].label, /^2026-11-25/);
   h.page.chooseQuote({ detail: { value: '0' } });
   assert.equal(h.page.data.form.fields.amountCents, '12345.00');
   assert.ok(!h.page.data.fields.some(field => field.key === 'amountCents'));
   assert.ok(controls().some(node => node.attrs?.bindtap === 'quoteCommunicated'));
   h.page.openLinkedQuote();
-  assert.equal(h.navigations.at(-1).url, '/pages/workflow/quote-export/index?quote-id=' + quote.id);
+  assert.equal(h.navigations.at(-1).url, '/pages/workflow/quote-export/index?quote-id=' + quote.id + '&source=customer-flow');
   h.page.quoteCommunicated({ currentTarget: { dataset: { result: '已发给客户' } } });
   assert.match(h.page.data.form.occurredOn, /^\d{4}-\d{2}-\d{2}$/);
   await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
@@ -91,6 +92,83 @@ test('step six uses an exact quote for this customer and submits a communication
   assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户' });
   assert.deepEqual(save.args[2].attachments, []);
   assert.equal(h.callsFor('complete').length, 1);
+});
+
+test('更换报价原单清除旧沟通日期和结果，历史查看仍打开当时的原单', async () => {
+  const oldId = '900719925474099991', nextId = '900719925474099992';
+  const original = { quoteId: oldId, amountCents: '12345', versionLabel: 'V1', communicated: true, result: '客户要求调整' };
+  const record = { id: '901', stepCode: 'QUOTATION', type: 'COMPLETE', fields: original, occurredOn: '2026-11-01', attachments: [] };
+  const h = harness({ step: 'QUOTATION', api: {
+    listQuotes: async () => [{ id: nextId, companyId: '9', customerId: '42', totalCents: 25000, budgetVersion: 2 }],
+    records: async () => ({ list: [record], total: 1 })
+  } });
+  Object.assign(h.state.steps[5], { fields: original, status: 'DRAFT', occurredOn: '2026-11-01' });
+  await h.open(); await tick();
+  h.page.chooseQuote({ detail: { value: 0 } });
+  assert.deepEqual([h.page.data.form.fields.communicated, h.page.data.form.fields.result, h.page.data.form.occurredOn], [false, '', '']);
+  h.page.quoteCommunicated({ currentTarget: { dataset: { result: '已向客户讲解' } } });
+  assert.equal(h.page.data.form.occurredOn, require('../miniprogram/utils/finance-date').day(Date.now()));
+  await h.page.toggleHistory();
+  h.page.viewRecord({ currentTarget: { dataset: { id: record.id } } });
+  assert.ok(h.page.data.activeRecord.details.some(row => row.value === '客户要求调整'));
+  const { render } = require('./role-page-runtime.cjs');
+  const flatten = rows => rows.flatMap(row => [row, ...flatten(row.children || [])]);
+  const link = flatten(render(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), h.page.data))
+    .find(row => row.attrs?.bindtap === 'openLinkedQuote');
+  assert.ok(link, '历史报价须提供原版本的查看入口');
+  h.page.openLinkedQuote();
+  assert.equal(h.navigations.at(-1).url, '/pages/workflow/quote-export/index?quote-id=' + oldId + '&source=customer-flow');
+  h.page.closeRecord();
+  h.page.openLinkedQuote();
+  assert.equal(h.navigations.at(-1).url, '/pages/workflow/quote-export/index?quote-id=' + nextId + '&source=customer-flow');
+});
+
+test('第六步查看与导出使用冻结的正式报价版本，其他入口保留原票据', async () => {
+  const quoteId = '900719925474099991', snapshot = { version: quoteId, quoteVersionLabel: 'V3 · 门店价目',
+    total: 10800, mainTotal: 10800, decorTotal: 0, main: [{ label: '主体', valueCents: 10800 }], decor: [] };
+  const file = path.join(root, 'miniprogram/pages/workflow/quote-export/index.js');
+  const sheet = require('../miniprogram/pages/workflow/quote-export/sheet');
+  let definition;
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), { Page: value => { definition = value; },
+    require: dependency => dependency === '../../../api/http' ? { get: async url => {
+      assert.equal(url, '/franchise/sales/quotes/' + quoteId + '/export-sheet'); return snapshot;
+    } } : dependency === './sheet' ? sheet : {} });
+  for (const source of ['customer-flow', '']) {
+    const page = { ...definition, data: copy(definition.data), setData(value) { Object.assign(this.data, value); } };
+    page.onLoad({ 'quote-id': quoteId, source }); await tick();
+    assert.equal(page.data.allowed, true);
+    const expected = source ? '正式建造报价 V3 · 门店价目' : '建造参考预算 V' + quoteId;
+    assert.equal(page.data.label, expected);
+    assert.equal(page.data.total, sheet.money(10800));
+    assert.equal(sheet.filename(page.doc, 'pdf').includes(source ? 'V3 · 门店价目' : 'V' + quoteId), true);
+    const canvasText = [];
+    const context = new Proxy({ measureText: text => ({ width: String(text).length * 6 }), fillText: text => canvasText.push(text) },
+      { get: (target, key) => target[key] ?? (() => {}) });
+    require('../miniprogram/pages/workflow/quote-export/render').render(context, page.doc);
+    assert.ok(canvasText.includes(expected));
+  }
+});
+
+test('外部正式报价改版或替换文件须重新登记沟通，原单选填的附件不影响已有沟通', async () => {
+  const h = harness({ step: 'QUOTATION' });
+  const oldDate = '2026-11-01';
+  const external = { amountCents: '17000', scope: '主体', versionLabel: '外部 V1', communicated: true, result: '已讲解' };
+  const step = h.state.steps[5];
+  Object.assign(step, { fields: external, occurredOn: oldDate, attachments: [{ assetId: '201', title: '原版报价.pdf' }] });
+  await h.open();
+  h.page.input(event('note', '补充备注'));
+  assert.equal(h.page.data.form.occurredOn, oldDate);
+  h.page.input(event('versionLabel', '外部 V2'));
+  assert.deepEqual([h.page.data.form.fields.communicated, h.page.data.form.fields.result, h.page.data.form.occurredOn], [false, '', '']);
+  await h.page.load({ replace: true });
+  await h.page.startUpload({ name: '新版报价.pdf', path: '/local/q.pdf' });
+  assert.equal(h.page.data.form.attachments.length, 2);
+  assert.equal(h.page.data.form.fields.communicated, false);
+  Object.assign(step, { fields: { ...external, quoteId: '7701' } });
+  await h.page.load({ replace: true });
+  await h.page.startUpload({ name: '补充说明.pdf', path: '/local/n.pdf' });
+  assert.equal(h.page.data.form.fields.communicated, true);
+  assert.equal(h.page.data.form.occurredOn, oldDate);
 });
 
 test('05测量和06报价能进入外部委托，06保留预算并提供付款草案，跳转不保存或完成步骤', async () => {

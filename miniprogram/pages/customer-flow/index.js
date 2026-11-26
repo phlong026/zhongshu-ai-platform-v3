@@ -7,6 +7,12 @@ const model = require('./model');
 const commandKey = require('../../utils/platform-crm').commandKey;
 const scope = () => http.token() ? JSON.stringify([apiScope(), auth.currentApiPost()?.brandId || '']) : '';
 const clone = value => JSON.parse(JSON.stringify(value));
+function quoteSourceChanged(previous, next) {
+  if (previous.fields.quoteId || next.fields.quoteId) return previous.fields.quoteId !== next.fields.quoteId;
+  return ['versionLabel', 'amountCents', 'scope'].some(key => previous.fields[key] !== next.fields[key])
+    || previous.attachments.length !== next.attachments.length
+    || previous.attachments.some((file, i) => file.assetId !== next.attachments[i].assetId);
+}
 const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 1110000001].includes(Number(error.code));
 
 Page({
@@ -80,6 +86,13 @@ Page({
   },
   editable() { return this.alive() && this.data.step?.canWrite && !this.data.busy && !this.data.uploading && !this.data.uncertain && !this.data.conflict; },
   change(form) {
+    const previous = this.data.form;
+    if (this.selectedCode === 'QUOTATION' && (previous.fields.communicated || previous.fields.result)
+        && quoteSourceChanged(previous, form)) {
+      form.fields.communicated = false;
+      form.fields.result = '';
+      form.occurredOn = '';
+    }
     this._drafts[this.selectedCode] = { form: clone(form), revision: this._formRevision };
     this.setData({ form, fields: model.fieldRows(this.selectedCode, form), dirty: true, error: '' });
   },
@@ -291,9 +304,11 @@ Page({
   openBudget() { if (this.alive()) navigation.open('/design-migration/pages/budget/quick?customerId=' + encodeURIComponent(this.customerId)); },
   openSalesQuote() { if (this.alive()) navigation.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
   openLinkedQuote() {
-    const quoteId = model.id(this.data.form?.fields?.quoteId);
-    if (this.alive() && this.selectedCode === 'QUOTATION' && quoteId) {
-      navigation.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(quoteId));
+    const record = this.data.activeRecord;
+    const code = record ? record.stepCode : this.selectedCode;
+    const quoteId = model.id(record ? record.fields?.quoteId : this.data.form?.fields?.quoteId);
+    if (this.alive() && code === 'QUOTATION' && quoteId) {
+      navigation.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(quoteId) + '&source=customer-flow');
     }
   },
   openEntrust() {

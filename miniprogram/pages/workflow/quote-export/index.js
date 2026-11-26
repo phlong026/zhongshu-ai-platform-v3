@@ -4,6 +4,7 @@ Page({
  data:{title:'报价单导出',form:{},image:'',busy:false,error:'',allowed:false,total:'',label:''},
  onLoad(o){ // 纯 API 态：exportSheet 冻结快照数据源（本地报价分支已随切生产剔除下线——无 quote-id 即错误态）
   this.quoteId=o['quote-id'];
+  this.workflowQuote=o.source==='customer-flow';
   if(!this.quoteId){this.setData({error:'请从报价记录进入导出（报价单由平台快照生成）',allowed:false});return;}
   this.loadPlatform();},
  onReady(){this.ready=true;if(this.doc)this.generate();},
@@ -20,7 +21,12 @@ Page({
    if(mainTotal+decorTotal+(insurance||0)+(management||0)!==total)return this.setData({error:'报价分项与总价不一致，请核对后再导出',allowed:false});
    if(main.length+decor.length>14)return this.setData({error:'分项超出打印模板容量，请整理报价分项',allowed:false});
    const doc={kind:'budget',version:data.version,date:data.date||'',name:data.name||'',phone:data.phone||'',projectId:this.quoteId,address:data.address||'',form:S.clean(data.form||{}),width:data.width==null?'':String(data.width),depth:data.depth==null?'':String(data.depth),area:data.area==null?'':String(data.area),floors:data.floors==null?'':String(data.floors),main,decor,mainTotal,decorTotal,insurance,management,total,title:'建造参考预算',basis:data.basis||'前期预算，非施工结算依据',demo:false,priceVersion:data.priceVersion||''};
-   this.doc=doc;this.setData({form:doc.form,label:doc.title+' V'+doc.version,total:S.money(doc.total),allowed:true,error:''});
+   if(this.workflowQuote){
+    doc.title='正式建造报价';
+    doc.versionLabel=data.quoteVersionLabel||'报价 #'+this.quoteId;
+    doc.basis='本次报价用于客户沟通，施工结算以合同约定为准';
+   }
+   this.doc=doc;this.setData({form:doc.form,label:doc.title+' '+S.versionLabel(doc),total:S.money(doc.total),allowed:true,error:''});
    if(this.ready)this.generate();
   }).catch(err=>{
    this.setData({error:(err&&err.message)||'导出数据加载失败，请重试',allowed:false});
