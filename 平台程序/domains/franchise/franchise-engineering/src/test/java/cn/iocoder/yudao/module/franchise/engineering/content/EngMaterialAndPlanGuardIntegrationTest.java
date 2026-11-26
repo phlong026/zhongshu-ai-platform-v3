@@ -862,6 +862,53 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void materialMovementsCanUseTheExactAcceptedBalanceWithoutChargingTheProjectAgain() {
+        as(engineer, () -> materialsService.terms(engineer, supplyId,
+                new EngMaterialService.TermsCommand("钢材供应商", BigDecimal.TEN, BigDecimal.ZERO, null, null, "采购合同"), idem()));
+        insertArrivalForCorrection("2.002");
+        as(engineer, () -> materialsService.movement(engineer, projectId,
+                new EngMaterialService.MovementCommand(materialId, "DAMAGE", new BigDecimal("1.001"), "破损", null), idem()));
+
+        var excess = new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("1.002"), "现场领用", 41L);
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.movement(engineer, projectId, excess, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("可分配材料不足");
+        var remainder = new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("1.001"), "现场领用", 41L);
+        String key = idem();
+        as(engineer, () -> materialsService.movement(engineer, projectId, remainder, key));
+        as(engineer, () -> materialsService.movement(engineer, projectId, remainder, key));
+        var smallest = new EngMaterialService.MovementCommand(materialId, "RETURN", new BigDecimal("0.001"), "余料退回", null);
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.movement(engineer, projectId, smallest, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("可分配材料不足");
+        assertThat(jdbc.queryForList("SELECT quantity FROM fr_eng_material_movement WHERE material_id=? ORDER BY id",
+                BigDecimal.class, materialId)).hasSize(2).allSatisfy(q -> assertThat(q).isEqualByComparingTo("1.001"));
+        assertThat(jdbc.queryForList("SELECT total_cents FROM fr_fin_payable WHERE project_id=?", Long.class, projectId))
+                .containsExactly(10000L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE project_id=?", Long.class, projectId)).isZero();
+    }
+
+    @Test
+    void arrivalCorrectionPreservesAllocatedQuantityUsingOnlyAcceptedReceipts() {
+        long receipt = insertArrivalForCorrection("4.002");
+        insertArrivalForCorrection("0.999");
+        long rejected = insertArrivalForCorrection("1.500");
+        jdbc.update("UPDATE fr_eng_supply_receipt SET quality='REJECTED' WHERE id=?", rejected);
+        as(engineer, () -> materialsService.movement(engineer, projectId,
+                new EngMaterialService.MovementCommand(materialId, "CONSUME", new BigDecimal("3.500"), "已领用", 41L), idem()));
+
+        var tooLow = new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2.500"), "核对送货单");
+        assertThatThrownBy(() -> as(engineer, () -> materialsService.arrivalCorrection(engineer, receipt, tooLow, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("已登记去向");
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id=?", BigDecimal.class, receipt))
+                .isEqualByComparingTo("4.002");
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, receipt,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("2.501"), "合格实到与领用相等"), idem()));
+        as(engineer, () -> materialsService.arrivalCorrection(engineer, rejected,
+                new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("0.500"), "复核未通过质检的数量"), idem()));
+        assertThat(jdbc.queryForObject("SELECT actual_quantity FROM fr_eng_supply_receipt WHERE id=?", BigDecimal.class, rejected))
+                .isEqualByComparingTo("0.500");
+    }
+
+    @Test
     void arrivalAndReshipReplayVerifyTheFullReceipt() {
         long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         long anotherAsset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
@@ -1125,6 +1172,52 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 new EngMaterialService.ArrivalCorrectionCommand(new BigDecimal("80.000"), "更正到计划值"), idem()));
         assertThat(jdbc.queryForObject("SELECT SUM(actual_quantity) FROM fr_eng_supply_receipt WHERE supply_id = ?",
                 BigDecimal.class, supplyId)).isEqualByComparingTo("100.000");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void materialSummarySeparatesUsageReturnAndOpenReshipByOriginalLineAndScope() {
+        long proof = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, new EngMaterialService.ArrivalCommand(
+                null, new BigDecimal("4"), new BigDecimal("3"), "OK", "FLOW-" + supplyId, proof, null, null, null), idem()));
+        long rejected = insertArrivalForCorrection("0.500");
+        jdbc.update("UPDATE fr_eng_supply_receipt SET quality='REJECTED' WHERE id=?", rejected);
+        for (String kind : java.util.List.of("CONSUME", "RETURN")) {
+            as(engineer, () -> materialsService.movement(engineer, projectId, new EngMaterialService.MovementCommand(
+                    materialId, kind, new BigDecimal("0.250"), "原单 " + kind, engineer.userId()), idem()));
+        }
+        var row = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) row.get("consumedQuantity")).isEqualByComparingTo("0.250");
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("2.500");
+        var history = (java.util.List<java.util.Map<String, Object>>) row.get("movements");
+        assertThat(history).extracting(m -> m.get("kind")).containsExactly("RETURN", "CONSUME");
+        assertThat(history.get(0)).containsEntry("settlementStatus", "PENDING_SETTLE").containsEntry("note", "原单 RETURN")
+                .containsEntry("authorUserId", Long.toString(engineer.userId())).containsEntry("receiverUserId", Long.toString(engineer.userId()));
+        assertThat(history.get(0).get("id")).isInstanceOf(String.class);
+        assertThat(history.get(0).get("occurredAt")).isNotNull();
+        var pending = (java.util.List<java.util.Map<String, Object>>) row.get("pendingReships");
+        assertThat(pending).hasSize(1);
+        assertThat((BigDecimal) pending.get(0).get("expectedQuantity")).isEqualByComparingTo("1.000");
+        long reship = Long.parseLong((String) pending.get(0).get("id"));
+        assertThat(pending.get(0).get("parentReceiptId")).isInstanceOf(String.class);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, new EngMaterialService.ArrivalCommand(
+                reship, null, BigDecimal.ONE, "OK", "REPLACE-" + supplyId, proof, null, null, null), idem()));
+        row = onlyMaterialSummaryLine();
+        assertThat((java.util.List<?>) row.get("pendingReships")).isEmpty();
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("3.500");
+        assertThat((BigDecimal) row.get("allocationShortfallQuantity")).isEqualByComparingTo("0");
+        jdbc.update("INSERT INTO fr_eng_material_movement(id,company_id,project_id,material_id,kind,quantity,author_user_id) " +
+                "VALUES (?,?,?,?,'CONSUME',4.250,?)", IDS.incrementAndGet(), store.orgId(), projectId, materialId, engineer.userId());
+        row = onlyMaterialSummaryLine();
+        assertThat((BigDecimal) row.get("availableQuantity")).isEqualByComparingTo("0");
+        assertThat((BigDecimal) row.get("allocationShortfallQuantity")).isEqualByComparingTo("0.750");
+
+        var sales = fixture.post(store.orgId(), "sales", null);
+        var plans = (java.util.List<java.util.Map<String, Object>>) materialsService.summary(sales, projectId, null).get("plans");
+        var limited = (java.util.List<java.util.Map<String, Object>>) plans.get(0).get("lines");
+        assertThat(limited.get(0)).doesNotContainKeys("consumedQuantity", "availableQuantity", "allocationShortfallQuantity", "movements", "pendingReships");
+        var foreign = fixture.post(fixture.store().orgId(), "finance", null);
+        assertThatThrownBy(() -> materialsService.summary(foreign, projectId, null)).isInstanceOf(ServiceException.class);
     }
 
     @Test

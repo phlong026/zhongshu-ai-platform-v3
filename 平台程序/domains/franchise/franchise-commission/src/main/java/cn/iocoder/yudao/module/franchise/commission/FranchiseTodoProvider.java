@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.platform.workflow.TodoProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +30,7 @@ import java.util.Set;
 @Component
 public class FranchiseTodoProvider implements TodoProvider {
 
-    private static final String CUSTOMERS_PAGE = "/pages/customers/index";
+    private static final ZoneId CUSTOMER_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String COMMISSION_PAGE = "/pages/workflow/commission/index";
     private static final String GROWTH_PAGE = "/pages/growth/index";
 
@@ -72,13 +73,13 @@ public class FranchiseTodoProvider implements TodoProvider {
     private void customerTodos(PostSnapshot post, List<TodoItem> items) {
         for (CustomerDO customer : customers.listAwaitingFirstFollow(post)) {
             items.add(item("first-follow:" + customer.getId(), "「" + customer.getName() + "」首次跟进",
-                    "REGISTERED", null, true, CUSTOMERS_PAGE, customer.getCreateTime()));
+                    "REGISTERED", null, true, followupPage(customer), customer.getCreateTime()));
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(CUSTOMER_ZONE);
         for (CustomerDO customer : customers.listDueVisits(post, today)) {
             items.add(item("visit:" + customer.getId() + ":" + customer.getNextVisitDate(),
                     "「" + customer.getName() + "」预约回访已到期", "FOLLOWING", null, true,
-                    CUSTOMERS_PAGE, atStartOfDay(customer.getNextVisitDate())));
+                    followupPage(customer), atStartOfDay(customer.getNextVisitDate())));
         }
         Set<Long> withCommission = Set.copyOf(commissions.listVisible(post).stream()
                 .map(CommissionDO::getCustomerId).toList());
@@ -224,8 +225,12 @@ public class FranchiseTodoProvider implements TodoProvider {
         return submissions.isEmpty() ? null : submissions.get(0).getTotalCents();
     }
 
+    private static String followupPage(CustomerDO customer) {
+        return "/pages/workflow/index?view=customer&id=" + customer.getId() + "&tab=1";
+    }
+
     private static OffsetDateTime atStartOfDay(LocalDate date) {
-        return date == null ? null : date.atStartOfDay(java.time.ZoneOffset.ofHours(8)).toOffsetDateTime();
+        return date == null ? null : date.atStartOfDay(CUSTOMER_ZONE).toOffsetDateTime();
     }
 
     private static TodoItem item(String key, String title, String status, Long amountCents,

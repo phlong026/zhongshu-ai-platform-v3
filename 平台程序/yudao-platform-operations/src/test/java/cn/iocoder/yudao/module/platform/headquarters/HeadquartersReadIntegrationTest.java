@@ -28,6 +28,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -51,6 +52,7 @@ import static org.mockito.Mockito.*;
 @Import({HeadquartersReadGuard.class, HeadquartersReadService.class, HeadquartersExportService.class,
         HeadquartersDocumentAccess.class, CustomerWorkflowReadService.class, CustomerWorkflowAssetPolicy.class,
         HeadquartersReadIntegrationTest.Config.class})
+@Sql("/fixtures/operations-system-users.sql")
 class HeadquartersReadIntegrationTest extends PlatformPgIntegrationTest {
     @TestConfiguration
     static class Config {
@@ -79,7 +81,6 @@ class HeadquartersReadIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach
     void setup() {
-        jdbc.execute("CREATE TABLE IF NOT EXISTS system_users(id bigint PRIMARY KEY,tenant_id bigint,nickname text,mobile text,username text,password text,status int DEFAULT 0,deleted int2 DEFAULT 0)");
         jdbc.update("INSERT INTO pf_org_type(code,domain,name) VALUES('headquarters','franchise','总部'),('store','franchise','门店') ON CONFLICT DO NOTHING");
         for (String role : List.of("hq-admin", "finance", "finance-lead", "hq-design-admin", "boss", "sales"))
             jdbc.update("INSERT INTO pf_post_template(role_code,domain,org_types,lead) VALUES(?,'franchise','headquarters,store',false) ON CONFLICT DO NOTHING", role);
