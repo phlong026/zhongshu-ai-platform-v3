@@ -40,6 +40,16 @@ module.exports = async function registerMeasurement(fixture, fields, api, transf
     page.input({currentTarget:{dataset:{key}},detail:{value}});
   }
   await page.loadMeasurements();
+  if (fixture.legacyMeasurementNote) {
+    const legacy = page.data.measurements.find(row=>row.eventId===fixture.legacyMeasurementEventId);
+    assert.ok(legacy); assert.equal(legacy.note,fixture.legacyMeasurementNote);
+    assert.equal(legacy.fields.orientation,undefined); assert.equal(legacy.fields.siteElevationNote,undefined);
+    page.chooseMeasurement({currentTarget:{dataset:{id:legacy.eventId}}});
+    const preview=visibleText(render(template,page.data));
+    assert.ok(preview.includes('原测量说明') && preview.includes(fixture.legacyMeasurementNote));
+    assert.ok(!preview.includes(fixture.newMeasurementNote));
+    await page.loadMeasurements();
+  }
   const item = page.data.measurements.find(row => row.eventId === fixture.measurementEventId);
   assert.ok(item);
   assert.equal(item.attachments[0].assetId,fixture.measurementAssetId);
@@ -50,6 +60,10 @@ module.exports = async function registerMeasurement(fixture, fields, api, transf
     const selected = visibleText(render(template,page.data));
     for (const [key,value] of Object.entries(fixture.measurementSite)) {
       assert.equal(item.fields[key],value); assert.ok(selected.includes(value));
+    }
+    if (fixture.newMeasurementNote) {
+      assert.equal(item.note,fixture.newMeasurementNote); assert.ok(selected.includes(fixture.newMeasurementNote));
+      assert.ok(!selected.includes(fixture.legacyMeasurementNote));
     }
   }
   await page.submit();
@@ -81,6 +95,10 @@ module.exports = async function registerMeasurement(fixture, fields, api, transf
   if (fixture.measurementSite) {
     const history = visibleText(render(template,page.data));
     for (const value of Object.values(fixture.measurementSite)) assert.ok(history.includes(value));
+    if (fixture.newMeasurementNote) {
+      assert.ok(history.includes(fixture.newMeasurementNote)); assert.ok(!history.includes(fixture.legacyMeasurementNote));
+      assert.deepEqual(registrations[0][1].measurementRef,{eventId:item.eventId,revision:item.revision,includeSourceNote:true});
+    }
   }
   return api.get(fixture.customerId);
 };

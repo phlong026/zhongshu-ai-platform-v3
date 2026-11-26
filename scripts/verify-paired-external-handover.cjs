@@ -63,7 +63,8 @@ async function verify() {
       } finally { actor = 'sales'; }
     };
     const selected = fixture.measurementSite
-      ? { ...fixture, measurementEventId: await require('./paired-measurement-site.cjs')(fixture) } : fixture;
+      ? { ...fixture, legacyMeasurementEventId: fixture.measurementEventId,
+          measurementEventId: await require('./paired-measurement-site.cjs')(fixture) } : fixture;
     context = readEntrust(await require('./paired-measurement-request.cjs')(selected, requestFields, entrust, transferCustomer));
   } else {
     const registerBody = Entrust.payload('register', { ...Entrust.requestForm(context), ...requestFields }, context, fixture.today);
@@ -122,6 +123,7 @@ async function verify() {
   accepted(readHandover(await handover.receive(commissionId, receiveBody, receiveKey)));
   accepted(readHandover(await handover.get(commissionId)));
   process.stdout.write(JSON.stringify({ done: true, commissionId, projectId, measurementEventId: context.request.data.measurementRef?.eventId,
+    checkedSourceNotes: !!fixture.newMeasurementNote,
     verifiedCustomerTransfer: !!fixture.transfer }) + '\n');
 }
 

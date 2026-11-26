@@ -12,12 +12,14 @@ module.exports = async function recordSiteObservations(fixture) {
   for(let i=0;!page.data.step && !page.data.error && i<250;i++) await new Promise(resolve=>setTimeout(resolve,20));
   assert.equal(page.data.step?.status,'COMPLETED',page.data.error);
   assert.equal(page.data.form.fields.orientation,''); assert.equal(page.data.form.fields.siteElevationNote,'');
+  if (fixture.legacyMeasurementNote) assert.equal(page.data.form.note,fixture.legacyMeasurementNote);
   let reopened;
   wx.showModal = options => { reopened=options.success({confirm:true,content:'复测现场朝向和道路高差'}); };
   await (await screen.$('.flow-reopen')).tap(); await reopened;
   assert.equal(page.data.step.canWrite,true,page.data.error);
   await (await screen.$('input[data-key="orientation"]')).input(notes.orientation);
   await (await screen.$('textarea[data-key="siteElevationNote"]')).input(notes.siteElevationNote);
+  if (fixture.newMeasurementNote) await (await screen.$('textarea[data-key="note"]')).input(fixture.newMeasurementNote);
   assert.equal(page.data.form.fields.orientation,notes.orientation);
   assert.equal(page.data.form.fields.siteElevationNote,notes.siteElevationNote);
   assert.equal(page.data.form.fields.checked,false);
@@ -30,6 +32,10 @@ module.exports = async function recordSiteObservations(fixture) {
   assert.ok(legacy); assert.equal(legacy.fields.orientation,undefined); assert.equal(legacy.fields.siteElevationNote,undefined);
   const source = page.data.records.find(row=>row.stepCode==='MEASUREMENT' && row.type==='SAVE' && row.id!==legacy.id);
   assert.ok(source); assert.equal(source.fields.orientation,notes.orientation); assert.equal(source.fields.siteElevationNote,notes.siteElevationNote);
+  if (fixture.newMeasurementNote) {
+    assert.equal(legacy.note,fixture.legacyMeasurementNote);
+    assert.equal(source.note,fixture.newMeasurementNote);
+  }
   page.viewRecord({currentTarget:{dataset:{id:source.id}}});
   assert.ok(page.data.activeRecord.details.some(row=>row.value===notes.siteElevationNote));
   return source.id;

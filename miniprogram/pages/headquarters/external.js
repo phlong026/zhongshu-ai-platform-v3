@@ -12,7 +12,7 @@ function measurementFields(source, customerId) {
     throw Error('测量原单所属客户或版本不匹配，请重新读取');
   }
   return [{ label: '引用测量记录', value: api.id(source.eventId) + ' · 流程版本 ' + source.revision },
-    ...M.measurementObservations(source.fields || {})];
+    ...M.measurementObservations(source.fields || {}), ...(typeof source.note === 'string' && source.note ? [{label:'原测量说明',value:source.note}] : [])];
 }
 
 function versions(rows, customerId, kind, register) {

@@ -199,7 +199,7 @@ test('总部区分本客户当前测量、历史原单和委托冻结版本的�
     {orientation:'当前正南',siteElevationNote:'当前 T 形道路比地块高 0.32 米'};
   const record = externalVersion(2);
   record.data.measurementRef={customerId:LONG,eventId:'9113372036854775805',revision:9,
-    fields:{orientation:'委托南偏东',siteElevationNote:'委托 T 形道路高 0.28 米'}};
+    fields:{orientation:'委托南偏东',siteElevationNote:'委托 T 形道路高 0.28 米'},note:'留档原文：门前有台阶。\n具体测点见图。'};
   env.handler = route => {
     if(route === PREFIX+'/customers/'+LONG) return detail;
     if(route.endsWith('/workflow-records')) return pageResult([{id:'100',stepCode:'MEASUREMENT',type:'SAVE',
@@ -213,6 +213,7 @@ test('总部区分本客户当前测量、历史原单和委托冻结版本的�
   assert.ok(env.text(page).includes('历史正东') && env.text(page).includes('旧版现场比路面高 0.40 米'));
   await page.toggleExternal();
   assert.ok(env.text(page).includes('委托南偏东') && env.text(page).includes('委托 T 形道路高 0.28 米'));
+  assert.ok(env.text(page).includes('原测量说明') && env.text(page).includes(record.data.measurementRef.note));
   assert.ok(env.text(page).includes('9113372036854775805 · 流程版本 9'));
   assert.ok(env.reads().every(call=>call.request.method==='GET'));
 });
