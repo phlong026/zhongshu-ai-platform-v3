@@ -76,7 +76,8 @@ test('CONTENT-07 renders authoritative deduplicated cohorts and clears stale res
   const first = { publicationId: '9223372036854775806', workId: '9223372036854775807', title: '山居',
     consultations: 4, linkedCustomers: 3, signedCustomers: 2, netPaidCustomers: 0 };
   const second = { ...first, publicationId: '81', consultations: 2, linkedCustomers: 1, netPaidCustomers: 1 };
-  let result = { ...fields, publications: { published: 2, failed: 100 }, converted: 90, perPublication: [first, second] };
+  const roundedId = { ...first, publicationId: Number(first.publicationId) };
+  let result = { ...fields, publications: { published: 2, failed: 100 }, converted: 90, perPublication: [first, second, roundedId] };
   const definition = loadPage('miniprogram/pages/growth/index.js', {
     '../../utils/organization': {}, '../../utils/growth': {}, '../../utils/platform-content': {}, '../../api/franchise/crm': {},
     '../../api/franchise/content': { growth: { summary: async () => { if (!result) throw Error('offline'); return result; } } },
@@ -88,6 +89,7 @@ test('CONTENT-07 renders authoritative deduplicated cohorts and clears stale res
   assert.equal(page.data.published[0].publicationId, first.publicationId);
   assert.equal(page.data.published[0].netPaidCustomers, 0);
   assert.equal(page.data.published[1].linkedCustomers, 1);
+  assert.equal(page.data.published.length, 2);
   result = null;
   await page.syncGrowth();
   assert.equal(page.data.growthStats, null);
@@ -95,6 +97,7 @@ test('CONTENT-07 renders authoritative deduplicated cohorts and clears stale res
   assert.ok(page.data.publicationError);
   const view = fs.readFileSync(path.join(root, 'miniprogram/pages/growth/index.wxml'), 'utf8');
   for (const label of ['有效咨询','关联客户','已签约','有净实收','按发布']) assert.ok(view.includes(label), label);
+  assert.match(view, /view=detail(?:&amp;|&)record=\{\{item.publicationId\}\}/);
 });
 
 function studioFixture(overrides = {}, wxOverrides = {}) {
