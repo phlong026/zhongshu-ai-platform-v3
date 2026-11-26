@@ -119,17 +119,10 @@ public class CustomerWorkflowService {
                 && !(request.fields() != null && request.fields().get("selectionMode") instanceof String submitted && submitted.isBlank())) {
             throw invalid("本步骤已记录外部定制方向，请更新小程序后再修改");
         }
-        // 专用资料槽位（05 设计合同、06 设计文件）存在 fields 里；旧版小程序不知道这些键，
-        // 整字段替换会静默清掉已登记的文件引用，所以沿用 quoteId 的守卫：漏发即拒绝，只有显式空值才能清除。
-        for (String slotKey : CustomerWorkflowRules.SLOT_ASSET_FIELDS) {
-            if (!slotAssetStep(slotKey).equals(step) || previous == null
-                    || !previous.fields().containsKey(slotKey) || input.fields().containsKey(slotKey)
-                    || request.fields() != null && request.fields().get(slotKey) instanceof String submitted && submitted.isBlank()) continue;
-            throw invalid("本步骤已登记" + (slotKey.equals("designContractAssetId") ? "设计合同" : "设计文件") + "，请更新小程序后再修改");
-        }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
         validateAttachments(post, customerId, input.attachments());
         validateSlotAssets(post, customerId, step, fields);
+        preserveUnchangedSlot(step, previous == null ? Map.of() : previous.fields(), request.fields(), fields);
         if (step == Step.MEASUREMENT) {
             CustomerWorkflowRules.applyMeasurementSiteFields(fields, previous == null ? Map.of() : previous.fields());
         }
@@ -394,6 +387,21 @@ public class CustomerWorkflowService {
         for (Attachment attachment : attachments) {
             if (!assetPort.validateReference(actor, Long.parseLong(attachment.assetId()), Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
                 throw invalid("附件不存在、未上传完成或无权引用");
+        }
+    }
+
+    /** An older form can update other fields without clearing the existing file or changing its name. */
+    private static void preserveUnchangedSlot(Step step, Map<String, Object> previous,
+                                              Map<String, Object> requested, Map<String, Object> fields) {
+        for (String slotKey : CustomerWorkflowRules.SLOT_ASSET_FIELDS) {
+            if (!slotAssetStep(slotKey).equals(step) || fields.containsKey(slotKey)) continue;
+            String nameKey = "designContractAssetId".equals(slotKey) ? "designContractName" : "designFileName";
+            fields.remove(nameKey);
+            if (requested != null && requested.get(slotKey) instanceof String supplied && supplied.isBlank()) continue;
+            if (previous.containsKey(slotKey)) {
+                fields.put(slotKey, previous.get(slotKey));
+                if (previous.containsKey(nameKey)) fields.put(nameKey, previous.get(nameKey));
+            }
         }
     }
 

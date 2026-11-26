@@ -210,7 +210,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void designContractSlotLivesInFieldsAndBlocksLegacySilentRemoval() {
+    void designContractSlotLivesInFieldsAndSurvivesLegacyEdits() {
         long id = customer();
         var measurement = new SaveCommand(0, today(), "实测完成",
                 Map.of("address", "村东头", "measurer", "老周", "width", "12", "depth", "15", "area", "180",
@@ -222,14 +222,15 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         // 未验收或他店资产拒绝引用
         failure(400, () -> as(sales, () -> workflow.save(sales, id, "MEASUREMENT", new SaveCommand(saved.revision(), today(), "换合同",
                 Map.of("designContractAssetId", "9002", "designContractName", "别店合同.pdf"), List.of()), "slot-bad")));
-        // 旧版小程序漏发槽位键会随整字段替换清掉引用，守卫拒绝
-        assertThatThrownBy(() -> as(sales, () -> workflow.save(sales, id, "MEASUREMENT", new SaveCommand(saved.revision(), today(), "旧版只改地址",
-                Map.of("address", "村西头"), List.of()), "slot-legacy")))
-                .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
-        // 只有显式空值才能清除
-        var cleared = new SaveCommand(saved.revision(), today(), "删除设计合同",
+        // Old clients can correct the address or dimensions without sending a slot ID.
+        View legacy = as(sales, () -> workflow.save(sales, id, "MEASUREMENT", new SaveCommand(saved.revision(), today(), "旧版只改尺寸",
+                Map.of("address", "村西头", "width", "13", "designContractName", "不能单独改名.pdf"), List.of()), "slot-legacy"));
+        assertThat(legacy.steps().get(4).fields()).containsEntry("address", "村西头").containsEntry("width", "13")
+                .containsEntry("designContractAssetId", "9001").containsEntry("designContractName", "设计服务合同.pdf");
+        // An explicit blank ID clears both slot fields even if a stale name was sent.
+        var cleared = new SaveCommand(legacy.revision(), today(), "删除设计合同",
                 Map.of("address", "村东头", "measurer", "老周", "width", "12", "depth", "15", "area", "180",
-                        "floors", "2", "checked", true, "designContractAssetId", "", "designContractName", ""), List.of());
+                        "floors", "2", "checked", true, "designContractAssetId", "", "designContractName", "旧名称.pdf"), List.of());
         assertThat(as(sales, () -> workflow.save(sales, id, "MEASUREMENT", cleared, "slot-clear")).steps().get(4).fields())
                 .doesNotContainKeys("designContractAssetId", "designContractName");
         // 已归属本客户的资产（事件历史里仍有引用）不能被另一客户借用
@@ -237,7 +238,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         failure(400, () -> as(sales, () -> workflow.save(sales, other, "MEASUREMENT", new SaveCommand(0, today(), "借用合同",
                 Map.of("address", "别家", "measurer", "x", "width", "1", "depth", "1", "area", "1", "floors", "1", "checked", true,
                         "designContractAssetId", "9001", "designContractName", "设计服务合同.pdf"), List.of()), "slot-steal")));
-        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(2);
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(3);
     }
 
     @Test
@@ -248,10 +249,9 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
                         "designFileAssetId", "9001", "designFileName", "别墅设计方案V1.pdf"), List.of());
         View saved = as(sales, () -> workflow.save(sales, id, "QUOTATION", withFile, "design-file-save"));
         assertThat(saved.steps().get(5).fields()).containsEntry("designFileAssetId", "9001");
-        // 关联正式报价（快照替换）保留设计文件：客户端每次都带全部定义字段
+        // An older client linking a formal quote does not know the new file fields.
         var linked = new SaveCommand(saved.revision(), today(), "改用原单",
-                Map.of("quoteId", "1234567890123456789", "communicated", true, "result", "已发给客户",
-                        "designFileAssetId", "9001", "designFileName", "别墅设计方案V1.pdf"), List.of());
+                Map.of("quoteId", "1234567890123456789", "communicated", true, "result", "已发给客户"), List.of());
         View switched = as(sales, () -> workflow.save(sales, id, "QUOTATION", linked, "design-file-linked"));
         assertThat(switched.steps().get(5).fields()).containsEntry("quoteId", "1234567890123456789")
                 .containsEntry("designFileAssetId", "9001").containsEntry("designFileName", "别墅设计方案V1.pdf");
