@@ -2,7 +2,7 @@ const api = require('./api');
 const { money } = require('../../utils/money');
 const SECTIONS = [{ key: 'overview', label: '概览' }, { key: 'customers', label: '客户' }, { key: 'projects', label: '工程' }, { key: 'books', label: '账本' }, { key: 'finance', label: '财务' }];
 const FINANCE = [{ key: 'receipts', label: '收款' }, { key: 'payables', label: '应付' }, { key: 'payments', label: '付款' }, { key: 'refunds', label: '退款' }];
-const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '合同签约', '开工大吉'];
+const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '施工签约', '开工大吉'];
 const STATUS = { DRAFT: '草稿', PENDING: '待处理', NOT_STARTED: '未开始', IN_PROGRESS: '进行中', COMPLETED: '已完成', COMPLETE: '已完成',
   SIGNED: '已签约', ACTIVE: '进行中', OPEN: '进行中', CLOSED: '已关闭', VOID: '已作废', VOIDED: '已作废', CANCELLED: '已取消',
   PAID: '已付清', UNPAID: '未付款', PARTIAL: '部分完成', PARTIALLY_PAID: '部分付款', RECEIVED: '已收款', CONFIRMED: '已确认',
@@ -81,7 +81,7 @@ function customer(row, register) {
     completed: workflow ? workflow.completedCount : 0,
     steps: (workflow?.steps || []).map(step => ({
       code: step.code, number: String(step.order).padStart(2, '0'), name: text(step.name), status: status(step.status), completed: step.status === 'COMPLETED',
-      source: step.source === 'CONTRACT' ? '以已签合同为准' : step.source === 'ENGINEERING' ? '以工程实际开工记录为准' : '业务跟进记录',
+      source: step.source === 'CONTRACT' ? '以已签施工合同为准' : step.source === 'ENGINEERING' ? '以工程实际开工记录为准' : '业务跟进记录',
       occurredOn: step.occurredOn || '', note: step.note || '', fields: fields(step.fields || {}, FIELD_NAMES),
       files: workflowFiles(id, step.code, step.attachments, register).concat(step.code === 'CONTRACT' && step.fields?.assetId
         ? [register({ type: 'workflow', id, step: 'CONTRACT', assetId: api.id(step.fields.assetId) }, '已签合同附件')] : [])

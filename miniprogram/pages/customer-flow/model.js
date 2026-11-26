@@ -29,7 +29,7 @@ const STEPS = [
     field('amountCents', '正式报价金额', 'money', { unit: '元' }), field('scope', '报价范围', 'textarea'),
     field('versionLabel', '报价版本'), field('result', '沟通结果', 'textarea'), field('communicated', '已向客户说明报价', 'boolean')
   ] },
-  { code: 'CONTRACT', name: '合同签约', fields: [] },
+  { code: 'CONTRACT', name: '施工签约', fields: [] },
   { code: 'START', name: '开工大吉', fields: [] }
 ];
 const STATUS = { TODO: '待办理', DRAFT: '已记录', COMPLETED: '已完成' };
