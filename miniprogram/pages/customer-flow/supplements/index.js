@@ -136,23 +136,29 @@ Component({
       if (!this.mayEdit(context)) return;
       const draft=this.draft(context); if (draft.uploading || !draft.queue.length) return;
       draft.uploading=true;
-      const current=()=>this.same(context) && this._drafts?.get(context.code)===draft;
+      const current=()=>this._mounted && identity()===context.identity && model.id(this.data.customerId)===context.customer
+        && this._drafts?.get(context.code)===draft;
+      const renderActive=()=>{
+        const active=this._context;
+        if (active?.key===context.key && this.visible(active) && this.data.canWrite && current()) this.projectDraft(active);
+      };
       try {
         while (current() && draft.queue.length) {
           let job=draft.queue[0];
           if (job.rejected) return;
           if (job.restartRequired) job=draft.queue[0]={file:job.file,bytes:job.bytes,mimeType:job.mimeType};
-          job.error='';if (this.visible(context)) this.projectDraft(context);
+          job.error='';renderActive();
           const file=await require('../upload').run(job,current);
           if (!current()) return;
           if (!draft.files.some(f=>f.assetId===file.assetId)) draft.files.push({assetId:file.assetId,title:String(file.title||'附件').slice(0,200)});
           draft.queue.shift();
         }
       } catch (error) {
-        if (current() && denied(error)) { this.clearAccess(context); this.setData({loadError:model.errorText(error)}); }
-        else if (current() && draft.queue[0]) draft.queue[0].error=model.errorText(error);
-      }
-      finally { draft.uploading=false; if (current() && this._visible) this.projectDraft(context); }
+        if (current() && denied(error)) {
+          if (this._context?.key===context.key) { this.clearAccess(this._context); this.setData({loadError:model.errorText(error)}); }
+          else this._drafts.delete(context.code);
+        } else if (current() && draft.queue[0]) draft.queue[0].error=model.errorText(error);
+      } finally { draft.uploading=false; renderActive(); }
     },
     discardUpload() {
       const context=this._context;if (!this.mayEdit(context)) return;

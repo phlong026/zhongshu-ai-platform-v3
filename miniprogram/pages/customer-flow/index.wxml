@@ -73,8 +73,8 @@
         <view wx:if="{{step.completionErrors.length&&step.canWrite&&!dirty}}" class="flow-requirements"><text wx:for="{{step.completionErrors}}" wx:key="*this">{{item}}</text></view>
         <button wx:if="{{step.canReopen}}" class="flow-secondary flow-reopen" bindtap="reopen" disabled="{{busy||uncertain}}">更正／重新办理</button>
       </block>
-      <step-supplements customer-id="{{workflow.customerId}}" step-code="{{step.code}}" />
     </block>
+    <view hidden="{{showHistory}}"><step-supplements customer-id="{{workflow.customerId}}" step-code="{{step.code}}" /></view>
   </view>
   <view wx:if="{{workflow&&step.canWrite&&!showHistory}}" class="flow-footer"><button class="flow-secondary" data-action="save" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}" loading="{{busy}}">保存记录</button><button class="flow-primary" data-action="complete" bindtap="submit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}">完成本步</button></view>
   <view wx:if="{{activeRecord}}" class="flow-sheet-mask" catchtap="closeRecord"><view class="flow-sheet" catchtap="noop"><view class="flow-title-row"><text>{{activeRecord.stepName}} · {{activeRecord.actionLabel}}</text><button class="flow-link" bindtap="closeRecord">关闭</button></view><scroll-view scroll-y class="flow-sheet-content"><text class="flow-muted">{{activeRecord.createdText}} · {{activeRecord.actorName || '经办人'}}</text><view wx:if="{{activeRecord.occurredText}}" class="flow-fact"><text>发生日期</text><text>{{activeRecord.occurredText}}</text></view><view wx:for="{{activeRecord.details}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value}}</text></view><text wx:if="{{activeRecord.note}}" class="flow-record-note">{{activeRecord.note}}</text><button wx:for="{{activeRecord.attachments}}" wx:key="assetId" class="flow-file-name" data-id="{{item.assetId}}" bindtap="previewFile">{{item.title}}</button></scroll-view></view></view>

@@ -144,3 +144,35 @@ test('读取原件或保存时撤权会清空旧内容，并可从当前步骤�
   h.input('试记');await c.saveSupplement();assert.match(c.data.loadError,/工作岗位已调整/);assert.equal(c.data.canWrite,false);
   h.write=false;await c.refresh();assert.equal(c.data.rows.length,1);assert.equal(c.data.note,'');
 });
+
+
+test('上传时换步再返回会收到原步骤的文件，换客户或换岗会隔离在途选择', async () => {
+  const h=harness('INVITATION'), c=h.c;
+  await c.start(); h.input('邀约未保存');
+  const select=name=>{c.chooseAttachment({currentTarget:{dataset:{kind:'photo'}}});return h.picker.success({tempFiles:[{name,tempFilePath:'/camera/photo.jpg'}]});};
+  const file=later(); h.upload=()=>file.promise;
+  const selected=select('邀约现场.jpg'); assert.equal(c.data.uploading,true);
+  await c.switchStep('INTRODUCTION');h.input('介绍阶段草稿');
+  await c.switchStep('INVITATION');assert.equal(c.data.note,'邀约未保存');
+  file.resolve({assetId:ASSET,title:'邀约现场.jpg'});await selected;
+  assert.equal(c.data.uploading,false);assert.deepEqual(c.data.files,[{assetId:ASSET,title:'邀约现场.jpg'}]);
+  await c.switchStep('INTRODUCTION');assert.equal(c.data.note,'介绍阶段草稿');assert.equal(c.data.files.length,0);
+  const otherFile=later();h.upload=()=>otherFile.promise;
+  const away=select('另一客户不可见.jpg');
+  c.data.customerId='9007199254740993127';await c.show();
+  assert.equal(c.data.note,'');otherFile.resolve({assetId:'9007199254740993128',title:'另一客户不可见.jpg'});await away;
+  assert.equal(c.data.files.length,0);assert.equal(c.data.uploading,false);
+  const revoked=later();h.upload=()=>revoked.promise;const switching=select('旧岗资料.jpg');
+  c.hide();h.post='99';await c.show();revoked.resolve({assetId:'29',title:'旧岗资料.jpg'});await switching;
+  assert.equal(c.data.note,'');assert.equal(c.data.files.length,0);assert.equal(h.call('add').length,0);
+});
+
+test('查看跟进记录时原步骤资料区保持挂载并隐藏，返回后可继续未保存内容', () => {
+  const file=path.join(pageRoot,'index.wxml'), step={code:'INVITATION',name:'邀约',fields:{},completionErrors:[]};
+  const state={workflow:{customerId:CUSTOMER,steps:[step]},step,form:{attachments:[],fields:{}},fields:[],facts:[]};
+  const find=(nodes)=>{for(const node of nodes){if((node.children||[]).some(child=>child.tag==='step-supplements'))return node;
+    const child=find(node.children||[]);if(child)return child;}return null;};
+  const shown=find(render(file,{...state,showHistory:false}));assert.ok(shown);assert.ok(!shown.attrs.hidden);
+  assert.equal(find(render(file,{...state,showHistory:true})),null);
+  assert.match(fs.readFileSync(file,'utf8'),/<view hidden="{{showHistory}}">\s*<step-supplements\b/);
+});
