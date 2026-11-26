@@ -241,6 +241,35 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
                 .isInstanceOf(ServiceException.class).hasMessageContaining("加盟商档案");
     }
 
+    @Test void replacingAnAuthorizedAddressRequiresFreshConsentAndRenamingPreservesIt() {
+        var opened = onboard.onboardWithDistrict("测试甲", "湖北省", "武汉市", "黄陂区", "测试用户甲",
+                "13900001384", null, null, "", 7, "420116");
+        var listed = directory.get(opened.accountId());
+        String oldAddress = "合成门店旧地址88号";
+        String newAddress = "合成门店新地址89号";
+        var authorized = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                "", oldAddress, true, listed.version()), 7);
+        String authQuery = "SELECT public_address_authorized_by, public_address_authorized_at "
+                + "FROM pf_franchise_directory WHERE tenant_id=? AND id=?";
+        var grant = jdbc.queryForMap(authQuery, tenant, listed.id());
+        var renamed = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                "新显示名称", "  " + oldAddress + "  ", true, authorized.version()), 9);
+        assertThat(renamed.publicAddress()).isEqualTo(oldAddress);
+        assertThat(jdbc.queryForMap(authQuery, tenant, listed.id())).isEqualTo(grant);
+
+        assertThatThrownBy(() -> directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                renamed.publicName(), newAddress, true, renamed.version()), 9))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("重新确认");
+        assertThat(records(maps.snapshot())).filteredOn(r -> r.id().equals(listed.id()))
+                .extracting(FranchiseMapService.MapRecord::publicAddress).containsExactly(oldAddress);
+        var replaced = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                renamed.publicName(), newAddress, true, renamed.version(), true), 9);
+        assertThat(replaced.publicAddress()).isEqualTo(newAddress);
+        assertThat(jdbc.queryForMap(authQuery, tenant, listed.id())).containsEntry("public_address_authorized_by", 9L);
+        assertThat(records(maps.snapshot())).filteredOn(r -> r.id().equals(listed.id()))
+                .extracting(FranchiseMapService.MapRecord::publicAddress).containsExactly(newAddress);
+    }
+
     @Test void changingBrandRevokesAddressConsentForLinkedAndImportedRecords() {
         var opened = onboard.onboardWithDistrict("测试甲", "湖北省", "武汉市", "黄陂区", "测试甲甲",
                 "13900001381", null, null, "", 7, "420116");

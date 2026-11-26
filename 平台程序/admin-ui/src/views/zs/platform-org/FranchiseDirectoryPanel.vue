@@ -97,7 +97,8 @@
         <el-input v-model.trim="mapPublicName" maxlength="128" :disabled="saving" placeholder="留空则显示品牌与行政区" />
         <label class="map-display-label">公开门店地址</label>
         <el-input
-          v-model.trim="mapPublicAddress"
+          :model-value="mapPublicAddress"
+          @update:model-value="editMapPublicAddress"
           type="textarea"
           :rows="2"
           maxlength="300"
@@ -469,6 +470,13 @@ function openMapEditor(item: DirectoryItem) {
   mapEditVisible.value = true
 }
 
+function editMapPublicAddress(value: string) {
+  if (value.trim() !== mapPublicAddress.value.trim()) {
+    mapPublicAddressAuthorized.value = false
+  }
+  mapPublicAddress.value = value
+}
+
 function togglePublicAddressAuthorization(checked: boolean | string | number) {
   mapPublicAddressAuthorized.value = checked === true
   if (!mapPublicAddressAuthorized.value) mapPublicAddress.value = ''
@@ -479,11 +487,15 @@ async function saveMapDisplay() {
   const generation = lifecycleGeneration
   const item = mapEditing.value
   const publicAddress = mapPublicAddress.value.trim()
-  if (publicAddress && !mapPublicAddressAuthorized.value) {
+  const previousAddress = (item.publicAddress || '').trim()
+  const addressChanged = publicAddress !== previousAddress
+  const authorized = mapPublicAddressAuthorized.value
+  const writeAddress = item.recordType === 'FRANCHISE' && (addressChanged || authorized !== !!item.publicAddressAuthorized)
+  if (publicAddress && !authorized) {
     mapEditError.value = '请确认已获得该门店地址的公开展示授权。'
     return
   }
-  if (mapPublicAddressAuthorized.value && !publicAddress) {
+  if (authorized && !publicAddress) {
     mapEditError.value = '请先填写公开门店地址。'
     return
   }
@@ -492,8 +504,11 @@ async function saveMapDisplay() {
   try {
     await updateDirectoryMapDisplay(item.id, {
       publicName: mapPublicName.value.trim(),
-      publicAddress,
-      publicAddressAuthorized: mapPublicAddressAuthorized.value,
+      ...(writeAddress ? {
+        publicAddress,
+        publicAddressAuthorized: authorized,
+        ...(addressChanged && authorized ? { publicAddressConfirmed: true } : {})
+      } : {}),
       expectedVersion: item.version
     })
     if (!active || generation !== lifecycleGeneration) return
