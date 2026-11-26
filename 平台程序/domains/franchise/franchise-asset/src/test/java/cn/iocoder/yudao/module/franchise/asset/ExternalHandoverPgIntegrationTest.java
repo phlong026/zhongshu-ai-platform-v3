@@ -249,6 +249,49 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(historical.currentRequest().data().measurementRef()).isNull();
     }
 
+    @Test void onlyAnExplicitReselectionAddsTheOriginalNoteToAPreNoteCommission() throws Exception {
+        long id = customer(sales);
+        var file = new Attachment(Long.toString(upload(sales,"BUSINESS_DOCUMENT")),"旧测量单.pdf");
+        var fields = Map.<String,Object>of("address","实测地址","measurer","现场人员","width","10","depth","12","area","120","checked",true);
+        String note = "旧宅西北角有台阶。\n未记录具体落差。";
+        as(sales, () -> workflow.save(sales,id,"MEASUREMENT",
+                new CustomerWorkflowModel.SaveCommand(0,today(),note,fields,List.of(file)),key()));
+        jdbc.update("""
+                INSERT INTO fr_customer_step_supplement(id,tenant_id,company_id,customer_id,step_code,note,actor_user_id,actor_post_id,actor_name)
+                VALUES(?,?,?,?, 'MEASUREMENT','另存的附加资料，不属于测量原单',?,?,?)
+                """,com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),tenant,sales.orgId(),id,sales.userId(),sales.postId(),"陈工");
+        var measured = as(sales, () -> external.measurements(sales,id,null,20)).list().get(0);
+        var initial = as(sales, () -> external.get(sales,id));
+        assertThat(measured.note()).isEqualTo(note);
+        // Seed the immutable version exactly as it was written before the note member existed.
+        var legacyRef = new ExternalCommissionModel.MeasurementRef(measured.eventId(),measured.revision(),measured.customerId(),
+                measured.occurredOn(),measured.fields(),measured.attachments());
+        var legacyData = measuredRequest(initial,legacyRef,List.of(file),null);
+        long commission = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("""
+                INSERT INTO fr_commission(id,company_id,design_org_id,customer_id,customer_name,status,submission_version,
+                        workflow_mode,revision)
+                VALUES(?,?,?,?,'旧测量委托','EXTERNAL_PENDING',1,'EXTERNAL',1)
+                """,commission,sales.orgId(),sales.orgId(),id);
+        jdbc.update("""
+                INSERT INTO fr_commission_external_version(commission_id,version,tenant_id,company_id,customer_id,action,data,actor_user_id,actor_post_id)
+                VALUES(?,1,?,?,?,'REGISTER',CAST(? AS jsonb),?,?)
+                """,commission,tenant,sales.orgId(),id,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(legacyData),sales.userId(),sales.postId());
+        jdbc.update("UPDATE fr_commission SET external_request_version=1 WHERE id=?",commission);
+        var old = as(sales, () -> external.get(sales,id));
+        assertThat(old.currentRequest().data().measurementRef().note()).isNull();
+        var omitted = as(sales, () -> external.register(sales,id,measuredRequest(old,null,List.of(),null),key()));
+        var identity = new ExternalCommissionModel.MeasurementRef(measured.eventId(),measured.revision(),null,null,null,null);
+        var echoed = as(sales, () -> external.register(sales,id,measuredRequest(omitted,identity,List.of(),null),key()));
+        var reselect = new ExternalCommissionModel.MeasurementRef(measured.eventId(),measured.revision(),null,null,null,null,"客户端内容不可采信",true);
+        var selected = as(sales, () -> external.register(sales,id,measuredRequest(echoed,reselect,List.of(),null),key()));
+        assertThat(selected.currentRequest().data().measurementRef()).isEqualTo(measured);
+        assertThat(selected.currentRequest().data().measurementRef().note()).isEqualTo(note);
+        assertThat(selected.requests()).extracting(item -> item.data().measurementRef().note())
+                .containsExactly(note,null,null,null);
+        assertThat(selected.currentRequest().data().measurementRef().fields()).doesNotContainKeys("orientation","siteElevationNote");
+    }
+
     private RequestCommand measuredRequest(ExternalCommissionModel.View view, ExternalCommissionModel.MeasurementRef source,
                                             List<Attachment> files, Boolean remove) {
         var base = request(view, "按已核对的测量资料办理");
@@ -322,7 +365,16 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         input.put("today",today().toString()); input.put("sales",miniActor(sales)); input.put("engineer",miniActor(engineer));
         boolean measurementClient = java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client).toAbsolutePath()
                 .resolveSibling("paired-measurement-request.cjs"));
+        boolean siteClient = java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client).toAbsolutePath()
+                .resolveSibling("paired-measurement-site.cjs"));
+        var site = Map.of("orientation","南偏东 15°","siteElevationNote","北侧 T 形路口高出宅基地 0.45 米，入口需放坡");
         var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
+        String siteNote = "复测原文：门前入口留坡。\n西侧电杆已现场定位。";
+        if (siteClient) {
+            input.put("measurementSite",site);
+            input.put("legacyMeasurementNote",measurement.note());
+            input.put("newMeasurementNote",siteNote);
+        }
         if (measurementClient) {
             input.put("measurementEventId", measurement.eventId());
             input.put("measurementAssetId", measurement.attachments().get(0).assetId());
@@ -334,18 +386,29 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
 
         var completed=runMini(client,input,
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
+                new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController(workflow,currentPost),
                 new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController(customers,currentPost,FakeSystemDirectory.INSTANCE),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost));
 
         long commission=Long.parseLong(completed.path("commissionId").asText());
         long project=Long.parseLong(completed.path("projectId").asText());
         if (measurementClient) {
-            assertThat(completed.path("measurementEventId").asText()).isEqualTo(measurement.eventId());
+            var selected = siteClient ? as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0) : measurement;
+            if (siteClient) {
+                assertThat(selected.eventId()).isNotEqualTo(measurement.eventId());
+                assertThat(selected.fields()).containsEntry("orientation",site.get("orientation")).containsEntry("siteElevationNote",site.get("siteElevationNote"));
+                assertThat(measurement.fields()).doesNotContainKeys("orientation","siteElevationNote");
+                if (completed.path("checkedSourceNotes").asBoolean()) {
+                    assertThat(selected.note()).isEqualTo(siteNote);
+                    assertThat(measurement.note()).isNotEqualTo(siteNote);
+                }
+            }
+            assertThat(completed.path("measurementEventId").asText()).isEqualTo(selected.eventId());
             assertThat(completed.path("verifiedCustomerTransfer").asBoolean()).isTrue();
             var versions = as(sales, () -> external.get(sales,customer)).requests();
             assertThat(versions).hasSize(1);
             var original = versions.get(0);
-            assertThat(original.data().measurementRef()).isEqualTo(measurement);
+            assertThat(original.data().measurementRef()).isEqualTo(selected);
             assertThat(original.data().attachments()).containsExactlyElementsOf(measurement.attachments());
             long file = Long.parseLong(measurement.attachments().get(0).assetId());
             var ticket = as(sales, () -> external.download(sales,customer,"requests",original.version(),file));
@@ -520,7 +583,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                     var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
                     if(request.path("done").asBoolean()) { completed=request; break; }
                     String role=request.path("actor").asText(), method=request.path("method").asText();
-                    assertThat(role).isIn("sales","engineer","secondEngineer","finance","boss"); assertThat(method).isIn("GET","POST");
+                    assertThat(role).isIn("sales","engineer","secondEngineer","finance","boss"); assertThat(method).isIn("GET","POST","PUT");
                     currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; case "finance" -> finance; case "secondEngineer" -> secondEngineer; default -> engineer; });
                     String response;
                     try {
@@ -952,7 +1015,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long revision=0;
         for(int n=0;n<6;n++) {
             String code=CustomerWorkflowModel.Step.values()[n].name();
-            var input=new CustomerWorkflowModel.SaveCommand(revision,today(),"已完成当次沟通与资料核对",fields.get(n),List.of(new Attachment(Long.toString(document),"外部正式资料")));
+            String note = n == 4 ? "旧测量原文：东侧有台坎。\n当时未量落差。" : "已完成当次沟通与资料核对";
+            var input=new CustomerWorkflowModel.SaveCommand(revision,today(),note,fields.get(n),List.of(new Attachment(Long.toString(document),"外部正式资料")));
             var saved=as(sales,()->workflow.save(sales,customer,code,input,key()));
             revision=as(sales,()->workflow.complete(sales,customer,code,saved.revision(),key())).revision();
         }
