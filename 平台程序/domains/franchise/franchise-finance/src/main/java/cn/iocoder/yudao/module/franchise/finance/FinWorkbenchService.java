@@ -22,7 +22,8 @@ public class FinWorkbenchService {
     private FinProjectAccountingService accounting;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     public void setAccounting(FinProjectAccountingService accounting) { this.accounting=accounting; }
-    public FinWorkbenchService(JdbcTemplate jdbc,FinReceiptService receipts,FinPaymentService payments,FranchiseCommands commands) {
+    public FinWorkbenchService(JdbcTemplate jdbc,@org.springframework.context.annotation.Lazy FinReceiptService receipts,
+                               @org.springframework.context.annotation.Lazy FinPaymentService payments,FranchiseCommands commands) {
         this.jdbc=jdbc;this.receipts=receipts;this.payments=payments;this.commands=commands;
     }
     public record BookCommand(String name) {}
