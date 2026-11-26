@@ -22,6 +22,7 @@ ALTER TABLE pf_franchise_directory
             AND public_address_authorized_at IS NULL)
         OR
         (public_address_authorized = true
+            AND record_type = 'FRANCHISE'
             AND public_address IS NOT NULL
             AND btrim(public_address) <> ''
             AND public_address_authorized_by IS NOT NULL
