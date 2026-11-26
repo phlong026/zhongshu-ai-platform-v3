@@ -1047,7 +1047,9 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
     @Test
     void simultaneousSettlementRetriesReadTheSameReceipt() throws Exception {
-        jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE WHERE project_id=?", projectId);
+        long evidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE,recipient=?,file_asset_id=? WHERE project_id=?",
+                "项目接收人", evidence, projectId);
         String key = idem();
         var command = new EngClosureService.SettleCommand(null, "核实施工结算", null);
         var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
