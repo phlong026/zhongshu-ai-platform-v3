@@ -43,7 +43,7 @@ function harness(view = 'prepare', overrides = {}) {
     closure: { settleSummary: async () => clone(h.bundle.settle) }, cameras: { list: async () => [] },
     collections: { page: async () => clone(h.bundle.collections), followups: async () => clone(h.bundle.followups),
       dunning: async (...args) => { calls.push(['dunning', ...clone(args)]); return overrides.dunning ? overrides.dunning(...args) : { id: '201' }; },
-      register: async (...args) => { calls.push(['collect', ...clone(args)]); return { id: '301' }; }
+      register: async (...args) => { calls.push(['collect', ...clone(args)]); return overrides.collect ? overrides.collect(...args) : { id: '301' }; }
     }, plan: {
       prepare: async (...args) => { calls.push(['prepare', ...clone(args)]); return overrides.prepare ? overrides.prepare(...args) : { id: '100' }; },
       start: async (...args) => { calls.push(['start', ...clone(args)]); return overrides.start ? overrides.start(...args) : { id: '100' }; }
@@ -396,6 +396,29 @@ test('未触发施工条件的节点不得催收，旧基础/封顶深链仍指�
   h.bundle.collections.stages = [{ stage:'BASE_DONE',label:'原基础期款',expectedCents:100,confirmedCents:0,remainingCents:100 }];
   h.page.stage = 'base'; await h.page.refreshOnline(true); assert.equal(h.page.data.form.stage,'BASE_DONE');
   await h.page.perform(tap('dunning')); assert.equal(h.calls.find(c=>c[0]==='dunning')[2],'BASE_DONE');
+});
+
+test('工程负责人按期申报部分到账，回执丢失时沿用同一原件、请求及业务键', async () => {
+  let tries = 0;
+  const h = harness('collection', { collect: async () => {
+    if (++tries === 1) throw Error('未收到回执');
+    return { stageStatus: 'PENDING_CONFIRMATION', declarationId: '900719925474009999' };
+  } });
+  h.bundle.collections.declarations = [];
+  const target = h.bundle.collections.stages[1]; h.page.stage = target.stage; await h.open();
+  assert.deepEqual(clone(h.page.data.actions.map(action => action.action)), ['dunning', 'declare']);
+  Object.assign(h.page.data.form, { amount: '5.25', date: '2026-11-25', transaction: '原始流水-07', file: { path: '/orig.pdf' } });
+  await h.page.perform(tap('declare'));
+  assert.equal(h.page.data.paymentUncertain, true);
+  h.page.data.form.amount = '0.01';
+  await h.page.retryPayment();
+  const attempts = h.calls.filter(([kind]) => kind === 'collect');
+  assert.equal(attempts.length, 2);
+  assert.deepEqual(attempts[0], attempts[1]);
+  assert.equal(attempts[0][2].amount, '5.25'); assert.equal(attempts[0][2].planVersion, target.planVersion);
+  assert.equal(attempts[0][2].stageId, target.stageId); assert.ok(attempts[0][2].fileAssetId);
+  assert.equal(h.calls.filter(([kind]) => kind === 'upload').length, 1);
+  assert.equal(h.page.data.paymentUncertain, false);
 });
 
 test('稳定CAP_DONE深链仍保留原封顶收款门槛，不因URL改为key绕过原界面条件', () => {

@@ -3,7 +3,7 @@
 </template>
 <template name="plan">
   <view class="entrust-heading"><text>随包付款约定</text><text class="entrust-muted">{{plan.sourceLabel}}{{plan.version?' · V'+plan.version:''}}</text></view>
-  <block wx:if="{{plan.rows.length}}"><view class="entrust-total">¥ {{plan.totalText}}</view><view wx:for="{{plan.rows}}" wx:key="sequence" class="entrust-plan-row"><view><text>{{item.label}}</text><text class="entrust-muted">{{item.condition}}{{item.dueDate?' · '+item.dueDate:''}}</text></view><view><text>¥ {{item.amountText}}</text><text wx:if="{{item.ratioText}}" class="entrust-muted">{{item.ratioText}}</text></view></view></block>
+  <block wx:if="{{plan.rows.length}}"><view class="entrust-total">¥ {{plan.totalText}}</view><view wx:for="{{plan.rows}}" wx:key="sequence" class="entrust-plan-row"><view><text>{{item.label}}</text><text class="entrust-muted">{{item.condition}}{{item.dueDate?' · '+item.dueDate:''}}</text></view><view><text>¥ {{item.amountText}}</text><text wx:if="{{item.paidText}}" class="entrust-muted">已收 ¥{{item.paidText}} · 余款 ¥{{item.remainingText}}</text><text wx:if="{{item.ratioText}}" class="entrust-muted">{{item.ratioText}}</text></view></view></block>
   <text wx:else class="entrust-muted entrust-spaced">本版委托尚未约定工程付款节点</text>
 </template>
 <template name="packet">
