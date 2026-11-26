@@ -24,10 +24,11 @@ public final class CustomerWorkflowRules {
             Step.INTRODUCTION, Set.of("receptionist", "requirements", "feedback"),
             Step.HOUSE_SELECTION, Set.of("selectionMode", "customDirection", "referenceCaseId", "referenceCaseName", "selectionResult", "versionLabel", "confirmed"),
             Step.SITE_VISIT, Set.of("siteName", "address", "feedback"),
-            Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "checked"),
+            Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "orientation", "siteElevationNote", "checked"),
             Step.QUOTATION, Set.of("quoteId", "amountCents", "scope", "versionLabel", "communicated", "result"));
     private static final Set<String> BOOLEAN_FIELDS = Set.of("confirmed", "checked", "communicated");
     private static final Set<String> DECIMAL_FIELDS = Set.of("width", "depth", "area");
+    private static final Set<String> MEASUREMENT_SITE_FIELDS = Set.of("orientation", "siteElevationNote");
     private static final Set<String> QUOTE_SNAPSHOT_FIELDS = Set.of("amountCents", "scope", "versionLabel");
 
     public static SaveCommand normalize(Step step, SaveCommand input) {
@@ -41,7 +42,12 @@ public final class CustomerWorkflowRules {
             if (!FIELDS.get(step).contains(key)) throw invalid("不支持的步骤字段：" + key);
             if (linkedQuote && QUOTE_SNAPSHOT_FIELDS.contains(key)) continue;
             Object value = entry.getValue();
-            if (value == null || value instanceof String text && text.isBlank()) continue;
+            if (value == null) continue;
+            if (value instanceof String text && text.isBlank()) {
+                // An explicit clear and a legacy app omitting a site observation are different commands.
+                if (MEASUREMENT_SITE_FIELDS.contains(key)) fields.put(key, "");
+                continue;
+            }
             if (BOOLEAN_FIELDS.contains(key)) {
                 if (!(value instanceof Boolean)) throw invalid("确认字段格式无效");
                 fields.put(key, value);
@@ -82,6 +88,14 @@ public final class CustomerWorkflowRules {
         }
         return new SaveCommand(input.revision(), input.occurredOn(), text(input.note(), 4000),
                 new LinkedHashMap<>(fields), attachments(input.attachments()));
+    }
+
+    static void applyMeasurementSiteFields(Map<String,Object> fields, Map<String,Object> previous) {
+        for (String name : MEASUREMENT_SITE_FIELDS) {
+            Object value = fields.getOrDefault(name, previous.get(name));
+            if (value == null || "".equals(value)) fields.remove(name);
+            else fields.put(name, value);
+        }
     }
 
     static List<Attachment> attachments(List<Attachment> input) {
