@@ -100,8 +100,8 @@ test('point asset card keeps visible loading, error and ready states without wal
 
   assert.equal(definition.data.state, 'loading');
   assert.equal(typeof definition.methods.retry, 'function');
-  assert.equal('goToRecharge' in definition.methods, false);
-  assert.equal('goToRecords' in definition.methods, false);
+  assert.equal('openRecharge' in definition.methods, false);
+  assert.equal('openPackages' in definition.methods, false);
 });
 
 test('point asset card renders active company balance and personal monthly usage', async () => {
@@ -177,11 +177,11 @@ test('point asset card exposes a retryable error without showing backend details
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 // Real component + company-points API; only the HTTP boundary and identity storage are replaced.
-function pointCard(options={}){
+function pointCard(){
  const root=path.resolve(__dirname,'../miniprogram'),cache=new Map(),requests=[],patches=[];
  const session={token:'token-1',generation:1,userId:'user-1',tenantId:'tenant-1',postId:'post-1',post:{userId:'user-1',tenantId:'tenant-1',postId:'post-1',orgId:'org-1',roleCode:'sales',orgType:'store',permissions:['points:read']}};
  const http={token:()=>session.token,sessionGeneration:()=>session.generation,currentUserId:()=>session.userId,tenantId:()=>session.tenantId,currentPostId:()=>session.postId,
-  get:url=>url.endsWith('/recharge/catalog')?(options.packages?options.packages():Promise.resolve([{id:'plan-1'}])).then(plans=>({enabled:true,plans})):new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
+  get:url=>new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
  let definition;
  function load(file){
   file=path.resolve(root,file);if(!path.extname(file))file+='.js';if(cache.has(file))return cache.get(file).exports;
@@ -203,10 +203,18 @@ test('point card attached/show share one loading render and one pair of pending 
  assert.equal(h.requests.length,2);assert.equal(h.patches.filter(p=>p.state==='loading').length,1);
  h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
 });
-test('same-scope point refresh keeps amounts, state and package entry until the latest balances arrive',async()=>{
- const h=pointCard();h.card.refresh();h.respond();await tick();assert.equal(h.card.data.purchaseAvailable,true);
+test('the company points card reads only balance and personal usage and offers no recharge actions',async()=>{
+ const h=pointCard();
+ h.session.post.permissions.push('platform:wallet:recharge');
+ h.card.refresh();h.respond();await tick();
+ assert.equal(h.requests.length,2);
+ assert(h.requests[0].url.endsWith('/summary'));
+ assert(h.requests[1].url.includes('/my-usage?'));
+ const nodes=render(path.resolve(__dirname,'../miniprogram/components/point-asset-card/index.wxml'),h.card.data);
+ const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children)).join('');
+ assert.doesNotMatch(text(nodes),/充值|套餐/);
  h.card.refresh();h.card.refresh();assert.equal(h.requests.length,4);
- assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'3');assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.purchaseAvailable,true);
+ assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'3');assert.equal(h.card.data.state,'ready');
  h.respond(2,'65','18');await tick();assert.equal(h.card.data.balanceText,'65');assert.equal(h.card.data.usedText,'18');
 });
 test('ordinary point refresh failure keeps amounts with a retry hint in the existing heading',async()=>{
@@ -237,24 +245,10 @@ test('hidden or detached point reads cannot update the card and a return starts 
 test('current point permission failures discard cached balances while late logout responses cannot refill them',async()=>{
  for(const error of [{code:401},{code:403},{postInvalid:true}]){
   const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.requests[2].reject(error);h.requests[3].resolve({used:'3'});await tick();
-  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');
  }
  const h=pointCard();h.card.refresh();h.respond();await tick();h.card.refresh();h.session.token='';h.session.generation++;h.respond(2,'999');await tick();
  assert.equal(h.card.data.visible,false);assert.equal(h.card.data.balanceText,'--');
-});
-test('a salesperson without company recharge permission keeps the readable company balances',async()=>{
- let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});
- assert.equal(h.session.post.roleCode,'sales');assert(!h.session.post.permissions.includes('platform:wallet:recharge'));
- h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
- reject({code:403});await tick();
- assert.equal(h.card.data.balanceText,'80');assert.equal(h.card.data.usedText,'3');
- assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');assert.equal(h.card.data.purchaseAvailable,false);
-});
-test('a later package authentication or revoked-post failure still clears private balances',async()=>{
- for(const error of [{code:401},{postInvalid:true}]){
-  let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});h.card.refresh();h.respond();await tick();assert.equal(h.card.data.balanceText,'80');
-  reject(error);await tick();assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.purchaseAvailable,false);
- }
 });
 test('balance and personal usage render independently and a first-load failure affects only its metric',async()=>{
  for(const failed of ['balance','usage']){
@@ -288,89 +282,7 @@ test('a core permission failure cannot be undone by a later successful companion
    h.requests[2+failed].reject(error);await tick();
    assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');
    h.requests[2+(1-failed)].resolve(failed===0?{used:'99'}:{balance:'999',status:'ACTIVE'});await tick();
-   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
+   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');
   }
  }
-});
-test('a package authentication failure blocks an outstanding personal usage response',async()=>{
- for(const error of [{code:401},{postInvalid:true}]){
-  let reject;const h=pointCard({packages:()=>new Promise((_,fail)=>reject=fail)});h.card.refresh();
-  h.requests[0].resolve({balance:'80',status:'ACTIVE'});await tick();
-  reject(error);await tick();h.requests[1].resolve({used:'99'});await tick();
-  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
- }
-});
-test('a late optional package denial from the previous organization cannot replace the current result',async()=>{
- const packages=[];const h=pointCard({packages:()=>new Promise((resolve,reject)=>packages.push({resolve,reject}))});
- h.card.refresh();h.respond();await tick();h.session.post.orgId='org-2';h.card.refresh();h.respond(2,'70','13');await tick();
- packages[1].resolve([{id:'new-plan'}]);await tick();assert.equal(h.card.data.purchaseAvailable,true);
- packages[0].reject({code:403});await tick();
- assert.equal(h.card.data.purchaseAvailable,true);assert.equal(h.card.data.balanceText,'70');assert.equal(h.card.data.usedText,'13');assert.equal(h.card.data.errorMessage,'');
-});
-test('switching from a rechargeable identity to salesperson and back keeps only the current identity balances',async()=>{
- for(const anotherCompany of [false,true]){
-  const packages=[];const h=pointCard({packages:()=>new Promise((resolve,reject)=>packages.push({resolve,reject}))});
-  const switchIdentity=role=>{
-   h.session.postId='post-'+role;h.session.post.postId=h.session.postId;h.session.post.roleCode=role;
-   h.session.post.orgId=role==='sales'&&anotherCompany?'org-2':'org-1';
-   h.session.post.permissions=role==='owner'?['platform:wallet:recharge']:['points:read'];
-  };
-  switchIdentity('owner');h.card.refresh();h.respond(0,'1000','10');await tick();packages[0].resolve([{id:'owner-plan'}]);await tick();
-  assert.equal(h.card.data.balanceText,'1,000');assert.equal(h.card.data.usedText,'10');assert.equal(h.card.data.purchaseAvailable,true);
-  h.card.refresh(); // Leave an old identity's core reads pending while the user switches.
-  switchIdentity('sales');h.card.refresh();
-  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
-  h.respond(4,'950','12');await tick();packages[1].reject({code:403});await tick();
-  assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
-  h.requests[2].reject({code:403});h.requests[3].resolve({used:'999'});await tick();
-  assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.errorMessage,'');
-  h.card.refresh();h.respond(6,'930','15');await tick(); // Leave salesperson's optional package read pending.
-  switchIdentity('owner');h.card.refresh();
-  assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
-  h.respond(8,'920','17');await tick();packages[3].resolve([{id:'owner-plan'}]);await tick();
-  packages[2].reject({code:403});await tick();
-  assert.equal(h.card.data.balanceText,'920');assert.equal(h.card.data.usedText,'17');assert.equal(h.card.data.purchaseAvailable,true);
-  assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
- }
-});
-
-test('revised company quote keeps the original unconfirmed order visible until a terminal result', async () => {
-  const file = path.join(__dirname, '../miniprogram/pages/wallet/company-recharge/index.js');
-  const option = { id: 'plan', version: '2', amountCents: 200, name: '套餐', credits: '12' };
-  const pending = { id: 'original', status: 'PROCESSING', quoteCurrent: false, amountCents: 100, credits: '12' };
-  let order = pending, definition, postCalls = 0;
-  const api = {
-    get: async () => ({ enabled: true, plans: [option], currentOrder: order }),
-    post: async () => { postCalls++; throw Error('unexpected payment write'); }
-  };
-  vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
-    Page(value) { definition = value; },
-    require(name) {
-      if (name.endsWith('/http')) return api;
-      if (name.endsWith('/company-points')) return { fingerprint: () => 'owner', formatCredits: String };
-      if (name.endsWith('/wallet-view')) return { formatYuan: String };
-      return {};
-    }
-  }, { filename: file });
-  const page = {
-    ...definition, actor: 'owner', foreground: true, data: structuredClone(definition.data),
-    setData(patch) { Object.assign(this.data, patch); }
-  };
-  await page.refresh();
-  assert.equal(page.data.order.id, 'original');
-  assert.equal(page.data.order.canPay, false);
-  assert.equal(page.data.order.quoteExpired, true);
-  page.dismissOrder();
-  page.choose({ currentTarget: { dataset: { id: 'plan' } } });
-  await page.checkout();
-  assert.equal(page.data.order.id, 'original');
-  assert.equal(page.data.selected, null);
-  assert.equal(postCalls, 0);
-  assert.doesNotMatch(fs.readFileSync(file.replace(/\.js$/, '.wxml'), 'utf8'), /order\.quoteExpired\|\|[^"]+dismissOrder/);
-  order = { ...pending, status: 'CLOSED' };
-  await page.refresh();
-  page.dismissOrder();
-  assert.equal(page.data.order, null);
-  page.choose({ currentTarget: { dataset: { id: 'plan' } } });
-  assert.equal(page.data.selected.amountCents, 200);
 });

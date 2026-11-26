@@ -86,7 +86,4 @@ function isStale(error) {
   return !!error && error.code === STALE;
 }
 
-function packages() { return read(BASE + '/recharge/catalog').then(c=>c&&c.enabled&&Array.isArray(c.plans)?c.plans:[]); }
-function purchase() { return Promise.reject({code:403,message:'模拟充值已停用，请使用公司额度充值'}); }
-
-module.exports = { packages, purchase, STALE, fingerprint, isStale, summary, myUsage, formatCredits };
+module.exports = { STALE, fingerprint, isStale, summary, myUsage, formatCredits };

@@ -5,7 +5,7 @@ const path = require('node:path');
 const { setTimeout: sleep } = require('node:timers/promises');
 const automator = require('miniprogram-automator');
 
-module.exports = async function verifyNative(origin, update) {
+module.exports = async function verifyNative(origin) {
   const ws = new URL(process.env.FRANCHISE_NATIVE_WS);
   assert.equal(ws.hostname, '127.0.0.1');
   const out = path.resolve(__dirname, '../docs/加盟商服务联调-20261118');
@@ -46,20 +46,11 @@ module.exports = async function verifyNative(origin, update) {
     }
     await login('alpha','store');
     const page = await app.reLaunch('/pages/wallet/company-recharge/index');
-    await waitFor(page,s=>s.order?.status==='CREDITED');
-    await shot('04-充值到账');
-    await app.evaluate(()=>{getCurrentPages().slice(-1)[0].dismissOrder();return true;});
-    await waitFor(page,s=>!s.order && s.plans?.[0]?.amountCents===199);
-    await app.evaluate(()=>{const p=getCurrentPages().slice(-1)[0];p.choose({currentTarget:{dataset:{id:p.data.plans[0].id}}});return true;});
-    await waitFor(page,s=>!!s.selected);
-    await update(6,299,'ACTIVE');
-    await waitFor(page,s=>!s.selected && s.plans?.[0]?.amountCents===299);
-    await shot('05-后台改价后');
-    await update(7,299,'DISABLED');
-    await waitFor(page,s=>!s.hasPlans);
-    const visible = await app.evaluate(()=>new Promise(done=>wx.createSelectorQuery().selectAll('.plan').boundingClientRect(r=>done(r.length)).exec()));
-    assert.equal(visible,0);
-    await shot('06-后台下架后');
+    assert.equal(await (await page.$('.closed-title')).text(), '线上充值已关闭');
+    const controls = await page.$$('button');
+    assert.equal(controls.length, 1);
+    assert.equal(await controls[0].text(), '查看公司积分');
+    await shot('04-线上充值已关闭');
   } finally {
     await app.evaluate(()=>{for(const key of ['zs-api-base','zs-api-token-v1','zs-api-post-v1','zs-api-posts-v1']) wx.removeStorageSync(key);});
     app.disconnect();

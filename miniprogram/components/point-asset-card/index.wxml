@@ -1,5 +1,5 @@
 <view wx:if="{{visible}}" class="asset-card">
-  <view class="asset-head"><text class="asset-label">公司额度</text><text class="asset-status" bindtap="retry">{{refreshing?'更新中':errorMessage?'更新失败，重试':''}}</text><button wx:if="{{hasPost}}" class="asset-recharge" bindtap="openRecharge">充值</button></view>
+  <view class="asset-head"><text class="asset-label">公司额度</text><text class="asset-status" bindtap="retry">{{refreshing?'更新中':errorMessage?'更新失败，重试':''}}</text></view>
   <view class="asset-metrics">
     <view class="asset-metric">
       <text class="asset-num">{{balanceText}}</text>
@@ -13,7 +13,6 @@
       <text wx:if="{{usageError}}" class="asset-unit" bindtap="retry">更新失败，重试</text>
     </view>
   </view>
-  <button wx:if="{{state==='ready' && purchaseAvailable}}" class="asset-retry" bindtap="openPackages">查看额度套餐</button>
   <view wx:if="{{state==='suspended'}}" class="asset-feedback asset-warning">
     <text>公司额度账户已暂停，请联系管理员</text><button class="asset-retry" bindtap="retry">重新加载</button>
   </view>
