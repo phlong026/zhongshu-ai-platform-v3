@@ -34,7 +34,7 @@ const STEPS = [
 ];
 const STATUS = { TODO: '待办理', DRAFT: '已记录', COMPLETED: '已完成' };
 const FLOW_STATUS = { ACTIVE: '跟进中', PAUSED: '已暂停', LOST: '已流失', COMPLETED: '已开工' };
-const EVENT = { SAVE: '保存记录', COMPLETE: '完成步骤', REOPEN: '重新办理', STATUS: '更新状态' };
+const EVENT = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新办理', STATUS: '更新状态' };
 const QUOTE_SNAPSHOT_FIELDS = new Set(['amountCents', 'scope', 'versionLabel']);
 const definition = code => STEPS.find(step => step.code === code);
 function id(value) {
@@ -119,21 +119,28 @@ function workflow(response, customerId) {
     || response.progressPercent < 0 || response.progressPercent > 100) throw Error('流程进度数据异常，请重试');
   const steps = STEPS.map((def, index) => {
     const s = response.steps.find(row => row.code === def.code);
-    return { ...s, name: def.name, number: String(index + 1).padStart(2, '0'), statusLabel: STATUS[s.status] || '待核对',
+    const skipped = def.code === 'SITE_VISIT' && s.status === 'SKIPPED';
+    const finished = s.status === 'COMPLETED' || skipped;
+    return { ...s, skipped, finished, name: def.name, number: String(index + 1).padStart(2, '0'),
+      statusLabel: skipped ? '已跳过' : def.code === 'SITE_VISIT' && finished ? '已带看' : STATUS[s.status] || '待核对',
       attachments: attachments(s.attachments), completionErrors: Array.isArray(s.completionErrors) ? s.completionErrors : [],
       canWrite: response.canWrite === true && s.canWrite === true && index < 6,
-      canReopen: response.canWrite === true && s.canReopen === true && s.status === 'COMPLETED' && index < 6 };
+      canReopen: response.canWrite === true && s.canReopen === true && finished && index < 6 };
   });
   return { ...response, steps, statusLabel: FLOW_STATUS[response.status] || '待核对',
     currentStepName: definition(response.currentStepCode)?.name || (response.completedCount === 8 ? '已开工' : '待办理') };
 }
 function records(rows) {
   return (Array.isArray(rows) ? rows : []).map(row => ({ ...row, id: String(row.id), stepName: definition(row.stepCode)?.name || '流程',
+    actorName: row.actorName || (row.type === 'SKIP' ? row.actorUserId : ''),
     actionLabel: EVENT[row.type] || '更新记录', createdText: dateTime(row.createdAt), occurredText: date(row.occurredOn),
     attachments: attachments(row.attachments) }));
 }
 function facts(step) {
   const f = step.fields || {};
+  if (step.skipped) return [{label: '跳过原因', value: step.note},
+    {label: '经办人', value: f.visitSkip?.actorName || f.visitSkip?.actorUserId},
+    {label: '办理时间', value: dateTime(step.completedAt)}];
   if (step.code === 'CONTRACT') return [{ label: '合同编号', value: f.contractNo || f.contractId },
     { label: '签约日期', value: date(f.signedDate) }, { label: '合同总额', value: fromCents(f.totalCents) ? '¥' + fromCents(f.totalCents) : '' }];
   if (step.code === 'START') return [{ label: '工程编号', value: f.projectId }, { label: '实际开工', value: date(f.actualStartAt) },

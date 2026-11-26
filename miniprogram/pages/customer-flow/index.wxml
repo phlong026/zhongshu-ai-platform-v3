@@ -17,9 +17,9 @@
       </view>
       <view class="journey-rail">
         <block wx:for="{{workflow.steps}}" wx:key="code">
-          <view wx:if="{{index}}" class="journey-connector {{workflow.steps[index-1].status==='COMPLETED'?'journey-connector-done':''}}"></view>
-          <button class="journey-node {{step.code===item.code?'journey-node-active':item.status==='COMPLETED'?'journey-node-done':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="{{item.number}} {{item.name}} {{item.statusLabel}}" aria-pressed="{{step.code===item.code}}">
-            <text class="journey-point">{{step.code!==item.code&&item.status==='COMPLETED'?'✓':item.number}}</text>
+          <view wx:if="{{index}}" class="journey-connector {{workflow.steps[index-1].finished?'journey-connector-done':''}}"></view>
+          <button class="journey-node {{step.code===item.code?'journey-node-active':item.finished?'journey-node-done':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="{{item.number}} {{item.name}} {{item.statusLabel}}" aria-pressed="{{step.code===item.code}}">
+            <text class="journey-point">{{item.skipped?'跳':step.code!==item.code&&item.finished?'✓':item.number}}</text>
             <text wx:if="{{step.code===item.code}}" class="journey-active-name">{{item.name}}</text>
           </button>
         </block>
@@ -54,7 +54,15 @@
           <view class="flow-inline-actions"><button class="flow-primary" bindtap="openSource">{{step.code==='CONTRACT'?'查看合同办理':step.fields.projectId&&step.canReadEngineering?'查看工程记录':'查看委托与移交'}}</button></view>
         </view>
       </block>
+      <view wx:elif="{{step.skipped}}" class="flow-card">
+        <text class="flow-label">已跳过带看</text>
+        <view wx:for="{{facts}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value}}</text></view>
+        <button wx:if="{{step.canReopen}}" class="flow-secondary flow-reopen" bindtap="reopen" disabled="{{busy||uncertain}}">更正／重新办理</button>
+      </view>
       <block wx:else>
+        <view wx:if="{{step.code==='SITE_VISIT'&&step.canWrite}}" class="flow-card flow-tool-row">
+          <text class="flow-label">免带看</text><button class="flow-secondary" bindtap="skipVisit" disabled="{{busy||uploading||uploadFailed||uncertain||conflict}}">跳过带看</button>
+        </view>
         <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card">
           <view class="flow-section-heading"><text>正式报价原单</text><button class="flow-link" bindtap="openSalesQuote">办理报价</button></view>
           <view wx:if="{{form.fields.quoteId}}" class="flow-reference-value"><text>{{form.fields.versionLabel}} · ¥ {{form.fields.amountCents}}</text><button class="flow-link" bindtap="openLinkedQuote">查看原单</button></view>
@@ -116,7 +124,7 @@
       <scroll-view class="journey-sheet-list" scroll-y>
         <button wx:for="{{workflow.steps}}" wx:key="code" class="journey-row {{index===0?'journey-row-first':''}} {{index===7?'journey-row-last':''}} {{step.code===item.code?'journey-row-active':''}}" data-code="{{item.code}}" bindtap="selectStep" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="{{item.number}} {{item.name}} {{item.statusLabel}}">
           <view class="journey-row-line"></view>
-          <text class="journey-row-num {{item.status==='COMPLETED'?'journey-row-done':''}}">{{item.status==='COMPLETED'?'✓':item.number}}</text>
+          <text class="journey-row-num {{item.finished?'journey-row-done':''}}">{{item.skipped?'跳':item.finished?'✓':item.number}}</text>
           <text class="journey-row-name">{{item.name}}</text><text class="journey-row-status">{{item.statusLabel}}</text>
           <text class="journey-chevron">›</text>
         </button>

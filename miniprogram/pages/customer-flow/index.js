@@ -81,7 +81,7 @@ Page({
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
     const workflow = this.data.workflow;
     const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
-    const nextStep = model.definition(nextCode) || workflow.steps.find(item => item.code !== code && item.status !== 'COMPLETED');
+    const nextStep = model.definition(nextCode) || workflow.steps.find(item => item.code !== code && !item.finished);
     this.setData({ step: { ...step, canReadEngineering: this.canReadEngineering() }, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
       nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error: '' });
@@ -207,13 +207,14 @@ Page({
         }
       }
       if (pending.stage === 'complete') result = await api.complete(this.customerId, pending.code, pending.body, pending.key);
+      if (pending.stage === 'skip') result = await api.skipVisit(this.customerId, pending.body, pending.key);
       if (pending.stage === 'reopen') result = await api.reopen(this.customerId, pending.code, pending.body, pending.key);
       if (!this.alive(pending.scope) || this._pending !== pending) return;
       this._pending = null;
       delete this._drafts[pending.code];
       this.applyWorkflow(result, { replace: true });
       this.setData({ busy: false, uncertain: false });
-      wx.showToast({ title: pending.stage === 'complete' ? '本步已完成' : pending.stage === 'reopen' ? '已重新办理' : '记录已保存', icon: 'none' });
+      wx.showToast({ title: pending.stage === 'skip' ? '已跳过带看' : pending.stage === 'complete' ? '本步已完成' : pending.stage === 'reopen' ? '已重新办理' : '记录已保存', icon: 'none' });
     } catch (error) {
       if (!this.alive(pending.scope) || this._pending !== pending) return;
       const code = Number(error.code), uncertain = !Number.isFinite(code) || code === -1 || code >= 500 && code < 600;
@@ -222,6 +223,20 @@ Page({
       this.setData({ busy: false, uncertain, conflict: code === 409 || code === 1099000001,
         error: uncertain ? '保存结果尚未确认，请重试核对' : model.errorText(error) });
     }
+  },
+  skipVisit() {
+    if (this.selectedCode !== 'SITE_VISIT' || !this.editable() || this.journeyLocked()) return;
+    if (this.data.dirty) return this.setData({error: '请先保存已填写的带看记录，再办理跳过'});
+    const savedScope = this._scope, revision = this.data.workflow.revision;
+    wx.showModal({ title: '免带看', editable: true, placeholderText: '填写跳过带看的原因', confirmText: '跳过带看',
+      success: choice => {
+        if (!choice.confirm || this.selectedCode !== 'SITE_VISIT' || !this.alive(savedScope) || !this._visible
+            || !this.editable() || this.journeyLocked() || revision !== this.data.workflow.revision) return;
+        const reason = String(choice.content || '').trim();
+        if (!reason || reason.length > 1000) return this.setData({ error: '请填写 1 至 1000 字的跳过原因' });
+        this._pending = { scope: savedScope, code: 'SITE_VISIT', stage: 'skip', body: {revision, reason}, key: commandKey('workflow-visit-skip') };
+        return this.runPending();
+      } });
   },
   reopen() {
     if (!this.alive() || !this.data.step?.canReopen || this.data.busy || this.data.uncertain) return;
@@ -385,6 +400,7 @@ Page({
   viewRecord(event) {
     const record = this.data.records.find(r => r.id === String(event.currentTarget.dataset.id));
     if (!record || !this.alive()) return;
+    if (record.type === 'SKIP') return this.setData({ activeRecord: { ...record, details: [] } });
     const value = model.form({ ...record, code: record.stepCode });
     const details = model.fieldRows(record.stepCode, value).map(f => ({ label: f.label,
       value: f.type === 'reference' ? value.fields.referenceCaseName || '未关联' : f.type === 'boolean' ? (f.value ? '是' : '否')

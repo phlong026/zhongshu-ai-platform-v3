@@ -9,6 +9,7 @@ module.exports = {
   entryProfile: () => http.get('/platform/profile/mine'),
   save: (id, code, body, key) => http.put(step(id, code), body, headers(key)),
   complete: (id, code, body, key) => http.post(step(id, code) + '/complete', body, headers(key)),
+  skipVisit: (id, body, key) => http.post(step(id, 'SITE_VISIT') + '/skip', body, headers(key)),
   reopen: (id, code, body, key) => http.post(step(id, code) + '/reopen', body, headers(key)),
   records: (id, pageNo) => http.get(base(id) + '/records', { pageNo, pageSize: 20 }),
   listSupplements: (id, code, pageNo) => http.get(step(id, code) + '/supplements', { pageNo, pageSize: 20 }),
