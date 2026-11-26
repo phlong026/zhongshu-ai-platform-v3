@@ -231,6 +231,10 @@
       {
         "type": "file",
         "value": "utils/performance-tasks.js"
+      },
+      {
+        "type": "file",
+        "value": "pages/engineering/assets/project-chen.jpg"
       }
     ],
     "include": []

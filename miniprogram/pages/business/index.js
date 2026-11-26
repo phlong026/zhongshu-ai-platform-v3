@@ -6,6 +6,13 @@ const crmApi = require('../../api/franchise/crm');
 const commissionApi = require('../../api/franchise/commission');
 const contentApi = require('../../api/franchise/content');
 const loadSummaryRows=CRM.loadSummaryRows;
+// 首页的客户数字读服务端汇总（与客户列表分栏同源），不再把客户全量拉回来到端上累加；
+// 名单只取今日待跟进的前 20 位（服务端按约定日期排序，最靠前的最逾期），用于“最近办理”和老板首页的逾期提示。
+function customerHome(isStale){
+ const take=value=>{if(isStale())throw {silent:true};return value;};
+ return Promise.all([crmApi.customers.followSummary().then(take),crmApi.customers.page(1,20,undefined,'DUE').then(take)])
+  .then(([counts,due])=>({counts:counts||{},due:((due&&due.list)||[]).map(c=>CRM.customerRow(c,{today:CRM.today()}))}));
+}
 const definition=createDashboard(1, {
 data: { panel: null, keyword: '', customers: [], filteredCustomers: [],
 platCustomers: [], platCommissions: [], platGrowth: null, platformStatus: '', platformError: '', platformTodos: null,
@@ -36,9 +43,9 @@ this.setData(context);
 http.get('/platform/profile/mine').then(profile=>{if(!this.stale(gen,sessionGen)&&profile&&profile.nickname)this.setData({salesName:profile.nickname});}).catch(()=>{});
 PTPage.refresh(this,false);
 const current=()=>this.stale(gen,sessionGen);
-const request=Promise.all([loadSummaryRows(crmApi.customers.page,current,'客户'),loadSummaryRows(commissionApi.commissions.page,current,'委托'),contentApi.growth.summary(),contentApi.drafts.works().catch(()=>[])]).then(([custRows,commRows,growth,works])=>{
+const request=Promise.all([customerHome(current),loadSummaryRows(commissionApi.commissions.page,current,'委托'),contentApi.growth.summary(),contentApi.drafts.works().catch(()=>[])]).then(([home,commRows,growth,works])=>{
 if(this.stale(gen,sessionGen))return;
-this.applyPlatformHome(post,custRows,commRows,growth,require('../../utils/platform-content').rowsOf(works));
+this.applyPlatformHome(post,home,commRows,growth,require('../../utils/platform-content').rowsOf(works));
 }).catch(err=>{
 if(err&&err.silent)return;
 if(err&&err.code===401){if(!this.stale(gen,sessionGen))this.guestHome();return;}
@@ -53,17 +60,19 @@ this.__homeRequest=pending;return pending.promise;
 definition.stale=function(gen,sessionGen){return gen!==this.__platGen||sessionGen!==http.sessionGeneration();};
 // 游客/无岗位：只保留登录引导与空态，不注入任何本地演示数据
 definition.guestHome=function(){this.__platGen=(this.__platGen||0)+1;this.__homeScope='';this.__homeRequest=null;PTPage.refresh(this,false);this.setData({platformStatus:'',platformError:'',platCustomers:[],platCommissions:[],platGrowth:null,customers:[],filteredCustomers:[],isSalesHome:false,isBossBiz:false,bossBiz:null,todayCount:0,overdueCount:0,appointmentCount:0,commission:null,recentCustomer:null,recentCreation:null});};
-definition.applyPlatformHome=function(post,custRows,commRows,growth,works){
-const day=CRM.today();
-const summary=CRM.homeSummary(custRows,commRows,post,day);
-const {rows:summaryRows,monthRows,commission,due,upcoming,overdue}=summary,rows=summaryRows.slice(0,50);
+definition.applyPlatformHome=function(post,home,commRows,growth,works){
+const day=CRM.today(),counts=(home&&home.counts)||{},dueRows=(home&&home.due)||[];
+const count=(value,fallback)=>Number.isFinite(Number(value))?Number(value):fallback;
+// 委托汇总沿用现有纯函数（客户传空名单）；客户数字读服务端 follow-summary，口径与客户列表分栏一致。
+const {monthRows,commission}=CRM.homeSummary([],commRows,post,day);
+const overdue = dueRows.filter(row => row.appointment && row.appointment < day);
 // wxml 客户行原键名适配：desc/button/action/avatar 由 API 行映射补齐
-const desk=rows.map(r=>({...r,avatar:'/assets/avatar-wang.jpg',desc:r.detail,button:r.action,action:'customerDetail'}));
+const desk=dueRows.map(r=>({...r,avatar:'/assets/avatar-wang.jpg',desc:r.detail,button:r.action,action:'customerDetail'}));
 const g=growth&&typeof growth==='object'?growth:{};
-const following=summaryRows.filter(r=>r.status==='跟进中').length;
+const following=count(counts.following,0);
 const week='日一二三四五六'.charAt(new Date(day+'T12:00:00+08:00').getUTCDay());
 const dateText=Number(day.slice(5,7))+'月'+Number(day.slice(8,10))+'日 周'+week;
-const patch={platformStatus:'ready',platformError:'',platCustomers:rows,platCommissions:monthRows.slice(0,50),platGrowth:g,customers:desk,filteredCustomers:this.filterRows(desk),
+const patch={platformStatus:'ready',platformError:'',platCustomers:desk,platCommissions:monthRows.slice(0,50),platGrowth:g,customers:desk,filteredCustomers:this.filterRows(desk),
 recentCustomer:desk[0]?{id:desk[0].id,initial:desk[0].initial,name:desk[0].name,stage:desk[0].stageName}:null,
 recentCreation:(works&&works[0])?{id:'work:'+(works[0].workId!=null?works[0].workId:works[0].id),title:String(works[0].title||'我的作品'),badge:'我的作品',image:'/assets/business-video.jpg'}:null};
 if(['boss','owner'].includes(post.roleCode)){
@@ -72,11 +81,11 @@ const metrics=[['已发布',g.publishedCount],['有效咨询',leads],['关联客
 const max=Math.max(1,...metrics.map(([,v])=>Number(v)||0));
 const funnel=metrics.map(([label,v])=>({label,value:v??'—',width:Math.round(100*(Number(v)||0)/max)}));
 patch.isSalesHome=false;patch.isBossBiz=true;patch.bizDate=dateText;
-patch.bossBiz={commission,commissionCount:monthRows.length,leads,following,converted,signed,funnel,staleCount:overdue.length,staleNames:overdue.slice(0,2).map(r=>r.name).join('、'),due:due.length,appointments:upcoming.length};
+patch.bossBiz={commission,commissionCount:monthRows.length,leads,following,converted,signed,funnel,staleCount:count(counts.overdue,overdue.length),staleNames:overdue.slice(0,2).map(r=>r.name).join('、'),due:count(counts.due,0),appointments:count(counts.appointments,0)};
 }else{
 patch.isSalesHome=true;patch.isBossBiz=false;
-patch.customerCount=summaryRows.length;
-patch.salesDate=dateText;patch.todayCount=due.length;patch.overdueCount=overdue.length;patch.appointmentCount=upcoming.length;patch.commission=commission;
+patch.customerCount=count(counts.total,0);
+patch.salesDate=dateText;patch.todayCount=count(counts.due,0);patch.overdueCount=count(counts.overdue,overdue.length);patch.appointmentCount=count(counts.appointments,0);patch.commission=commission;
 }
 this.setData(patch);
 };

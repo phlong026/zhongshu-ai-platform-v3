@@ -6,6 +6,8 @@ const api = require('./api');
 const model = require('./model');
 const visitEntry = require('./visit-entry');
 const commandKey = require('../../utils/platform-crm').commandKey;
+const statusSheet = require('./status-sheet');
+const today = () => require('../../utils/finance-date').day(Date.now());
 const scope = () => http.token() ? JSON.stringify([apiScope(), auth.currentApiPost()?.brandId || '']) : '';
 const clone = value => JSON.parse(JSON.stringify(value));
 function quoteSourceChanged(previous, next) {
@@ -18,11 +20,15 @@ const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 
 
 Page({
   ...visitEntry.actions,
+  ...statusSheet.actions,
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
     uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
-    quoteOptions: [], quotesLoading: false, quotesError: '' },
-  onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || ''; this._drafts = {}; this._localFiles = {}; },
+    quoteOptions: [], quotesLoading: false, quotesError: '',
+    statusSheet: null, lostReasons: statusSheet.LOST_REASONS, todayStr: '' },
+  onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || '';
+    // 从客户工作区的“暂缓 / 标记流失 / 恢复”进入：流程读回来后自动打开对应弹层。
+    this.__entryStatus = ['lost', 'paused', 'resume'].includes(options.status) ? options.status : ''; this._drafts = {}; this._localFiles = {}; },
   onShow() { this._visible = true; return this.load(); },
   onHide() { this._visible = false; this._request = null; this._historyRequest = null; this._quoteRequest = null; },
   onUnload() { this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
@@ -56,6 +62,7 @@ Page({
       if (this.data.workflow && result.revision < this.data.workflow.revision) { this.setData({ loading: false, refreshing: false }); return; }
       const showHistory = this.data.showHistory;
       this.applyWorkflow(result, { replace: options.replace === true });
+      if (this.__entryStatus) { const kind = this.__entryStatus; this.__entryStatus = ''; this.openStatus({ currentTarget: { dataset: { kind } } }); }
       if (showHistory) { this.setData({ showHistory: true }); this.loadHistory(true); }
     } catch (error) {
       if (!this.current(request)) return;
@@ -67,7 +74,7 @@ Page({
     const workflow = model.workflow(response, this.customerId);
     const code = model.definition(this.selectedCode)?.code || workflow.currentStepCode || (workflow.completedCount === 8 ? 'START' : 'INVITATION');
     if (options.replace) delete this._drafts[code];
-    this.setData({ workflow, loading: false, refreshing: false, error: '' });
+    this.setData({ workflow, loading: false, refreshing: false, error: '', todayStr: today() });
     this.select(code, options.replace);
   },
   select(code, replace = false) {
@@ -76,7 +83,7 @@ Page({
     const draft = replace ? null : this._drafts[code];
     this.selectedCode = code;
     this._quoteRequest = null;
-    const form = draft ? clone(draft.form) : model.form(step);
+    const form = draft ? clone(draft.form) : model.form(step, this.data.workflow.nextFollowOn);
     if (!draft) visitEntry.defaultDate(step, form);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
     const workflow = this.data.workflow;
@@ -95,6 +102,21 @@ Page({
     this.setData({ journeyOpen: true });
   },
   hideJourney() { this.setData({ journeyOpen: false }); },
+  /** 流程状态（跟进中 / 已暂停 / 已流失）可点：进行中可暂缓或标记流失，其余可恢复。 */
+  journeyState() {
+    const workflow = this.data.workflow;
+    if (!workflow || !workflow.canChangeStatus || this.journeyLocked()) return;
+    const active = workflow.status === 'ACTIVE';
+    wx.showActionSheet({ itemList: active ? ['暂缓跟进', '标记流失'] : ['恢复跟进'], success: choice => this.openStatus({
+      currentTarget: { dataset: { kind: active ? (choice.tapIndex === 0 ? 'paused' : 'lost') : 'resume' } } }) });
+  },
+  // 状态弹层（./status-sheet）需要的两个页面钩子。
+  statusContext() {
+    const workflow = this.data.workflow;
+    if (!this.alive() || !workflow || !workflow.canChangeStatus) return null;
+    return { customerId: this.customerId, api };
+  },
+  statusDone() { return this.load({ replace: true }); },
   selectStep(event) {
     if (this.journeyLocked()) return;
     if (!this.alive()) return this.load();
@@ -126,7 +148,7 @@ Page({
     const key = event.currentTarget.dataset.key;
     const value = String(event.detail.value == null ? '' : event.detail.value);
     const form = clone(this.data.form);
-    if (['occurredOn', 'note', 'appointmentDate', 'appointmentTime'].includes(key)) form[key] = value;
+    if (['occurredOn', 'nextFollowOn', 'note', 'appointmentDate', 'appointmentTime'].includes(key)) form[key] = value;
     else if (model.definition(this.selectedCode).fields.some(f => f.key === key && !['hidden', 'reference', 'boolean'].includes(f.type))) form.fields[key] = value;
     else return;
     this.change(form);
@@ -187,6 +209,9 @@ Page({
   async submit(event) {
     if (!this.editable() || this.data.uploadFailed) return;
     const action = event?.currentTarget?.dataset?.action === 'complete' ? 'complete' : 'save';
+    // 下次跟进日期是唯一的提醒来源：完成本步必须约定；只保存记录可以不填。
+    if (this.data.form.nextFollowOn && this.data.form.nextFollowOn < today()) return this.setData({ error: '下次跟进日期不能早于今天' });
+    if (action === 'complete' && !this.data.form.nextFollowOn) return this.setData({ error: '请先约定下次跟进日期' });
     try {
       const body = model.payload(this.selectedCode, this.data.form, this._formRevision);
       this._pending = { scope: this._scope, code: this.selectedCode, action, stage: 'save', body, key: commandKey('workflow-save') };

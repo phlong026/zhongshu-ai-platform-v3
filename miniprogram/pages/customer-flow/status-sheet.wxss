@@ -1,0 +1,20 @@
+/* 客户跟进状态弹层（标记流失 / 暂缓 / 恢复），客户工作区与八步跟进页共用；类名自带 css- 前缀，不依赖页面样式。 */
+.css-mask{position:fixed;top:0;right:0;bottom:0;left:0;z-index:200;display:flex;align-items:flex-end;background:rgba(40,30,24,.41)}
+.css-sheet{width:100%;box-sizing:border-box;padding:22rpx 30rpx 0;background:#fffdf9;border-radius:34rpx 34rpx 0 0}
+.css-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8rpx;color:#3d2e22;font-size:34rpx;font-weight:600;line-height:52rpx}
+.css-close{display:flex;align-items:center;justify-content:center;width:64rpx;height:64rpx;margin:0 -16rpx 0 0;padding:0;background:transparent}
+.css-close::after{border:0}
+.css-close text{font-size:44rpx;line-height:1;color:#8d7f72}
+.css-sub{display:block;font-size:24rpx;color:#938577;line-height:38rpx}
+.css-label{display:block;margin:22rpx 0 12rpx;color:#66564a;font-size:27rpx;line-height:40rpx}
+.css-reasons{display:flex;flex-wrap:wrap;gap:12rpx}
+.css-reason{margin:0;padding:0 22rpx;min-height:72rpx;line-height:72rpx;border:1rpx solid #e8dfd3;border-radius:12rpx;background:#fff;color:#3a2c23;font-size:27rpx}
+.css-reason::after{border:0}
+.css-reason.selected{border-color:#89512a;background:#f6eadb;color:#673b20;font-weight:600}
+.css-input{display:flex;align-items:center;justify-content:space-between;height:84rpx;padding:0 20rpx;border:1rpx solid #e8dfd3;border-radius:12rpx;background:#fdfcf9;color:#3a2c23;font-size:28rpx}
+.css-placeholder{color:#a79b8e}
+.css-textarea{box-sizing:border-box;width:100%;min-height:150rpx;margin-top:14rpx;padding:18rpx 20rpx;border:1rpx solid #e8dfd3;border-radius:12rpx;background:#fdfcf9;color:#3a2c23;font-size:28rpx;line-height:44rpx}
+.css-error{display:block;margin-top:14rpx;color:#b3402a;font-size:26rpx;line-height:38rpx}
+.css-actions{display:flex;align-items:center;gap:16rpx;padding:16rpx 0 calc(16rpx + env(safe-area-inset-bottom))}
+.css-submit{flex:1;display:flex;align-items:center;justify-content:center;min-height:88rpx;margin:0;padding:20rpx 24rpx;border:1rpx solid #89512a;border-radius:12rpx;background:#89512a;color:#fffdf8;font-size:32rpx;font-weight:600;line-height:1.35}
+.css-submit::after{border:0}

@@ -4,8 +4,9 @@
  * 状态机契约见 docs/backend-parity/01-待办中心接入-需求与验收.md §五。
  */
 const LABELS = {
-  'first-follow': '首次跟进',
-  'visit': '到期回访',
+  'first-follow': '待首次跟进',
+  'visit': '约定跟进到期',
+  'reconsult': '流失客户再次咨询', 'stale': '超期未跟进',
   'submit-commission': '预算待委托',
   'lead-link': '客资待关联',
   'fee-approve': '委托费用待审批',

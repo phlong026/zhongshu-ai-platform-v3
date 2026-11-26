@@ -105,6 +105,8 @@ async function setup(initialFailure={}) {
     let failed = false;
     if (url === '/platform/profile/mine') data = { nickname:'裴火荣' };
     else if (url === '/platform/todos') data = { items:[], failedDomains:[], actionableCount:0 };
+    // 业务首页的客户数字改读服务端跟进汇总，口径与这批客户数据一致：待跟进 3、预约 1、已逾期 1、跟进过 133。
+    else if (url === '/franchise/customers/follow-summary') data = { total:customers.length, due:3, appointments:1, overdue:1, following:customers.length - 2, lost:0, paused:0 };
     else if (url === '/franchise/customers' || url === '/franchise/commissions') {
       failed = businessFailure;
       const rows = url === '/franchise/customers' ? customers : commissions;

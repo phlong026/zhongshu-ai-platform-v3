@@ -11,7 +11,7 @@
 | `auth.js` | `/platform/auth/account/matches`、`/platform/auth/account/login`、`/platform/auth/wechat-login`、`/platform/auth/wechat-bind`、`/platform/posts/mine` | 账号密码和微信共用同一用户，简称匹配、首次改密、我的任职与岗位切换；短信API仅兼容，不在页面展示 |
 | `org.js` | `/platform/org/staff-accounts`，以及现有 `/platform/org/*` | 门店老板开员工独立账号、一次性交付凭据；总部成员仍使用原staff接口 |
 | `todos.js` | `/platform/todos` | 当前岗位的待办（可办理在前） |
-| `franchise/crm.js` | `/franchise/leads`、`/franchise/customers` | 客资、客户、跟进、方案版本、责任转交 |
+| `franchise/crm.js` | `/franchise/leads`、`/franchise/customers` | 客资、客户、八步跟进视图、跟进时间线、流程状态、跟进汇总、方案版本、责任转交。客户跟进只走八步流程，小程序不再调用旧的 `/follows` |
 | `franchise/commission.js` | `/franchise/design-policies`、`/franchise/commissions` | 标准费用、委托状态机命令、费用审批 |
 | `franchise/design.js` | `/franchise/design/cases`、`/franchise/design/cases/{caseId}`、`/franchise/design/cases/{caseId}/assets/{assetId}/download-tickets` | B 只读代理旧 AI 设计的公开户型；案例图片使用带 caseId 的独立通道，不走生成素材接口 |
 

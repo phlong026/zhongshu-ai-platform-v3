@@ -1,3 +1,4 @@
+<import src="./status-sheet.wxml" />
 <view class="customer-flow">
   <business-header title="客户跟进" />
   <view wx:if="{{!workflow}}" class="flow-empty">
@@ -7,9 +8,10 @@
   <view wx:else class="flow-body">
     <view class="journey-card">
       <view class="journey-client">
-        <view><text class="journey-person">{{workflow.customerName || '当前客户'}}</text><text class="journey-state">{{workflow.statusLabel}}</text></view>
+        <view><text class="journey-person">{{workflow.customerName || '当前客户'}}</text><button class="journey-state {{workflow.canChangeStatus?'journey-state-tappable':''}}" bindtap="journeyState" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="流程状态 {{workflow.statusLabel}}">{{workflow.statusLabel}}<text wx:if="{{workflow.canChangeStatus}}"> ›</text></button></view>
         <button class="journey-link" bindtap="openCustomer">客户资料 <text class="journey-chevron">›</text></button>
       </view>
+      <text wx:if="{{workflow.status==='LOST'||workflow.status==='PAUSED'}}" class="journey-note">{{workflow.status==='LOST'?(workflow.reconsulted?'客户已标记流失，之后又有新的咨询登记，可恢复跟进。':'客户已标记流失'+(workflow.statusReason?'：'+workflow.statusReason:'')+'，跟进记录全部保留。'):'已暂缓跟进，到约定的再联系日期自动回到待跟进。'}}</text>
       <view class="journey-divider"></view>
       <view class="journey-labels">
         <text class="journey-label">跟进进度</text>
@@ -84,7 +86,11 @@
           </view>
         </view>
         <view class="flow-card flow-form">
-          <view class="flow-field"><text class="flow-label">发生日期</text><picker mode="date" value="{{form.occurredOn}}" data-key="occurredOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.occurredOn?'placeholder':''}}">{{form.occurredOn || '选择日期'}}<text>⌄</text></view></picker></view>
+          <view class="flow-dates">
+            <view class="flow-field"><text class="flow-label">发生日期</text><picker mode="date" value="{{form.occurredOn}}" data-key="occurredOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.occurredOn?'placeholder':''}}">{{form.occurredOn || '选择日期'}}<text>⌄</text></view></picker></view>
+            <view class="flow-field"><text class="flow-label">下次跟进日期</text><picker mode="date" start="{{todayStr}}" value="{{form.nextFollowOn}}" data-key="nextFollowOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.nextFollowOn?'placeholder':''}}">{{form.nextFollowOn || '选择日期'}}<text>⌄</text></view></picker></view>
+          </view>
+          <text wx:if="{{step.canWrite}}" class="flow-file-hint">完成本步须约定下次跟进日期；仅保存记录可不填</text>
           <view wx:for="{{fields}}" wx:key="key" class="flow-field {{item.type==='boolean'?'flow-switch-field':''}}">
             <text class="flow-label">{{item.label}}</text>
             <switch wx:if="{{item.type==='boolean'}}" color="#82522e" checked="{{item.value}}" data-key="{{item.key}}" bindchange="toggle" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}" />
@@ -133,4 +139,5 @@
     </view>
   </view>
   <view wx:if="{{activeRecord}}" class="flow-sheet-mask" catchtap="closeRecord"><view class="flow-sheet" catchtap="noop"><view class="flow-title-row"><text>{{activeRecord.stepName}} · {{activeRecord.actionLabel}}</text><button class="flow-link" bindtap="closeRecord">关闭</button></view><scroll-view scroll-y class="flow-sheet-content"><text class="flow-muted">{{activeRecord.createdText}} · {{activeRecord.actorName || '经办人'}}</text><view wx:if="{{activeRecord.occurredText}}" class="flow-fact"><text>发生日期</text><text>{{activeRecord.occurredText}}</text></view><view wx:for="{{activeRecord.details}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value}}</text></view><button wx:if="{{activeRecord.stepCode==='QUOTATION'&&activeRecord.fields.quoteId}}" class="flow-link" bindtap="openLinkedQuote">查看本版报价原单</button><text wx:if="{{activeRecord.note}}" class="flow-record-note">{{activeRecord.note}}</text><button wx:for="{{activeRecord.attachments}}" wx:key="assetId" class="flow-file-name" data-id="{{item.assetId}}" bindtap="previewFile">{{item.title}}</button></scroll-view></view></view>
+  <template is="customer-status-sheet" data="{{sheet:statusSheet,reasons:lostReasons,todayStr:todayStr}}" />
 </view>

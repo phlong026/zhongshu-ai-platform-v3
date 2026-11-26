@@ -263,10 +263,15 @@ test('the first filtered page includes the 51st customer for sales and read-only
       assert.equal(c.calls.at(-1).followFilter,filter);assert.equal(c.calls.at(-1).pageNo,1);
       assert.deepEqual(Array.from(c.page.data.visibleCustomers,r=>r.id),[id]);
     }
-    assert.equal(c.page.data.tabs.find(t=>t.key==='appointments').label,'预约回访');
+    assert.equal(c.page.data.tabs.find(t=>t.key==='appointments').label,'预约跟进');
   }
   const view=fs.readFileSync(root+'/miniprogram/pages/business/index.wxml','utf8');
-  assert.match(view,/回访已逾期/);assert.doesNotMatch(view,/超\s*7\s*天/);
+  assert.match(view,/跟进已逾期/);assert.doesNotMatch(view,/回访|超\s*7\s*天/);
+  // 首页、老板首页上跳到该分栏的入口与分栏同名
+  assert.equal(CRM.homeSummary([],[],{roleCode:'boss'},CRM.today()).metrics.find(m=>m.key==='appointments').label,'预约跟进');
+  const ownerHome=require('../miniprogram/utils/platform-owner-home').view({businessStatus:'loading',post:{}});
+  assert.equal(ownerHome.home.business.metrics.find(m=>m.key==='appointments').label,'预约跟进');
+  assert.equal(ownerHome.home.business.appointments.label,'预约跟进');
 });
 
 test('rapid typing sends only the final keyword, and unloading cancels pending search', async () => {
@@ -501,7 +506,7 @@ test('customer role changes under the same post do not share requests or retain 
 
 function home() {
   const session = { generation: 1, post: { postId: 'sales-1', orgId: 'audit-org', roleCode: 'sales' } };
-  const calls = { customers: 0, commissions: 0, profile: 0 };
+  const calls = { customers: 0, summary: 0, commissions: 0, profile: 0 };
   let customerResult = Promise.resolve({ list: [{ id: '1', name: '客户', status: 'REGISTERED' }], total: 1 });
   const http = { token: () => 'unit-session', sessionGeneration: () => session.generation,
     get: async () => { calls.profile++; return { nickname: '业务同事' }; } };
@@ -509,7 +514,11 @@ function home() {
     '../../utils/dashboard': { createDashboard: (_index, config) => config },
     '../../utils/platform-todos-page': { init() {}, refresh() {} }, '../../api/http': http,
     '../../utils/platform-crm': CRM,
-    '../../api/franchise/crm': { customers: { page: () => { calls.customers++; return customerResult; } } },
+    // 首页客户数字读服务端跟进汇总；测试里让它与客户名单同源（全部算待跟进）。
+    '../../api/franchise/crm': { customers: {
+      page: () => { calls.customers++; return customerResult; },
+      followSummary: async () => { calls.summary++; const rows = await customerResult; return { total: rows.total, due: rows.total, appointments: 0, overdue: 0, following: 0, lost: 0, paused: 0 }; }
+    } },
     '../../api/franchise/commission': { commissions: { page: async () => { calls.commissions++; return { list: [], total: 0 }; } } },
     '../../api/franchise/content': { growth: { summary: async () => ({}) }, drafts: { works: async () => [] } },
     '../../api/auth': { currentApiPost: () => session.post },
@@ -521,7 +530,7 @@ function home() {
 test('overlapping home refreshes share one request group', async () => {
   const h = home(), pending = deferred(); h.setCustomers(pending.promise);
   h.page.loadPlatformHome(); h.page.loadPlatformHome();
-  try { assert.equal(h.calls.customers, 1); assert.equal(h.calls.commissions, 1); assert.equal(h.calls.profile, 1); }
+  try { assert.equal(h.calls.customers, 1); assert.equal(h.calls.summary, 1); assert.equal(h.calls.commissions, 1); assert.equal(h.calls.profile, 1); }
   finally { pending.resolve({ list: [], total: 0 }); await flush(); }
 });
 
