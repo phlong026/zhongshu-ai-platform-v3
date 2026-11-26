@@ -105,6 +105,9 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         var controller = new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentDraftController();
         org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
         org.springframework.test.util.ReflectionTestUtils.setField(controller, "drafts", drafts);
+        var permissions = mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
+        when(permissions.has(cn.iocoder.yudao.module.franchise.content.ContentPermissions.WRITE)).thenReturn(true);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "postPermissions", permissions);
         var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
         String list = "/franchise/content/drafts";
         String action = list + "/" + workId + "/trash";
@@ -113,7 +116,13 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
                     .andExpect(status().isOk()).andExpect(jsonPath("$.data.revision").value(1));
         }
         mvc.perform(get(list)).andExpect(jsonPath("$.data.length()").value(0));
-        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)));
+        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)))
+                .andExpect(jsonPath("$.data[0].canManage").value(true));
+        for (var other : java.util.List.of(colleague, outsider)) {
+            assertThat(drafts.listWorks(other.orgId(), other.userId(), true)).isEmpty();
+            assertThatThrownBy(() -> drafts.setTrashed(other.orgId(), other.userId(), workId, false, 1))
+                    .isInstanceOf(ServiceException.class);
+        }
         assertThat(service.requireOwned(store.orgId(), owner.userId(), publication.getId()).getWorkId()).isEqualTo(workId);
         assertThatThrownBy(() -> drafts.workOfAuthor(store.orgId(), owner.userId(), workId))
                 .isInstanceOf(ServiceException.class);
@@ -122,6 +131,47 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data.length()").value(0));
         mvc.perform(get(list)).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)))
                 .andExpect(jsonPath("$.data[0].title").value("本人作品"));
+        assertThatThrownBy(() -> drafts.setTrashed(store.orgId(), owner.userId(), workId, true, 0))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("状态已更新");
+        assertThat(service.createFromPost(owner, manualBody("作品回收验收"), "publish-before-trash-" + workId).getId())
+                .isEqualTo(publication.getId());
+    }
+
+    @Test
+    void workTrashMigrationPreservesExistingRowsAndRequiresRestoreBeforeUndo() throws Exception {
+        var forward = new org.springframework.core.io.ClassPathResource(
+                "db/migration/franchise/V20261126.1002__personal_work_trash.sql");
+        var undo = new org.springframework.core.io.ClassPathResource(
+                "db/migration-undo/franchise/V20261126.1002__undo_personal_work_trash.sql");
+        try (var connection = jdbc.getDataSource().getConnection(); var sql = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                sql.execute("SET LOCAL search_path TO pg_temp");
+                sql.execute("CREATE TEMP TABLE fr_content_draft(id BIGINT PRIMARY KEY, title TEXT)");
+                sql.execute("INSERT INTO fr_content_draft VALUES(42, '已有作品')");
+                sql.execute(forward.getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                try (var result = sql.executeQuery("SELECT library_revision,trashed_at FROM fr_content_draft")) {
+                    assertThat(result.next()).isTrue();
+                    assertThat(result.getLong(1)).isZero();
+                    assertThat(result.getObject(2)).isNull();
+                }
+                sql.execute("UPDATE fr_content_draft SET trashed_at=now(),library_revision=1");
+                var save = connection.setSavepoint();
+                String revert = undo.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                assertThatThrownBy(() -> sql.execute(revert)).isInstanceOf(java.sql.SQLException.class)
+                        .hasMessageContaining("Restore works");
+                connection.rollback(save);
+                sql.execute("UPDATE fr_content_draft SET trashed_at=NULL, library_revision=2");
+                sql.execute(revert);
+                try (var work = sql.executeQuery("SELECT id,title FROM fr_content_draft")) {
+                    assertThat(work.next()).isTrue();
+                    assertThat(work.getLong(1)).isEqualTo(42);
+                    assertThat(work.getString(2)).isEqualTo("已有作品");
+                }
+            } finally {
+                connection.rollback();
+            }
+        }
     }
 
     @Test

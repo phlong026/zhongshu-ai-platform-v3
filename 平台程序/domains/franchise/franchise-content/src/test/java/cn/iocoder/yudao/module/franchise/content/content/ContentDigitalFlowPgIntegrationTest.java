@@ -83,6 +83,12 @@ class ContentDigitalFlowPgIntegrationTest extends FranchisePgIntegrationTest {
                     .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
             var work=drafts.saveWork(33,22,task.getId(),"张工口播");assertThat(drafts.saveWork(33,22,task.getId(),"重复保存").getId()).isEqualTo(work.getId());
             assertThat(work.getConfiguration()).contains("completed.mp4");
+            drafts.setTrashed(33, 22, work.getId(), true, 0);
+            assertThatThrownBy(() -> drafts.saveWork(33, 22, task.getId(), "迟到的重试"))
+                    .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class)
+                    .hasMessageContaining("回收站");
+            drafts.setTrashed(33, 22, work.getId(), false, 1);
+            assertThat(drafts.saveWork(33, 22, task.getId(), "再次保存").getId()).isEqualTo(work.getId());
             assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_draft WHERE task_id=?",Long.class,task.getId())).isEqualTo(1);
             verifyNoInteractions(assets);assertThat(endpoints).hasSize(6);verify(points,times(2)).settle(555,1);
             verify(points).settleByBizKey(anyString(),eq(task.getPoolReservedUnits())); // 交付量超过预扣时不追加扣费。

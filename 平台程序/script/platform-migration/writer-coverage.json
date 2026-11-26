@@ -42,7 +42,7 @@
         "domains/franchise/franchise-content/src/main/java/cn/iocoder/yudao/module/franchise/content/controller/admin/ContentAssetController.java"
       ],
       "required_evidence": "加盟业务全部入口与资产ticket闭包；旧ADMIN直接访问同样受控",
-      "coverage_note": "franchise-http=22入口（G2a/G2b/G2c 3：wallet-session-issue+lead-invalidate+lead-link；G2r 19：内容运营面14（T2 save-work方案b与D系同批+D1-D3+P1-P4+PR1-3+A1-A3资产ticket闭包AssetAccessPort承接——G2n登记本批承接）+CRM客资/客户面5（lead-capture多表事务链三分支+uk_fr_customer_phone并发红测真实MVC并行+c31 G2c条件落地；customer-update CAS revision冲突/customer-follow/customer-scheme/customer-transfer责任转交——§11.11候选表漏列saveScheme/transfer求和复核更正随批登记）。G2b负例测试capture从白名单外收缩为pending（capture接线后负例集收缩，编辑披露于冻结json）。CRM GET纯读面（page/get/follows查询/pending）不收口。类别1自身HTTP写面收口（按入口粒度登记；终态冻结统一更新status）。"
+      "coverage_note": "franchise-http=23入口（G2a/G2b/G2c 3：wallet-session-issue+lead-invalidate+lead-link；G2r 19：内容运营面14（T2 save-work方案b与D系同批+D1-D3+P1-P4+PR1-3+A1-A3资产ticket闭包AssetAccessPort承接——G2n登记本批承接）+CRM客资/客户面5（lead-capture多表事务链三分支+uk_fr_customer_phone并发红测真实MVC并行+c31 G2c条件落地；customer-update CAS revision冲突/customer-follow/customer-scheme/customer-transfer责任转交——§11.11候选表漏列saveScheme/transfer求和复核更正随批登记）。G2b负例测试capture从白名单外收缩为pending（capture接线后负例集收缩，编辑披露于冻结json）。本次增加个人作品回收与恢复共用的 content-work-trash 写入口。CRM GET纯读面（page/get/follows查询/pending）不收口。类别1自身HTTP写面收口（按入口粒度登记；终态冻结统一更新status）。"
     },
     {
       "id": "legacy-session",

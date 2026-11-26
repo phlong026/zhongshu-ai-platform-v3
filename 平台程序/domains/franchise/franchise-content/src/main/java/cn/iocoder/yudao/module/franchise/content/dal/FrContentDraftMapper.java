@@ -13,6 +13,7 @@ public interface FrContentDraftMapper extends BaseMapperX<FrContentDraftDO> {
     default FrContentDraftDO selectByTask(Long taskId) {
         List<FrContentDraftDO> rows = selectList(new LambdaQueryWrapperX<FrContentDraftDO>()
                 .eq(FrContentDraftDO::getTaskId, taskId)
+                .eq(FrContentDraftDO::getDeleted, false)
                 .last("LIMIT 1"));
         return rows.isEmpty() ? null : rows.get(0);
     }
