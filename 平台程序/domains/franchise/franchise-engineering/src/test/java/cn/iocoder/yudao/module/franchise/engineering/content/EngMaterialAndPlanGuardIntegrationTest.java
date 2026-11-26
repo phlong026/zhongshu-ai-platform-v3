@@ -837,6 +837,24 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 Integer.class, supplyId)).isEqualTo(2);
     }
 
+    @Test
+    void legacyReceiptCannotDropAnExplicitNonDefaultExpectedQuantity() {
+        long asset = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        var original = new EngMaterialService.ArrivalCommand(null, new BigDecimal("7"), new BigDecimal("6"),
+                "OK", "legacy-expected-" + supplyId, asset, null, "首批", null);
+        String key = idem();
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
+        var old = new java.util.LinkedHashMap<String, Object>();
+        old.put("supplyId", supplyId);
+        old.put("actual", "6");
+        old.put("quality", "OK");
+        replaceReceiptEvent("eng-supply-arrival", old);
+        as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
+        var withoutExpected = new EngMaterialService.ArrivalCommand(null, null, original.actual(), original.quality(),
+                original.transactionNo(), asset, null, original.note(), null);
+        assertArrivalConflict(key, withoutExpected);
+    }
+
     private void verifyArrivalRetry(String key, EngMaterialService.ArrivalCommand original, long anotherAsset) {
         as(engineer, () -> materialsService.arrival(engineer, supplyId, original, key));
         Long parent = original.parentReceiptId();
