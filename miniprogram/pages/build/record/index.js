@@ -6,6 +6,7 @@ const EH=require('../external-handover');
 const Nav=require('../../../utils/page-navigation');
 const ManagerTransfer=require('./manager-transfer');
 const Delay=require('./delay');
+const StartRecord=require('./start-record');
 const {makeFormHandlers}=require('../../../utils/view-container');
 const baseHandlers=makeFormHandlers();
 const titles={cameras:'工地实景',delay:'进度偏差处理',overview:'工程项目',prepare:'开工准备',start:'正式开工记录',collection:'工程收款',project:'项目与施工计划',materials:'材料计划',material:'材料计划详情',node:'施工节点记录',funding:'节点资金计划',payments:'项目款项',expenses:'项目费用',documents:'项目资料',delivery:'工程交付',settlement:'项目结算',archive:'交付档案'};
@@ -111,6 +112,7 @@ Page({
       expenses:expenses||undefined,expenseMode:this.data.expenseMode||'register'}); // 856 write 口径（后端另校验负责人本人）+collect 岗（批次#36）
     if(view==='material')MaterialFlow.apply(data,bundle);
     Payments.apply(data,bundle,payment,{view,reset:!this.initialized||reset});
+    if(view==='start')StartRecord.apply(data,bundle.detail);
     this.__externalProject=bundle.detail?.handoverMode==='EXTERNAL';
     if(this.__externalProject){await EH.bind(bundle.detail,data,alive);if(!alive())return;}
     else{data.externalHandoverUrl='';data.externalHandoverVersion=0;}
@@ -140,6 +142,10 @@ Page({
   },
   async performOnline(action,f,node){ // API 态动作映射（凭据类前置拦截随 COS 批；busy 防重+一次性幂等键）
    if(this.__expenseSave||this.data.busy||this.data.paymentUncertain||this.data.managerTransferPending)return;
+   if(action==='start'){
+    if(this.data.view!=='start'||!this.data.actions.some(a=>a.action==='start'))return;
+    try{f=StartRecord.command(f||this.data.form);}catch(error){return this.fail(error.message);}
+   }
    if(action==='delay')return Delay.save(this,f||this.data.form,node||this.data.node);
    if(action==='expense-register')return this.saveExpense(f||this.data.form);
    if(action==='dunning'||action==='prepare'&&this.data.paymentPlan)return Payments.submit(this,action,f||this.data.form);

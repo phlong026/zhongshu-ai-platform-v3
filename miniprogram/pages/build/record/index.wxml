@@ -19,6 +19,14 @@
     <text wx:if="{{node.recoveryAction&&(view!=='delay'||!actions.length)}}" class="eng-muted">处理措施：{{node.recoveryAction}}</text>
     <button wx:if="{{view!=='delay'&&(node.deviationDays>0||node.delayHistory.length)}}" class="eng-link" data-url="{{delayUrl}}" bindtap="go">{{own&&node.status!=='已完成'?'处理延期':'查看处理记录'}}</button>
    </view>
+   <view wx:if="{{view==='start'&&p.actualStart}}" class="eng-section">
+    <view class="eng-heading"><text>实际开工原单</text></view>
+    <text class="eng-muted">实际开工日期 {{p.actualStart.date}}</text>
+    <text wx:if="{{p.actualStart.actor}}" class="eng-muted">开工经办人 {{p.actualStart.actor}}</text>
+    <text wx:if="{{p.actualStart.note}}" class="eng-name">{{p.actualStart.note}}</text>
+    <button wx:for="{{p.actualStart.assetIds}}" wx:key="*this" class="eng-link" data-asset-id="{{item}}" bindtap="previewAsset">查看开工凭据{{p.actualStart.assetIds.length>1?' '+(index+1):''}}</button>
+   </view>
+   <text wx:if="{{view==='start'&&fields.length}}" class="eng-muted">现场记录均选填，可填写待核对事项。各栏连同标题共限 1000 字符。</text>
    <view wx:if="{{view==='start'&&startBlocked}}" class="eng-section"><button class="eng-primary" data-url="{{startPrerequisiteUrl}}" bindtap="go">{{startBlocked}}</button></view>
    <block wx:if="{{view==='cameras'}}">
     <view class="eng-section"><view class="eng-heading"><text>摄像头 {{cameras.length}}</text><button wx:if="{{canManageCameras}}" class="eng-link" bindtap="editCamera">添加摄像头</button></view><text wx:if="{{cameraError}}" class="eng-error">{{cameraError}}</text><button wx:if="{{cameraError}}" class="eng-link" bindtap="reloadCameras">重新加载</button><text wx:elif="{{!cameras.length}}" class="eng-muted">暂无摄像头</text></view>
