@@ -1,3 +1,5 @@
-.page {
-  padding: var(--zs-space-page);
-}
+.packages { padding: 32rpx; }
+.panel { display: flex; flex-direction: column; gap: 14rpx; padding: 28rpx; margin-bottom: 20rpx; background: var(--zs-surface, white); border-radius: 16rpx; }
+.title { font-weight: 600; font-size: 32rpx; }
+.feedback { display: block; margin-bottom: 20rpx; }
+.panel button { margin: 8rpx 0 0; }

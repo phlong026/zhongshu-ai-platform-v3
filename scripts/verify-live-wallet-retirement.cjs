@@ -80,23 +80,12 @@ for (const base of pages) {
 
 console.log('旧个人钱包退役：2 个注册入口行为通过');
 
-const companyRecharge = 'miniprogram/pages/wallet/company-recharge/index';
-const rechargeTemplate = fs.readFileSync(path.join(root, companyRecharge + '.wxml'), 'utf8');
-assert.match(rechargeTemplate, /线上充值已关闭/);
-assert.deepEqual([...rechargeTemplate.matchAll(/bindtap="([^"]+)"/g)].map(m => m[1]), ['openCompanyPoints']);
-assert.doesNotMatch(fs.readFileSync(path.join(root, companyRecharge + '.js'), 'utf8'),
-  /checkout|pay-params|requestVirtualPayment|recharge\/catalog/);
-
-for (const token of ['platform-token', '']) {
-  const { definition, calls } = loadPage(companyRecharge, token);
-  assert.deepEqual(calls, []);
-  pageInstance(definition).openCompanyPoints();
-  assert.deepEqual(calls, token
-    ? [{ kind: 'switchTab', url: '/pages/profile/index' }]
-    : [{ kind: 'redirectTo', url: '/pages/account/index?view=login&return=%2Fpages%2Fprofile%2Findex' }]);
+async function verifyCompanyPackage() {
+ let spec;const routes=[],writes=[];
+ const file=path.join(root,'miniprogram/pages/wallet/packages/index.js');
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{wx:{redirectTo:o=>routes.push(o.url),setStorageSync:()=>writes.push('storage')},Page:p=>spec=p,require:()=>{throw Error('retired page cannot load payment dependencies');}});
+ const page=pageInstance(spec);await page.onShow();page.choose();await page.confirmPending();
+ assert.deepEqual(routes,['/pages/wallet/company-recharge/index']);assert.equal(writes.length,0);
+ console.log('PASS 旧模拟套餐深链进入公司真实虚拟支付，未重放或删除历史草稿');
 }
-
-const oldPackages = loadPage('miniprogram/pages/wallet/packages/index', 'platform-token');
-pageInstance(oldPackages.definition).onLoad();
-assert.deepEqual(oldPackages.calls, [{ kind: 'redirectTo', url: '/pages/wallet/company-recharge/index' }]);
-console.log('公司充值及旧套餐深链均无支付动作，可返回公司积分');
+verifyCompanyPackage().catch(e=>{console.error(e);process.exitCode=1;});
