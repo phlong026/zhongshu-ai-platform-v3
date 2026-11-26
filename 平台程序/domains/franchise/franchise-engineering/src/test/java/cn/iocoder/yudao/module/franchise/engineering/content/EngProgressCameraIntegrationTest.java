@@ -82,6 +82,8 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(history.get(2)).containsEntry("note","尺量未通过").containsEntry("actorUserId",Long.toString(engineer.userId()));
         assertThat(history.get(5).get("occurredAt")).isNotNull();
         assertThat(todos.list(engineer)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        assertThatThrownBy(()->issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today,"已销项后改派"),key()))
+                .hasMessageContaining("状态");
     }
 
     @Test void rectificationDoesNotInventOldAssignmentsOrAcceptAnotherProjectOrCompany() {
@@ -106,6 +108,14 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->issueDetail(other,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         var foreign=fixture.post(fixture.store().orgId(),"engineer",null);
         assertThatThrownBy(()->issueDetail(foreign,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        long anotherProject=((Number)projects.create(engineer,new EngProjectService.CreateCommand("第二项目","钱工","武汉",
+                "13800000065",new BigDecimal("20"),1,null,true),key()).get("id")).longValue();
+        assertThatThrownBy(()->issues.detail(engineer,anotherProject,id)).hasMessageContaining("原整改单");
+        assertThatThrownBy(()->issues.change(engineer,anotherProject,issue("assign",id,engineer.userId(),today,"跨项目"),key()))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        var finance=new PostSnapshot(engineer.postId(),engineer.userId(),engineer.orgId(),engineer.orgType(),"finance",null,false,Set.of());
+        assertThat(todos.list(finance)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
+        assertThat(todos.list(foreign)).noneMatch(t->t.key().equals("fr-eng:rectification:"+id));
         issues.change(engineer,projectId,issue("assign",id,engineer.userId(),today,"核对纸单后补录责任人和期限"),key());
         var history=(List<Map<String,Object>>)issueDetail(engineer,id).get("history");
         assertThat(history.get(0)).containsEntry("ownerUserId",null).containsEntry("dueDate",null);
