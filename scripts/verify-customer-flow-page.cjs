@@ -92,6 +92,27 @@ test('第03步外部定制由客户确认实际方向，标准户型和旧外部
   await old.open();assert.equal(old.page.data.form.attachments[0].assetId, '7002');assert.equal(old.page.data.form.fields.selectionMode, '');
 });
 
+test('第03步主动切回标准户型才提交清除标记，普通标准记录不带标记', async () => {
+  const h = harness({ step: 'HOUSE_SELECTION' });
+  Object.assign(h.state.steps[2], { status: 'DRAFT', canWrite: true, occurredOn: '2026-11-25',
+    fields: { selectionMode: 'EXTERNAL_CUSTOM', customDirection: '保留老人房朝南', confirmed: true } });
+  await h.open();
+  h.page.pick(event('selectionMode', 0));
+  assert.equal(h.page.data.form.fields.confirmed, false);
+  assert.equal(h.page.data.form.occurredOn, '');
+  h.page.input(event('selectionResult', '切回标准户型'));
+  await h.page.submit({currentTarget:{dataset:{action:'save'}}});
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.selectionMode, '');
+  assert.equal(Object.hasOwn(body.fields, 'customDirection'), false);
+  assert.equal(body.fields.confirmed, false);
+  assert.equal(body.occurredOn, null);
+  const standard = harness({ step: 'HOUSE_SELECTION' }); await standard.open();
+  standard.page.input(event('selectionResult', '原本就是标准方案'));
+  await standard.page.submit({currentTarget:{dataset:{action:'save'}}});
+  assert.equal(Object.hasOwn(standard.callsFor('save')[0].args[2].fields,'selectionMode'), false);
+});
+
 test('进度卡与全部步骤按原单状态显示，跨步补录与切换保留草稿', async () => {
   const { render } = require('./role-page-runtime.cjs');
   const h = harness();
