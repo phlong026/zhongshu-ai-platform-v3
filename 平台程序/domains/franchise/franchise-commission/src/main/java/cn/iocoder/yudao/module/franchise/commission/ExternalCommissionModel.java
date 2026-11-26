@@ -2,10 +2,12 @@ package cn.iocoder.yudao.module.franchise.commission;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerPaymentPlanDraftPort.Snapshot;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Attachment;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 public final class ExternalCommissionModel {
     private ExternalCommissionModel() { }
@@ -15,9 +17,28 @@ public final class ExternalCommissionModel {
                     : new PlanRef(plan.source(), plan.revision(), plan.contractId() == null ? null : plan.contractId().toString(), plan.contractPlanVersion());
         }
     }
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record MeasurementRef(String eventId, Long revision, String customerId, LocalDate occurredOn,
+                                 Map<String,Object> fields, List<Attachment> attachments) {
+        static MeasurementRef identity(String eventId, long revision) {
+            return new MeasurementRef(eventId, revision, null, null, null, null);
+        }
+    }
+    public record MeasurementPage(String customerId, List<MeasurementRef> list, String nextBeforeId) { }
     public record RequestCommand(Long revision, LocalDate entrustedOn, String providerName, String providerReference,
                                  String text, String scope, BigDecimal area, Integer floors, List<Attachment> attachments,
-                                 PlanRef paymentPlanRef, String reason) { }
+                                 PlanRef paymentPlanRef, String reason,
+                                 @JsonInclude(JsonInclude.Include.NON_NULL) MeasurementRef measurementRef,
+                                 @JsonInclude(JsonInclude.Include.NON_NULL) Boolean removeMeasurement) {
+        public RequestCommand(Long revision, LocalDate entrustedOn, String providerName, String providerReference,
+                String text, String scope, BigDecimal area, Integer floors, List<Attachment> attachments, PlanRef paymentPlanRef, String reason) {
+            this(revision, entrustedOn, providerName, providerReference, text, scope, area, floors, attachments, paymentPlanRef, reason, null, null);
+        }
+        RequestCommand withMeasurement(MeasurementRef source, List<Attachment> files) {
+            return new RequestCommand(revision, entrustedOn, providerName, providerReference, text, scope, area, floors,
+                    files, paymentPlanRef, reason, source, null);
+        }
+    }
     public record ResultCommand(Long revision, int requestVersion, LocalDate deliveredOn, String drawingVersion,
                                 String resultAssetId, String drawingAssetId, String reviewAssetId, String note) { }
     public record RequestVersion(int version, String action, RequestCommand data, Snapshot paymentPlan,
