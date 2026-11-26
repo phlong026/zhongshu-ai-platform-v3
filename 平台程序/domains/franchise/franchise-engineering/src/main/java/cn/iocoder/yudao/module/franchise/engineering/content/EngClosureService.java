@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.platform.command.dal.CommandEventDO;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,8 +26,11 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
 /**
@@ -93,11 +97,20 @@ public class EngClosureService {
         payload.put("recipient", StrUtil.nullToEmpty(cmd.recipient()));
         payload.put("ownerAssetId", cmd.ownerAssetId() == null ? "" : String.valueOf(cmd.ownerAssetId()));
         payload.put("fileAssetId", cmd.fileAssetId() == null ? "" : String.valueOf(cmd.fileAssetId()));
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        var legacy = new LinkedHashMap<>(payload);
+        payload.put("note", StrUtil.nullToEmpty(cmd.note()));
+        FrEngProjectDO project = lockOwnedProject(post, projectId);
+        FrEngClosureDO closure = closures.selectByProject(post.orgId(), projectId);
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            requireClosureEvent(replayed.get(), projectId, "eng-deliver");
+            if (closure == null || closure.getDeliveredAt() == null
+                    || !StrUtil.nullToEmpty(closure.getDeliverNote()).equals(payload.get("note"))) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
             return projectService.detail(post, projectId);
         }
-        FrEngProjectDO project = projectService.requireOwned(post, projectId, "deliver");
+        EngGuard.requireActionAllowed(closure, "deliver");
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
         if (project.getActualStartAt() == null
                 || nodes.stream().anyMatch(n -> !FrEngPlanNodeDO.STATUS_DONE.equals(n.getStatus()))) {
@@ -136,12 +149,12 @@ public class EngClosureService {
             throw exception(ENGINEERING_INPUT_INVALID, "请留存业主签收人及交付凭据");
         }
         // M09-T01/I01：交付凭据资产域侧校验（复用 EngPlanService 同款——假 ID/跨组织/未 ACCEPTED/类型不符全拒）
-        java.util.Set<String> deliverTypes = java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING");
+        Set<String> deliverTypes = Set.of("ENG_SITE_PHOTO", "ENG_DRAWING");
         planService.requireValidAsset(post, cmd.fileAssetId(), deliverTypes, "交付");
         if (cmd.ownerAssetId() != null) { // 业主签收凭据（可空字段，填了就校验）
             planService.requireValidAsset(post, cmd.ownerAssetId(), deliverTypes, "业主签收");
         }
-        closures.updateById(new FrEngClosureDO().setId(closures.selectByProject(post.orgId(), projectId).getId())
+        closures.updateById(new FrEngClosureDO().setId(closure.getId())
                 .setDeliveredAt(date).setRecipient(StrUtil.trim(cmd.recipient()))
                 .setOwnerAssetId(cmd.ownerAssetId()).setFileAssetId(cmd.fileAssetId())
                 .setDeliverNote(StrUtil.nullToEmpty(cmd.note())).setDeliveredBy(post.userId()));
@@ -156,16 +169,25 @@ public class EngClosureService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> settle(PostSnapshot post, long projectId, SettleCommand cmd, String idempotencyKey) {
-        FrEngProjectDO project = projectService.requireOwned(post, projectId, "settle");
+        FrEngProjectDO project = lockOwnedProject(post, projectId);
         // 重放输入=落账输入（评审十三 P1-3）：note 一并纳入两处，杜绝重放哈希错位
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("date", cmd.date() == null ? "" : cmd.date().toString());
         payload.put("note", StrUtil.nullToEmpty(cmd.note()));
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        var legacy = new LinkedHashMap<>(payload);
+        payload.put("projectId", projectId);
+        payload.put("assetId", cmd.assetId());
+        FrEngClosureDO closure = closures.selectByProject(post.orgId(), projectId);
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            requireClosureEvent(replayed.get(), projectId, "eng-settle");
+            if (closure == null || closure.getSettledAt() == null
+                    || !Objects.equals(closure.getSettleAssetId(), cmd.assetId())) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
             return settleSummary(post, projectId);
         }
-        FrEngClosureDO closure = closures.selectByProject(post.orgId(), projectId);
+        EngGuard.requireActionAllowed(closure, "settle");
         if (closure == null || closure.getDeliveredAt() == null) {
             throw exception(CLOSURE_ORDER_INVALID); // 请在交付后确认项目结算
         }
@@ -175,6 +197,10 @@ public class EngClosureService {
         if (StrUtil.isBlank(cmd.note())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请填写结算确认说明");
         }
+        if (cmd.assetId() != null) {
+            planService.requireValidAsset(post, cmd.assetId(),
+                    Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER", "CONTRACT_ATTACHMENT"), "结算");
+        }
         LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
         closures.updateById(new FrEngClosureDO().setId(closure.getId())
                 .setSettledAt(date).setSettleNote(StrUtil.trim(cmd.note()))
@@ -183,6 +209,22 @@ public class EngClosureService {
                 projectService.bumpRevision(post, project),
                 "eng-settle", payload, idempotencyKey);
         return settleSummary(post, projectId);
+    }
+
+    private FrEngProjectDO lockOwnedProject(PostSnapshot post, long projectId) {
+        FrEngProjectDO project = projectService.projects().lockById(projectId);
+        if (project == null || project.getCompanyId() != post.orgId()) {
+            throw exception(ENGINEERING_INPUT_INVALID, "工程不存在或无权查看");
+        }
+        EngGuard.requireOwner(project, post.userId());
+        return project;
+    }
+
+    private static void requireClosureEvent(CommandEventDO event, long projectId, String command) {
+        if (!AGGREGATE.equals(event.getAggregateType()) || event.getAggregateId() != projectId
+                || !command.equals(event.getCommand())) {
+            throw exception(IDEMPOTENCY_KEY_REUSED);
+        }
     }
 
     // ===================== 归档 =====================

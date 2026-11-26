@@ -1101,6 +1101,46 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 .isInstanceOf(ServiceException.class)
                 .extracting(e -> ((ServiceException) e).getCode())
                 .isEqualTo(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED.getCode());
+        var delivery = new EngClosureService.DeliverCommand(java.time.LocalDate.now(), "业主-陈先生",
+                ownerEvidence, validEvidence, "交付");
+        var revised = new EngClosureService.DeliverCommand(delivery.date(), delivery.recipient(),
+                ownerEvidence, validEvidence, "改写交付备注");
+        var settlement = new EngClosureService.SettleCommand(delivery.date(), "核对结算", validEvidence);
+        var invalidEvidence = new EngClosureService.SettleCommand(delivery.date(), "核对结算", fakeId);
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> closuresService.settle(engineer, projectId, invalidEvidence, idem())),
+                cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.ENGINEERING_INPUT_INVALID);
+        String settleKey = idem();
+        as(engineer, () -> closuresService.settle(engineer, projectId, settlement, settleKey));
+        for (boolean historical : new boolean[]{false, true}) {
+            if (historical) {
+                var old = new java.util.LinkedHashMap<String, Object>();
+                old.put("projectId", projectId);
+                old.put("date", delivery.date().toString());
+                old.put("recipient", delivery.recipient());
+                old.put("ownerAssetId", String.valueOf(ownerEvidence));
+                old.put("fileAssetId", String.valueOf(validEvidence));
+                useOldClosureEvent("eng-deliver", old);
+                old.clear();
+                old.put("date", settlement.date().toString());
+                old.put("note", settlement.note());
+                useOldClosureEvent("eng-settle", old);
+            }
+            as(engineer, () -> closuresService.deliver(engineer, projectId, delivery, deliverKey));
+            as(engineer, () -> closuresService.settle(engineer, projectId, settlement, settleKey));
+            var reused = cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
+            cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                    () -> as(engineer, () -> closuresService.deliver(engineer, projectId, revised, deliverKey)), reused);
+            var otherAsset = new EngClosureService.SettleCommand(settlement.date(), settlement.note(), ownerEvidence);
+            cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                    () -> as(engineer, () -> closuresService.settle(engineer, projectId, otherAsset, settleKey)), reused);
+        }
+        long otherProject = insertProject("另一工程结算核对");
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> closuresService.settle(engineer, otherProject, settlement, settleKey)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        as(engineer, () -> closuresService.archive(engineer, projectId, idem()));
+        as(engineer, () -> closuresService.settle(engineer, projectId, settlement, settleKey));
         // 库内交付行仍是原凭据（未被换资产覆盖）
         assertThat(jdbc.queryForObject(
                 "SELECT file_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
@@ -1108,6 +1148,43 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(jdbc.queryForObject(
                 "SELECT owner_asset_id FROM fr_eng_closure WHERE project_id = ?", Long.class, projectId))
                 .isEqualTo(ownerEvidence); // R4 P2：双凭据保留断言闭环
+    }
+
+    @Test
+    void simultaneousSettlementRetriesReadTheSameReceipt() throws Exception {
+        long evidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
+        jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE,recipient=?,file_asset_id=? WHERE project_id=?",
+                "项目接收人", evidence, projectId);
+        String key = idem();
+        var command = new EngClosureService.SettleCommand(null, "核实施工结算", null);
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waiting = new java.util.concurrent.atomic.AtomicInteger();
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        try {
+            var second = tx.execute(status -> {
+                int firstPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                as(engineer, () -> closuresService.settle(engineer, projectId, command, key));
+                var replay = pool.submit(() -> tx.execute(other -> {
+                    waiting.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                    return as(engineer, () -> closuresService.settle(engineer, projectId, command, key));
+                }));
+                org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(() ->
+                        waiting.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                                "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, firstPid, waiting.get())));
+                return replay;
+            });
+            assertThat(second.get(10, java.util.concurrent.TimeUnit.SECONDS)).isNotEmpty();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-settle'",
+                    Integer.class, projectId)).isOne();
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private void useOldClosureEvent(String command, java.util.Map<String, Object> old) {
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? WHERE aggregate_id=? AND command=?",
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), projectId, command)).isOne();
     }
 
     @Test
