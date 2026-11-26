@@ -5,6 +5,7 @@ const { connect, render } = require('./role-page-runtime.cjs');
 const http = require('../miniprogram/api/http');
 const auth = require('../miniprogram/api/auth');
 const navigation = require('../miniprogram/utils/page-navigation');
+const { templates } = require('../miniprogram/utils/organization');
 const ROOT = path.resolve(__dirname, '../miniprogram');
 const LIST = '/pages/account/announcements/index';
 const DETAIL = '/pages/account/announcements/detail';
@@ -43,23 +44,46 @@ async function setup(role = 'sales', orgType = 'store') {
   return env;
 }
 
-test('业务、老板、工程和总部财务的我的共用独立公告入口，进入后可返回原岗位我的', async () => {
+test('所有加盟商岗位和总部代表岗位都能从我的打开公告列表及详情，再返回原岗位', async () => {
   for (const [role, orgType, profile] of [
-    ['sales', 'store', '/pages/profile/index'], ['boss', 'store', '/pages/profile/index'],
-    ['engineer', 'store', '/pages/profile/index'], ['finance', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
+    ...templates.store.map(role => [role, 'store', ['finance', 'finance-lead'].includes(role)
+      ? '/pages/admin/finance-desk/index?view=profile' : '/pages/profile/index']),
+    ['finance', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
     ['hq-admin', 'headquarters', '/pages/profile/index']
   ]) {
-    const env = await setup(role, orgType), page = await env.open(profile, 'reLaunch');
+    const env = await setup(role, orgType);
+    const published = announcement();
+    env.handler = url => url === API ? { list: [published], total: 1 }
+      : url === API + '/' + published.id ? published : undefined;
+    const page = await env.open(profile, 'reLaunch');
     const control = await (await env.runtime.currentPage()).$('button[data-action="announcements"]');
     assert.ok(control, role + ' has an announcement entry');
+    assert.equal(page.data.announcementTitle, published.title, role);
     const profileText = text(env.render(page));
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('学习培训'));
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('消息'));
     assert.ok(profileText.indexOf('学习培训') < profileText.indexOf('帮助与反馈'));
+    if (orgType === 'store') {
+      const rendered = flat(env.render(page));
+      const sections = rendered.map(node => node.attrs?.class || '');
+      const services = sections.findIndex(classes => classes.includes('franchise-section'));
+      const training = sections.findIndex(classes => classes.includes('academy-section'));
+      assert.ok(services >= 0 && training > services, role + ' has fixed franchise and training sections');
+      assert.match(text(rendered[services].children), /展陈设计.*众墅甄选.*门店地图.*商学院/s);
+      assert.match(text(rendered[training].children), /全部课程.*当前岗位暂无已开放课程.*学习资料/s);
+    }
     await control.tap(); await flush();
     const list = getCurrentPages().at(-1);
     assert.equal(list.route, LIST.slice(1));
+    assert.equal(list.data.items[0].id, published.id, role);
     assert.equal(navigation.parent(list), profile);
+    await (await (await env.runtime.currentPage()).$('.announcement-row')).tap(); await flush();
+    const detail = getCurrentPages().at(-1);
+    assert.equal(detail.route, DETAIL.slice(1));
+    assert.equal(detail.data.announcement.content, published.content, role);
+    assert.ok(env.reads().every(({ request }) => request.header['X-Post-Id'] === env.post.postId));
+    navigation.back(); await flush();
+    assert.equal(getCurrentPages().at(-1), list);
     navigation.back(); await flush();
     assert.equal(getCurrentPages().at(-1), page);
   }

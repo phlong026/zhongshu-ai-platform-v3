@@ -93,6 +93,7 @@ module.exports = function (tabIndex) {
       if (this.__profileFlight) return this.__profileFlight.promise;
       const apiLoggedIn = !!apiPost, loggedIn = s.session.loggedIn || apiLoggedIn;
       const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
+      const storeProfile = actor.orgType === 'store', showAdminMap = canViewAllStores(apiPost);
       const engineeringProfile = apiLoggedIn ? ['engineer','project-manager'].includes(apiPost.roleCode) : !!(a.active && O.has(a.role,'engineer'));
       const ownerProfile = apiLoggedIn ? ['boss','owner'].includes(apiPost.roleCode) : !!(a.active && require('../../utils/access').isBoss(a));
       const courses = Learning.coursesFor(actor.active ? actor.role : '');
@@ -105,9 +106,9 @@ module.exports = function (tabIndex) {
         identityText: Profile.compactIdentity(company,role), identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
         ...(sameScope ? {} : { ...emptyCourse(), announcementTitle: '', learningLabel: course ? course.category+'培训' : '', courseId: course ? course.id : '',
           courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
-        learningAvailable: apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
-        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || ['store','headquarters'].includes(actor.orgType),
-        showAdminMap: canViewAllStores(apiPost), showStoreMap:!loggedIn || actor.orgType === 'store' || canViewAllStores(apiPost),
+        learningAvailable: storeProfile || apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
+        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || storeProfile || actor.orgType === 'headquarters',
+        showAdminMap, showStoreMap: !loggedIn || storeProfile || showAdminMap,
         entries: entries(actor), managementEntries: managementEntries(actor),
         name: this.__profileDenied ? '' : s.profile.name, avatar: this.__profileDenied ? Profile.emptyProfile().avatar : s.profile.avatar, profileLoading: !!http.token(), profileError: '', role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),

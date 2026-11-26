@@ -7,6 +7,7 @@ const notices = require('./preview-profile-announcements.cjs');
 const profile = 'pages/profile/index';
 const list = 'pages/account/announcements/index';
 const detail = 'pages/account/announcements/detail';
+const storeRoles = ['boss', 'owner', 'sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead'];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const output = path.resolve(process.argv[2] || '.');
 
@@ -41,18 +42,18 @@ async function main() {
 
   try {
     // Seed only the isolated DevTools copy, which has a different AppID and a loopback backend.
-    await mp.evaluate(() => {
+    await mp.evaluate(storeRoles => {
       const account = wx.getAccountInfoSync().miniProgram;
       if (account.appId !== 'touristappid') throw Error('Expected the isolated tourist app');
       const post = { postId: 'preview-boss', userId: '701', orgId: '31', brandId: 'preview-brand', roleCode: 'boss', orgType: 'store', orgName: '合家美宅 · 江西南昌' };
       wx.setStorageSync('zs-api-base', 'http://127.0.0.1:39776/admin-api');
       wx.setStorageSync('zs-api-token-v1', 'local-profile-demo');
       wx.setStorageSync('zs-api-user-v1', '701');
-      wx.setStorageSync('zs-api-posts-v1', [post, { ...post, postId: 'preview-sales', roleCode: 'sales' }]);
+      wx.setStorageSync('zs-api-posts-v1', storeRoles.map(roleCode => ({ ...post, postId: 'preview-' + roleCode, roleCode })));
       wx.setStorageSync('zs-api-post-v1', post.postId);
       wx.reLaunch({ url: '/pages/profile/index' });
       return true;
-    });
+    }, storeRoles);
     await waitFor(profile, data => data.announcementTitle === notices[0].title && data.courseId === 'management' && data.unread === 3 && data.name === '陈明');
     await delay(300);
     fs.mkdirSync(output, { recursive: true });
@@ -95,10 +96,32 @@ async function main() {
     await search.input('账本');
     await tap('.search-submit');
     await waitFor(list, data => data.items.length === 1 && data.items[0].id === notices[2].id);
-    await mp.reLaunch('/' + profile);
+    for (const role of storeRoles) {
+      const route = ['finance', 'finance-lead'].includes(role) ? 'pages/admin/finance-desk/index?view=profile' : profile;
+      await mp.evaluate(({ role, route }) => {
+        wx.setStorageSync('zs-api-post-v1', 'preview-' + role);
+        wx.reLaunch({ url: '/' + route });
+        return true;
+      }, { role, route });
+      const data = await waitFor(route.split('?')[0], data => data.announcementTitle === notices[0].title && !data.learningLoading);
+      assert.equal(!!data.courseId, ['boss', 'owner'].includes(role), role);
+      const fixed = await mp.evaluate(() => new Promise(resolve => {
+        const query = wx.createSelectorQuery();
+        ['.announcement-section', '.franchise-section', '.academy-section'].forEach(selector => query.select(selector).boundingClientRect());
+        query.selectAll('.franchise-section .tile').boundingClientRect();
+        query.exec(resolve);
+      }));
+      assert.ok(fixed.slice(0, 3).every(rect => rect && rect.height > 0), role + ' has all three fixed sections');
+      assert.equal(fixed[3].length, 4, role + ' has all four franchise services');
+    }
+    await mp.evaluate(url => {
+      wx.setStorageSync('zs-api-post-v1', 'preview-boss');
+      wx.reLaunch({ url });
+      return true;
+    }, '/' + profile);
     await waitFor(profile, data => data.announcementTitle === notices[0].title);
     assert.equal(errors.length, 0, JSON.stringify(errors));
-    const result = { platform, windowWidth, windowHeight, geometry, announcements: notices.map(row => row.title) };
+    const result = { platform, windowWidth, windowHeight, geometry, storeRoles, announcements: notices.map(row => row.title) };
     fs.writeFileSync(path.join(output, 'native-result.json'), JSON.stringify(result, null, 2));
     process.stdout.write(JSON.stringify(result) + '\n');
   } finally {

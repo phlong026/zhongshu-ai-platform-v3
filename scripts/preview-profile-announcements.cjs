@@ -34,7 +34,6 @@ const replies = new Map([
   ['/franchise/company-points/summary', { balance: 9300, status: 'ACTIVE' }],
   ['/franchise/company-points/my-usage', { used: 0, list: [], total: 0 }],
   ['/franchise/company-points/recharge/catalog', { enabled: false }],
-  ['/training/app/courses', [course]],
   ['/training/app/materials', []]
 ]);
 
@@ -48,6 +47,9 @@ if (require.main === module) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const path = url.pathname.replace(/^\/admin-api/, '');
     if (path === '/health') return send({ ready: true });
+    if (path === '/training/app/courses') {
+      return send(['preview-boss', 'preview-owner'].includes(req.headers['x-post-id']) ? [course] : []);
+    }
     const endpoint = '/platform/announcements/app';
     if (path === endpoint) {
       const keyword = (url.searchParams.get('keyword') || '').trim();
