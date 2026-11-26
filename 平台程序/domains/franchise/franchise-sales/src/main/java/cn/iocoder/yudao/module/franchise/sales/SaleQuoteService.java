@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 import cn.iocoder.yudao.module.franchise.sales.dal.*;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
+import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowQuotePort;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
 import cn.iocoder.yudao.module.franchise.org.FranchiseRoles;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +28,7 @@ import static cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorC
  * 抬头快照（客户名/电话/地址）与尺寸在创建时冻结；导出=规范票据 JSON。
  */
 @Service
-public class SaleQuoteService {
+public class SaleQuoteService implements CustomerWorkflowQuotePort {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     public record QuoteCommand(long customerId, Long schemeId, Map<String, Object> items,
@@ -135,6 +137,24 @@ public class SaleQuoteService {
         return quotes.selectByCustomer(customerId);
     }
 
+    public record WorkflowOption(Long id, Long customerId, Long companyId, Long totalCents,
+                                 Integer budgetVersion, String priceVersion, OffsetDateTime createTime) { }
+
+    public List<WorkflowOption> workflowOptions(PostSnapshot post, long customerId) {
+        customerSchemes.requireDocumentReadable(post, customerId);
+        return quotes.selectWorkflowOptions(post.orgId(), customerId).stream()
+                .map(row -> new WorkflowOption(row.getId(), row.getCustomerId(), row.getCompanyId(), row.getTotalCents(),
+                        row.getBudgetVersion(), row.getPriceVersion(), row.getCreateTime())).toList();
+    }
+
+    public Map<String, Object> workflowSheet(PostSnapshot post, long customerId, long quoteId) {
+        SaleQuoteDO quote = requireWorkflowQuote(post, customerId, quoteId);
+        Map<String, Object> sheet = frozenSheet(quote);
+        sheet.put("customerId", Long.toString(customerId));
+        sheet.put("quoteId", Long.toString(quoteId));
+        return sheet;
+    }
+
     public SaleQuoteDO requireOfOrg(PostSnapshot post, long quoteId) {
         SaleQuoteDO quote = quotes.selectById(quoteId);
         if (quote == null || quote.getCompanyId() != post.orgId()) {
@@ -143,12 +163,40 @@ public class SaleQuoteService {
         return quote;
     }
 
+    @Override
+    public Quote requireCustomerQuote(PostSnapshot post, long customerId, long quoteId) {
+        SaleQuoteDO quote = requireWorkflowQuote(post, customerId, quoteId);
+        return new Quote(quote.getTotalCents(), quoteVersionLabel(quote));
+    }
+
+    private SaleQuoteDO requireWorkflowQuote(PostSnapshot post, long customerId, long quoteId) {
+        customerSchemes.requireDocumentReadable(post, customerId);
+        SaleQuoteDO quote = requireOfOrg(post, quoteId);
+        if (!java.util.Objects.equals(quote.getCustomerId(), customerId)
+                || quote.getTotalCents() == null || quote.getTotalCents() <= 0) {
+            throw exception(REFERENCE_INVALID);
+        }
+        return quote;
+    }
+
+    private static String quoteVersionLabel(SaleQuoteDO quote) {
+        String version = quote.getPriceVersion();
+        if (quote.getBudgetVersion() != null && quote.getBudgetVersion() > 0) {
+            version = "V" + quote.getBudgetVersion() + (version == null || version.isBlank() ? "" : " · " + version);
+        }
+        return version == null || version.isBlank() ? "报价 #" + quote.getId() : version;
+    }
+
     /** B4：规范票据 JSON（字段对齐 v3 quote-export sheet；全部取自创建时冻结快照） */
     public Map<String, Object> exportSheet(PostSnapshot post, long quoteId) {
-        SaleQuoteDO quote = requireOfOrg(post, quoteId);
+        return frozenSheet(requireOfOrg(post, quoteId));
+    }
+
+    private static Map<String, Object> frozenSheet(SaleQuoteDO quote) {
         Map<String, Object> sheet = new LinkedHashMap<>();
         sheet.put("kind", "budget");
         sheet.put("version", quote.getId());
+        sheet.put("quoteVersionLabel", quoteVersionLabel(quote));
         sheet.put("date", quote.getCreateTime() == null ? null
                 : quote.getCreateTime().atZoneSameInstant(BUSINESS_ZONE).toLocalDate().toString());
         sheet.put("name", quote.getCustomerName());

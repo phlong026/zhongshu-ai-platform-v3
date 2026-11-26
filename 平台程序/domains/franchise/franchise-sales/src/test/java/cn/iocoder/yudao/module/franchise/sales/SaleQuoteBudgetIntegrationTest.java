@@ -2,6 +2,13 @@ package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowAssetPolicy;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.ReopenCommand;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.SaveCommand;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowService;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleQuoteDO;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
@@ -26,9 +33,11 @@ import static org.assertj.core.api.Assertions.*;
 
 /** 真实 PG + CRM 回写；验证报价与委托预算是同一事务事实，而非 UI 伪造完成。 */
 @Import({SaleQuoteService.class, SaleRequirementService.class, SalesAccess.class,
-        CustomerSchemeAdapter.class, CustomerService.class, FranchiseCommands.class, CommandLogImpl.class})
+        CustomerSchemeAdapter.class, CustomerService.class, FranchiseCommands.class, CommandLogImpl.class,
+        CustomerWorkflowReadService.class, CustomerWorkflowService.class, CustomerWorkflowAssetPolicy.class})
 class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
     @Resource private SaleQuoteService quotes;
+    @Resource private CustomerWorkflowService workflow;
     @Resource private JdbcTemplate jdbc;
     @Resource private PlatformTransactionManager transactions;
     @Resource private javax.sql.DataSource dataSource;
@@ -41,6 +50,47 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
         customer = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
         jdbc.update("INSERT INTO fr_customer (id,company_id,owner_user_id,name,phone,source,status) VALUES (?,?,?,'联调预算客户',?,'业务登记','REGISTERED')",
                 customer, sales.orgId(), sales.userId(), "138" + String.format("%08d", Math.floorMod(customer,100_000_000L)));
+    }
+
+    @Test void workflowQuoteReadsFollowCurrentCustomerAssignmentAndDoNotExposeDetailsInThePicker() {
+        var original = as(() -> quotes.create(sales, command("12", "客户报价"), key()));
+        long id = original.getId();
+        var peer = fixture.post(sales.orgId(), SALES, sales.teamId());
+        var boss = fixture.post(sales.orgId(), cn.iocoder.yudao.module.franchise.org.FranchiseRoles.BOSS, null);
+        var lead = fixture.post(sales.orgId(), cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES_LEAD, sales.teamId());
+        var otherStore = fixture.store();
+        var outsider = fixture.post(otherStore.orgId(), SALES, otherStore.salesTeamA());
+        jdbc.update("UPDATE fr_customer SET team_id=? WHERE id=?", sales.teamId(), customer);
+        long another = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbc.update("INSERT INTO fr_customer (id,company_id,owner_user_id,name,phone,source,status) VALUES (?,?,?,'另一位客户',?,'业务登记','REGISTERED')",
+                another, sales.orgId(), sales.userId(), "139" + String.format("%08d", Math.floorMod(another,100_000_000L)));
+        currentPost.use(sales);
+        try {
+            assertThat(quotes.workflowOptions(sales, customer)).singleElement().satisfies(option -> {
+                assertThat(option.id()).isEqualTo(id);
+                assertThat(option.totalCents()).isEqualTo(original.getTotalCents());
+                assertThat(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(option)).doesNotContain("customerName", "customerPhone", "address", "items");
+            });
+            assertThat(quotes.workflowSheet(sales, customer, id)).containsEntry("customerId", Long.toString(customer)).containsEntry("quoteId", Long.toString(id));
+            assertThatThrownBy(() -> quotes.workflowSheet(sales, another, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(peer);
+            assertThatThrownBy(() -> quotes.workflowOptions(peer, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(peer, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(outsider);
+            assertThatThrownBy(() -> quotes.workflowOptions(outsider, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(outsider, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(lead);
+            assertThat(quotes.workflowOptions(lead, customer)).hasSize(1);
+            assertThat(quotes.workflowSheet(lead, customer, id)).containsEntry("quoteId", Long.toString(id));
+            currentPost.use(boss);
+            assertThat(quotes.workflowSheet(boss, customer, id)).containsEntry("quoteVersionLabel", "V1 · 客户报价");
+            jdbc.update("UPDATE fr_customer SET owner_user_id=? WHERE id=?", peer.userId(), customer);
+            currentPost.use(sales);
+            assertThatThrownBy(() -> quotes.workflowOptions(sales, customer)).isInstanceOf(ServiceException.class);
+            assertThatThrownBy(() -> quotes.workflowSheet(sales, customer, id)).isInstanceOf(ServiceException.class);
+            currentPost.use(peer);
+            assertThat(quotes.workflowSheet(peer, customer, id)).containsEntry("quoteId", Long.toString(id));
+        } finally { currentPost.clear(); }
     }
 
     @Test void quoteCreatesFrozenBudgetAndReplayDoesNotCreateAnotherVersion() {
@@ -65,6 +115,102 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(() -> as(() -> quotes.create(sales, command("13", "sales-v1"), key))).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> as(() -> quotes.create(sales, command("12", "sales-v2"), key))).isInstanceOf(RuntimeException.class);
         assertThat(budgetCount()).isEqualTo(1);
+    }
+
+    @Test void workflowLinksOneFormalQuoteAndKeepsTheCommunicatedVersionWithoutAnotherUpload() {
+        bindWorkflowTenant();
+        try {
+            var original = as(() -> quotes.create(sales, command("12", "门店价目"), key()));
+            as(() -> quotes.create(sales, command("13", "新价目"), key()));
+            String originalId = original.getId().toString();
+            var date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var input = new SaveCommand(0, date, "", Map.of("quoteId", originalId, "amountCents", "1",
+                    "versionLabel", "应忽略", "result", "已发给客户", "communicated", true), List.of());
+            String saveKey = key();
+            var saved = as(() -> workflow.save(sales, customer, "QUOTATION", input, saveKey));
+            assertThat(saved.completedCount()).isZero();
+            assertThat(saved.steps().get(5).fields()).containsEntry("quoteId", originalId)
+                    .containsEntry("amountCents", original.getTotalCents().toString())
+                    .containsEntry("versionLabel", "V" + original.getBudgetVersion() + " · 门店价目");
+            assertThat(saved.steps().get(5).attachments()).isEmpty();
+            assertThat(as(() -> workflow.save(sales, customer, "QUOTATION", input, saveKey)).revision()).isEqualTo(saved.revision());
+            String completeKey = key();
+            var done = as(() -> workflow.complete(sales, customer, "QUOTATION", saved.revision(), completeKey));
+            assertThat(done.completedCount()).isEqualTo(1);
+            assertThat(done.steps().get(5).status()).isEqualTo("COMPLETED");
+            assertThat(as(() -> workflow.complete(sales, customer, "QUOTATION", saved.revision(), completeKey)).revision()).isEqualTo(done.revision());
+            assertThat(as(() -> workflow.records(sales, customer, 1, 20)).getList()).hasSize(2)
+                    .allSatisfy(event -> assertThat(event.fields()).containsEntry("quoteId", originalId));
+            assertThat(budgetCount()).isEqualTo(2);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test void reopenedQuotationKeepsTheOldCommunicationAndRequiresAResultForTheReplacement() {
+        bindWorkflowTenant();
+        try {
+            var date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var original = as(() -> quotes.create(sales, command("12", "原价目"), key()));
+            var replacement = as(() -> quotes.create(sales, command("13", "调整价目"), key()));
+            String first = original.getId().toString(), second = replacement.getId().toString();
+            assertThat(as(() -> quotes.exportSheet(sales, original.getId())))
+                    .containsEntry("quoteVersionLabel", "V" + original.getBudgetVersion() + " · 原价目");
+            var firstFields = Map.<String,Object>of("quoteId", first, "communicated", true, "result", "客户要求调整");
+            var saved = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(0, date.minusDays(1), "", firstFields, List.of()), key()));
+            var done = as(() -> workflow.complete(sales, customer, "QUOTATION", saved.revision(), key()));
+            var reopened = as(() -> workflow.reopen(sales, customer, "QUOTATION", new ReopenCommand(done.revision(), "客户要求调整"), key()));
+            var unconfirmed = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(reopened.revision(), date, "", Map.of("quoteId", second), List.of()), key()));
+            assertThat(unconfirmed.steps().get(5).canComplete()).isFalse();
+            assertThatThrownBy(() -> as(() -> workflow.complete(sales, customer, "QUOTATION", unconfirmed.revision(), key())))
+                    .isInstanceOf(ServiceException.class).hasMessageContaining("向客户发送或说明");
+            var secondFields = Map.<String,Object>of("quoteId", second, "communicated", true, "result", "已向客户讲解");
+            var confirmed = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(unconfirmed.revision(), date, "", secondFields, List.of()), key()));
+            var result = as(() -> workflow.complete(sales, customer, "QUOTATION", confirmed.revision(), key()));
+            assertThat(result.steps().get(5).fields()).containsEntry("quoteId", second)
+                    .containsEntry("versionLabel", "V" + replacement.getBudgetVersion() + " · 调整价目");
+            var completed = as(() -> workflow.records(sales, customer, 1, 20)).getList().stream()
+                    .filter(row -> row.type().equals("COMPLETE")).toList();
+            assertThat(completed).hasSize(2);
+            assertThat(completed.get(0).fields()).containsAllEntriesOf(secondFields);
+            assertThat(completed.get(0).occurredOn()).isEqualTo(date);
+            assertThat(completed.get(1).fields()).containsAllEntriesOf(firstFields)
+                    .containsEntry("amountCents", original.getTotalCents().toString());
+            assertThat(completed.get(1).occurredOn()).isEqualTo(date.minusDays(1));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test void workflowRejectsAnotherCustomersQuoteAndCompletionWithoutCommunication() {
+        bindWorkflowTenant();
+        try {
+            var original = as(() -> quotes.create(sales, command("12", "原价目"), key()));
+            long otherCustomer = cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+            jdbc.update("INSERT INTO fr_customer (id,company_id,owner_user_id,name,phone,source,status) VALUES (?,?,?,'另一客户',?,'业务登记','REGISTERED')",
+                    otherCustomer, sales.orgId(), sales.userId(), "139" + String.format("%08d", Math.floorMod(otherCustomer,100_000_000L)));
+            var date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var input = new SaveCommand(0, date, "", Map.of("quoteId", original.getId().toString()), List.of());
+            assertThatThrownBy(() -> as(() -> workflow.save(sales, otherCustomer, "QUOTATION", input, key())))
+                    .isInstanceOf(ServiceException.class);
+            assertThat(as(() -> workflow.get(sales, otherCustomer)).workflowId()).isNull();
+            var saved = as(() -> workflow.save(sales, customer, "QUOTATION", input, key()));
+            assertThatThrownBy(() -> as(() -> workflow.complete(sales, customer, "QUOTATION", saved.revision(), key())))
+                    .isInstanceOf(ServiceException.class).hasMessageContaining("向客户发送或说明");
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    private void bindWorkflowTenant() {
+        jdbc.update("""
+                INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'报价测试门店',0,0,?)
+                ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,status=0,deleted=0
+                """, sales.orgId(), sales.orgId());
+        TenantContextHolder.setTenantId(sales.orgId());
     }
 
     @Test void actualBudgetAreaIsFrozenInsteadOfBeingOverwrittenByTheOuterDimensions() {
