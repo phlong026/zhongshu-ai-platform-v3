@@ -4,24 +4,36 @@ const apiScope = require('../../utils/api-scope');
 const navigation = require('../../utils/page-navigation');
 const api = require('./api');
 const model = require('./model');
+const visitEntry = require('./visit-entry');
 const commandKey = require('../../utils/platform-crm').commandKey;
 const scope = () => http.token() ? JSON.stringify([apiScope(), auth.currentApiPost()?.brandId || '']) : '';
 const clone = value => JSON.parse(JSON.stringify(value));
+function quoteSourceChanged(previous, next) {
+  if (previous.fields.quoteId || next.fields.quoteId) return previous.fields.quoteId !== next.fields.quoteId;
+  return ['versionLabel', 'amountCents', 'scope'].some(key => previous.fields[key] !== next.fields[key])
+    || (previous.attachments.length > 0 && (previous.attachments.length !== next.attachments.length
+      || previous.attachments.some((file, i) => file.assetId !== next.attachments[i].assetId)));
+}
 const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 1110000001].includes(Number(error.code));
 
 Page({
+  ...visitEntry.actions,
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
-    uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null },
+    uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
+    quoteOptions: [], quotesLoading: false, quotesError: '' },
   onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || ''; this._drafts = {}; this._localFiles = {}; },
   onShow() { this._visible = true; return this.load(); },
-  onHide() { this._visible = false; this._request = null; this._historyRequest = null; },
+  onHide() { this._visible = false; this._request = null; this._historyRequest = null; this._quoteRequest = null; },
   onUnload() { this._disposed = true; this.onHide(); this._drafts = {}; this._pendingFile = null; this._localFiles = {}; },
   clear(error = '') {
-    this._request = null; this._historyRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
+    this._visitEntry = null;
+    this._request = null; this._historyRequest = null; this._quoteRequest = null; this._previewRequest = null; this._pending = null; this._pendingFile = null; this._drafts = {}; this._localFiles = {};
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
+      visitSites: [], visitTimes: [], visitFeedback: [], visitSiteMore: false, visitSiteLoading: false, visitSiteError: '',
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
-      journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null, error });
+      journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
+      quoteOptions: [], quotesLoading: false, quotesError: '', error });
   },
   validPost() {
     const post = auth.currentApiPost();
@@ -63,13 +75,18 @@ Page({
     if (!step) return;
     const draft = replace ? null : this._drafts[code];
     this.selectedCode = code;
+    this._quoteRequest = null;
     const form = draft ? clone(draft.form) : model.form(step);
+    if (!draft) visitEntry.defaultDate(step, form);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
     const workflow = this.data.workflow;
     const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
     const nextStep = model.definition(nextCode) || workflow.steps.find(item => item.code !== code && item.status !== 'COMPLETED');
     this.setData({ step: { ...step, canReadEngineering: this.canReadEngineering() }, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
-      nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null, error: '' });
+      nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null,
+      quoteOptions: [], quotesLoading: false, quotesError: '', error: '' });
+    if (code === 'QUOTATION' && step.canWrite) this.loadQuotes();
+    visitEntry.prepare(this, step, draft, auth.currentApiPost(), http.currentUserId?.(), api);
   },
   journeyLocked() { return this.data.busy || this.data.uploading || this.data.uploadFailed || this.data.uncertain; },
   showJourney() {
@@ -86,6 +103,17 @@ Page({
   },
   editable() { return this.alive() && this.data.step?.canWrite && !this.data.busy && !this.data.uploading && !this.data.uncertain && !this.data.conflict; },
   change(form) {
+    const previous = this.data.form;
+    if (this.selectedCode === 'QUOTATION' && (previous.fields.communicated || previous.fields.result)
+        && quoteSourceChanged(previous, form)) {
+      form.fields.communicated = false;
+      form.fields.result = '';
+      form.occurredOn = '';
+    }
+    if (this.selectedCode === 'HOUSE_SELECTION') {
+      if (previous.fields.selectionMode !== form.fields.selectionMode) this._referenceRequest = null;
+      model.houseSelection.update(previous, form);
+    }
     this._drafts[this.selectedCode] = { form: clone(form), revision: this._formRevision };
     this.setData({ form, fields: model.fieldRows(this.selectedCode, form), dirty: true, error: '' });
   },
@@ -110,6 +138,47 @@ Page({
     const key = event.currentTarget.dataset.key;
     if (!model.definition(this.selectedCode).fields.some(f => f.key === key && f.type === 'boolean')) return;
     const form = clone(this.data.form); form.fields[key] = event.detail.value === true; this.change(form);
+  },
+  async loadQuotes() {
+    if (!this._visible || !this.alive() || this.selectedCode !== 'QUOTATION' || !this.data.step?.canWrite) return;
+    const request = this._quoteRequest = { scope: this._scope, companyId: model.id(this.data.workflow.companyId) };
+    const current = () => this._visible && this._quoteRequest === request && this.alive(request.scope);
+    this.setData({ quotesLoading: true, quotesError: '', quoteOptions: [] });
+    try {
+      const rows = await api.listQuotes(this.customerId);
+      if (!current()) return;
+      this.setData({ quotesLoading: false, quoteOptions: model.quoteOptions(rows, this.customerId, request.companyId) });
+    } catch (error) {
+      if (!current()) return;
+      if (accessRevoked(error)) this.clear(model.errorText(error));
+      else this.setData({ quotesLoading: false, quotesError: model.errorText(error) });
+    }
+  },
+  chooseQuote(event) {
+    if (!this.editable() || this.selectedCode !== 'QUOTATION') return;
+    const quote = this.data.quoteOptions[Number(event.detail.value)];
+    if (!quote || quote.id === this.data.form.fields.quoteId) return;
+    const form = clone(this.data.form);
+    Object.assign(form.fields, { quoteId: quote.id, amountCents: quote.amount, versionLabel: quote.version,
+      scope: '', communicated: false, result: '' });
+    this.change(form);
+  },
+  removeQuote() {
+    if (!this.editable() || this.selectedCode !== 'QUOTATION' || !this.data.form.fields.quoteId) return;
+    const form = clone(this.data.form);
+    Object.assign(form.fields, { quoteId: '', amountCents: '', versionLabel: '', scope: '', communicated: false, result: '' });
+    form.attachments = []; // A linked quote's supporting files do not identify the new external quotation.
+    this.change(form);
+  },
+  quoteCommunicated(event) {
+    if (!this.editable() || this.selectedCode !== 'QUOTATION' || !this.data.form.fields.quoteId) return;
+    const result = event.currentTarget.dataset.result;
+    if (!['已发给客户', '已向客户讲解', '客户要求调整'].includes(result)) return;
+    const form = clone(this.data.form);
+    form.fields.communicated = true;
+    form.fields.result = result;
+    if (!form.occurredOn) form.occurredOn = require('../../utils/finance-date').day(Date.now());
+    this.change(form);
   },
   async submit(event) {
     if (!this.editable() || this.data.uploadFailed) return;
@@ -242,11 +311,12 @@ Page({
     }
   },
   chooseReference() {
-    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION') return;
-    const savedScope = this._scope;
+    if (!this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form)) return;
+    const savedScope = this._scope, request = this._referenceRequest = {};
     wx.navigateTo({ url: '/design-migration/pages/library/index?pick=workflow&customerId=' + encodeURIComponent(this.customerId),
       events: { workflowReference: value => {
-        if (!this.alive(savedScope) || !this.editable() || this.selectedCode !== 'HOUSE_SELECTION' || !model.id(value?.caseId)) return;
+        if (this._referenceRequest !== request || !this.alive(savedScope) || !this.editable()
+            || this.selectedCode !== 'HOUSE_SELECTION' || model.houseSelection.isCustom(this.data.form) || !model.id(value?.caseId)) return;
         const form = clone(this.data.form); form.fields.referenceCaseId = model.id(value.caseId); form.fields.referenceCaseName = String(value.title || '参考户型').slice(0, 200); this.change(form);
       } }, fail: () => { if (this.alive(savedScope)) this.setData({ error: '灵感库打开失败，请重试' }); } });
   },
@@ -256,6 +326,15 @@ Page({
   },
   openBudget() { if (this.alive()) navigation.open('/design-migration/pages/budget/quick?customerId=' + encodeURIComponent(this.customerId)); },
   openSalesQuote() { if (this.alive()) navigation.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
+  openLinkedQuote() {
+    const record = this.data.activeRecord;
+    const code = record ? record.stepCode : this.selectedCode;
+    const quoteId = model.id(record ? record.fields?.quoteId : this.data.form?.fields?.quoteId);
+    if (!this.alive()) return this.load();
+    if (code === 'QUOTATION' && quoteId) {
+      navigation.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(quoteId) + '&source=customer-flow&customerId=' + encodeURIComponent(this.customerId));
+    }
+  },
   openEntrust() {
     if (['MEASUREMENT', 'QUOTATION', 'START'].includes(this.selectedCode)) this.openRelated('/pages/external-entrust/index?customerId=' + encodeURIComponent(this.customerId));
   },
@@ -310,6 +389,11 @@ Page({
     const details = model.fieldRows(record.stepCode, value).map(f => ({ label: f.label,
       value: f.type === 'reference' ? value.fields.referenceCaseName || '未关联' : f.type === 'boolean' ? (f.value ? '是' : '否')
         : f.type === 'pick' ? f.optionLabel : String(f.value || '—') }));
+    if (record.stepCode === 'QUOTATION' && value.fields.quoteId) {
+      details.unshift({ label: '报价原单编号', value: value.fields.quoteId },
+        { label: '正式报价金额', value: '¥ ' + value.fields.amountCents },
+        { label: '报价版本', value: value.fields.versionLabel }, { label: '沟通结果', value: value.fields.result || '—' });
+    }
     this.setData({ activeRecord: { ...record, details } });
   },
   closeRecord() { this.setData({ activeRecord: null }); },

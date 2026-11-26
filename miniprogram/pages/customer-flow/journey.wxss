@@ -39,4 +39,3 @@
 .journey-row-name{flex:1;font-size:27rpx;font-weight:550}
 .journey-row-status{color:#897763;font-size:23rpx;white-space:nowrap}
 .journey-sheet-list{max-height:65vh}
-
