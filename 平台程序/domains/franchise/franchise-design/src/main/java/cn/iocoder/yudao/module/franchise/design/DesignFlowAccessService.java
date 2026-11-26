@@ -45,6 +45,9 @@ public class DesignFlowAccessService {
         var operation=original.operation();String path=original.path(),method=original.method();var q=original.query();
         if(Set.of(DesignCapabilityContract.Operation.FLOW_FLAT_JOB, DesignCapabilityContract.Operation.FLOW_ELEVATION_JOB,
                 DesignCapabilityContract.Operation.FLOW_REVISION).contains(operation)) DesignGenerationPolicy.rejectGeneration();
+        if ("POST".equals(method) && (path.endsWith("/flat-selections") || path.endsWith("/elevation-selections"))) {
+            throw DesignGenerationPolicy.retired();
+        }
         if(path.equals("/cases"))return access.listCases(post,new DesignServicePort.CaseQuery(q.get("styleCode"),integer(q,"floorCount",null),decimal(q,"faceWidth"),decimal(q,"depth"),q.get("keyword"),q.get("cursor"),integer(q,"limit",20),q.get("sourceType"),integer(q,"minArea",null),integer(q,"maxArea",null)));
         if(path.equals("/cases/styles"))return access.listCaseStyles(post);
         if(path.equals("/cases/generation-candidates") || path.endsWith("/generation-candidate") || path.equals("/cases/recommendation")) {
