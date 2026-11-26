@@ -176,6 +176,29 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales, () -> workflow.get(sales,id)).revision()).isEqualTo(unverified.revision());
     }
 
+    @Test void legacyClientCanResubmitMeasurementFilesWithEmptyAndLongOriginalTitles() throws Exception {
+        long customer = customer(sales), first = upload(sales,"BUSINESS_DOCUMENT"), second = upload(sales,"BUSINESS_DOCUMENT");
+        String longTitle = "测".repeat(175) + "🏡" + "量".repeat(19) + ".PDF";
+        assertThat(longTitle).hasSize(200);
+        var originals = List.of(new Attachment(Long.toString(first), ""), new Attachment(Long.toString(second), longTitle));
+        var fields = Map.<String,Object>of("address","老址","measurer","测量员","width","9","depth","10","area","90","checked",true);
+        as(sales, () -> workflow.save(sales,customer,"MEASUREMENT",new CustomerWorkflowModel.SaveCommand(0,today(),"",fields,originals),key()));
+        var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
+        var empty = as(sales, () -> external.get(sales,customer));
+        var firstVersion = as(sales, () -> external.register(sales,customer,measuredRequest(empty,measurement,List.of(),null),key()));
+        var copiedFiles = firstVersion.currentRequest().data().attachments();
+        var oldCommand = measuredRequest(firstVersion,null,copiedFiles,null);
+        var next = as(sales, () -> external.register(sales,customer,oldCommand,key()));
+        assertThat(next.requests()).hasSize(2).allSatisfy(version -> {
+            assertThat(version.data().measurementRef().attachments()).isEqualTo(originals);
+            assertThat(version.data().attachments()).isEqualTo(copiedFiles);
+        });
+        assertThat(copiedFiles.get(0).title()).isNotBlank();
+        assertThat(copiedFiles.get(1).title()).isEqualTo("测".repeat(175) + ".PDF");
+        var download = as(sales, () -> external.download(sales,customer,"requests",1,second));
+        assertThat(as(sales, () -> assets.readDownload(actor(sales),second,token(download.downloadUrl()))).bytes()).isEqualTo(PDF);
+    }
+
     @Test void withdrawnMeasurementFileCannotBeRegisteredAndPreFeatureRequestShapeIsUnchanged() throws Exception {
         long id = customer(sales), file = upload(sales, "BUSINESS_DOCUMENT");
         var sourceFields = Map.<String,Object>of("address","宅基地","measurer","现场人员","width","9","depth","9","area","81","checked",true);
