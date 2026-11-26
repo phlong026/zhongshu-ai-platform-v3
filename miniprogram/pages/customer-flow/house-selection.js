@@ -10,11 +10,13 @@ function fields(definition, form, writing = false) {
     return definition.fields.filter(field => ['selectionMode', 'customDirection', 'confirmed'].includes(field.key))
       .map(field => field.key === 'confirmed' ? { ...field, label: '客户已确认定制方向' } : field);
   }
-  return definition.fields.filter(field => field.key !== 'customDirection' && (!writing || field.key !== 'selectionMode'));
+  return definition.fields.filter(field => field.key !== 'customDirection' && (!writing || field.key !== 'selectionMode' || form.explicitStandardSelection === true));
 }
 
 function update(previous, next) {
   if (previous.fields.selectionMode !== next.fields.selectionMode) {
+    // Only a deliberate switch may clear an external custom direction already stored by the server.
+    next.explicitStandardSelection = !isCustom(next);
     Object.assign(next.fields, { referenceCaseId: '', referenceCaseName: '', selectionResult: '', versionLabel: '', customDirection: '', confirmed: false });
     if (previous.fields.confirmed) next.occurredOn = '';
     return;
