@@ -129,11 +129,11 @@ public class ContentPublicationController {
     }
 
     @GetMapping("/growth/summary")
-    @Operation(summary = "获客聚合（来源×内容×转化；客资登记复用 /franchise/leads）")
+    @Operation(summary = "内容发布、有效咨询及关联客户的签约与净实收统计")
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<Map<String, Object>> growthSummary() {
         PostSnapshot post = post();
-        return success(growth.summary(post.orgId()));
+        return success(growth.summary(post));
     }
 
     static Map<String, Object> view(FrContentPublicationDO row) {

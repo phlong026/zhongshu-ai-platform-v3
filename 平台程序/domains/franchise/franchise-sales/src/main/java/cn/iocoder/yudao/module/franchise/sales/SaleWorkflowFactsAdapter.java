@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowFactsPort;
 import cn.iocoder.yudao.module.franchise.api.AssetEvidenceQueryPort;
+import cn.iocoder.yudao.module.franchise.api.ContentCustomerOutcomesPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -13,14 +14,48 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.HashSet;
 
 /** The sales domain owns the signing fact. CRM may only consume this scoped bulk projection. */
 @Component
-public class SaleWorkflowFactsAdapter implements CustomerWorkflowFactsPort {
+public class SaleWorkflowFactsAdapter implements CustomerWorkflowFactsPort, ContentCustomerOutcomesPort {
     private final NamedParameterJdbcTemplate jdbc;
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.beans.factory.ObjectProvider<AssetEvidenceQueryPort> evidence;
     public SaleWorkflowFactsAdapter(JdbcTemplate jdbc) { this.jdbc = new NamedParameterJdbcTemplate(jdbc); }
+
+    @Override
+    public Map<Long, SignedCustomer> signedCustomers(long tenantId, long companyId, Set<Long> customerIds) {
+        Map<Long, SignedCustomer> result = new LinkedHashMap<>();
+        List<Long> customers = List.copyOf(customerIds);
+        // Bound IN lists in both the contract and accepted-attachment projections.
+        for (int from = 0; from < customers.size(); from += 1000) {
+            Map<Long, Long> companies = new LinkedHashMap<>();
+            customers.subList(from, Math.min(from + 1000, customers.size())).forEach(id -> companies.put(id, companyId));
+            Map<Long, Long> contracts = new LinkedHashMap<>();
+            for (Fact fact : findFacts(tenantId, companies)) {
+                if (fact.complete()) contracts.put(Long.parseLong(fact.fields().get("contractId").toString()), fact.customerId());
+            }
+            if (contracts.isEmpty()) continue;
+            // A partial receipt establishes net cash. Full refunds and superseded contracts cannot do so.
+            Set<Long> paid = new HashSet<>(jdbc.queryForList("""
+                    SELECT s.contract_id FROM fr_sale_payment_stage s
+                    JOIN fr_sale_stage_receipt x ON x.stage_id=s.id AND x.contract_id=s.contract_id AND x.company_id=s.company_id
+                    JOIN fr_fin_receipt r ON r.id=x.receipt_id AND r.company_id=x.company_id AND NOT r.deleted AND r.status='已登记'
+                        AND (r.customer_id IS NULL OR r.customer_id=s.customer_id)
+                    WHERE NOT s.deleted AND s.company_id=:company AND s.contract_id IN (:contracts)
+                    GROUP BY s.contract_id HAVING SUM(r.amount_cents - COALESCE((
+                        SELECT SUM(f.amount_cents) FROM fr_fin_refund f
+                        WHERE f.receipt_id=r.id AND f.company_id=r.company_id AND f.refund_direction='client'
+                          AND f.status='已核实' AND NOT f.deleted AND f.replaced_by_id IS NULL
+                    ),0))>0
+                    """, Map.of("company", companyId, "contracts", contracts.keySet()), Long.class));
+            contracts.forEach((contract, customer) -> result.merge(customer, new SignedCustomer(paid.contains(contract)),
+                    (first, next) -> new SignedCustomer(first.hasNetReceipts() || next.hasNetReceipts())));
+        }
+        return result;
+    }
 
     @Override
     public List<Fact> findFacts(long tenantId, Map<Long, Long> customerCompanies) {

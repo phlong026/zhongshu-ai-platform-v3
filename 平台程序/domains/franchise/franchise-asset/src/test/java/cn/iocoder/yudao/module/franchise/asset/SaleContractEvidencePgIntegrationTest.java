@@ -158,11 +158,22 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         long stage = ((Number) plan(signed.getId()).get(0).get("id")).longValue(), receipt = IdWorker.getId();
         jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,contract_id,stage_id,receipt_id,amount_cents) VALUES(?,?,?,?,?,100)",
                 IdWorker.getId(), sales.orgId(), signed.getId(), stage, receipt);
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 0);
+        jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,customer_id,source_type,name,amount_cents,status,registrar_user_id) VALUES(?,?,?,'business','首笔收款',120,'待登记',?)",
+                receipt, sales.orgId(), buyer, sales.userId());
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 0);
+        jdbc.update("UPDATE fr_fin_receipt SET status='已登记' WHERE id=?", receipt);
         assertCounts(growthSummary(boss), 2, 6, 3, 1, 1);
-        for (int part : List.of(40, 60)) {
+        jdbc.update("UPDATE fr_fin_receipt SET customer_id=? WHERE id=?", legacy, receipt);
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 0);
+        jdbc.update("UPDATE fr_fin_receipt SET customer_id=? WHERE id=?", buyer, receipt);
+        jdbc.update("UPDATE fr_fin_receipt SET status='已撤销' WHERE id=?", receipt);
+        assertCounts(growthSummary(boss), 2, 6, 3, 1, 0);
+        jdbc.update("UPDATE fr_fin_receipt SET status='已登记' WHERE id=?", receipt);
+        for (int part : List.of(100, 20)) {
             jdbc.update("INSERT INTO fr_fin_refund(id,receipt_id,company_id,amount_cents,reason,operator_user_id) VALUES(?,?,?,?,?,?)",
                     IdWorker.getId(), receipt, sales.orgId(), part, "退款", sales.userId());
-            assertThat(number(growthSummary(boss), "netPaidCustomers")).isEqualTo(part == 40 ? 1 : 0);
+            assertThat(number(growthSummary(boss), "netPaidCustomers")).isEqualTo(part == 100 ? 1 : 0);
         }
         jdbc.update("UPDATE fr_sale_contract SET status='VOIDED' WHERE id=?", signed.getId());
         var replacement = draft(sales, buyer);
@@ -185,6 +196,10 @@ class SaleContractEvidencePgIntegrationTest extends FranchisePgIntegrationTest {
         assertCounts(growthSummary(sales), 2, 2, 1, 0, 0);
         assertCounts(growthSummary(teamLead), 2, 3, 2, 0, 0);
         assertCounts(growthSummary(boss), 2, 4, 3, 0, 0);
+        var finance = fixture.post(sales.orgId(), "finance", null);
+        assertThatThrownBy(() -> growthSummary(finance)).isInstanceOf(ServiceException.class);
+        TenantContextHolder.setTenantId(tenant + 1);
+        assertThatThrownBy(() -> growthSummary(sales)).isInstanceOf(ServiceException.class);
     }
 
     private long publication(PostSnapshot post, String status) {
