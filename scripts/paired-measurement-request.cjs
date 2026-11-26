@@ -7,17 +7,24 @@ const { createRequire } = require('node:module');
 const { render } = require('./role-page-runtime.cjs');
 const visibleText = nodes => nodes.map(node => (node.text || '') + visibleText(node.children || [])).join('');
 
-module.exports = async function registerMeasurement(fixture, fields, api) {
+module.exports = async function registerMeasurement(fixture, fields, api, transferCustomer) {
   const modulePath = path.resolve(__dirname, '../miniprogram/pages/external-entrust/index.js');
   const nativeRequire = createRequire(modulePath);
   const post = fixture.sales;
   let pageDefinition;
+  const registrations = [];
+  const pageApi = {...api, register: async (...args) => {
+    registrations.push(structuredClone(args));
+    const result = await api.register(...args);
+    if (fixture.transfer) throw Error('Receipt lost after PostgreSQL committed the native command');
+    return result;
+  }};
   const overrides = {
     '../../api/http': {token: () => 'fixture', currentPostId: () => post.postId},
     '../../api/auth': {currentApiPost: () => post},
     '../../utils/api-scope': () => JSON.stringify([post.orgId,post.postId]),
     '../../utils/platform-crm': {commandKey: () => 'measurement-native-' + fixture.customerId},
-    './api': api
+    './api': pageApi
   };
   vm.runInNewContext(fs.readFileSync(modulePath, 'utf8'), {
     Page: page => {pageDefinition = page;}, require: name => overrides[name] || nativeRequire(name),
@@ -40,6 +47,25 @@ module.exports = async function registerMeasurement(fixture, fields, api) {
   assert.equal(page.data.form.attachments.length,0);
   assert.equal(page.data.form.measurementRef.eventId,fixture.measurementEventId);
   await page.submit();
+  if (fixture.transfer) {
+    assert.equal(page.data.uncertain,true);
+    page.onHide(); assert.equal(page.data.form,null);
+    await page.onShow();
+    assert.equal(page.data.form.measurementRef.eventId,item.eventId);
+    await page.runPending();
+    assert.equal(page.data.uncertain,true);
+    assert.equal(registrations.length,2);
+    assert.deepEqual(registrations[0],registrations[1]);
+    page.onHide();
+    const moved = await transferCustomer(fixture.transfer.targetId,fixture.transfer.revision);
+    await page.onShow();
+    assert.equal(page.data.ready,false); assert.equal(page.data.form,null); assert.equal(page.data.context,null);
+    assert.equal(page.data.uncertain,false); assert.equal(page._pending,null);
+    assert.ok(!visibleText(render(template,page.data)).includes(item.fields.address));
+    await page.runPending(); assert.equal(registrations.length,2);
+    await transferCustomer(post.userId,Number(moved.customer.revision));
+    await page.onShow();
+  }
   assert.equal(page.data.error,'');
   assert.equal(page.data.context.request.data.measurementRef.eventId,item.eventId);
   assert.equal(page.data.context.request.attachments[0].assetId,fixture.measurementAssetId);

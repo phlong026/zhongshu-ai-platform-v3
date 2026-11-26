@@ -273,6 +273,36 @@ test('late write and upload receipts cannot restore a draft after a same-post tr
   }
 });
 
+test('a suspended file picker uses the verified customer only, and a late accepted upload can confirm its original ticket', async () => {
+  for (const authorized of [true, false]) {
+    let uploads = 0;
+    const h = harness({upload: async () => { uploads++; return {assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'}; }});
+    await h.open(); h.page.chooseFile({currentTarget: {dataset: {}}});
+    h.page.onHide(); h.filePicker.success({tempFiles: [{path: '/现场.pdf', name: '现场.pdf'}]});
+    assert.equal(uploads, 0);
+    if (!authorized) h.overrides.get = async () => { throw {code: 1099000002, msg: '已转交'}; };
+    await h.open(); await tick();
+    assert.equal(uploads, authorized ? 1 : 0);
+    assert.equal(h.page.data.form?.attachments?.[0]?.assetId || null, authorized ? '98' : null);
+  }
+  const accepted = deferred(), attempts = [];
+  const h = harness({upload: async pending => {
+    attempts.push(pending);
+    if (attempts.length === 1) { pending.ticket = {assetId: '98'}; return accepted.promise; }
+    assert.equal(pending.ticket.assetId, '98');
+    return {assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'};
+  }});
+  await h.open();
+  const first = h.page.startUpload({path: '/现场.pdf'});
+  h.page.onHide(); await h.open();
+  assert.equal(h.page.data.uploading, true); await h.page.retryUpload(); assert.equal(attempts.length, 1);
+  accepted.resolve({assetId: '98', fileName: '现场.pdf', mimeType: 'application/pdf'}); await first;
+  assert.equal(h.page.data.form.attachments.length, 0);
+  assert.equal(h.page.data.uploadFailed, true);
+  await h.page.retryUpload();
+  assert.equal(attempts[0], attempts[1]); assert.equal(h.page.data.form.attachments[0].assetId, '98');
+});
+
 test('revision and payment-plan conflicts preserve form, require explicit reload; old GET cannot roll back saved request', async () => {
   const h = harness(); await h.open(); h.fill(); const read = deferred(); h.overrides.get = () => read.promise; const loading = h.page.load();
   await h.page.submit(); read.resolve(state()); await loading; assert.equal(h.page.data.context.revision, 1); assert.equal(h.page.data.context.request.data.text, '三房两厅，带老人房');
