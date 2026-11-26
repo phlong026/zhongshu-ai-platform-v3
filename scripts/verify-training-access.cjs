@@ -13,7 +13,7 @@ function pending() {
 }
 function failure(code) { return Object.assign(new Error('fixture ' + code), {code}); }
 function course(releaseId = 'v1') {
-  return {id:'course', releaseId, title:'课程' + releaseId, attachments:[], lessons:[
+  return {id:'course', releaseId, title:'课程' + releaseId, attachments:[{versionId:'material',preview:true,download:false}], lessons:[
     {id:'lesson', title:'课时' + releaseId, versionId:releaseId, attachments:[], completed:false}
   ]};
 }
@@ -57,7 +57,7 @@ test('catalog keeps authorized results on a network error and forgets both lists
   const {page,api} = fixture(false); await tick();
   api.courses=async()=>{throw failure(503);}; await page.refresh();
   assert.equal(page.data.visibleCourses.length,1); assert.equal(page.data.visibleResources.length,1);
-  api.materials=async()=>{throw failure(403);}; api.courses=async()=>[course()]; await page.refresh();
+  api.materials=async()=>{await tick();throw failure(403);}; await page.refresh();
   for(const key of ['courses','resources','visibleCourses','visibleResources']) assert.equal(page.data[key].length,0,key);
   assert.equal(page.data.resumeCourse,null);
 });
@@ -96,4 +96,51 @@ test('a revoked course clears playing media on the next heartbeat, including out
   await page.flush(); await tick();
   download.success({statusCode:200,tempFilePath:'/fixture.pdf'}); await reading;
   assert.equal(page.data.course,null); assert.equal(page.data.mediaUrl,''); assert.equal(seen.documents.length,0);
+});
+
+test('a refreshed catalog that removes one material suppresses its outstanding download', async () => {
+  const {page,api,wx,seen}=fixture(false);
+  api.materials=async()=>[{courseId:'course',versionId:'material',name:'资料',preview:true}];
+  await page.refresh();
+  let download; wx.downloadFile=o=>{download=o;};
+  api.ticket=async()=>({path:'/preview'});
+  const opening=page.resource({currentTarget:{dataset:{course:'course',id:'material',ext:'pdf'}}});
+  await tick(); assert.ok(download);
+  api.materials=async()=>[]; await page.refresh();
+  download.success({statusCode:200,tempFilePath:'/fixture.pdf'}); await opening;
+  assert.equal(seen.documents.length,0); assert.equal(page.data.busy,false);
+  assert.equal(page.data.visibleCourses.length,1);
+});
+
+test('duplicate document confirmation uses one receipt and heartbeat failure can retry on the same lesson', async () => {
+  const {page,api,seen}=fixture(); await tick();
+  page.playId='active'; page.data.readAllowed=true; page.data.document=true;
+  const ack=pending(); let writes=0;
+  api.read=()=>{writes++;return ack.promise;};
+  const first=page.confirmRead(),second=page.confirmRead();
+  ack.resolve({completed:true}); await Promise.all([first,second]); await page.confirmRead();
+  assert.equal(writes,1); assert.equal(page.data.course.completed,1); assert.equal(seen.toasts.length,1);
+  api.course=async()=>course('v2'); await page.refresh();
+  page.playId='play-video'; api.beat=async()=>{throw failure(503);}; await page.flush();
+  assert.equal(page.data.activeLesson.completed,false); assert.equal(page.data.course.releaseId,'v2');
+  api.beat=async()=>({completed:true}); await page.flush();
+  assert.equal(page.data.course.percent,100);
+});
+
+test('a rejected catalog clears immediately while the second read is still outstanding', async () => {
+  const {page,api}=fixture(false); await tick();
+  const slow=pending(); api.courses=()=>slow.promise; api.materials=async()=>{throw failure(403);};
+  const reload=page.refresh(); await tick();
+  assert.equal(page.data.courses.length,0); assert.equal(page.data.resources.length,0);
+  assert.equal(page.data.loading,false); slow.resolve([course()]); await reload;
+  assert.equal(page.data.resumeCourse,null);
+});
+
+test('the training service stale-version response stops playback and loads the newly released lesson', async () => {
+  const {page,api}=fixture(); await tick();
+  page.playId='expired'; page.data.mediaUrl='old';
+  api.beat=async()=>{throw Object.assign(new Error('课件已更新，请重新打开课时'),{code:400});};
+  api.course=async()=>course('v2'); await page.flush();
+  assert.equal(page.data.mediaUrl,''); assert.equal(page.playId,'');
+  assert.equal(page.data.activeLesson.title,'课时v2'); assert.equal(page.data.activeLesson.completed,false);
 });
