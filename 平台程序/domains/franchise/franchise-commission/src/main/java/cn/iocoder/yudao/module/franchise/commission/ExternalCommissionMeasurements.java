@@ -25,7 +25,7 @@ import static cn.iocoder.yudao.module.franchise.commission.ExternalCommissionMod
 final class ExternalCommissionMeasurements {
     private static final TypeReference<Map<String,Object>> FIELDS = new TypeReference<>() {};
     private static final String SOURCE = """
-            SELECT e.id,e.revision,w.customer_id,e.occurred_on,e.fields,e.attachments
+            SELECT e.id,e.revision,w.customer_id,e.occurred_on,e.fields,e.attachments,e.note
             FROM fr_customer_workflow w JOIN fr_customer_workflow_event e
               ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
             WHERE w.tenant_id=? AND w.company_id=? AND w.customer_id=?
@@ -73,7 +73,7 @@ final class ExternalCommissionMeasurements {
         if (input.eventId() == null || !input.eventId().matches("[1-9][0-9]{0,18}") || input.revision() == null || input.revision() < 1)
             throw invalid("测量记录编号或版本无效");
         try {
-            return MeasurementRef.identity(Long.toString(Long.parseLong(input.eventId())), input.revision());
+            return MeasurementRef.identity(Long.toString(Long.parseLong(input.eventId())), input.revision(), input.includeSourceNote());
         } catch (NumberFormatException invalidId) {
             throw invalid("测量记录编号无效");
         }
@@ -84,9 +84,10 @@ final class ExternalCommissionMeasurements {
     }
 
     private static MeasurementRef row(ResultSet rs, int ignored) throws SQLException {
+        String note = rs.getString("note");
         return new MeasurementRef(rs.getString("id"), rs.getLong("revision"), rs.getString("customer_id"),
                 rs.getObject("occurred_on", LocalDate.class), JsonUtils.parseObject(rs.getString("fields"), FIELDS),
-                JsonUtils.parseArray(rs.getString("attachments"), Attachment.class));
+                JsonUtils.parseArray(rs.getString("attachments"), Attachment.class), note == null || note.isBlank() ? null : note, null);
     }
 
     private static ServiceException invalid(String message) { return new ServiceException(400, message); }

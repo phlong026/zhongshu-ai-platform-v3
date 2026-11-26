@@ -98,6 +98,9 @@ public class CustomerWorkflowService {
         }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
         validateAttachments(post, customerId, input.attachments());
+        if (step == Step.MEASUREMENT) {
+            CustomerWorkflowRules.applyMeasurementSiteFields(fields, previous == null ? Map.of() : previous.fields());
+        }
         long stepRevision = previous == null ? 1 : previous.revision() + 1;
         jdbc.update("""
                 INSERT INTO fr_customer_workflow_step(workflow_id,tenant_id,company_id,step_code,status,revision,occurred_on,note,fields,attachments)
