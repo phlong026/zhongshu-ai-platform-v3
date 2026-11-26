@@ -8,6 +8,13 @@ import cn.iocoder.yudao.module.franchise.commission.*;
 import cn.iocoder.yudao.module.franchise.commission.ExternalCommissionModel.RequestCommand;
 import cn.iocoder.yudao.module.franchise.commission.ExternalCommissionModel.ResultCommand;
 import cn.iocoder.yudao.module.franchise.commission.ExternalHandoverModel.*;
+import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentGrowthService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationCoverService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublicationService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentPublisherAccountService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentTaskService;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.crm.*;
 import cn.iocoder.yudao.module.franchise.crm.workflow.*;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Attachment;
@@ -44,13 +51,15 @@ import java.util.function.Supplier;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Actual PG workflow, contract, engineering and scanned asset services; storage and external identity mapping only are local doubles. */
+/** Actual PostgreSQL business services with a supplied content-provider result, storage and external identity fixtures. */
 @Import({ExternalCommissionService.class, ExternalCommissionDocumentReferences.class,
         ExternalHandoverService.class, ExternalHandoverAccess.class, CommissionDeliverableAccessAdapter.class,
         CommissionSimulatedPayments.class, CommissionService.class, CommissionAccess.class,
         DesignPricingService.class, CommissionManifestService.class, CommissionQueryAdapter.class,
         CommissionOrgScope.class, HandoverService.class, CustomerWorkflowAssetPolicy.class,
-        CustomerService.class, CrmOrgScope.class, CustomerSchemeAdapter.class,
+        CustomerService.class, CrmOrgScope.class, CustomerSchemeAdapter.class, LeadService.class,
+        ContentPublicationService.class, ContentPublisherAccountService.class, ContentPublicationCoverService.class,
+        ContentDraftService.class, ContentGrowthService.class,
         CustomerWorkflowService.class, CustomerWorkflowReadService.class,
         SalesAccess.class, SalesOrgScope.class, SaleContractService.class, SaleRequirementService.class,
         SaleContractQueryAdapter.class, SaleWorkflowFactsAdapter.class, ContractDocumentAccessPolicy.class,
@@ -62,6 +71,7 @@ import static org.mockito.Mockito.*;
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/franchise-asset")
 class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @TestConfiguration static class Config {
+        @Bean ContentTaskService completedContentTasks() { return mock(ContentTaskService.class); }
         @Bean DesignFeeSettlementPort settlement() { return mock(DesignFeeSettlementPort.class); }
         @Bean @Primary StoreServiceAccountPort scopedAccounts(JdbcTemplate jdbc) {
             return new StoreServiceAccountPort() {
@@ -82,6 +92,12 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource CustomerPaymentPlanDraftService drafts;
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowReadService reads;
+    @Resource ContentTaskService contentTasks;
+    @Resource ContentDraftService contentDrafts;
+    @Resource ContentPublisherAccountService publisherAccounts;
+    @Resource ContentPublicationService publications;
+    @Resource ContentGrowthService growth;
+    @Resource LeadService leads;
     @Resource SaleContractService contracts;
     @Resource EngProjectService projects;
     @Resource EngPlanService plans;
@@ -113,7 +129,8 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @AfterEach void clear() { storage.beforeRead=null; TenantContextHolder.clear(); }
 
     @Test void allEightStepsUseActualExternalEvidenceSignedContractNetCollectionAndEngineeringStart() throws Exception {
-        long customer=customer(sales), document=upload(sales,"BUSINESS_DOCUMENT");
+        long customer=customerFromPublishedWork(), document=upload(sales,"BUSINESS_DOCUMENT");
+        var publishedSources = growth.customerSources(sales, customer);
         completeManualSix(customer,document);
         assertProgress(customer,6);
         saveDraft(customer,0,100000);
@@ -149,6 +166,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(completed.completedCount()).isEqualTo(8); assertThat(completed.progressPercent()).isEqualByComparingTo("100");
         assertThat(completed.steps().get(6).canComplete()).isFalse(); assertThat(completed.steps().get(7).canComplete()).isFalse();
         assertThat(completed.steps().get(7).fields()).containsEntry("projectId",Long.toString(project)).containsEntry("actualStartAt",today().toString());
+        assertThat(growth.customerSources(sales, customer)).containsExactlyInAnyOrderElementsOf(publishedSources);
         assertThat(count("fr_eng_site_record","project_id",project)).isEqualTo(1);
         assertThat(audit(project,"eng-start")).isEqualTo(1);
         long commission=Long.parseLong(ready.commissionId());
@@ -186,8 +204,13 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
-        var process=new ProcessBuilder("node",client,json.writeValueAsString(input))
-                .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        // The pinned client expects JSON in argv[2]. Passing it through the environment preserves
+        // embedded quotes on Windows as well as Linux, including for previously released clients.
+        String runClient = "process.argv.push(process.env.FRANCHISE_HANDOVER_FIXTURE);require(process.argv[1])";
+        var clientProcess = new ProcessBuilder("node", "-e", runClient,
+                java.nio.file.Path.of(client).toAbsolutePath().toString()).redirectError(ProcessBuilder.Redirect.INHERIT);
+        clientProcess.environment().put("FRANCHISE_HANDOVER_FIXTURE", json.writeValueAsString(input));
+        var process = clientProcess.start();
         var io=Executors.newSingleThreadExecutor();
         com.fasterxml.jackson.databind.JsonNode completed=null;
         try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
@@ -552,6 +575,39 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(original.feeApproval().getId()).isEqualTo(approval);
         assertThat(count("fr_commission_submission","commission_id",commission)).isEqualTo(1);
         assertThat(count("fr_commission_dispatch_manifest","commission_id",commission)).isEqualTo(1);
+    }
+
+    private long customerFromPublishedWork() {
+        long taskId = IdWorker.getId();
+        when(contentTasks.requireOwned(sales.orgId(), taskId)).thenReturn(new FrContentTaskDO()
+                .setId(taskId).setAuthorUserId(sales.userId()).setKind("copy").setStatus("SUCCEEDED")
+                .setResultState("READY").setResultSnapshot("{\"text\":\"二层庭院的现场讲解\"}"));
+        var work = contentDrafts.saveWork(sales.orgId(), sales.userId(), taskId, "门店庭院讲解");
+        var account = publisherAccounts.create(sales, Map.of(
+                "platform", "channels", "displayName", "门店视频号", "identifier", "store-" + taskId));
+        var publication = publications.createFromPost(sales, Map.of(
+                "workId", work.getId(), "publisherAccountId", account.id(), "platform", "channels",
+                "title", "庭院施工案例", "publishText", "现场讲解"), key());
+        publications.verify(sales.orgId(), sales.userId(), publication.getId());
+        String url = "https://channels.example/post/" + publication.getId();
+        publications.link(sales.orgId(), sales.userId(), publication.getId(), url);
+
+        String phone = String.format(Locale.ROOT, "139%08d", Math.floorMod(taskId, 100_000_000L));
+        String source = ContentGrowthService.SOURCE_PREFIX + publication.getId();
+        var first = new LeadService.CaptureCommand("案例咨询客户", phone, "庭院造价", source);
+        String captureKey = key();
+        var created = leads.capture(sales, first, captureKey);
+        assertThat(created.outcome()).isEqualTo(LeadService.CaptureOutcome.CREATED);
+        assertThat(leads.capture(sales, first, captureKey)).isEqualTo(created);
+        var again = leads.capture(sales, new LeadService.CaptureCommand("案例咨询客户", phone, "预约到店", source), key());
+        assertThat(again.outcome()).isEqualTo(LeadService.CaptureOutcome.LINKED);
+        assertThat(again.customerId()).isEqualTo(created.customerId());
+        assertThat(growth.customerSources(sales, created.customerId())).hasSize(2).allSatisfy(row ->
+                assertThat(row).containsEntry("workId", work.getId().toString())
+                        .containsEntry("publicationId", publication.getId().toString()).containsEntry("publishedUrl", url))
+                .extracting(row -> row.get("leadId")).containsExactlyInAnyOrder(
+                        Long.toString(created.leadId()), Long.toString(again.leadId()));
+        return created.customerId();
     }
 
     private long customer(PostSnapshot owner) {
