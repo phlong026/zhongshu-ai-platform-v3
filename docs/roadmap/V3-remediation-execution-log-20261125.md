@@ -7,7 +7,9 @@
 
 ## 全部整改任务的当前状态
 
-截至 2026-11-26 20:33（北京时间），已核对小程序主线 `45a28811d8affbd02b4ea6da12adb5e0d53be94b` 和后端主线 `f356e76e2b7498474526706b765090abfad195e8`。整改总表与执行日志在同一提交更新本节。每项完成后将状态、对应 PR、测试和剩余验收同时记入这两份文档。后文的阶段记录保留当时的检查结果。早期原计划和快照中提及的付款计划审批岗位，按本节 B03 已确认的签约锁版规则执行。
+截至 2026-11-26 21:25（北京时间），已核对小程序主线 `6d193dbbc72c813e2def8cce6a3a6f6a71d6e78d` 和后端主线 `2a1f5d0e07a7af1a8e2a898f62542921ee6c28ba`。整改总表与执行日志在同一提交更新本节。每项完成后将状态、对应 PR、测试和剩余验收同时记入这两份文档。后文的阶段记录保留当时的检查结果。早期原计划和快照中提及的付款计划审批岗位，按本节 B03 已确认的签约锁版规则执行。
+
+本轮同一脱敏客户办完 8/8 步，开工后第二期收款也已核对，合同实收 600 元、余款 400 元。独立恢复样本通过空库还原、Redis 和附件核验。品牌、未绑定门店及覆盖地区已有处理原则。真实积分科目价格冲突待取得同期源、目标差异后逐项决定。
 
 ### 2026-11-26 晚间业务决定与开发分工
 
@@ -51,7 +53,7 @@
 | 09 | 工程成本与项目账本 | 材料、项目账本、质量整改与施工延期已合并，待现场验收 | 实际收货、分次补发、领用和成本可追到原单。质量整改兼容旧版登记再分派。施工延期分别显示原工期和修订排期，保留原因、措施、恢复日和办理历史。撤岗、失效链接与弱网重试已复验。 | [#215](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/215)、[#219](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/219)、[#217](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/217)、[#225](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/225)、[#224](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/224)、[#226](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/226)、[#231](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/231)、[#232](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/232)、[#237](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/237)、[#242](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/242)、[#243](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/243)、[#244](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/244) |
 | 10 | 客户、委托、合同至开工 | 八步办理、外部委托、签约及工程开工的代码均已合并，待用户排期验收 | 同一客户贯穿内容咨询、八步跟进、正式报价、施工签约、指定工程负责人接收和实际开工。有原因的免带看计入进度，实际带看单独留存。设计合同可归设计委托，正式施工合同签署后才完成第 07 步。各期付款条件和实收可追到同一合同和原始凭据。施工签约时锁定付款计划，按期实收和退款可继续核对。 | [#221](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/221)、[#222](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/222)、[#249](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/249)、[#250](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/250)、[#251](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/251)、[#252](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/252)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#254](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/254)、[#255](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/255)、[#256](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/256)、[#257](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/257)、[#258](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/258)、[#259](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/259)、[#262](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/262)、[#263](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/263)、[#264](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/264)、[#265](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/265)、[#266](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/266)、[#267](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/267)、[#268](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/268)、[#270](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/270)、[#271](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/271)、[#272](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/272)、[#273](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/273)、[#274](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/274)、[#275](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/275)、[#277](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/277)、[#278](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/278) |
 | 11 | 绩效、公告、培训与公司额度 | 绩效基础、工资实付、公司共享积分及充值开关已合并 | 超级管理员为门店所属公司添加共享积分。新充值默认关闭，历史订单、既有订单到账核对及退款继续可用，原支付代码可按配置恢复。正式薪酬公式待用户提供。 | [#157](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/157)、[#160](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/160)、[#220](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/220)、[#228](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/228)、[#229](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/229)、[#230](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/230)、[#235](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/235)、[#240](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/240)、[#241](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/241)、[#245](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/245)、[#246](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/246) |
-| 12 | 迁移、配对与上线 | 159 份制品迁移清单已合并，目标环境待验 | Windows 与 LF 检出按统一门槛验包。实际制品和已合入的清单共 159 份迁移、234 张表和 61 条序列，隔离 PostgreSQL 17 已执行全部正向 SQL 并与实物表和序列核对。31 张待补证或定界。 | [#149](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/149)、[#161](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/161)、[#163](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/163)、[#169](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/169)、[#223](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/223)、[#233](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/233)、[#236](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/236)、[#238](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/238)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#260](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/260) |
+| 12 | 迁移、配对与上线 | 制品迁移与隔离恢复已验，目标环境待验 | Windows 与 LF 检出按统一门槛验包。SQL 清单有 159 份。同一制品另含 1 个 Java 数据迁移，隔离源库及恢复库核实 160 条历史、234 张表和 61 条序列。31 张待补证或定界。 | [#149](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/149)、[#161](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/161)、[#163](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/163)、[#169](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/169)、[#223](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/223)、[#233](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/233)、[#236](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/236)、[#238](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/238)、[#253](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/253)、[#260](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/260) |
 
 ### 子任务与待补资料
 
@@ -68,7 +70,7 @@
 | CRM-04 | 10 | 同客户端到端已通过隔离配对 | 一件作品，两次咨询产生同一客户档案，用该客户的外部委托版本及自定义付款约定走完八步、施工签约、指定工程接收与实收后开工。已覆盖选本客户报价、上传外部报价、换版重新沟通和转交后重新授权。同时验过原实测单朝向及高差在外部委托和总部历史的回读。 |
 | CRM-05 | 10、12 | 历史路径已回归，待历史样本 | 六类在途委托的原号、费用及版本可追溯，实际旧客户证据映射待环境验收。 |
 | CRM-06 | 10 | 双端已合并，隔离配对通过 | #221/#222 按上海业务日期提醒。原生页面以 19 位原始客户编号打开跟进页，转交后新负责人收到唯一待办，办结后移除。 |
-| CONTENT-01、CONTENT-02 | 04 | 已合并，自动化通过 | 发布回填、实际链接 A/B 核对、重复操作及回执丢失已回归，待手机弱网。 |
+| CONTENT-01、CONTENT-02 | 04 | 发布登记及链接回填已合并，模板生成封面按最新决定退役中 | 视频在视频号、抖音等外部平台手动发布，回小程序保留发布记录和外部链接。发布回填、链接、重复操作及回执丢失已回归，待手机弱网。 |
 | CONTENT-03、CONTENT-04 | 04 | 已合并，待业务验收 | 咨询来源、待关联及任务标题分别接续 #155、#84。旧作品与历史发布见节点 06。 |
 | CONTENT-06、CONTENT-06A | 06 | 双端已合并，待业务验收 | #216/#218 接入权威作品编号、版本与可管理标记，兼容旧文本作品。 |
 | CONTENT-06B、CONTENT-06C | 06 | 双端已合并，待业务验收 | 验证作者权限、回收及恢复、原任务结果、已有发布可播放并保留客户来源。 |
@@ -106,9 +108,9 @@
 | WALLET-01、WALLET-03 | 11 | 隔离回归通过，真实渠道待验 | 开户、查单和重复回调沿用公司账本。钱包及建池迁移 28 项全部执行，包含原生页面到 Spring 的本地 HTTP 配对。 #248 接续真实登录后回到原充值或公司积分入口，不涉及积分来源选择。 |
 | WALLET-02、WALLET-04、WALLET-05 | 11、12 | 公司共享积分和新充值开关已合并，真实资金按用户排期核对 | 超级管理员给门店所属公司的共享池加分。服务端拒绝已关闭的新充值和签名，小程序隐藏入口。旧组织钱包和公司积分订单均能从授权入口查询，已发起订单保留到账核对及退款。 |
 | WALLET-06 | 05 | 历史差异核查已完成 | #106/#107 关闭，当前公司额度沿用 #142/#143，旧模拟收银不进入正式渠道。 |
-| QA-01 | 12 | 159 份制品迁移清单已合并，31 张表待审 | 清单随 #223/#233/#238/#260 合入。#253 新增附加资料与受控文件票据范围，实际制品 159 份 SQL、234 张表、61 条序列。203 条表归属已登记。27 张需现场证据，4 张需业务定界。 |
+| QA-01 | 12 | 159 份制品迁移清单已合并，31 张表待审 | 清单随 #223/#233/#238/#260 合入。#253 新增附加资料与受控文件票据范围，实际制品 159 份 SQL、234 张表、61 条序列。203 条表归属已登记。27 张需现场证据，4 张按历史归属问题分类核对。品牌、未绑定门店及其地区的处理规则已确认，价目只将真实差异交负责人选择。 |
 | QA-02 | 12 | 待 B05 | 待项目负责人提供清理与保留名单和恢复范围。 |
-| QA-03 | 12 | 159 份脚本已在隔离库执行，目标环境待恢复演练 | Linux 迁移恢复专项 11 项。干净 PG17 实际顺序执行 159 份正向迁移，核对 234 张表、61 条序列和同公司客户组合外键。两个反向脚本均在写入并发中等待并拒绝撤销已有业务数据。现场备份的恢复时点和范围待 B05。 |
+| QA-03 | 12 | 隔离 PG、Redis 和附件恢复通过，现场恢复待排期 | Linux 迁移恢复专项 11 项。干净 PG17 实际顺序执行 159 份正向迁移，核对 234 张表、61 条序列和同公司客户组合外键。两个反向脚本均在写入并发中等待并拒绝撤销已有业务数据。本轮实际还原 160 条 Flyway 历史（159 份 SQL 和 1 个 Java 迁移），财务原单、冻结点和 3 份附件校验通过。现场备份时点与范围待 B05。 |
 | QA-04 | 12 | 客户跟进固定配对已验，待目标环境发布 | 已核对本节所列两条功能主线及逐项提交。最终功能组合通过 46 组 519 项后端回归，另有小程序 33 组 1,662 项和 148 项岗位首页检查。目标环境、恢复和试点资料见 B05、B06。 |
 | QA-05、QA-06 | 12 | 待真机与 B06 | 需公网 HTTPS 后端及文件接口、微信真机、三家门店账号和岗位。 |
 | QA-07 | 12 | 已验证 CI 的迁移恢复与回滚，目标环境待演练 | 冻结和配对选择 21 项通过。固定案例的打包、迁移失败恢复和健康回滚已由 CI 演练。用部署现场备份验证 Flyway 升级、恢复及回滚仍需 B05。 |
@@ -116,7 +118,7 @@
 | B01 | 10 | 两项业务决定均已确认 | 有原因的主动跳过计入第 04 步进度，保留跳过事实。第 07 步只在正式施工合同已签署后完成。单独签设计合同可归入设计委托档案，施工签约待办。 |
 | B02、B04 | 11 | 两项规则暂缓 | 后续由项目负责人提供正式薪酬公式及公共费用分摊口径。 |
 | B03 | 03、10 | 签约即锁定付款计划已确认，双端已合并验收 | 签约前由业务与客户确认期次及条件，签约时锁定同版。签后所有岗位只读期数、金额、日期和工程节点。工程申报实际收款，财务照常核对入账。 |
-| B05、B06 | 12 | 现场资料与排期待项目负责人 | 备份及恢复范围待补。用户负责部署，三家门店试点账号、岗位和时间由用户后续安排。 |
+| B05、B06 | 12 | 隔离恢复已验，实际资料与排期待项目负责人 | 品牌、未绑定门店与覆盖地区按已确认规则处理。实际价目差异、现场备份和恢复范围待补。用户负责部署，三家门店试点账号、岗位和时间由用户后续安排。 |
 
 ### 本轮代码与配对验收
 
@@ -157,6 +159,7 @@
 | 10 免带看及施工签约统一验收 | [#272](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/272)、[#273](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/273) | `9f1fbd4b5ba71b183a33b34147d458e64ec37e22` | `780029b481dcdd37b425586c163701f5e1c105b6` | 两个版本包含施工签约和跳过带看。七类后端共 81 项通过，含 7 次原生请求只记一次跳过，及设计合同与施工签约正反两种事实。小程序 1,657 项、岗位 148 项通过。微信开发者工具实测跳过记录和随后追加的附加资料。 #272 合并提交 `5333e1dfa719685ab6c0f0fafdea168f39d0bcdf`。 #273 合并提交 `76352a76eb465afa5fbafaec2b30299aa1723afe`。 |
 | 03、10 施工分期与工程收款 | [#274](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/274)、[#275](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/275) | `c4def6dc05a2d349319395e59eb07cbf7846ae72` | `598ec656e46824a2e9a98e9286cb0cd8c355f801` | 首期应收 400 元、实收 250 元、余款 150 元，第二期应收 600 元。工程按当前移交版本查看条件与凭据，财务退回可补件、重复确认只入账一次。付款专项 165 项、独立复验 80 项及原生专项 83 项均通过，详见上方合同实例。 #274 合并提交 `f256266edd376123655d98ac0b1d7553456fa891`。 #275 合并提交 `cf1b8838f17044ffd7e04fdc5f74a2ade88f0c19`。 |
 | 03、10 签约时锁定付款计划 | [#277](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/277)、[#278](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/278) | `9a12abad7ad3209dcfe46842c413effae424e76e` | `ccda8b419153e5901c71b931358c82fbea855302` | 固定双端的 PostgreSQL 专项 11 类 169 项通过，覆盖签约和调整计划两种并发先后、历史已签合同、旧命令重试及财务退款。原生小程序 1,662 项、岗位首页 148 项、付款专项 38 项通过。独立 PostgreSQL 联测 2 项验证了新旧入口均拒绝签后改约，工程部分收款、补件和财务核实继续办理。旧版小程序 598ec656e46824a2e9a98e9286cb0cd8c355f801 连接新后端，签约移交至开工和工程收款至财务核实另有 2 项通过。微信开发者工具在 390 像素视口回放旧服务返回的可编辑标志，已签原单显示锁定，仍能查分期和历史。签前模拟保存丢回执，签后重试只读原合同，全程只有签前的一次写请求。 后端合并提交 `f356e76e2b7498474526706b765090abfad195e8`，小程序合并提交 `45a28811d8affbd02b4ea6da12adb5e0d53be94b`。 |
+| 03、04、10 同一客户从发布咨询到开工后收款 | [#281](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/281) | `86be41247d164ac825b8576859c482160dcaf599` | `6d193dbbc72c813e2def8cce6a3a6f6a71d6e78d` | 同一原生客户端配真实 Spring 服务和 PostgreSQL。专项 1/1，含该专项的整类 31/31，零失败、错误、跳过。原单、金额和复跑方式见「同一脱敏客户验收与隔离恢复演练」。#281 合并提交 `2a1f5d0e07a7af1a8e2a898f62542921ee6c28ba`，变更仅涉及后端验收测试。 |
 | 11 公司共享积分与线上充值开关 | [#245](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/245)、[#246](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/246) | `95dac66fe58cfe287ad90acafb6d670673b2e0e8` | `433d5f454ab6903466c2cec8c4dfd2ff15e8e4fd` | 默认关闭新充值，开关启用后恢复已有支付链。经授权的岗位钱包列表及管理台运营列表均返回旧组织钱包单和公司积分单，岗位钱包详情按两个原单号回查。后台 103 项、管理台 45 项、前端 1,653 项及岗位 148 项通过。 #245 合并提交 `30962e412ab1795a426c5c1502a52d06157ee58e`。 #246 合并提交 `afcd231ad962cd5af69419fa9ba8214be1933281`。 |
 | 11 学习中心 | [#220](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/220) | `4e5acd3c83936843c2f05f9b555b51873e6a0e22` | `ae41b60b51cd8f4501b8fff52c8f4d4cc97c73a6` | 用同一课程的真实响应验证可见、撤权及下架。 #220 已合并至 `2a65b0ed2cea3a95a29c29e939038652dc157455`。 |
 | 11 工资实付 | [#229](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/229)、[#230](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/230) | `b4db0ab44bc7a99669bfff9209618fec7ff6150a` | `baa770343db49e7b7e1e9dc27475bfc7ff20e1cd` | 工资实付登记和支出退回都引用原单。100 元应发，30 元付款，退回 12 元，实付 18 元、未发 82 元。实际小程序发出的命令和 Spring 受理一致，重试仅保留一笔。含 #235 的同一提交上薪酬 16 项、运营 96 项通过。 #229 已合并至 `04e641f6a410ebf5bdcfbcc50e08f22da57aa41a`。 #230 已合并至 `962d6cdb7d0f9397c228115b2e55cdaca9a43fc3`。 |
@@ -269,6 +272,35 @@
 
 </details>
 
+#### B05 的积分价目例外与已确认的品牌、门店处理规则
+
+本次在固定后端逐份比对 159 份正向迁移及其摘要，得到 234 张表、61 条序列。运行时另执行 1 个 Java 数据迁移。234 张表扣除已有归属条件的 203 张，余下表与下方 4 张定界、27 张取证逐张一致。另有 25 项离线归属校验通过，覆盖余额缺失、重复归属、在途款项和孤立附件引用。
+
+现场按同一核对时点提供源、目标脱敏差异，注明时区、租户及版本或导入批次。尚未收到现场对照，具体冲突价目、品牌、门店及其数量待盘点后列出。积分价目只有发现冲突时才请负责人选择版本。项目负责人已确认品牌、未绑定门店和服务区按证据判定去向，只有仍有歧义的个案才单列复核。比对为零时登记范围、时间和零行结果即可。
+
+| 事项与状态 | 涉及的表 | 现场先提供 | 负责人答复方式 |
+|---|---|---|---|
+| 待确认 · 积分价目冲突时采用哪版 | `org_point_subject_price` | 财务列源、目标的科目、单价、计价单位、最低计费量、ACTIVE 版本、生效或停用时间及价格来源。无 ACTIVE 行时核对程序默认价 | 对冲突科目选定依据和版本，核实原生效时间、注明保留的历史版本。已有流水保留原计价依据。 |
+| 已确认处理原则 · 加盟商品牌归属 | `pf_map_brand` | 总部运营列出品牌编号、名称、已关联门店及目录，标出无门店引用或跨范围的记录 | 按租户及品牌编号核对。能证明属于众墅之家的纳入 V3，已有明确原系统归属的留在原系统，证据不足的暂缓并保留原记录。 |
+| 已确认处理原则 · 未绑定门店及其服务区 | `pf_franchise_directory`、`pf_franchise_directory_region` | 运营列出未绑定账号、跨品牌或仅在导入表内出现的门店，附来源行和覆盖地区 | 可核实属于众墅之家的门店及已确认服务区一同随迁。地区随同租户的父门店。证据不足时保留原记录，只把仍有歧义的门店或区县列入例外清单。 |
+
+原「模板生成封面」供内容创作人员在准备发布作品时制作封面，项目负责人已确认取消该功能。视频在外部平台手动发布，小程序保留发布记录及链接回填。历史封面请求 `fr_content_cover_request` 按原请求和服务商回执取证。现有公司积分目录未单列封面生成。核价使用「文案改写」「数字人口播」「快速预算」等实际科目。加盟商品牌记录用于总部加盟商名录、门店地图的品牌筛选和覆盖统计，也供总部公告按品牌选择受众。
+
+**示例答复（虚构编号）**　「科目 P01 用目标库 V3，源库 V2 留档。品牌 B07 仅留原系统。门店 D12 随迁，服务甲区、乙区。」服务区指门店承接业务的覆盖区域，地区归属按原门店核对。
+
+27 张取证表由六组岗位按下表提供凭据。逐表字段与核对条件在下方明细中。
+
+| 取证分工 | 表数 | 现场提供的资料 |
+|---|---:|---|
+| 财务与积分 | 7 | 财务、积分运营提供对账时点的公司余额/预留、流水与业务单、调点审批、价格请求与审计、模拟权益复核凭据。价格请求/审计关联已确认的价格版本。 |
+| 历史设计与委托 | 3 | 设计服务及委托经办提供原命令与计费操作、尝试次数、回执状态、原委托版本。已派发或结果未知时核原执行方和接手人，模拟单单独核对。 |
+| 内容与工程媒体 | 4 | 内容运营、服务商和工程提供生成回执、人物授权、文件编号/哈希、在途状态及摄像头目标权限验证结果。登记证据编号即可。 |
+| 消息与后台作业 | 4 | 运维提供激活时间、最后处理事件/投递位置、去重记录、未终结作业和唯一处理方。 |
+| 账号与公告 | 2 | 总部管理员提供账号与租户归属、初始密码策略的状态或账号退役记录，以及公告发布人、受众品牌和状态。 |
+| 培训 | 7 | 培训运营与存储负责人提供课程/草稿、运营授权、课件版本与对象摘要、内置/自定分类、分片及办理审计、在途处理方。 |
+
+交接时保存原单号、版本和凭据编号。上述 27 张表只有出现证据冲突时才需对应负责人裁定。
+
 <details>
 <summary>查看 31 张待审表和各自所需证据</summary>
 
@@ -277,7 +309,7 @@
 | `design_billing_binding` | 取证 | 用 origin、org_id、ref_type/ref_id、subject 与 operation_id 交叉匹配实际执行及结算方。 |
 | `design_prompt_receipt` | 取证 | 无 org_id。先用 job_id、attempt_no、operation_id 对回已审定设计命令。UNKNOWN 或已派发记录跟踪原执行方。 |
 | `fr_commission_simulated_order` | 取证 | company_id、design_org_id、委托及原版本。作为历史模拟记录保留。真实结算需独立原凭据。 |
-| `fr_content_cover_request` | 取证 | 公司、作者、request_key/hash 对封面生成。PROCESSING、UNCERTAIN、ARCHIVE_PENDING 须核服务商原单和唯一恢复者。 |
+| `fr_content_cover_request` | 取证 | 按公司、作者、原请求键及摘要核对历史封面申请。已应用封面沿发布原单查。处理中、结果未知或待归档的记录先核原有回执和归档对象，现场取证无需再生成封面。 |
 | `fr_content_digital_clone` | 取证 | 按公司、人物、作者与同意版本闭合人脸/声音源。核服务商资源、归属和委托处理许可，在途任务核单一执行方。 |
 | `fr_content_hifly_upload` | 取证 | company_id、人物、服务商 file_id、状态、有效期与哈希闭合。已签发或正在处理的上传核终态。 |
 | `fr_eng_camera` | 取证 | company_id 与 project_id 闭合。stream_url 在源码列注释标为受限播放地址。需确认目标访问授权及有效地址。 |
@@ -372,13 +404,47 @@ PostgreSQL 17.11 以固定提交的原始 SQL 验证了整改主单、历史事�
 - 后端 46 个测试类共 519 项，全部通过，零跳过。覆盖内容与客户归属、报价与合同、分期及实收、人员权限、资料受控下载、工程及财务回归。同时运行原生小程序与 Spring MVC、PostgreSQL 的移交及八步资料配对。
 - 小程序完整检查 33 组 1,662 项通过，另有 148 项岗位首页检查通过。共 18 个包，主包 1,965,956 字节。微信开发者工具已核对八步展开与切换、补记资料和总部办理历史。原生页面与 Spring MVC、PostgreSQL 的配对测试验证了旧单引用、转交撤权、开工回执丢失后的续办和工程原件回看。
 
-### 后续工作怎样并行
+### 同一脱敏客户验收与隔离恢复演练
+
+#### 同一位客户从咨询到开工后收款
+
+在隔离 PostgreSQL 中，首笔咨询新建客户 `2125939095699435522`，第二笔咨询关联到同一档案。两笔咨询均能反查作品 `2125939091689680898` 和发布记录 `2125939092339798017`。本次全程只有一份施工合同和一个工程。固定配对为小程序 `6d193dbbc72c813e2def8cce6a3a6f6a71d6e78d`、后端 `86be41247d164ac825b8576859c482160dcaf599`。[后端 PR #281](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/281)
+
+| 核对环节 | 同一客户的原单及实测结果 |
+|---|---|
+| 客户跟进 01–06 | 按邀约、到店、客户确认选型、实际带看和实测核对依次办理。第 06 步单独上传外部正式报价附件 `2125939097269227520`，登记已沟通，业务原记录为 V1、1,000 元。 |
+| 签约与工程接收 | 同一客户的委托 `2125939106852089858` 移交已签施工合同 `2125939121905446914` 和该版付款计划。工程为 `2125939126796005377`。签约后从新旧两个入口改约都被拒绝，第 07 步由签署原单完成。 |
+| 开工前收款与门槛 | 首期约定 400 元。签前预收 100 元带入，工程另报 150 元，财务退回补件后沿用原流水核实一次。实收 250 元时开工被拦。工程再报 150 元、财务核实后首期收齐，登记 2026-11-26 开工。重试只留一条开工记录，进度为 8/8。 |
+| 开工后收款 | 第 2 个工程节点 `2125939126926028803` 验收后，工程申报二期 200 元，财务核实。业务和工程同见首期 400/400 元、二期 200/600 元。财务实际有 4 笔，合计 600 元，合同余款 400 元。 |
+
+财务原单按本次业务顺序为 `2125939121519570945`（100 元）、`2125939132563173378`（150 元）、`2125939139131453442`（150 元）、`2125939142348484610`（200 元）。这些编号来自专项的第一次完整运行。整类 31 项再次用新编号走通相同结果，零失败、错误和跳过。
+
+本例实际执行小程序原生脚本、Spring MVC 或业务服务及 PostgreSQL。签约、交接、首轮申报和财务核实走原生脚本与 HTTP 控制器，其余办理走业务服务。外部内容结果、发布链接、岗位身份及上传原件均为合成资料。实地带看、第三方渠道真实发布、真机及实际资金待门店现场核验。
+
+重复验收时先在固定小程序目录执行 `npm ci`。从固定后端的 `平台程序` 目录用 Maven Wrapper 运行 `-pl domains/franchise/franchise-asset -am test`，以 `-Dtest=ExternalHandoverPgIntegrationTest#pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation` 选择用例、`-Dsurefire.failIfNoSpecifiedTests=false` 允许无匹配用例的依赖模块。指定隔离 PostgreSQL 的 `platform.test.jdbc.url`、`platform.test.jdbc.username`，以及指向配套小程序 `scripts/verify-paired-external-handover.cjs` 的 `franchise.external-handover.client`。核对 Surefire 的失败、错误和跳过均为 0，输出中的 `CUSTOMER_JOURNEY` 可串起同次运行的全部原单。
+
+#### 在空目标中恢复一份独立备份
+
+恢复组从固定后端 `f356e76e2b7498474526706b765090abfad195e8` 构建服务 JAR，在隔离的 PostgreSQL 17.11、Redis 7.4.11 和本地附件目录上演练。源库使用实际 Flyway 入口建库，冻结点为 2026-11-26 21:10:32（北京时间）。该次迁移历史有 **160 条**，包含 159 份版本化 SQL 和 1 个 Java 数据迁移 `V20261122.989`。新增的一条计数来自对既有 Java 迁移的核实，31 张待审表仍按原清单取证。[Java 迁移源码](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/f356e76e2b7498474526706b765090abfad195e8/%E5%B9%B3%E5%8F%B0%E7%A8%8B%E5%BA%8F/platform/platform-org/src/main/java/db/migration/pf/V20261122_989__preserve_changed_staff_passwords.java)
+
+| 实测顺序 | 恢复后的核对结果 |
+|---|---|
+| 生成与核验备份 | 保存 PostgreSQL 自定义格式备份、Redis RDB 和三份 PDF，独立留存清单摘要。备份完成后，在隔离源环境另改一条备注、一个 Redis 键及一个附件，供对照恢复时点。 |
+| 恢复到新的空目标 | 使用仓库 `ops.py` 校验备份并将 PostgreSQL 单事务还原，再从 RDB 启动独立 Redis，恢复附件副本。160 条 Flyway 历史一致，复跑同一 JAR 新增 0 条。234 张表、61 条序列的名称一致，备注、Redis 键和附件均回到冻结点。 |
+| 抽查业务记录 | 恢复样本客户 `81001`、已签合同 `81020`、付款计划 V1 和工程 `81030` 仍互相关联。本合同首期 400 元按 2026-12-05 到期，开工前必付 0 元。两笔实收 100 和 150 元均对上原凭据，合同余 750 元，首期余 150 元、二期余 600 元。公司积分 80 分与流水相符。3 份 PDF 的实际字节数与 SHA-256 均匹配。 |
+| 复验错误情形 | 错误的受信清单摘要、被改过的 PG 备份、已有对象的目标数据库、字节被改动的附件分别被识别。本次核对结果和备份摘要已留存。 |
+
+该次 JAR 的 SHA-256 为 `6aceedbeac054eab1d76206a97a3f95d18e8bacbf51f0f1987c2bab09b9c8edd`。前后业务核对文件具有相同摘要 `6a5f0d3b9dead9334ca7ad135bcb3cf9c9449e9e6ebe7108910d31795a7a8974`。本机从开始恢复到核对完毕用时 19.05 秒，现场的可接受恢复点和最长停机时间仍由项目负责人确定。开发机复跑脚本为 `E:/_zs_build/v3-b05-isolated-20261126/rehearse.py`，本次原始结果在同目录 `run-f3e6c5f032/evidence.json`。
+
+现场演练待排期。准备同一冻结时点的可信备份、镜像摘要、COS 对象版本及校验清单、独立的恢复资源和业务核对人。同机全栈方案还须恢复设计服务的 PostgreSQL、Redis 和运行日志（Runtime journal），验证云端原件和授权后再核实能否开放写入。生产部署和三家门店试点由项目负责人另行安排。[仓库备份与恢复操作手册](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/f356e76e2b7498474526706b765090abfad195e8/%E5%B9%B3%E5%8F%B0%E7%A8%8B%E5%BA%8F/deploy/platform/CAPABILITY_DEPLOYMENT.md#L293)
+
+### 后续现场验收
 
 首项现场验收采用试点公司的一份真实脱敏案例，从实际外部发布链接与咨询建档，走完选型、实测、报价、施工签约、工程接收和实际开工。业务、工程和财务分别核原单，再用同一客户编号、委托版本和合同编号对账。节点 03 的材料到货、补发、收款与交付回执可并行抽验。
 
 部署由用户安排。先核对在用小程序是否已包含 #266 的第 03 步兼容处理，必要时先让该兼容版本可用，再启用 #267 的后端保护。第 04 步跳过及本轮其他新增接口先在目标后端就绪，并核验公网 HTTPS 和文件传输，随后发布对应小程序。发布签约锁版时先部署 #277 后端，使各版本小程序调用签后写入口均受约束，再发布 #278 的只读及重试处理。正式部署与试点日期待用户安排。
 
-另一组可同时准备 B05 的备份和表归属证据。B01 的免带看与施工签约、B03 的施工签约时锁定付款计划均已确认。业务方后续提供正式薪酬公式和公共费用分摊口径。三家门店名单和时间由用户另行提供，正式部署由用户负责。图纸及报价接口待设计软件方提供样本、接口说明和测试条件，现行手动上传继续可用。
+隔离恢复已通过。现场可并行提取同一时点的源、目标差异，并由各岗位准备 B05 所需证据。B01 的免带看与施工签约、B03 的施工签约时锁定付款计划均已确认。业务方后续提供正式薪酬公式和公共费用分摊口径。三家门店名单和时间由用户另行提供，正式部署由用户负责。图纸及报价接口待设计软件方提供样本、接口说明和测试条件，现行手动上传继续可用。
 
 ### 已确认事项与待补资料
 
@@ -388,7 +454,7 @@ PostgreSQL 17.11 以固定提交的原始 SQL 验证了整改主单、历史事�
 | B02 绩效薪酬 | 项目负责人后续提供正式薪酬公式、适用月份、计提及退款处理规则，该规则实现暂缓。 | PERF-01、PERF-02、PERF-04 |
 | B03 付款计划 | 已确认。正式施工合同签署时锁定付款计划版本。签署后任何岗位均不得修改期数、每期金额、付款日期或触发工程节点。工程按签约版本收款，财务核对实收。两种签后写入口、签约并发、旧版页面重试和收款核对均已验证。 | ENG-01、FIN-01 |
 | B04 成本分摊 | 公共费用分摊规则暂缓实现，待用户提供口径和能与项目直接成本区分的样例。 | FIN-04、FIN-06、FIN-07 |
-| B05 迁移与恢复 | 项目负责人提供保留与清理名单、可恢复备份和恢复目标。按上表提供 27 张表所需现场证据，并对历史价格、品牌及未绑定门店目录等 4 张表明确归属。 | QA-01、QA-02、QA-03、QA-07 |
+| B05 迁移与恢复 | 具体名单待源、目标同一时点的脱敏盘点。请按「B05 的积分价目例外与已确认的品牌、门店处理规则」核对积分价目冲突。品牌、未绑定门店及其服务区按已确认的证据范围处理，仅在原始记录不能解决歧义时提交个案。27 张表由相应岗位提供凭据。目标恢复时点、允许停机时长及现场备份仍待安排。 | QA-01、QA-02、QA-03、QA-07 |
 | B06 三家公司与真机 | 用户负责部署，三家门店的名单、时间、岗位、账号与真机由用户另排。上线前核验公网 HTTPS 后端及文件传输。试点核对存量订单到账、退款与共享积分。真实新充值验收随将来重新启用安排。 | QA-05、QA-06、WALLET-02、WALLET-04、WALLET-05 |
 | 外部设计图纸与报价接口 | 现阶段由用户导出并手动上传同一客户委托下的成果、施工图和专业审核依据。自动接口需软件方提供样本、接口说明和测试条件。 | DESIGN-04、ENTRUST-02、CRM-01 |
 | 成交归因 | 业务负责人确认成交事件，以及同一客户有多个内容触点时的分配规则。现有签约和净实收指标可分别核对。 | CONTENT-05、CONTENT-07 |
