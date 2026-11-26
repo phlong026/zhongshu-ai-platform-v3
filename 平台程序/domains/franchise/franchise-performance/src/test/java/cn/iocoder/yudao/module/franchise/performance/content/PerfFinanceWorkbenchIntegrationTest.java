@@ -165,12 +165,15 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   var actor=fixture.post(fixture.store().orgId(),"finance",null);long org=actor.orgId();
   jdbc.update("INSERT INTO fr_customer VALUES(20,?,101)",org);
   jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date) VALUES(10,?,20,'SIGNED','2026-11-01')",org);
+  jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,status,signed_date,total_cents,author_user_id,deleted) "
+      + "VALUES(11,?,20,'SIGNED','2026-11-01',10000,101,true)",org);
   jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,amount_cents,status,received_date,source_type,source_ref) VALUES(1,?,1000000,'已登记','2026-10-10','business','sale-allocation:10:30:1')",org);
   jdbc.update("INSERT INTO fr_sale_stage_receipt VALUES(?,10,30,1),(?,10,31,1)",org,org);
   jdbc.update("INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,date,refund_direction) VALUES(2,?,1,200000,'已核实','2026-11-05','client')",org);
   var metrics=new PerfMetrics(jdbc);
   var october=metrics.sources(actor,"2026-10",List.of());
   var november=metrics.sources(actor,"2026-11",List.of());
+  assertThat(november).noneMatch(row -> row.key().equals("sale-contract:11"));
   assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",null)).isEqualTo(1000000);
   assertThat(PerfMetrics.taskValue(october,"auto:collectionsAmount",101L)).isEqualTo(1000000);
   assertThat(PerfMetrics.taskValue(november,"auto:collectionsAmount",null)).isEqualTo(-200000);
