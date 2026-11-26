@@ -88,6 +88,55 @@ test('第03步外部定制由客户确认实际方向，标准户型和旧外部
   await old.open();assert.equal(old.page.data.form.attachments[0].assetId, '7002');assert.equal(old.page.data.form.fields.selectionMode, '');
 });
 
+test('进度卡与全部步骤按原单状态显示，跨步补录与切换保留草稿', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const h = harness();
+  h.state.steps[2].status = 'COMPLETED';
+  Object.assign(h.state, { completedCount: 1, progressPercent: 12.5 });
+  await h.open();
+  const page = h.page;
+  const flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  const controls = () => flatten(render(path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), page.data));
+  const named = name => controls().filter(node => (node.attrs?.class || '').split(/\s+/).includes(name));
+  assert.equal(named('journey-node').length, 8);
+  assert.deepEqual(named('journey-node-done').map(n => n.attrs['data-code']), ['HOUSE_SELECTION']);
+  assert.equal(named('journey-connector-done').length, 1);
+  assert.equal(page.data.nextStepLabel, model.definition('INTRODUCTION').name);
+  page.input(event('note', '到店前再联系'));
+  page.showJourney();
+  assert.equal(named('journey-row').length, 8);
+  page.selectStep({ currentTarget: { dataset: { code: 'CONTRACT' } } });
+  assert.equal(page.data.journeyOpen, false);
+  assert.equal(page.data.step.code, 'CONTRACT');
+  assert.equal(page.data.nextStepLabel, model.definition('INVITATION').name);
+  page.selectStep({ currentTarget: { dataset: { code: 'INVITATION' } } });
+  assert.equal(page.data.form.note, '到店前再联系');
+  assert.equal(page.data.dirty, true);
+  assert.equal(h.callsFor('save').length + h.callsFor('complete').length, 0);
+  page.data.uncertain = true;
+  page.showJourney();
+  assert.equal(page.data.journeyOpen, false);
+});
+
+test('八步都完成后默认查看开工原单，单一未完成步骤保留待办状态', async () => {
+  const h = harness();
+  for (const step of h.state.steps) step.status = 'COMPLETED';
+  Object.assign(h.state, { completedCount: 8, progressPercent: 100, currentStepCode: null, nextStepCode: null });
+  await h.open();
+  assert.equal(h.page.data.step.code, 'START');
+  assert.equal(h.page.data.nextStepLabel, '');
+  h.state.completedCount = 7;
+  h.state.currentStepCode = 'START';
+  h.state.nextStepCode = null;
+  h.state.steps[7].status = 'TODO';
+  await h.page.load();
+  assert.equal(h.page.data.workflow.completedCount, 7);
+  assert.equal(h.page.data.nextStepLabel, '');
+  h.page.showJourney();
+  h.page.clear();
+  assert.equal(h.page.data.journeyOpen, false);
+});
+
 test('05测量和06报价能进入外部委托，06保留预算并提供付款草案，跳转不保存或完成步骤', async () => {
   const { render } = require('./role-page-runtime.cjs'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
   for (const step of ['MEASUREMENT', 'QUOTATION']) {
