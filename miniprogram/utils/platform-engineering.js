@@ -322,7 +322,7 @@ function idemFingerprint(action, form) {
  * 在线动作映射（record 页 perform 的 API 态；form 沿用页面现有字段名）。
  * key 为调用方一次性 Idempotency-Key（重试同一动作复用）；返回 Promise；错误抛 {code,msg} 由页面 errorText 展示。
  */
-async function perform(action, id, form, node, key) {
+async function perform(action, id, form, node, key, batchExpected) {
   const f = form || {};
   // M07-T02：prepare 三期 Σ 校验（金额填错即时报差额）——批次#36 凭据门禁已摘（真传通道开放）
   if (action === 'prepare') { const sumErr = threeStageSumError(f); if (sumErr) throw sumErr; }
@@ -453,8 +453,7 @@ async function perform(action, id, form, node, key) {
       if (!String(f.transaction || '').trim() || !f.file?.path)
         throw { code: 0, msg: '请填写收货流水并选择到货凭据' };
       return api.materials.arrival(f.supplyId, {
-        // 此页记录本次合格分批到货；不把全部计划余量误当本批应到量而生成补发。
-        expected: actual, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
+        expected: batchExpected ?? actual, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
         transactionNo: String(f.transaction).trim(), occurredAt: dateStr,
         fileAssetId: await uploadVoucher(f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
       }, key);

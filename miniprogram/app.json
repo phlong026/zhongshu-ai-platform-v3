@@ -38,7 +38,8 @@
         "projects/index",
         "materials/index",
         "record/index",
-        "issues/index"
+        "issues/index",
+        "material-flow/index"
       ]
     },
     {
