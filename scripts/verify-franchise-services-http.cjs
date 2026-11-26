@@ -53,6 +53,13 @@ async function run() {
     await until(()=>!recharge.data.loading);
     assert.equal(recharge.data.error,'');
     const choose=()=>recharge.choose({currentTarget:{dataset:{id:planId}}});
+    const setOnline = enabled => request('/fixture/recharge-'+(enabled?'on':'off'),'POST',{});
+    await setOnline(false); await recharge.refresh();
+    assert.equal(recharge.data.enabled,false); assert.deepEqual(recharge.data.plans,[]);
+    choose(); await recharge.checkout(); assert.equal(paymentAttempts,0);
+    await assert.rejects(request('/franchise/company-points/recharge/orders','POST',
+      {planId,planVersion:'1'},'alpha',{'Idempotency-Key':'disabled-order'}),e=>e.code===403);
+    await setOnline(true); await recharge.refresh();
     choose(); assert.equal(recharge.data.selected.amountCents,100);
     await update(1,199,'ACTIVE');
     await until(()=>recharge.data.plans[0]?.amountCents===199);
@@ -78,10 +85,16 @@ async function run() {
       {code:'stale-signature'},'alpha'),e=>e.code===409);
     recharge.dismissOrder();
     assert.equal(recharge.data.order.id,signedOrder);
+    await setOnline(false); await recharge.refresh();
+    assert.equal(recharge.data.enabled,false); assert.equal(recharge.data.order.id,signedOrder);
+    await recharge.checkout(); assert.equal(paymentAttempts,2);
+    await assert.rejects(request('/franchise/company-points/recharge/orders/'+signedOrder+'/pay-params','POST',
+      {code:'service-disabled'},'alpha'),e=>e.code===403);
     for(let i=0;i<2;i++) await request('/fixture/paid','POST',{});
     await recharge.refresh(); assert.equal(recharge.data.order.label,'额度已到账');
     assert.equal(recharge.data.order.credits,'12');
-    await update(5,199,'ACTIVE');
+    await setOnline(true); await update(5,199,'ACTIVE');
+    await recharge.refresh(); assert.equal(recharge.data.enabled,true);
     console.log('PASS 真实套餐管理接口改价 1.00 → 1.99 元，页面自动更新；旧版本拒单；下架自动移除；上架恢复；同单支付事实重放后显示 12 积分已到账');
   } finally { recharge.onUnload(); }
   const map=page('../miniprogram/pages/account/store-map/index');

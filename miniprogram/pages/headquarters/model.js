@@ -2,7 +2,7 @@ const api = require('./api');
 const { money } = require('../../utils/money');
 const SECTIONS = [{ key: 'overview', label: '概览' }, { key: 'customers', label: '客户' }, { key: 'projects', label: '工程' }, { key: 'books', label: '账本' }, { key: 'finance', label: '财务' }];
 const FINANCE = [{ key: 'receipts', label: '收款' }, { key: 'payables', label: '应付' }, { key: 'payments', label: '付款' }, { key: 'refunds', label: '退款' }];
-const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '合同签约', '开工大吉'];
+const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '施工签约', '开工大吉'];
 const STATUS = { DRAFT: '草稿', PENDING: '待处理', NOT_STARTED: '未开始', IN_PROGRESS: '进行中', COMPLETED: '已完成', COMPLETE: '已完成',
   SIGNED: '已签约', ACTIVE: '进行中', OPEN: '进行中', CLOSED: '已关闭', VOID: '已作废', VOIDED: '已作废', CANCELLED: '已取消',
   PAID: '已付清', UNPAID: '未付款', PARTIAL: '部分完成', PARTIALLY_PAID: '部分付款', RECEIVED: '已收款', CONFIRMED: '已确认',
@@ -27,6 +27,7 @@ const ENUM = { CONFIRMED: '确认到店', PENDING: '待确认', DECLINED: '暂�
 const text = value => value == null || value === '' ? '—' : ['string', 'number', 'boolean'].includes(typeof value) ? String(value) : '—';
 const status = value => STATUS[value] || text(value);
 const date = value => text(value).replace('T', ' ').replace(/\.\d+(Z)?$/, '$1');
+const workflowTime = value => require('../../utils/platform-messages').formatTime(typeof value === 'number' && value < 1e12 ? value * 1000 : value);
 const brand = row => row.brandState === 'AMBIGUOUS' ? '品牌归属待核对' : row.brandState === 'UNASSIGNED' ? '未关联品牌' : text(row.brandName);
 const title = kind => SECTIONS.concat(FINANCE).find(item => item.key === kind)?.label || '总部详情';
 function fields(row, names) {
@@ -82,19 +83,24 @@ function customer(row, register) {
     progress: workflow ? Number(workflow.progressPercent) || 0 : 0,
     completed: workflow ? workflow.completedCount : 0,
     steps: (workflow?.steps || []).map(step => ({
-      code: step.code, number: String(step.order).padStart(2, '0'), name: text(step.name), status: status(step.status), completed: step.status === 'COMPLETED',
-      source: step.source === 'CONTRACT' ? '以已签合同为准' : step.source === 'ENGINEERING' ? '以工程实际开工记录为准' : '业务跟进记录',
-      occurredOn: step.occurredOn || '', note: step.note || '', fields: fields(step.fields || {}, FIELD_NAMES),
+      code: step.code, number: String(step.order).padStart(2, '0'), name: text(step.name),
+      status: step.code === 'SITE_VISIT' && step.status === 'SKIPPED' ? '已跳过' : step.code === 'SITE_VISIT' && step.status === 'COMPLETED' ? '已带看' : status(step.status),
+      completed: step.status === 'COMPLETED',
+      source: step.source === 'CONTRACT' ? '以已签施工合同为准' : step.source === 'ENGINEERING' ? '以工程实际开工记录为准' : '业务跟进记录',
+      occurredOn: step.occurredOn || '', note: step.note || '', fields: step.status === 'SKIPPED' ? [
+        {label:'经办人', value:text(step.fields?.visitSkip?.actorName || step.fields?.visitSkip?.actorUserId)},
+        {label:'办理时间', value:workflowTime(step.completedAt)}] : fields(step.fields || {}, FIELD_NAMES),
       files: workflowFiles(id, step.code, step.attachments, register).concat(step.code === 'CONTRACT' && step.fields?.assetId
         ? [register({ type: 'workflow', id, step: 'CONTRACT', assetId: api.id(step.fields.assetId) }, '已签合同附件')] : [])
     }))
   };
 }
 function records(rows, customerId, register) {
-  const types = { SAVE: '保存记录', COMPLETE: '完成步骤', REOPEN: '重新打开', STATUS: '更新跟进状态',
+  const types = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新打开', STATUS: '更新跟进状态',
     SAVED: '保存记录', COMPLETED: '完成步骤', REOPENED: '重新打开', SOURCE_UPDATED: '来源更新', CREATED: '建立流程' };
   return rows.map(row => ({ id: api.id(row.id), step: STEP_NAMES[api.STEPS.indexOf(row.stepCode)] || text(row.stepCode), type: types[row.type] || text(row.type),
-    date: date(row.createdAt), occurredOn: row.occurredOn || '', actor: text(row.actorName), note: row.note || '', fields: fields(row.fields || {}, FIELD_NAMES),
+    date: row.type === 'SKIP' ? workflowTime(row.createdAt) : date(row.createdAt), occurredOn: row.occurredOn || '',
+    actor: text(row.actorName || row.actorUserId), note: row.note || '', fields: fields(row.fields || {}, FIELD_NAMES),
     files: workflowFiles(customerId, row.stepCode, row.attachments, register) }));
 }
 function documents(rows, projectId, register) {

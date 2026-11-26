@@ -1,9 +1,4 @@
-/**
- * B 公司积分池 API。
- *
- * 使用平台 Bearer + 当前岗位身份，不经过旧个人钱包会话。每次请求冻结会话代次和岗位，
- * 切岗或换号后的迟到响应统一丢弃，避免把上一家公司的积分写进当前页面。
- */
+/** 公司积分请求绑定当前会话和岗位。换身份后丢弃旧响应。 */
 const http = require('./http');
 
 const STALE = 'COMPANY_POINTS_STALE';
@@ -47,10 +42,7 @@ function myUsage(options) {
   return read(BASE + '/my-usage?' + query.join('&'), input.fresh);
 }
 
-/**
- * 精确格式化后端 BIGINT。超过 JS 安全整数的 number 已不可恢复原值，必须拒绝；
- * 后端应以十进制字符串传输该范围的值。
- */
+/** 超出安全整数的 BIGINT 须以十进制字符串传输。 */
 function formatCredits(value) {
   let text;
   if (typeof value === 'number') {
@@ -86,7 +78,8 @@ function isStale(error) {
   return !!error && error.code === STALE;
 }
 
-function packages() { return read(BASE + '/recharge/catalog').then(c=>c&&c.enabled&&Array.isArray(c.plans)?c.plans:[]); }
+function rechargeCatalog() { return read(BASE + '/recharge/catalog', true); }
+function packages() { return rechargeCatalog().then(c=>c&&c.enabled===true&&Array.isArray(c.plans)?c.plans:[]); }
 function purchase() { return Promise.reject({code:403,message:'模拟充值已停用，请使用公司额度充值'}); }
 
-module.exports = { packages, purchase, STALE, fingerprint, isStale, summary, myUsage, formatCredits };
+module.exports = { rechargeCatalog, packages, purchase, STALE, fingerprint, isStale, summary, myUsage, formatCredits };

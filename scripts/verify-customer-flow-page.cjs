@@ -22,7 +22,7 @@ function harness(options = {}) {
   let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
   const calls = [], navigations = [], toasts = [];
   const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download', 'listQuotes', 'entryCustomer', 'entryProfile'].map(name => [name, async (...args) => {
+  const api = Object.fromEntries(['get', 'save', 'complete', 'skipVisit', 'reopen', 'records', 'download', 'listQuotes', 'entryCustomer', 'entryProfile'].map(name => [name, async (...args) => {
     calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
@@ -570,6 +570,24 @@ test('07/08只读真实事实且没有完成按钮；预算入口仍携带客户
   h.page.openSalesQuote(); assert.equal(h.navigations.at(-1).url, '/pages/workflow/index?view=budget&id=42');
 });
 
+test('第07步为施工签约，设计合同归档后待办，签署施工合同后回看原单', async () => {
+  const h = harness({ step: 'CONTRACT' });
+  await h.open();
+  const { render } = require('./role-page-runtime.cjs');
+  const file = path.join(root, 'miniprogram/pages/customer-flow/index.wxml');
+  const renderedText = node => node.text || (node.children || []).map(renderedText).join('');
+  const visible = () => render(file, h.page.data).map(renderedText).join('');
+  assert.equal(h.page.data.step.name, '施工签约');
+  assert.match(visible(), /设计服务合同可归入设计委托档案/);
+  Object.assign(h.state.steps[6], { status: 'COMPLETED', fields: { contractId: '8101', signedDate: '2026-11-25', totalCents: '100000' } });
+  Object.assign(h.state, { completedCount: 1, progressPercent: 12.5 });
+  h.page.applyWorkflow(h.state);
+  assert.equal(h.page.data.step.statusLabel, '已完成');
+  assert.match(visible(), /8101/);
+  assert.match(visible(), /查看施工合同/);
+  assert.doesNotMatch(visible(), /设计服务合同可归入设计委托档案/);
+});
+
 test('文本输入长度和后端契约一致，避免保存时才发现已超限', async () => {
   const h = harness({ step: 'QUOTATION' }); await h.open();
   const { render } = require('./role-page-runtime.cjs'), file = path.join(root, 'miniprogram/pages/customer-flow/index.wxml');
@@ -714,4 +732,47 @@ test('当前客户读权撤回会清除建议，较早历史失败可重试且�
   const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
   assert.ok(flatten(render(file,history.page.data)).some(n=>n.attrs?.['data-kind']==='time' && n.attrs?.bindtap==='chooseVisitEntry'));
   history.state.canWrite=false;await history.open();assert.ok(!flatten(render(file,history.page.data)).some(n=>n.attrs?.bindtap==='chooseVisitEntry'));
+});
+
+test('带看由经办人填写原因后主动跳过，续办复用原命令，业务和总部显示原事实', async () => {
+  const h = harness({step:'SITE_VISIT'}), page = h.page;
+  const reason = '客户已现场看过自家工程，决定本次免带看';
+  const createdAt = 1795691044.078718, evidence = {reason, actorUserId:'42', actorName:'张工', actorPostId:'18'};
+  const receipt = {id:'9007199254740998123',stepCode:'SITE_VISIT',type:'SKIP',note:reason,createdAt,actorUserId:'42',actorName:'张工',fields:{visitSkip:evidence}};
+  let calls = 0;
+  h.overrides.skipVisit = async () => {
+    if (++calls === 1) throw Error('回执丢失');
+    Object.assign(h.state, {revision:1,completedCount:1,progressPercent:12.5,events:[receipt]});
+    Object.assign(h.state.steps[3], {status:'SKIPPED',revision:1,note:reason,fields:{visitSkip:evidence},completedAt:createdAt,canWrite:false,canComplete:false,canReopen:true});
+    return copy(h.state);
+  };
+  h.overrides.records = async () => ({list:[receipt],total:1});
+  await h.open(); page.skipVisit(); assert.equal(h.modal.confirmText,'跳过带看');
+  await h.modal.success({confirm:false,content:reason}); assert.equal(h.callsFor('skipVisit').length,0);
+  page.skipVisit(); await h.modal.success({confirm:true,content:'  '}); assert.match(page.data.error,/原因/);
+  page.skipVisit(); await h.modal.success({confirm:true,content:reason}); assert.equal(page.data.uncertain,true);
+  await page.runPending(); const attempts=h.callsFor('skipVisit');
+  assert.deepEqual(attempts[0].args,attempts[1].args);assert.deepEqual(attempts[0].args[1],{revision:0,reason});
+  assert.equal(page.data.workflow.completedCount,1); assert.equal(page.data.step.statusLabel,'已跳过');
+  assert.deepEqual(page.data.facts.map(f=>f.value),[reason,'张工','2026-11-26 19:04']);
+  assert.equal(h.callsFor('complete').length,0);assert.equal(h.callsFor('save').length,0);
+  await page.toggleHistory(); page.viewRecord({currentTarget:{dataset:{id:receipt.id}}});
+  assert.equal(page.data.activeRecord.actionLabel,'已跳过带看');assert.deepEqual(page.data.activeRecord.details,[]);
+  const hq = require('../miniprogram/pages/headquarters/model');
+  const readonly = copy(h.state);readonly.canWrite=false;
+  for(const step of readonly.steps) Object.assign(step,{canWrite:false,canReopen:false,canComplete:false});
+  const view = hq.customer({id:'42',companyId:'9',readOnly:true,workflow:readonly},()=>{throw Error('跳过没有现场原件')});
+  assert.equal(view.steps[3].status,'已跳过');assert.equal(view.steps[3].note,reason);
+  assert.deepEqual(view.steps[3].fields.map(f=>f.value),['张工','2026-11-26 19:04']);
+  assert.equal(hq.records([receipt],'42',()=>{})[0].type,'已跳过带看');
+});
+
+test('其他步骤、已实际带看及过期的免带看弹窗均不能发出跳过命令', async () => {
+  const other=harness({step:'INTRODUCTION'});await other.open();other.page.skipVisit();assert.equal(other.modal,undefined);
+  const h=harness({step:'SITE_VISIT'});await h.open();h.page.skipVisit();const modal=h.modal;
+  h.switchSession();await modal.success({confirm:true,content:'原页面'});assert.equal(h.callsFor('skipVisit').length,0);
+  const done=harness({step:'SITE_VISIT'});Object.assign(done.state.steps[3],{status:'COMPLETED',canWrite:false,fields:{siteName:'实地看过'}});
+  await done.open();done.page.skipVisit();assert.equal(done.modal,undefined);assert.equal(done.page.data.step.statusLabel,'已带看');
+  const draft=harness({step:'SITE_VISIT'});await draft.open();draft.page.input(event('siteName','刚输入的现场'));draft.page.skipVisit();
+  assert.equal(draft.modal,undefined);assert.equal(draft.page.data.form.fields.siteName,'刚输入的现场');
 });

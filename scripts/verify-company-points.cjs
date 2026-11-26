@@ -178,15 +178,19 @@ test('point asset card exposes a retryable error without showing backend details
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 // Real component + company-points API; only the HTTP boundary and identity storage are replaced.
 function pointCard(options={}){
- const root=path.resolve(__dirname,'../miniprogram'),cache=new Map(),requests=[],patches=[];
+ const root=path.resolve(__dirname,'../miniprogram'),cache=new Map(),requests=[],patches=[],navigation=[];
  const session={token:'token-1',generation:1,userId:'user-1',tenantId:'tenant-1',postId:'post-1',post:{userId:'user-1',tenantId:'tenant-1',postId:'post-1',orgId:'org-1',roleCode:'sales',orgType:'store',permissions:['points:read']}};
  const http={token:()=>session.token,sessionGeneration:()=>session.generation,currentUserId:()=>session.userId,tenantId:()=>session.tenantId,currentPostId:()=>session.postId,
-  get:url=>url.endsWith('/recharge/catalog')?(options.packages?options.packages():Promise.resolve([{id:'plan-1'}])).then(plans=>({enabled:true,plans})):new Promise((resolve,reject)=>requests.push({url,resolve,reject}))};
+  get(url) {
+    if (!url.endsWith('/recharge/catalog')) return new Promise((resolve,reject)=>requests.push({url,resolve,reject}));
+    if (options.catalog) return options.catalog();
+    return (options.packages?options.packages():Promise.resolve([{id:'plan-1'}])).then(plans=>({enabled:true,plans}));
+  }};
  let definition;
  function load(file){
   file=path.resolve(root,file);if(!path.extname(file))file+='.js';if(cache.has(file))return cache.get(file).exports;
   const module={exports:{}};cache.set(file,module);
-  vm.runInNewContext('(function(require,module,exports){'+fs.readFileSync(file,'utf8')+'\n})',{Component:v=>definition=v,console:{warn(){}},wx:{navigateTo(){}}},{filename:file})(name=>{
+  vm.runInNewContext('(function(require,module,exports){'+fs.readFileSync(file,'utf8')+'\n})',{Component:v=>definition=v,console:{warn(){}},wx:{navigateTo:options=>navigation.push(options.url)}},{filename:file})(name=>{
    const dependency=path.resolve(path.dirname(file),name);
    if(dependency===path.join(root,'api/http'))return http;
    if(dependency===path.join(root,'api/auth'))return {currentApiPost:()=>session.post};
@@ -196,8 +200,21 @@ function pointCard(options={}){
  load('components/point-asset-card/index.js');
  const card={...definition.methods,data:structuredClone(definition.data),setData(patch){patches.push(structuredClone(patch));Object.assign(this.data,patch);}};
  const respond=(start=0,balance='80',used='3')=>requests.slice(start,start+2).forEach(r=>r.resolve(r.url.endsWith('/summary')?{balance,status:'ACTIVE'}:{used}));
- return {card,definition,requests,patches,session,respond};
+ return {card,definition,requests,patches,session,respond,navigation};
 }
+test('关闭时隐藏新充值，保留已有订单，服务端重开后恢复入口',async()=>{
+ let enabled=false, currentOrder=null;
+ const h=pointCard({catalog:async()=>({enabled,plans:[{id:'p'}],currentOrder})});
+ const refresh=async()=>{const start=h.requests.length;h.card.refresh();h.respond(start);await tick();};
+ await refresh();assert.equal(h.card.data.purchaseAvailable,false);assert.equal(h.card.data.hasRechargeOrder,false);
+ h.card.openRecharge();assert.deepEqual(h.navigation,[]);
+ currentOrder={id:'opened-order'};await refresh();
+ assert.equal(h.card.data.hasRechargeOrder,true);assert.equal(h.card.data.purchaseAvailable,false);
+ h.card.openRecharge();assert.deepEqual(h.navigation,['/pages/wallet/company-recharge/index']);
+ currentOrder=null;enabled=true;await refresh();assert.equal(h.card.data.purchaseAvailable,true);
+ enabled=false;await refresh();assert.equal(h.card.data.purchaseAvailable,false);
+ h.card.openRecharge();assert.equal(h.navigation.length,1);
+});
 test('point card attached/show share one loading render and one pair of pending API reads',async()=>{
  const h=pointCard();h.definition.lifetimes.attached.call(h.card);h.definition.pageLifetimes.show.call(h.card);
  assert.equal(h.requests.length,2);assert.equal(h.patches.filter(p=>p.state==='loading').length,1);
