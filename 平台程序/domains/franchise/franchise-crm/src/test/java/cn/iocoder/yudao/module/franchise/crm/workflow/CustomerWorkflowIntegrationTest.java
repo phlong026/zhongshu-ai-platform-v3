@@ -237,6 +237,34 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void legacyHouseSelectionCannotEraseTheRecordedDirectionButExplicitSwitchMayProceed() {
+        long id = customer();
+        String step = "HOUSE_SELECTION";
+        var custom = Map.<String,Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", "一层无台阶，老人房朝南", "confirmed", true);
+        View before = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "原备注", custom, List.of()), "custom-kept"));
+        var legacy = new SaveCommand(before.revision(), today(), "旧版只改备注", Map.of("confirmed", true,
+                "referenceCaseId", "", "referenceCaseName", "", "selectionResult", "", "versionLabel", ""), List.of());
+        assertThatThrownBy(() -> as(sales, () -> workflow.save(sales, id, step, legacy, "legacy-mode-omitted")))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("请更新小程序");
+        View unchanged = as(sales, () -> workflow.get(sales, id));
+        assertThat(unchanged.revision()).isEqualTo(before.revision());
+        assertThat(unchanged.steps().get(2)).isEqualTo(before.steps().get(2));
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isEqualTo(1);
+
+        var standard = new SaveCommand(before.revision(), null, "主动改用参考户型",
+                Map.of("selectionMode", "", "referenceCaseId", "7001", "selectionResult", "改用标准户型", "confirmed", false), List.of());
+        View switched = as(sales, () -> workflow.save(sales, id, step, standard, "explicit-standard"));
+        assertThat(switched.steps().get(2).fields()).doesNotContainKeys("selectionMode", "customDirection")
+                .containsEntry("referenceCaseId", "7001").containsEntry("confirmed", false);
+        assertThat(switched.steps().get(2).canComplete()).isFalse();
+        assertThat(as(sales, () -> workflow.save(sales, id, step, standard, "explicit-standard")).revision())
+                .isEqualTo(switched.revision());
+        var history = as(sales, () -> workflow.records(sales, id, 1, 20)).getList();
+        assertThat(history).hasSize(2);
+        assertThat(history.get(1).fields()).isEqualTo(custom);
+    }
+
+    @Test
     void externalCustomDirectionRequiresAnExplicitChoiceAndCustomerConfirmationWithoutInventingAnAttachment() {
         long id = customer();
         String step = "HOUSE_SELECTION", direction = "一层无台阶，老人房朝南，厨房临院";
@@ -274,9 +302,15 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         var placeholder = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", onlyMode, List.of()), "mode-as-direction"));
         assertThat(placeholder.steps().get(2).canComplete()).isFalse();
         var legacy = Map.<String, Object>of("selectionResult", "已确定外部方案", "confirmed", true);
-        var missing = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-no-proof"));
+        failure(400, () -> as(sales, () -> workflow.save(sales, id, step,
+                new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-cannot-replace-direction")));
+        assertThat(as(sales, () -> workflow.get(sales, id)).steps().get(2)).isEqualTo(placeholder.steps().get(2));
+
+        // Legacy external plans remain supported when there is no recorded custom direction to replace.
+        long legacyId = customer();
+        var missing = as(sales, () -> workflow.save(sales, legacyId, step, new SaveCommand(0, today(), "", legacy, List.of()), "legacy-no-proof"));
         assertThat(missing.steps().get(2).canComplete()).isFalse();
-        var file = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(missing.revision(), today(), "", legacy,
+        var file = as(sales, () -> workflow.save(sales, legacyId, step, new SaveCommand(missing.revision(), today(), "", legacy,
                 List.of(new Attachment("9001", "客户原户型.pdf"))), "old-external-plan"));
         assertThat(file.steps().get(2).canComplete()).isTrue();
         assertThat(file.steps().get(2).fields()).doesNotContainKeys("selectionMode", "customDirection");

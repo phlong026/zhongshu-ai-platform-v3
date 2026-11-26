@@ -96,6 +96,12 @@ public class CustomerWorkflowService {
                 && !(request.fields() != null && request.fields().get("quoteId") instanceof String submitted && submitted.isBlank())) {
             throw invalid("本步骤已关联正式报价，请更新小程序后再修改");
         }
+        // Legacy clients omit the mode; only an explicit switch can replace a recorded custom direction.
+        if (step == Step.HOUSE_SELECTION && previous != null && "EXTERNAL_CUSTOM".equals(previous.fields().get("selectionMode"))
+                && !input.fields().containsKey("selectionMode")
+                && !(request.fields() != null && request.fields().get("selectionMode") instanceof String submitted && submitted.isBlank())) {
+            throw invalid("本步骤已记录外部定制方向，请更新小程序后再修改");
+        }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
         validateAttachments(post, customerId, input.attachments());
         if (step == Step.MEASUREMENT) {
