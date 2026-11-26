@@ -1,4 +1,4 @@
-// 历史设计入口：保留公开户型和历史成果读取。
+// 历史设计入口：保留公开户型、快速预算和历史成果读取。
 const ENTRY_ROLES = ['sales', 'sales-lead', 'hq-design-admin'];
 const auth = require('../api/auth');
 const http = require('../api/http');
@@ -16,7 +16,7 @@ module.exports=()=>({
   data: {
     entries: [
       { title: '灵感库', view: 'inspiration', icon: 'home-design-icon', hint: '从优秀方案找灵感' },
-      { title: '预算历史', view: 'budget', icon: 'contract', hint: '查看已生成的预算记录' }
+      { title: '快速预算', view: 'budget', icon: 'contract', hint: '快速估算建造投入' }
     ],
     recentTasks:[],recentCount:0,recentRunning:0,recentLoading:false,recentError:'',
     entranceEnabled: false,

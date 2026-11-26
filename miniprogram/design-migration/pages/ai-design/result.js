@@ -140,8 +140,8 @@ protectedPage({
         } else wx.showToast({ title: '保存失败，请重试', icon: 'none' });
       });
   },
-  budgetHistory() {
-    if (this.current(this._seq) && this.data.latest) wx.navigateTo({url:'/design-migration/pages/budget/history?projectId='+this._projectId});
+  budget() {
+    if (this.current(this._seq) && this.data.latest) wx.navigateTo({ url: '/design-migration/pages/budget/input?projectId=' + this._projectId + '&resultVersionId=' + this.data.latest.versionId });
   },
   publish() {
     if (!this.current(this._seq) || !this.data.latest || this.data.readOnly) return;

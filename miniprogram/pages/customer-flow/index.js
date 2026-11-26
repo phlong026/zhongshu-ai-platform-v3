@@ -243,7 +243,8 @@ Page({
     if (!this.editable()) return;
     const form = clone(this.data.form); form.fields.referenceCaseId = ''; form.fields.referenceCaseName = ''; this.change(form);
   },
-  openBudget() { if (this.alive()) navigation.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
+  openBudget() { if (this.alive()) navigation.open('/design-migration/pages/budget/quick?customerId=' + encodeURIComponent(this.customerId)); },
+  openSalesQuote() { if (this.alive()) navigation.open('/pages/workflow/index?view=budget&id=' + encodeURIComponent(this.customerId)); },
   openEntrust() {
     if (['MEASUREMENT', 'QUOTATION', 'START'].includes(this.selectedCode)) this.openRelated('/pages/external-entrust/index?customerId=' + encodeURIComponent(this.customerId));
   },

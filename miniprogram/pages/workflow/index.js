@@ -673,13 +673,13 @@ Page({
  go(e){const d=e.currentTarget.dataset;if(!d.view)return;if(['receipt-supplement','pay-supplement'].includes(d.view))return require('../../utils/page-navigation').open('/pages/admin/index?view='+d.view+'&id='+encodeURIComponent(d.record));this.openView(d.view,false,null,d.record||'');},
  openDesignTool(e){
   const tool=e.currentTarget.dataset.tool;
-  if(!['inspiration','commission'].includes(tool))return;
+  if(!['inspiration','budget','commission'].includes(tool))return;
   if(!this.data.platformMode){
-   const demo={inspiration:'inspiration',commission:'request'};
+   const demo={inspiration:'inspiration',budget:'budget',commission:'request'};
    return this.openView(demo[tool],false,null);
   }
   if(tool==='commission')return this.openView('commission',false,null);
-  const routes={inspiration:'/design-migration/pages/library/index'};
+  const routes={inspiration:'/design-migration/pages/library/index',budget:'/design-migration/pages/budget/quick'};
   if(routes[tool])require('../../utils/page-navigation').open(routes[tool]+(this.id?(routes[tool].includes('?')?'&':'?')+'customerId='+encodeURIComponent(this.id):''));
  },
  navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},

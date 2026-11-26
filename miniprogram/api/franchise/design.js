@@ -20,7 +20,7 @@ const assets = {
 };
 
 const projects = {
-  create: retired.reject,
+  create: (data, key) => http.post('/franchise/design/projects', data, idem(key, 'proj')),
   list: (params) => http.get('/franchise/design/projects', params),
   detail: (projectId, jobId) => http.get('/franchise/design/projects/' + projectId, jobId ? { jobId } : undefined),
   createFlatJob: retired.reject,
@@ -38,7 +38,7 @@ const projects = {
 const budget = {
   ruleInfo: (regionCode, structureType, materialGrade) =>
     http.get('/franchise/design/budget/rule-info', { regionCode, structureType, materialGrade }),
-  estimate: retired.reject
+  estimate: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/budget-estimates', data, idem(key, 'budget'))
 };
 
 module.exports = { cases, assets, projects, budget };

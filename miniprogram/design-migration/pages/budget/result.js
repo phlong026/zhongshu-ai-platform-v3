@@ -18,7 +18,7 @@ const page = Object.assign(budgetPage(), {
   },
   exportImage() { share.exportBudgetImage(this); },
   commission() {
-    if (!this.current() || !this.data.estimate || this.data.legacy) return;
+    if (!this.current() || !this.data.estimate || this.data.legacy || this.data.saving) return;
     const revision = this.data.estimate.revisionId || this._revisionId;
     wx.navigateTo({ url: '/design-migration/pages/customer/archive?budgetId=' + this._budgetId
       + (revision ? '&revisionId=' + revision : '') + '&next=commission' + require('../../utils/customer-context').suffix(require('../../utils/customer-context').read('budget',this._budgetId) || (this._sourceScope === require('../../utils/budget-draft').sessionScope() ? this._sourceCustomer : '')) });

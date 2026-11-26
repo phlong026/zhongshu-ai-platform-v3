@@ -187,6 +187,34 @@ protectedPage({
   },
   navigate(url) { wx.navigateTo({ url, fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) }); },
   // 候选图点击放大（加载未完成的格子忽略；catchtap 不触发页面其他点击）
+  // 方案重命名（仅 projects 类型入口）：系统弹窗内编辑，成功后同步标题
+  renameProject() {
+    if (this._renaming || this._type !== 'projects' || !this.data.projectId || !this.current(this._seq)) return;
+    const self = this;
+    wx.showModal({
+      title: '重命名方案',
+      editable: true,
+      content: this.data.projectName || '',
+      placeholderText: '1~60 字，如：老家三层小院',
+      success(res) {
+        if (!res.confirm) return;
+        const name = String(res.content || '').trim();
+        if (!name) { wx.showToast({ title: '方案名称不能为空', icon: 'none' }); return; }
+        if (name.length > 60) { wx.showToast({ title: '方案名称不能超过 60 字', icon: 'none' }); return; }
+        self._renaming = true;
+        api.renameProject(self.data.projectId, name).then(function () {
+          if (!self.current(self._seq)) return;
+          self._renaming = false;
+          self.setData({ projectName: name, title: name });
+          wx.showToast({ title: '已重命名', icon: 'success' });
+        }).catch(function (error) {
+          self._renaming = false;
+          wx.showToast({ title: view.errorText(error), icon: 'none' });
+        });
+      }
+    });
+  },
+
   previewCandidate(event) {
     const url = event.currentTarget.dataset.url;
     if (!url) return;

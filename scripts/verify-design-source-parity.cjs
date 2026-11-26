@@ -76,29 +76,30 @@ test('实际资源API保持原路径，上传票据、审核完成与结果下�
  h.design.assets.complete=()=>Promise.resolve({uploadStatus:'PENDING'});await assert.rejects(api.completeUpload('602'),error=>error.msg.includes('校验中'));
 });
 test('B适配只携带当前B身份，原资源路径通过封闭能力路由，幂等键保持不变',async()=>{
- const h=requestHarness();await h.m.put('/app-api/design/v1/cases/9/favorite',{},{'Idempotency-Key':'stable-key'});
- assert.equal(h.calls[0].p,'/franchise/design/flow');assert.equal(h.calls[0].b.path,'/cases/9/favorite');assert.equal(h.calls[0].h['Idempotency-Key'],'stable-key');
+ const h=requestHarness();await h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{expectedVersion:2,companyPrice:{priceVersion:'v1'}},{'Idempotency-Key':'stable-key'});
+ assert.equal(h.calls[0].p,'/franchise/design/flow');assert.equal(h.calls[0].b.path,'/budget-drafts/9/estimates');assert.equal(h.calls[0].h['Idempotency-Key'],'stable-key');
 });
 test('切岗或换号后的迟到结果被拒绝；未登录不发起请求',async()=>{
  const h=requestHarness();const pending=h.m.get('/app-api/design/v1/budget-drafts');h.change();await assert.rejects(pending,e=>e.code==='SESSION_CHANGED');h.logout();await assert.rejects(h.m.get('/app-api/design/v1/budget-drafts'),e=>e.code===401);
 });
-test('预算停用后拒绝取价和测算，余额仍来自公司积分接口',async()=>{
+test('B价格变化走重新确认语义，报价与余额来自真实公司积分接口',async()=>{
  const h=requestHarness();assert.equal((await h.m.get('/app-api/design/v1/point-account')).availablePoints,950);
- await assert.rejects(h.m.get('/app-api/design/v1/budget-point-quotes'),e=>e.code===1112100004);
- await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code===1112100004);
- assert.equal(h.calls.length,0);
+ const q=await h.m.get('/app-api/design/v1/budget-point-quotes');assert.equal(q.companyPrice.priceVersion,'v1');assert.equal(q.totalPointCost,12);
+ h.http.post=()=>Promise.reject({code:1072000016,message:'价格已改变'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code==='DESIGN_PRICE_CHANGED');
+ h.http.post=()=>Promise.reject({code:1072000001,message:'公司没有开通设计能力'});await assert.rejects(h.m.post('/app-api/design/v1/budget-drafts/9/estimates',{}),e=>e.code===1072000001);
 });
-test('旧出图入口回到灵感资料库，快速预算链接跳转历史记录',()=>{
+test('旧出图入口回到灵感资料库，快速预算链接保留创建与历史的上下文',()=>{
  let page;const routes=[];vm.runInNewContext(fs.readFileSync(path.join(ROOT,'miniprogram/pages/workflow/explore/index.js'),'utf8'),{Page:p=>page=p,wx:{redirectTo:o=>routes.push(o.url)},require:p=>p.endsWith('/api/http')?{token:()=> 'b'}:p.endsWith('/api/auth')?{currentApiPost:()=>({postId:'1'})}:p.endsWith('/utils/platform-design')?{pageMode:()=> 'api'}:p==='./platform-bridge'?p=>{p.platTeardown=()=>{};p.platOnLoadInit=()=>{throw Error('old flow invoked');};}: {}});
  page.setData=()=>{};for(const view of ['inspiration','ai-config','ai-facade','budget'])page.onLoad({view});
  page.onLoad({view:'budget-result',budgetId:'90071992547409971',revisionId:'90071992547409972'});
  page.onLoad({view:'plan-result',projectId:'90071992547409973',resultVersionId:'90071992547409975'});
  page.onLoad({view:'project',id:'not-an-id'});
  page.onLoad({view:'budget',draftId:'90071992547409974'});
- assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/budget/history?independent=1',
+ page.onLoad({view:'budget',projectId:'90071992547409970',resultVersionId:'701'});
+ assert.deepEqual(routes,['/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/library/index','/design-migration/pages/budget/quick',
  '/design-migration/pages/budget/result?budgetId=90071992547409971&revisionId=90071992547409972',
  '/design-migration/pages/ai-design/result?projectId=90071992547409973&resultVersionId=90071992547409975',
- '/design-migration/pages/profile/records?type=projects','/design-migration/pages/budget/history?independent=1&draftId=90071992547409974']);
+ '/design-migration/pages/profile/records?type=projects','/design-migration/pages/budget/quick?draftId=90071992547409974','/design-migration/pages/budget/input?projectId=90071992547409970&resultVersionId=701']);
 });
 test('全图展示和公司归档入口已接入；历史只读与完成后才导出预算图保持原限制',()=>{
  const root=path.join(ROOT,'miniprogram/design-migration');assert.match(fs.readFileSync(path.join(root,'pages/library/detail.wxml'),'utf8'),/aspectFit/);assert.match(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/pages\/customer\/archive/);assert.doesNotMatch(fs.readFileSync(path.join(root,'pages/ai-design/result.js'),'utf8'),/ai-design\/publish/);

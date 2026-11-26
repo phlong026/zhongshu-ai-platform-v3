@@ -399,7 +399,7 @@ test('销售直达旧原生方案页回首页，工程与老板继续使用原�
   assert.ok(requests.some(request => request.url.includes('/franchise/engineering/projects')));
 });
 
-test('灵感首页入口可用，销售工具冷启动返回首页，移除快速预算入口', () => {
+test('灵感首页入口可用，销售工具冷启动返回首页，预算入口行为保持原样', () => {
   reset('sales');
   const business = show('/pages/business/index');
   const inspiration = business.data.salesShortcuts.find(row => row.action === 'inspiration');
@@ -407,7 +407,7 @@ test('灵感首页入口可用，销售工具冷启动返回首页，移除快�
   business.openSalesShortcut(tap(inspiration));
   assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/design-migration/pages/library/index' }]);
   assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'budget' } }), '/pages/business/index');
-  assert.equal(business.data.salesShortcuts.some(row => row.action === 'quickBudget'), false);
+  assert.equal(business.data.salesShortcuts.find(row => row.action === 'quickBudget').url, '/pages/workflow/explore/index?view=budget');
 
   reset('hq-design-admin');
   assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'inspiration' } }), '/pages/design/index');

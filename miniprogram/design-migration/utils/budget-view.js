@@ -117,7 +117,7 @@ function viewModel(estimate, category, exact) {
 // Three budget reading screens share authorized ID/revision loading, not an in-memory-only result.
 function budgetPage(category) {
   return {
-    data: { title: category ? CATEGORY_NAMES[category] + '明细' : '参考预算', category: category || '', loading: false, error: '', estimate: null,
+    data: { title: category ? CATEGORY_NAMES[category] + '明细' : '参考预算', category: category || '', loading: false, error: '', saving: false, saveError: '', estimate: null,
       groups: [], categoryRows: [], basis: [], exact: false, expanded: {}, legacy: false, quoteLoading: false, quoteError: '', quoteStatusText: '', quote: null },
     onLoad(options) {
       this._sourceCustomer = draftStore.id(options.customerId) || '';
@@ -131,7 +131,7 @@ function budgetPage(category) {
     onUnload() { this._sequence = (this._sequence || 0) + 1; this._scope = null; },
     clearSession() {
       this._sequence = (this._sequence || 0) + 1; this._saveKey = null;
-      this.setData({ loading: false, estimate: null, groups: [], categoryRows: [], basis: [], expanded: {}, quoteLoading: false, quoteError: '', quoteStatusText: '', quote: null, error: '登录状态已更新，请重新进入本页' });
+      this.setData({ loading: false, saving: false, estimate: null, groups: [], categoryRows: [], basis: [], expanded: {}, saveError: '', quoteLoading: false, quoteError: '', quoteStatusText: '', quote: null, error: '登录状态已更新，请重新进入本页' });
     },
     current() { if (!this._scope || this._scope !== draftStore.sessionScope()) { this.clearSession(); return false; } return true; },
     load() {
@@ -166,6 +166,20 @@ function budgetPage(category) {
       const target = { BODY: 'body-detail', EXTERIOR: 'exterior-detail' }[event.currentTarget.dataset.category]; if (!target) return;
       wx.navigateTo({ url: '/design-migration/pages/budget/' + target + '?budgetId=' + this._budgetId + '&revisionId=' + this.data.estimate.revisionId,
         fail: () => wx.showToast({ title: '明细打开失败，请重试', icon: 'none' }) });
+    },
+    save() {
+      if (!this.current() || this.data.saving || !this.data.estimate || this.data.legacy || this.data.estimate.saved) return;
+      const scope = this._scope, seq = this._sequence;
+      this._saveKey = this._saveKey || 'budget-save-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+      this.setData({ saving: true, saveError: '' });
+      api.saveBudgetEstimate(this._budgetId, this._saveKey).then(result => {
+        if (seq !== this._sequence || scope !== this._scope || !this.current()) return;
+        if (!result || result.budgetId !== this._budgetId || result.saved !== true) throw Error('保存结果不正确，请重试');
+        this.setData({ saving: false, estimate: { ...this.data.estimate, saved: true } }); wx.showToast({ title: '预算已保存', icon: 'success' });
+      }).catch(error => { if (seq === this._sequence && scope === this._scope && this.current()) this.setData({ saving: false, saveError: errorText(error) }); });
+    },
+    adjust() {
+      if (this.current() && this.data.estimate) wx.navigateTo({ url: this.data.estimate.draftId ? '/design-migration/pages/budget/quick?draftId=' + this.data.estimate.draftId : '/design-migration/pages/budget/input' + draftStore.query(this.data.estimate), fail: () => wx.showToast({ title: '页面打开失败，请重试', icon: 'none' }) });
     },
     history() { if (this.current() && this.data.estimate) wx.navigateTo({ url: this.data.estimate.draftId ? '/design-migration/pages/budget/history?independent=1&draftId=' + this.data.estimate.draftId : '/design-migration/pages/budget/history?projectId=' + this.data.estimate.projectId }); },
     back() {

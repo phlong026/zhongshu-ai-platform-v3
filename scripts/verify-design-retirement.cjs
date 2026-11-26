@@ -1,44 +1,47 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const policy=require('../miniprogram/utils/design-retirement');
 function load(file,requireFn,extra={}){const box={module:{exports:{}},require:requireFn,...extra};vm.runInNewContext(fs.readFileSync(file,'utf8'),box);return box.module.exports;}
-test('design projects and estimates reject writes before transport, frozen versions and cancellation stay available',async()=>{
+test('AI drawing writes stop before transport while budget projects, estimates, versions and cancellation stay available',async()=>{
  const calls=[];const http={post:(...a)=>{calls.push(a);return Promise.resolve({});},get:(...a)=>{calls.push(a);return Promise.resolve({});}};
  const api=load('miniprogram/api/franchise/design.js',id=>id.includes('design-retirement')?policy:http);
- for(const name of ['create','selectFlat','selectElevation','createFlatJob','createElevationJob','revision','notePolish'])await assert.rejects(api.projects[name]('7',{},'old-key'),e=>e.code===1112100004);
- await assert.rejects(api.budget.estimate('7',{},'budget'),e=>e.code===1112100004);
- assert.equal(calls.length,0);await api.projects.resultVersions('7');await api.projects.cancelJob('7');assert.equal(calls.length,2);
+ for(const name of ['selectFlat','selectElevation','createFlatJob','createElevationJob','revision','notePolish'])await assert.rejects(api.projects[name]('7',{},'old-key'),e=>e.code===1112100004);
+ assert.equal(calls.length,0);
+ await api.projects.create({sourceType:'SELF_UPLOAD'},'project');await api.budget.estimate('7',{buildingArea:240},'budget');
+ await api.projects.resultVersions('7');await api.projects.cancelJob('7');
+ assert.deepEqual(calls.map(c=>c[0]),['/franchise/design/projects','/franchise/design/projects/7/budget-estimates','/franchise/design/projects/7/result-versions','/franchise/design/ai-jobs/7/cancellation-requests']);
+ assert.equal(calls[1][2]['Idempotency-Key'],'budget');
 });
 test('migrated request bridge rejects generation before sending a generic flow request',async()=>{
  const calls=[];const platform={token:()=>true,sessionGeneration:()=>1,post:(...a)=>{calls.push(a);return Promise.resolve({});},get:(...a)=>{calls.push(a);return Promise.resolve({});}};
  const bridge=load('miniprogram/design-migration/utils/request.js',id=>id.includes('design-retirement')?policy:id==='../../api/http'?platform:id==='./context'?{scope:()=> 'company:1',getApp:()=>({catalogAssets:{}})}:{});
  for(const p of ['/design-projects/7/flat-jobs','/design-projects/7/elevation-jobs','/design-projects/7/revision-requests','/ai-design/note-polish'])await assert.rejects(bridge.post('/app-api/design/v1'+p,{}),e=>e.code===1112100004);
  await assert.rejects(bridge.get('/app-api/design/v1/generation-price-quotes?stage=FLAT'),e=>e.code===1112100004);assert.equal(calls.length,0);
+ for(const suffix of ['flat-selections','elevation-selections'])await assert.rejects(bridge.post('/app-api/design/v1/design-projects/7/'+suffix,{}),e=>e.code===1112100004);
+ assert.equal(calls.length,0);
  for(const [method,path] of [
    ['post','/budget-drafts'],['put','/budget-drafts/7'],['post','/budget-drafts/7/estimates'],
-   ['post','/design-projects/7/budget-estimates/itemized'],['post','/budget-estimates/8/save'],
-   ['get','/budget-point-quotes'],['post','/design-projects'],['del','/design-projects/7']
- ])await assert.rejects(bridge[method]('/app-api/design/v1'+path,{}),e=>e.code===1112100004);
- assert.equal(calls.length,0);
+   ['post','/design-projects/7/budget-estimates/itemized'],['post','/budget-estimates/8/save']
+ ])await bridge[method]('/app-api/design/v1'+path,{}, {'Idempotency-Key':'budget-key'});
+ assert.equal(calls.length,5);assert.equal(calls[2][1].path,'/budget-drafts/7/estimates');assert.equal(calls[2][2]['Idempotency-Key'],'budget-key');
  for(const path of ['/design-projects/7/result-versions','/budget-estimates/8?revisionId=9','/budget-estimates/independent'])
    await bridge.get('/app-api/design/v1'+path);
- assert.equal(calls.length,3);
+ assert.equal(calls.length,8);
 });
 test('direct drawing page deep links redirect before showing or running page handlers',()=>{
  let page;const routes=[];const access=load('miniprogram/design-migration/utils/access.js',id=>id.endsWith('/http')?{token:()=>true}:id.endsWith('/auth')?{currentApiPost:()=>({roleCode:'sales'})}:{pageMode:()=> 'api'},{Page:d=>page=d,wx:{redirectTo:o=>routes.push(o.url)}});
  let calls=0;access.protectedPage({data:{},onLoad(){calls++;},submit(){calls++;}});page.route='design-migration/pages/ai-design/index';page.setData=p=>Object.assign(page.data,p);page.onLoad();page.submit();assert.equal(calls,0);assert.equal(page.data.accessReady,false);assert.deepEqual(routes,['/design-migration/pages/library/index']);
 });
-test('old budget editor links reach read-only history before any editor lifecycle or save handler',()=>{
+test('authorized sales can open every budget editor and save through its guarded handlers',()=>{
  for(const editor of ['quick','input','parameters','prices','body','exterior']){
    let page;let called=0;const routes=[];
    const access=load('miniprogram/design-migration/utils/access.js',id=>id.endsWith('/http')?{token:()=>true}:id.endsWith('/auth')?{currentApiPost:()=>({roleCode:'sales'})}:{pageMode:()=> 'api'},{Page:d=>page=d,wx:{redirectTo:o=>routes.push(o.url)}});
    access.protectedPage({data:{},onLoad(){called++;},save(){called++;}});
    page.route='design-migration/pages/budget/'+editor;page.setData=p=>Object.assign(page.data,p);
-   page.onLoad({projectId:'70'});page.save();assert.equal(called,0);assert.equal(routes.length,1);
-   assert.equal(routes[0],'/design-migration/pages/budget/history?projectId=70');
+   page.onLoad({projectId:'70'});page.save();assert.equal(called,2);assert.equal(page.data.accessReady,true);assert.deepEqual(routes,[]);
  }
 });
-test('reference library keeps preview and drawings without a new estimate action',()=>{
- const s=fs.readFileSync('miniprogram/design-migration/pages/library/detail.wxml','utf8');assert.match(s,/previewLibraryImage/);assert.doesNotMatch(s,/bindtap="(quickBudget|useHouse)"/);
+test('reference library keeps preview, independent quick budget entry and no AI drawing action',()=>{
+ const s=fs.readFileSync('miniprogram/design-migration/pages/library/detail.wxml','utf8');assert.match(s,/previewLibraryImage/);assert.match(s,/bindtap="quickBudget"/);assert.doesNotMatch(s,/bindtap="useHouse"/);
 });
 
 test('historical generation page cannot offer or dispatch another paid drawing',()=>{
@@ -58,4 +61,44 @@ test('legacy entry restores the fixed result after login and guards other roles'
  token='active';role='engineer';page.onShow();assert.match(routes.pop(),/account\/index\?view=access/);
  role='sales';page.onLoad({view:'plan-result',projectId:'90071992547409973',resultVersionId:'901'});
  assert.equal(routes.pop(),'/design-migration/pages/ai-design/result?projectId=90071992547409973&resultVersionId=901');
+});
+
+test('quick budget confirms the company rate, retries one estimate and opens the customer result',async()=>{
+ const scope='company:11:user:22'; const prices=[],writes=[],routes=[],storage=new Map();
+ const price={subject:'budget_estimate',quantity:1,credits:7,priceVersion:'company-v2'};
+ const result={budgetId:'90071992547409971',draftId:'90071992547409972',projectId:null};
+ let confirmed=false,dropResponse=true,page;
+ const wx={
+   getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>storage.set(key,value),removeStorageSync:key=>storage.delete(key),
+   showModal:options=>{assert.match(options.content,/7 公司积分/);options.success({confirm:confirmed});},
+   navigateTo:options=>{routes.push(options.url);options.success();}
+ };
+ const platform={
+   token:()=>'store-session',sessionGeneration:()=>3,
+   get:async(path,query)=>{prices.push([path,query.subject,query.quantity]);return price;},
+   post:async(path,body,headers)=>{
+     assert.equal(path,'/franchise/design/flow');writes.push([body,headers]);
+     if(dropResponse){dropResponse=false;throw {message:'response interrupted'};}
+     return result;
+   }
+ };
+ const context={scope:()=>scope,getApp:()=>({catalogAssets:{}})};
+ const request=load('miniprogram/design-migration/utils/request.js',id=>id.includes('design-retirement')?policy:id.endsWith('/http')?platform:context);
+ const api=load('miniprogram/design-migration/utils/api.js',()=>request);
+ const drafts={sessionScope:()=>scope,id:value=>String(value)};
+ const customer={bind:(kind,id,customerId)=>assert.deepEqual([kind,id,customerId],['budget',result.budgetId,'31']),suffix:id=>'&customerId='+id};
+ load('miniprogram/design-migration/pages/budget/quick.js',id=>({
+   '../../utils/access':{protectedPage:definition=>page=definition},'../../utils/context':context,'../../utils/api':api,
+   '../../utils/budget-draft':drafts,'../../utils/customer-context':customer,'../../utils/budget-view':{errorText:error=>error.msg}
+ }[id]||{}),{wx});
+ Object.assign(page,{_scope:scope,_seq:1,_catalogRegion:'WUHAN',_sourceScope:scope,_sourceCustomer:'31',
+   setData:patch=>Object.assign(page.data,patch)});
+ Object.assign(page.data,{draft:{draftId:result.draftId,version:2},values:{regionCode:'WUHAN'},catalogReady:true});
+ await page.generate();assert.equal(writes.length,0);assert.equal(routes.length,0);
+ confirmed=true;await page.generate();assert.equal(writes.length,1);assert.equal(routes.length,0);
+ await page.generate();assert.equal(writes.length,2);assert.deepEqual(prices,Array(2).fill(['/franchise/design/flow-price','budget_estimate',1]));
+ assert.equal(writes[0][0].path,'/budget-drafts/'+result.draftId+'/estimates');
+ assert.equal(writes[0][0].body.expectedVersion,2);assert.equal(writes[0][0].body.companyPrice.priceVersion,price.priceVersion);
+ assert.equal(writes[1][1]['Idempotency-Key'],writes[0][1]['Idempotency-Key']);assert.ok(writes[0][1]['Idempotency-Key']);
+ assert.deepEqual(routes,['/design-migration/pages/budget/result?budgetId='+result.budgetId+'&customerId=31']);assert.equal(storage.size,0);
 });
