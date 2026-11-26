@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.Objects;
+import java.util.function.Function;
 
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
@@ -42,21 +43,30 @@ public class FranchiseCommands {
      */
     public Optional<CommandEventDO> replayed(PostSnapshot post, String idempotencyKey,
                                              Object input, Object legacyInput) {
+        return replayed(post, idempotencyKey, input, legacyInput, null);
+    }
+
+    /** Allows a caller to reconstruct an older fingerprint from the already recorded result. */
+    public Optional<CommandEventDO> replayed(PostSnapshot post, String idempotencyKey, Object input,
+                                             Object legacyInput, Function<CommandEventDO, Object> recordedInput) {
         if (StrUtil.isBlank(idempotencyKey)) {
             return Optional.empty();
         }
         return commandLog.findByIdempotencyKey(scopedKey(post, idempotencyKey)).map(existing -> {
             // Preserve historical key format, but never replay a fact from another organization.
-            String currentHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(input));
-            String legacyHash = legacyInput == null ? null
-                    : DigestUtil.sha256Hex(JsonUtils.toJsonString(legacyInput));
-            if (!java.util.Objects.equals(existing.getOrgId(), post.orgId())
-                    || (!currentHash.equals(existing.getPayloadHash())
-                    && !java.util.Objects.equals(legacyHash, existing.getPayloadHash()))) {
+            if (!Objects.equals(existing.getOrgId(), post.orgId())) {
+                throw exception(IDEMPOTENCY_KEY_REUSED);
+            }
+            if (!DigestUtil.sha256Hex(JsonUtils.toJsonString(input)).equals(existing.getPayloadHash()) && !matchesPayload(existing, legacyInput)
+                    && (recordedInput == null || !matchesPayload(existing, recordedInput.apply(existing)))) {
                 throw exception(IDEMPOTENCY_KEY_REUSED);
             }
             return existing;
         });
+    }
+
+    private static boolean matchesPayload(CommandEventDO existing, Object payload) {
+        return payload != null && DigestUtil.sha256Hex(JsonUtils.toJsonString(payload)).equals(existing.getPayloadHash());
     }
 
     public Optional<CommandEventDO> previous(PostSnapshot post, String key, String command, long aggregateId) {
