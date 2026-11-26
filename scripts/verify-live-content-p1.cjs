@@ -97,6 +97,8 @@ test('CONTENT-07 renders authoritative deduplicated cohorts and clears stale res
   assert.ok(page.data.publicationError);
   const view = fs.readFileSync(path.join(root, 'miniprogram/pages/growth/index.wxml'), 'utf8');
   for (const label of ['有效咨询','关联客户','已签约','有净实收','按发布']) assert.ok(view.includes(label), label);
+  assert.match(view, /关联客户中已签约 \{\{item.signedCustomers\}\} 人 · 有净实收 \{\{item.netPaidCustomers\}\} 人/);
+  assert.match(view, /不代表本作品带来的签约或收款/);
   assert.match(view, /view=detail(?:&amp;|&)record=\{\{item.publicationId\}\}/);
 });
 
