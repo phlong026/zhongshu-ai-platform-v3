@@ -34,7 +34,7 @@ test('only the selected saved measurement identity is submitted, and editing a p
   h.page.chooseMeasurement({currentTarget:{dataset:{id:old.eventId}}});
   const form = h.page.data.form, context = h.page.data.context;
   assert.equal(form.measurementRef.eventId,old.eventId);
-  assert.deepEqual(copy(model.payload('register',form,context,'2026-11-25').measurementRef),{eventId:old.eventId,revision:3});
+  assert.deepEqual(copy(model.payload('register',form,context,'2026-11-25').measurementRef),{eventId:old.eventId,revision:3,includeSourceNote:true});
   assert.deepEqual(model.payload('register',form,context,'2026-11-25').attachments,[]);
   const stored = state('pending'); stored.currentRequest.data.measurementRef = old;
   stored.currentRequest.data.attachments = [...old.attachments,{assetId:'601',title:'外部需求.pdf'}]; stored.requests = [stored.currentRequest];
@@ -42,6 +42,8 @@ test('only the selected saved measurement identity is submitted, and editing a p
   const edit = model.requestForm(parsed);
   assert.deepEqual(edit.attachments.map(f=>f.assetId),['601']);
   assert.equal(edit.measurementRef.attachments[0].assetId,'901');
+  edit.reason='保留原测量，仅更新委托资料';
+  assert.deepEqual(model.payload('register',edit,parsed,'2026-11-25').measurementRef,{eventId:old.eventId,revision:3});
   edit.reason='改用手动附件'; edit.measurementRef=null;
   assert.equal(model.payload('register',edit,parsed,'2026-11-25').removeMeasurement,true);
   assert.deepEqual(parsed.request.attachments.map(f=>f.assetId),['901','601']);
