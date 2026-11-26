@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.platform.org.dal.OrgUnitDO;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.test.PlatformPgIntegrationTest;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -45,6 +46,8 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
     @Resource
     private JdbcTemplate jdbc;
 
+    private java.util.Map<String, Object> originalBossTemplate;
+
     @BeforeEach
     void registerOrgTypesAndTemplates() {
         jdbc.update("""
@@ -52,8 +55,12 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
                 ON CONFLICT (code) DO UPDATE SET domain=EXCLUDED.domain,name=EXCLUDED.name
                 """);
         // The shared PostgreSQL test database may already contain a production/other-suite boss template.
-        // ON CONFLICT DO NOTHING made this fixture depend on test execution order and could leave store
-        // onboarding bound to a template that rejects t-store.
+        // Capture it, temporarily install the test contract, and restore it after each method.
+        var existing = jdbc.queryForList("""
+                SELECT domain,org_types,line,lead,inherits_role_code
+                FROM pf_post_template WHERE role_code='boss'
+                """);
+        originalBossTemplate = existing.isEmpty() ? null : existing.get(0);
         jdbc.update("""
                 INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code)
                 VALUES ('boss','test','t-hq,t-store','management',FALSE,NULL)
@@ -61,6 +68,20 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
                     line=EXCLUDED.line,lead=EXCLUDED.lead,inherits_role_code=EXCLUDED.inherits_role_code
                 """);
         directory.roleIdsByCode.put("boss", 501L);
+    }
+
+    @AfterEach
+    void restoreBossTemplate() {
+        if (originalBossTemplate == null) {
+            jdbc.update("DELETE FROM pf_post_template WHERE role_code='boss'");
+            return;
+        }
+        jdbc.update("""
+                UPDATE pf_post_template SET domain=?,org_types=?,line=?,lead=?,inherits_role_code=?
+                WHERE role_code='boss'
+                """, originalBossTemplate.get("domain"), originalBossTemplate.get("org_types"),
+                originalBossTemplate.get("line"), originalBossTemplate.get("lead"),
+                originalBossTemplate.get("inherits_role_code"));
     }
 
     @Test
