@@ -2053,6 +2053,32 @@
         "source": "yudao-domain-franchise-finance-2026.08-SNAPSHOT.jar",
         "sha256": "f173da75aa973b4e723aadf5f79f4cfa39b366686febf138f13d33364d0b2f43"
       }
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1102__customer_step_supplements.sql",
+      "location": "franchise",
+      "version": "20261126.1102",
+      "source_sha256": "8bb0b3cb1da45a655b66d1f7ef4cf8643521a5033580fe9a3970f45cbf18986b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "resource": "db/migration/franchise/V20261126.1102__customer_step_supplements.sql",
+        "source": "yudao-domain-franchise-crm-2026.08-SNAPSHOT.jar",
+        "sha256": "8bb0b3cb1da45a655b66d1f7ef4cf8643521a5033580fe9a3970f45cbf18986b"
+      }
+    },
+    {
+      "path": "domains/franchise/franchise-asset/src/main/resources/db/migration/franchise-asset/V20261126.1103__customer_supplement_ticket_scope.sql",
+      "location": "franchise-asset",
+      "version": "20261126.1103",
+      "source_sha256": "093c6354637adedad9e4b47efcfdce0730c85a9b82dce3844f465d38c5e24256",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED",
+      "artifact_resource": {
+        "resource": "db/migration/franchise-asset/V20261126.1103__customer_supplement_ticket_scope.sql",
+        "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
+        "sha256": "093c6354637adedad9e4b47efcfdce0730c85a9b82dce3844f465d38c5e24256"
+      }
     }
   ],
   "tables": [
@@ -3748,6 +3774,16 @@
       "runtime_verified": false
     },
     {
+      "name": "fr_customer_step_supplement",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 B 租户及门店选择，通过 (customer_id, company_id) 闭合已选客户。保留原办理用户与任职、步骤、时间和每个附件的业务资产引用。先核对原表外键、历史人员和文件映射，再导入。",
+      "source_migrations": [
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1102__customer_step_supplements.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
       "name": "fr_customer_workflow",
       "owner": "B",
       "strategy": "filtered-copy",
@@ -4787,13 +4823,13 @@
   "freeze_ready": false,
   "artifact_evidence": {
     "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
-    "source_commit": "04e641f6a410ebf5bdcfbcc50e08f22da57aa41a",
-    "sha256": "f04b845317a9daf2606e0624935b09d193f6173ad26ba32043b3da2ada7cd4e2",
-    "artifact_bytes": 190172104,
-    "resource_count": 157,
+    "source_commit": "9c25fdd46183ac335bfbb7372b9d3feeb2ae8839",
+    "sha256": "3819ee9c60ed657ecc1875aa0c33d2c733a0d04134b87357215ddce654c0c9e4",
+    "artifact_bytes": 190196326,
+    "resource_count": 159,
     "location_counts": {
-      "franchise": 81,
-      "franchise-asset": 7,
+      "franchise": 82,
+      "franchise-asset": 8,
       "franchise-design-remote": 5,
       "franchise-system": 10,
       "pf": 30,
@@ -4801,7 +4837,7 @@
       "platform-bootstrap": 2,
       "platform-wallet": 17
     },
-    "resource_index_sha256": "3ff95b8e1c59f3a4dba135367184f9e5cdf132990fc6476e47d70f68b507c6a7",
+    "resource_index_sha256": "2b08fb6fec5591669617299f92c51f756e6eb7087b9f47d69756c03ee8c06cf1",
     "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
     "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
     "database_history_verified": false,
@@ -4944,6 +4980,28 @@
         "platform-wallet": 17
       },
       "resource_index_sha256": "6aa122f5f1a6e4b3b763f7a1cd03650a6e2dd7ed888655c48b51178ce7f3654e",
+      "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
+      "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+      "database_history_verified": false,
+      "note": "核对 B 启动 JAR 的 BOOT-INF/classes 和所有内嵌依赖 JAR 中八个 Flyway 位置的正向资源。包括实际打包的 yudao-platform-operations 模块，生产 Flyway 历史、行级归属和回滚演练另行验收。"
+    },
+    {
+      "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
+      "source_commit": "04e641f6a410ebf5bdcfbcc50e08f22da57aa41a",
+      "sha256": "f04b845317a9daf2606e0624935b09d193f6173ad26ba32043b3da2ada7cd4e2",
+      "artifact_bytes": 190172104,
+      "resource_count": 157,
+      "location_counts": {
+        "franchise": 81,
+        "franchise-asset": 7,
+        "franchise-design-remote": 5,
+        "franchise-system": 10,
+        "pf": 30,
+        "platform": 5,
+        "platform-bootstrap": 2,
+        "platform-wallet": 17
+      },
+      "resource_index_sha256": "3ff95b8e1c59f3a4dba135367184f9e5cdf132990fc6476e47d70f68b507c6a7",
       "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
       "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
       "database_history_verified": false,
