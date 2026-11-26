@@ -805,7 +805,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32,32,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
         long originalCover=as(sales,()->assets.importContentImage(actor(sales),image.toByteArray(),"image/png"));
         byte[] archivedBytes=as(sales,()->assets.readContentMedia(actor(sales),originalCover)).bytes();
-        long customer=customerFromPublishedWork(originalCover);
+        long customer=as(sales,()->customerFromPublishedWork(originalCover));
         var sources=growth.customerSources(sales,customer);
         var original=sources.get(0);
         String work=String.valueOf(original.get("workId"));
@@ -842,6 +842,9 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var historical=as(sales,()->assets.readDownload(actor(sales),originalCover,token(result.path("historicalDownloadUrl").asText())));
         assertThat(historical.bytes()).isEqualTo(archivedBytes);
         assertThat(count("fr_content_cover_request","company_id",sales.orgId())).isZero();
+        System.out.printf("MANUAL_PUBLICATION work=%s historicalPublication=%s manualPublication=%d customer=%d " +
+                        "originalCover=%d originalSha256=%s newCover=null coverRequests=0%n",
+                work,original.get("publicationId"),manualId,customer,originalCover,sha(historical.bytes()));
     }
 
     @Test void getDoesNotCreateAndSubmitRequiresCurrentResultRealConfirmationAndCurrentReceiver() throws Exception {
