@@ -144,6 +144,30 @@ jobs:
             -Dtest=ExternalHandoverPgIntegrationTest#pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Dfranchise.external-handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-external-handover.cjs"
+      - name: Verify optional materials for all eight customer steps with the frozen mini program
+        shell: bash
+        run: |
+          client="$RUNNER_TEMP/mini/scripts/paired-customer-stage-supplements.cjs"
+          module="平台程序/domains/franchise/franchise-asset"
+          if [[ ! -f "$client" || ! -f "$module/src/test/java/cn/iocoder/yudao/module/franchise/asset/CustomerSupplementPair.java" ]]; then
+            echo "此历史组合尚未同时包含八步附加资料的两端验收用例。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test \
+            -Dtest=CustomerWorkflowAssetPgIntegrationTest#realMiniCanAppendToOngoingAndCompletedStepsAndReadOnlyTheOriginalFiles \
+            -Dsurefire.failIfNoSpecifiedTests=false -Dfranchise.customer-supplement.client="$client"
+          python3 -I - "$module/target/surefire-reports" <<'PYTHON'
+          from pathlib import Path
+          import sys
+          from xml.etree import ElementTree
+          name = 'cn.iocoder.yudao.module.franchise.asset.CustomerWorkflowAssetPgIntegrationTest'
+          method = 'realMiniCanAppendToOngoingAndCompletedStepsAndReadOnlyTheOriginalFiles'
+          report = ElementTree.parse(Path(sys.argv[1]) / f'TEST-{name}.xml')
+          cases = [case for case in report.iter('testcase') if case.get('classname') == name and case.get('name') == method]
+          if len(cases) != 1 or any(cases[0].find(result) is not None for result in ('skipped', 'failure', 'error')):
+              raise SystemExit('The eight-step customer materials test did not run and pass')
+          PYTHON
+          echo "八步附加资料原生页面、原事实、权限及文件原件配对通过。" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify immutable package, failed migration recovery and healthy rollbacks
         run: python3 平台程序/script/release-rehearsal/run.py
       - name: Summarize accepted pair
