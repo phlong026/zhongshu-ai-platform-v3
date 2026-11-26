@@ -27,6 +27,8 @@ public class FrContentDraftDO {
     private String configuration;
     private Long coverAssetId;
     private String status;
+    private OffsetDateTime trashedAt;
+    private Long libraryRevision;
     private OffsetDateTime createTime;
     private OffsetDateTime updateTime;
     private Boolean deleted;

@@ -1,13 +1,24 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.franchise.api.ContentCustomerOutcomesPort;
+import jakarta.annotation.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+
+import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 
 /**
  * 获客聚合（D-1.5-11，1.16 零新表）：fr_lead/fr_customer 按来源（内容发布:{publicationId}）×内容×转化的
@@ -20,6 +31,9 @@ public class ContentGrowthService {
     public static final String SOURCE_PREFIX = "内容发布:";
 
     private final JdbcTemplate jdbcTemplate;
+
+    @Resource
+    private ContentCustomerOutcomesPort outcomes;
 
     public ContentGrowthService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -56,47 +70,100 @@ public class ContentGrowthService {
         return jdbcTemplate.queryForList(sql, SOURCE_PREFIX, post.orgId(), customerId);
     }
 
-    public Map<String, Object> summary(long companyId) {
-        // 发布统计：五态计数
-        Map<String, Object> publications = new LinkedHashMap<>();
-        jdbcTemplate.queryForList(
-                "SELECT status, COUNT(*) AS total FROM fr_content_publication "
-                        + "WHERE company_id = ? GROUP BY status", companyId)
-                .forEach(row -> publications.put(String.valueOf(row.get("status")),
-                        ((Number) row.get("total")).intValue()));
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Map<String, Object> summary(PostSnapshot post) {
+        Long tenant = TenantContextHolder.getTenantId();
+        if (tenant == null || !atStore(post) || !(isBoss(post) || has(post, SALES))
+                || !Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                SELECT EXISTS(SELECT 1 FROM system_dept WHERE id=? AND tenant_id=? AND status=0 AND deleted=0)
+                """, Boolean.class, post.orgId(), tenant))) {
+            throw new ServiceException(403, "当前岗位无权查看本店内容获客统计");
+        }
+        var args = new MapSqlParameterSource("org", post.orgId()).addValue("user", post.userId())
+                .addValue("teams", post.managedTeamIds()).addValue("prefix", SOURCE_PREFIX);
+        Map<String, Long> statuses = new LinkedHashMap<>();
+        jdbcTemplate.query("SELECT status, COUNT(*) FROM fr_content_publication WHERE company_id=? GROUP BY status",
+                rs -> { statuses.put(rs.getString(1), rs.getLong(2)); }, post.orgId());
 
-        // 内容来源客资：source 以「内容发布:」开头的 leads 状态计数（LINK_REQUIRED=待关联即 capture 面）
-        Map<String, Object> leads = new LinkedHashMap<>();
-        jdbcTemplate.queryForList(
-                "SELECT status, COUNT(*) AS total FROM fr_lead "
-                        + "WHERE company_id = ? AND source LIKE ? GROUP BY status",
-                companyId, SOURCE_PREFIX + "%")
-                .forEach(row -> leads.put(String.valueOf(row.get("status")),
-                        ((Number) row.get("total")).intValue()));
-
-        // 转化：source 命中前缀且已关联客户（fr_customer.created_by_lead 或 status=LINKED 语义按 crm 表实构）
-        Integer converted = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM fr_lead WHERE company_id = ? AND source LIKE ? "
-                        + "AND status IN ('LINKED','CONVERTED')",
-                Integer.class, companyId, SOURCE_PREFIX + "%");
-
-        // 按发布记录维度：每条 published 的客资数
-        List<Map<String, Object>> perPublication = jdbcTemplate.queryForList(
-                "SELECT p.id::text AS id, p.id::text AS \"publicationId\", p.work_id::text AS \"workId\", p.title, p.published_url AS \"publishedUrl\", COUNT(l.id) AS leads, "
-                        + "SUM(CASE WHEN l.status IN ('LINKED','CONVERTED') THEN 1 ELSE 0 END) AS converted "
-                        + "FROM fr_content_publication p "
-                        + "LEFT JOIN fr_lead l ON l.company_id = p.company_id "
-                        + "AND l.source = ? || p.id "
-                        + "WHERE p.company_id = ? AND p.status = 'published' "
-                        + "GROUP BY p.id, p.title, p.published_url ORDER BY p.id",
-                SOURCE_PREFIX, companyId);
-
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("publications", publications);
+        // The capture picker needs all published sources. Apply each CRM visibility rule inside its own LEFT JOIN.
+        String sql = """
+                SELECT p.id, p.work_id, p.title, p.published_url, l.status, c.id AS customer_id, COUNT(l.id) AS events
+                FROM fr_content_publication p
+                LEFT JOIN fr_lead l ON l.company_id=p.company_id AND l.source=:prefix || p.id
+                """ + visibleTo(post, "l.registrar_user_id", "l.team_id") + """
+                LEFT JOIN fr_customer c ON c.id=l.customer_id AND c.company_id=p.company_id AND l.status='CONVERTED'
+                """ + visibleTo(post, "c.owner_user_id", "c.team_id") + """
+                WHERE p.company_id=:org AND p.status='published'
+                GROUP BY p.id, l.status, c.id ORDER BY p.id
+                """;
+        Map<Long, Publication> publications = new LinkedHashMap<>();
+        Map<String, Long> leads = new LinkedHashMap<>();
+        Cohort total = new Cohort();
+        new NamedParameterJdbcTemplate(jdbcTemplate).query(sql, args, rs -> {
+            long id = rs.getLong("id");
+            Publication publication = publications.get(id);
+            if (publication == null) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", Long.toString(id));
+                row.put("publicationId", Long.toString(id));
+                row.put("workId", rs.getString("work_id"));
+                row.put("title", rs.getString("title"));
+                row.put("publishedUrl", rs.getString("published_url"));
+                publication = new Publication(row, new Cohort());
+                publications.put(id, publication);
+            }
+            String status = rs.getString("status");
+            if (status == null) return;
+            long events = rs.getLong("events");
+            leads.merge(status, events, Long::sum);
+            if (!"CONVERTED".equals(status) && !"LINK_REQUIRED".equals(status)) return;
+            Long customer = rs.getObject("customer_id", Long.class);
+            publication.cohort.add(events, customer);
+            total.add(events, customer);
+        });
+        var signed = outcomes.signedCustomers(tenant, post.orgId(), total.customers);
+        for (Publication publication : publications.values()) {
+            publication.row.putAll(publication.cohort.metrics(signed));
+            publication.row.put("leads", publication.cohort.consultations);
+            publication.row.put("converted", publication.cohort.customers.size());
+        }
+        Map<String, Object> summary = new LinkedHashMap<>(total.metrics(signed));
+        summary.put("publishedCount", statuses.getOrDefault("published", 0L));
+        summary.put("publications", statuses);
         summary.put("leads", leads);
-        summary.put("converted", converted == null ? 0 : converted);
-        summary.put("perPublication", perPublication);
+        summary.put("converted", total.customers.size());
+        summary.put("perPublication", publications.values().stream().map(Publication::row).toList());
         return summary;
     }
 
+    private static String visibleTo(PostSnapshot post, String owner, String team) {
+        if (isBoss(post) || SALES_LEAD.equals(post.roleCode()) && post.teamId() == null) return "";
+        if (SALES_LEAD.equals(post.roleCode()) && !post.managedTeamIds().isEmpty())
+            return " AND (" + owner + "=:user OR " + team + " IN (:teams))\n";
+        return " AND " + owner + "=:user\n";
+    }
+
+    private record Publication(Map<String, Object> row, Cohort cohort) {}
+
+    private static class Cohort {
+        long consultations;
+        final Set<Long> customers = new HashSet<>();
+
+        void add(long count, Long customer) {
+            consultations += count;
+            if (customer != null) customers.add(customer);
+        }
+
+        Map<String, Object> metrics(Map<Long, ContentCustomerOutcomesPort.SignedCustomer> signed) {
+            long signedCount = 0, paidCount = 0;
+            for (Long customer : customers) {
+                var outcome = signed.get(customer);
+                if (outcome == null) continue;
+                signedCount++;
+                if (outcome.hasNetReceipts()) paidCount++;
+            }
+            return Map.of("consultations", consultations, "linkedCustomers", customers.size(),
+                    "signedCustomers", signedCount, "netPaidCustomers", paidCount);
+        }
+    }
 }

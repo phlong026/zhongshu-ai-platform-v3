@@ -167,6 +167,8 @@ public final class LegacyPlatformHttpWriteInterceptor implements AsyncHandlerInt
                 new WriteTarget("franchise-http", "content-save-work", "旧平台任务作品保存入口暂不可用"));
         methods.put(exactMethod(ContentDraftController.class, "updateDraftStatus", Long.class, Map.class),
                 new WriteTarget("franchise-http", "content-draft-status", "旧平台草稿状态入口暂不可用"));
+        methods.put(exactMethod(ContentDraftController.class, "setTrash", long.class, ContentDraftController.WorkTrashRequest.class),
+                new WriteTarget("franchise-http", "content-work-trash", "旧平台作品回收站暂不可用"));
         methods.put(exactMethod(ContentDraftController.class, "saveVideoDraft", Map.class),
                 new WriteTarget("franchise-http", "video-draft-save", "旧平台视频草稿入口暂不可用"));
         methods.put(exactMethod(ContentDraftController.class, "completeChapter", Map.class),

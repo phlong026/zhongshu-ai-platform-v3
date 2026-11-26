@@ -46,6 +46,7 @@ public class FinProjectAccountingService {
           (SELECT total_cents FROM project_contract WHERE status='SIGNED' AND NOT deleted) AS contract_revenue_cents,
           EXISTS(SELECT 1 FROM project_closure WHERE settled_at IS NOT NULL) AS engineering_settled,
           (SELECT COALESCE(sum(total_cents),0) FROM qs WHERE NOT deleted AND source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废') AS confirmed_cost_cents,
+          (SELECT cents FROM payable_balance) AS outstanding_cents,
           (SELECT COALESCE(sum(amount_cents),0) FROM rs) AS received_cents,
           (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='client') AS client_refunded_cents,
           (SELECT COALESCE(sum(amount_cents),0) FROM ms WHERE funding_type='COMPANY') AS paid_cents,
@@ -93,6 +94,7 @@ public class FinProjectAccountingService {
         result.put("cashNetCents",Long.toString(Math.subtractExact(netReceived,netPaid)));
         result.put("grossProfitCents",revenue==null?null:Long.toString(Math.subtractExact(revenue,cost)));
         result.put("receivableCents",Long.toString(amount(row.get("receivable_cents"))));
+        result.put("payableOutstandingCents",Long.toString(amount(row.get("outstanding_cents"))));
         result.put("engineeringSettled",row.get("engineering_settled"));
         String hash=DigestUtil.sha256Hex(String.valueOf(row.get("source_basis")));
         result.put("sourceHash",hash);

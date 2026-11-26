@@ -23,4 +23,6 @@ public interface FranchiseContentErrorCodes {
     ErrorCode CLONE_UPLOAD_RETRYABLE = new ErrorCode(1_114_000_012, "素材上传待确认，请重试同一素材");
     ErrorCode PUBLICATION_EXISTS = new ErrorCode(1_114_000_013, "该作品在此平台账号已有发布记录，请继续原记录或查看发布结果");
     ErrorCode PUBLICATION_COVER_INVALID = new ErrorCode(1_114_000_015, "请选择本人已上传完成的 JPG 或 PNG 封面图片");
+    ErrorCode WORK_TRASHED = new ErrorCode(1_114_000_016, "作品已移入回收站，请先恢复原作品");
+    ErrorCode WORK_VERSION_CONFLICT = new ErrorCode(1_114_000_017, "作品状态已更新，请刷新列表后重试");
 }

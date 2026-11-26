@@ -28,6 +28,7 @@ import java.util.Set;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -129,6 +130,28 @@ class ContentCourseProgressSecurityTest {
 
         verify(drafts, never()).completeChapter(anyLong(), anyLong(), any(), anyInt());
         verify(drafts, never()).listWorks(anyLong(), anyLong());
+    }
+
+    @Test
+    void queryingPersonalWorksDoesNotGrantWriteAccessToTheTrash() {
+        var reader = new PostSnapshot(11L, USER, ORG, "store", "sales", null, false, Set.of());
+        when(currentPost.find()).thenReturn(Optional.of(reader));
+        when(currentPost.require()).thenReturn(reader);
+        when(directory.roleHasPermission("sales", cn.iocoder.yudao.module.franchise.content.ContentPermissions.QUERY))
+                .thenReturn(true);
+        var row = new cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO()
+                .setId(42L).setTitle("本人作品").setStatus("saved").setKind("remix").setLibraryRevision(1L)
+                .setTrashedAt(java.time.OffsetDateTime.now());
+        when(drafts.listWorks(ORG, USER, true)).thenReturn(List.of(row));
+        context.run(ctx -> {
+            MockMvc mvc = mvc(ctx);
+            mvc.perform(get("/franchise/content/drafts/trash"))
+                    .andExpect(jsonPath("$.data[0].canManage").value(false));
+            mvc.perform(put("/franchise/content/drafts/42/trash").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"trashed\":false,\"revision\":1}"))
+                    .andExpect(jsonPath("$.code").value(403));
+        });
+        verify(drafts, never()).setTrashed(anyLong(), anyLong(), anyLong(), anyBoolean(), anyLong());
     }
 
     @Test

@@ -149,7 +149,22 @@ public class FinWorkbenchService {
           SELECT r.id,'RECEIPT' AS type,r.received_date AS date,r.amount_cents,r.name,r.category,r.source_ref,r.status FROM rs r
           UNION ALL SELECT m.id,CASE WHEN m.funding_type='EMPLOYEE' THEN 'ADVANCE' ELSE 'PAYMENT' END,m.pay_date,m.amount_cents,COALESCE(m.stage,m.recipient),m.category,m.source_ref,m.status FROM ms m
           UNION ALL SELECT f.id,CASE WHEN f.refund_direction='expense' THEN 'EXPENSE_REFUND' ELSE 'REFUND' END,f.date,f.amount_cents,f.reason,NULL,NULL,f.status FROM fs f
-          UNION ALL SELECT q.id,'PAYABLE',q.business_date,q.total_cents,COALESCE(q.stage,q.recipient),q.category,q.source_ref,q.status FROM qs q WHERE NOT q.deleted)
+          UNION ALL SELECT q.id,'PAYABLE',q.business_date,q.total_cents,COALESCE(q.stage,q.recipient),q.category,q.source_ref,q.status FROM qs q WHERE NOT q.deleted),
+        payable_balance AS (
+          SELECT
+            (SELECT COALESCE(sum(GREATEST(0,q.total_cents-COALESCE((
+               SELECT sum(LEAST(m.amount_cents-COALESCE(m.pending_link_cents,0),
+                                m.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=m.id),0)))
+               FROM ms m WHERE m.payable_id=q.id),0))),0)
+             FROM qs q WHERE NOT q.deleted AND q.source_type IS DISTINCT FROM 'reimbursement' AND q.status<>'已作废')
+            + (SELECT COALESCE(sum(GREATEST(0,m.amount_cents
+                 - COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=m.id AND f.funding_type='EMPLOYEE'),0)
+                 - COALESCE((SELECT sum(p.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=p.id),0))
+                             FROM ms p WHERE p.payable_id=q.id),0)
+                 + COALESCE((SELECT sum(r.amount_cents) FROM rs r WHERE r.source_ref='employee-recovery:'||q.id),0))),0)
+               FROM qs q JOIN fr_fin_payment m ON m.id::text=q.source_ref AND m.company_id=q.company_id
+               WHERE NOT q.deleted AND q.source_type='reimbursement' AND q.status<>'已作废'
+                 AND m.status='已核实' AND m.funding_type='EMPLOYEE') AS cents)
         """; }
     static Object[] args(long org,Scope s,boolean company) {
         return new Object[]{org,s.projectId(),org,s.bookId(),s.projectId(),s.projectId(),company,org,s.bookId(),s.projectId(),s.projectId(),company,org};
@@ -163,8 +178,7 @@ public class FinWorkbenchService {
               (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='client') AS refunded_cents,
               (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='expense' AND funding_type='COMPANY') AS expense_refunded_cents,
               (SELECT COALESCE(sum(total_cents),0) FROM qs WHERE NOT deleted AND source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废') AS committed_cents,
-              (SELECT COALESCE(sum(GREATEST(0,q.total_cents-COALESCE((SELECT sum(LEAST(m.amount_cents-COALESCE(m.pending_link_cents,0),m.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=m.id),0))) FROM ms m WHERE m.payable_id=q.id),0))),0) FROM qs q WHERE NOT q.deleted AND q.source_type IS DISTINCT FROM 'reimbursement' AND q.status<>'已作废')
-              +(SELECT COALESCE(sum(GREATEST(0,m.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=m.id AND f.funding_type='EMPLOYEE'),0)-COALESCE((SELECT sum(p.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.payment_id=p.id),0)) FROM ms p WHERE p.payable_id=q.id),0)+COALESCE((SELECT sum(r.amount_cents) FROM rs r WHERE r.source_ref='employee-recovery:'||q.id),0))),0) FROM qs q JOIN fr_fin_payment m ON m.id::text=q.source_ref AND m.company_id=q.company_id WHERE NOT q.deleted AND q.source_type='reimbursement' AND q.status<>'已作废' AND m.status='已核实' AND m.funding_type='EMPLOYEE') AS outstanding_cents
+              (SELECT cents FROM payable_balance) AS outstanding_cents
             """,args);
         var entries=jdbc.queryForList(cte()+"SELECT e.id::text,e.type,e.date,e.amount_cents,e.name,e.category,e.source_ref,e.status,q.id::text AS payable_id,             COALESCE(q.source_type,r.source_type) source_type,COALESCE(q.recipient,r.counterparty) counterparty,             COALESCE(m.account_name,r.account_name) account_name,COALESCE(m.transaction_no,r.transaction_no,f.transaction_no) transaction_no,             COALESCE(m.voucher_file_id,r.voucher_file_id,f.voucher_file_id)::text voucher_file_id,             COALESCE(m.funding_type,f.funding_type,'COMPANY') funding_type, (SELECT c.payload::jsonb#>>'{supplement,note}' FROM pf_command_event c WHERE c.domain='franchise' AND c.org_id=COALESCE(m.company_id,r.company_id,f.company_id) AND c.aggregate_id=e.id AND c.aggregate_type='fin-supplement-'||CASE WHEN e.type='RECEIPT' THEN 'receipt' WHEN e.type IN ('PAYMENT','ADVANCE') THEN 'payment' ELSE 'refund' END AND NULLIF(trim(c.payload::jsonb#>>'{supplement,note}'),'') IS NOT NULL ORDER BY c.revision DESC LIMIT 1) note             FROM entries e LEFT JOIN ms m ON e.type IN ('PAYMENT','ADVANCE') AND m.id=e.id             LEFT JOIN qs q ON q.id=CASE WHEN e.type='PAYABLE' THEN e.id ELSE m.payable_id END             LEFT JOIN rs r ON e.type='RECEIPT' AND r.id=e.id             LEFT JOIN fs f ON e.type IN ('REFUND','EXPENSE_REFUND') AND f.id=e.id             ORDER BY e.date DESC NULLS LAST,e.id DESC LIMIT 500",args);
         // 历史工程应付曾共用 engineering 阶段，按原材料/费用事项补齐显示名称。

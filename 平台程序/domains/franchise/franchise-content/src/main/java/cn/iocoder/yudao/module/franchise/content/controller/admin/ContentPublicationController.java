@@ -80,8 +80,8 @@ public class ContentPublicationController {
         if (publication.getWorkId() == null) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "该发布记录未关联原作品");
         }
-        FrContentDraftDO work = drafts.workOf(post.orgId(), publication.getWorkId());
-        if (!java.util.Objects.equals(work.getAuthorUserId(), publication.getAuthorUserId()) || work.getTaskId() == null) {
+        FrContentDraftDO work = drafts.originalPublishedWork(post.orgId(), publication);
+        if (work.getTaskId() == null) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "发布记录与原作品关联无效");
         }
         FrContentTaskDO task = tasks.requireOwned(post.orgId(), work.getTaskId());
@@ -129,11 +129,11 @@ public class ContentPublicationController {
     }
 
     @GetMapping("/growth/summary")
-    @Operation(summary = "获客聚合（来源×内容×转化；客资登记复用 /franchise/leads）")
+    @Operation(summary = "内容发布、有效咨询及关联客户的签约与净实收统计")
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<Map<String, Object>> growthSummary() {
         PostSnapshot post = post();
-        return success(growth.summary(post.orgId()));
+        return success(growth.summary(post));
     }
 
     static Map<String, Object> view(FrContentPublicationDO row) {
