@@ -127,6 +127,8 @@ async function main() {
       assert.equal(catalog.visibleCourses[0].title, title, role);
       assert.deepEqual(catalog.visibleResources.map(row => row.name), [resource], role);
       await delay(500);
+      await mp.navigateBack();
+      await waitFor(profile, data => data.role === roles[role]);
       checkedRoles.push(role);
     }
     await mp.evaluate(url => {
