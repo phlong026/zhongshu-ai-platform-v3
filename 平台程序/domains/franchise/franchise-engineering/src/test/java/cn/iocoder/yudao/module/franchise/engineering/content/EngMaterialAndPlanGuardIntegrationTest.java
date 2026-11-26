@@ -1151,6 +1151,24 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void settlementProjectLockIsScopedToTheCompanyAndCurrentOwners() {
+        Store otherStore = fixture.store();
+        PostSnapshot assigned = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        PostSnapshot another = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?", assigned.userId(), projectId);
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.executeWithoutResult(status -> {
+            var projects = projectService.projects();
+            assertThat(projects.lockOwnedByCompany(projectId, otherStore.orgId(), engineer.userId())).isNull();
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), another.userId())).isNull();
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), engineer.userId()).getId())
+                    .isEqualTo(projectId);
+            assertThat(projects.lockOwnedByCompany(projectId, store.orgId(), assigned.userId()).getId())
+                    .isEqualTo(projectId);
+        });
+    }
+
+    @Test
     void simultaneousSettlementRetriesReadTheSameReceipt() throws Exception {
         long evidence = insertAsset("ENG_SITE_PHOTO", true, store.orgId());
         jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE,recipient=?,file_asset_id=? WHERE project_id=?",
