@@ -336,7 +336,10 @@ public class CustomerService {
      */
     @Transactional(rollbackFor = Exception.class)
     public Detail follow(PostSnapshot post, long customerId, FollowCommand command, String idempotencyKey) {
-        CustomerDO customer = requireWritable(post, customerId);
+        requireWritable(post, customerId);
+        // Serialize with pause/resume, then recheck the locked customer before changing the projection.
+        CustomerDO customer = customerMapper.lockById(customerId);
+        if (customer == null || !CustomerAccess.canWrite(post, customer)) throw exception(CUSTOMER_FORBIDDEN);
         String kind=command.contactKind()==null?"FOLLOW":command.contactKind();
         if(!Set.of("FOLLOW","VISIT").contains(kind)) throw exception(VISIT_DATE_INVALID);
         FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate(),kind,command.occurredOn());
@@ -375,7 +378,9 @@ public class CustomerService {
         Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
                 .set(CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)
                 .set(CustomerDO::getLastFollowAt, OffsetDateTime.now())
-                .set(CustomerDO::getNextVisitDate, input.nextVisitDate())));
+                // The old form may add a note, but it must not edit a newer pause's scheduled reminder.
+                .setSql("next_visit_date = CASE WHEN " + CustomerMapper.PAUSED
+                        + " THEN next_visit_date ELSE CAST({0} AS date) END", input.nextVisitDate())));
         commands.record(post, AGGREGATE, customerId, revision + 1, "customer-follow", fingerprint, idempotencyKey);
         return get(post, customerId);
     }
