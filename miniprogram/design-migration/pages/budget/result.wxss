@@ -779,7 +779,7 @@ page {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8rpx;
   padding: 12rpx 24rpx calc(12rpx + env(safe-area-inset-bottom));
   border-top: 1rpx solid #e8ded1;

@@ -34,7 +34,7 @@ test('old budget editor links reach read-only history before any editor lifecycl
    access.protectedPage({data:{},onLoad(){called++;},save(){called++;}});
    page.route='design-migration/pages/budget/'+editor;page.setData=p=>Object.assign(page.data,p);
    page.onLoad({projectId:'70'});page.save();assert.equal(called,0);assert.equal(routes.length,1);
-   assert.match(routes[0],/^\/design-migration\/pages\/budget\/history\?/);
+   assert.equal(routes[0],'/design-migration/pages/budget/history?projectId=70');
  }
 });
 test('reference library keeps preview and drawings without a new estimate action',()=>{

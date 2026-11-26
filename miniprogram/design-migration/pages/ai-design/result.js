@@ -6,7 +6,6 @@ const api = require('../../utils/api');
 const http = require('../../utils/request');
 const assets = require('../../utils/assets');
 const view = require('../../utils/record-view');
-const generationOptions = require('../../utils/generation-options');
 
 protectedPage({
   data: { projectName: '', planFacts: [], versions: [], latest: null, versionLabel: '', imageLabel: '', imageUrl: '', loading: false, error: '', imageError: '', readOnly: false, canRegenerate: false,
@@ -74,12 +73,6 @@ protectedPage({
     const seq = this._seq;
     const actions = [{ label: '公司方案', run: () => this.save() }];
     if (!this.data.readOnly) actions.push({ label: '保存至客户', run: () => this.publish() });
-    if (!this.data.readOnly && this.data.canRegenerate && this.data.optionsReady) {
-      actions.push({ label: '按本版规格重新生成', run: () => this.adjust() });
-    }
-    if (!this.data.readOnly && this.data.canRegenerate && this.data.optionsError) {
-      actions.push({ label: '重试读取出图规格', run: () => this.loadGenerationOptions() });
-    }
     wx.showActionSheet({ itemList: actions.map(item => item.label), success: result => {
       if (this.current(seq) && actions[result.tapIndex]) actions[result.tapIndex].run();
     } });
@@ -147,44 +140,12 @@ protectedPage({
         } else wx.showToast({ title: '保存失败，请重试', icon: 'none' });
       });
   },
-  budget() {
-    if (this.current(this._seq) && this.data.latest) wx.navigateTo({ url: '/design-migration/pages/budget/input?projectId=' + this._projectId + '&resultVersionId=' + this.data.latest.versionId });
+  budgetHistory() {
+    if (this.current(this._seq) && this.data.latest) wx.navigateTo({url:'/design-migration/pages/budget/history?projectId='+this._projectId});
   },
   publish() {
     if (!this.current(this._seq) || !this.data.latest || this.data.readOnly) return;
     wx.navigateTo({url:'/design-migration/pages/customer/archive?projectId='+this._projectId+'&resultVersionId='+this.data.latest.versionId+'&kind='+this.data.activeImageKey});
   },
-  save() { wx.navigateTo({ url: '/design-migration/pages/profile/records?type=projects' }); },
-  adjust() { this.regenerate(); },
-  regenerate() {
-    if (!this.current(this._seq) || !this.data.latest || this.data.readOnly || !this.data.canRegenerate || this.data.regenerating || !this.data.optionsReady) return;
-    const seq = this._seq;
-    this.setData({ regenerating: true });
-    const selected = generationOptions.selection('ELEVATION', this.data);
-    const resolution = selected.resolution;
-    const orientation = selected.orientation;
-    const attempts = require('../../utils/generation-attempt');
-    const slot = 'revision:' + this._projectId + ':' + this.data.latest.versionId;
-    const payload = { reason: '用户请求重新生成整张立面', count: 2, resolution, orientation };
-    let attempt;
-    try { attempt = attempts.begin(slot, payload); }
-    catch (error) { this.setData({ regenerating: false }); wx.showToast({ title: view.errorText(error), icon: 'none' }); return; }
-    const quote = attempt.confirmedPrice ? Promise.resolve(attempt.confirmedPrice)
-      : require('../../utils/generation-price').confirm('ELEVATION', 2, '原方案保留。按原尺寸与材质重新生成整张立面，不是局部修改。', { resolution });
-    return quote.then(priceConfirmation => {
-      if (!this.current(seq)) throw { cancelled: true };
-      attempt.confirmedPrice = priceConfirmation; attempts.save(slot, attempt);
-      attempts.submitted(slot, attempt);
-      return api.createRevisionRequest(this._projectId, { ...payload, priceConfirmation }, attempt.key);
-    }).then(vo => {
-      if (!this.current(seq)) return;
-      if (!vo || !view.id(vo.jobId)) throw Error('任务编号无效');
-      attempts.complete(slot, attempt);
-      Object.assign(getDesignApp().globalData, { projectId: this._projectId, jobId: vo.jobId });
-      wx.redirectTo({ url: '/design-migration/pages/ai-design/generating?stage=elevation&count=2' });
-    }).catch(error => {
-      try { attempts.failed(slot, attempt, error); } catch (stale) { /* Session changed. */ }
-      if (this.current(seq) && !error.cancelled) wx.showToast({ title: view.errorText(error), icon: 'none' });
-    }).then(() => { if (this.current(seq)) this.setData({ regenerating: false }); });
-  }
+  save() { wx.navigateTo({ url: '/design-migration/pages/profile/records?type=projects' }); }
 });

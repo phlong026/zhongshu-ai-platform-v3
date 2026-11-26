@@ -58,7 +58,7 @@
           </view>
           <view class="flow-field"><text class="flow-label">补充记录</text><textarea class="flow-input flow-textarea" value="{{form.note}}" data-key="note" bindinput="input" maxlength="4000" auto-height="{{true}}" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}" placeholder="沟通内容、调整意见等" /></view>
         </view>
-        <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">预算参考</text><text class="flow-muted">前期测算</text></view><button class="flow-secondary" bindtap="openBudget">快速预算</button></view>
+        <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">客户报价</text></view><button class="flow-secondary" bindtap="openBudget">办理报价</button></view>
         <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">工程付款约定</text><text class="flow-muted">随委托保存本版约定</text></view><button class="flow-secondary" bindtap="openPaymentDraft" disabled="{{busy||uploading||uncertain}}">付款草案</button></view>
         <view wx:if="{{step.code==='MEASUREMENT'||step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">外部设计委托</text><text class="flow-muted">需求与成果登记</text></view><button class="flow-secondary" bindtap="openEntrust" disabled="{{busy||uploading||uncertain}}">查看 / 办理</button></view>
         <view class="flow-card">

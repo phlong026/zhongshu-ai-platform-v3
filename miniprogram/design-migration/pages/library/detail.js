@@ -1,5 +1,4 @@
 const navigation = require('../../utils/navigation');
-const getDesignApp = require('../../utils/context').getApp;
 'use strict';
 
 const { protectedPage } = require('../../utils/access');
@@ -155,11 +154,5 @@ protectedPage({
     if (!channel || typeof channel.emit !== 'function') return wx.showToast({ title: '请从客户流程选择户型', icon: 'none' });
     channel.emit('workflowReference', { caseId: String(detail.id), title: detail.title });
     wx.navigateBack({ delta: 2 });
-  },
-  useHouse() {wx.showToast({title:require('../../../utils/design-retirement').message,icon:'none'});},
-  quickBudget() {
-    const detail=this.data.caseDetail;if(!this.current()||!detail)return;
-    getDesignApp().globalData.budgetCaseEntry={caseId:detail.id,caseVersionId:detail.caseVersionId,title:detail.title,values:require('../../utils/case-entry').parameters(detail)};
-    wx.navigateTo({url:'/design-migration/pages/budget/quick?fromCase=1'});
   }
 });

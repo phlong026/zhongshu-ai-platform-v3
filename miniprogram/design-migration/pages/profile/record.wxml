@@ -4,7 +4,7 @@
     <view wx:if="{{loading}}" class="record-empty"><v12-state status="loading" text="正在读取…" card="{{false}}" /></view>
     <view wx:elif="{{error}}" class="v12-card record-empty"><v12-state status="error" text="{{error}}" action-text="重试" bind:action="load" card="{{false}}" /></view>
     <block wx:elif="{{loaded}}">
-      <view wx:if="{{canResume}}" class="v12-primary-button record-cta" bindtap="resumeDesign" role="button">{{nextLabel || '继续设计'}}</view>
+      <view wx:if="{{canResume}}" class="v12-primary-button record-cta" bindtap="resumeDesign" role="button">{{nextLabel}}</view>
       <view wx:if="{{selectedImages.length}}" class="v12-card record-card">
         <text class="record-title">已选方案</text>
         <view class="selected-grid">
@@ -47,7 +47,7 @@
       </view>
       <view wx:for="{{versions}}" wx:key="id" class="v12-card record-card" data-id="{{item.id}}" bindtap="openVersion" role="button" aria-label="{{'查看' + item.title}}"><view class="record-top"><text class="record-title">{{item.title}}</text><t-icon name="chevron-right" size="20px" color="#a89a8c" /></view><text class="record-hint">{{item.hint}}</text><text class="record-hint">{{item.time}}</text></view>
       <view wx:if="{{!versions.length && !versionId}}" class="v12-card record-empty"><v12-state status="empty" text="尚未形成最终方案版本。" card="{{false}}" /></view>
-      <view class="record-actions"><button wx:if="{{versionId}}" class="record-button" bindtap="openVersion">查看投稿方案</button><button wx:if="{{!versionId && projectId}}" class="record-button" bindtap="renameProject">重命名方案</button><button class="record-button" bindtap="budgetHistory">查看已保存预算</button></view>
+      <view class="record-actions"><button wx:if="{{versionId}}" class="record-button" bindtap="openVersion">查看投稿方案</button><button class="record-button" bindtap="budgetHistory">查看已保存预算</button></view>
     </block>
   </view>
 </view>

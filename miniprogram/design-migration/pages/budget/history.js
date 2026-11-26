@@ -8,7 +8,7 @@ const format = require('../../utils/format');
 const { protectedPage } = require('../../utils/access');
 
 protectedPage({
-  data: { rows: [], loading: false, error: '', savedOnly: true, nextCursor: null, noProject: false },
+  data: { rows: [], loading: false, error: '', savedOnly: false, nextCursor: null, noProject: false },
   onLoad(options) {
     this._projectId = draft.id(options.projectId);
     this._independent = options.independent === '1';
@@ -19,7 +19,6 @@ protectedPage({
     this.reload();
   },
   goMyProjects() { wx.navigateTo({ url: '/design-migration/pages/profile/records?type=projects', fail: () => navigation.switchTab({ url: '/pages/profile/index' }) }); },
-  goAiDesign() { navigation.switchTab({ url: '/design-migration/pages/ai-design/index' }); },
   onShow() { if (this._shown || (this._scope && this._scope !== draft.sessionScope())) this.reload(); this._shown = true; },
   onUnload() { this._sequence = (this._sequence || 0) + 1; this._scope = null; },
   reload() {

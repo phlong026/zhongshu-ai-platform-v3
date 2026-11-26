@@ -2,9 +2,8 @@
   <v12-navbar title="{{title}}" show-back show-brand="{{false}}" />
   <view class="records-content">
     <view wx:for="{{rows}}" wx:key="id" class="record-swipe">
-      <view wx:if="{{canDelete}}" class="record-delete" data-id="{{item.id}}" catchtap="confirmDelete" role="button" aria-label="删除{{item.title}}">删除</view>
-      <view class="v12-card record-card {{swipedId === item.id ? 'swiped' : ''}}" role="button" aria-label="{{item.title + '，' + item.status}}" data-id="{{item.id}}"
-        bindtap="open" bindlongpress="confirmDelete" bindtouchstart="swipeStart" bindtouchend="swipeEnd">
+      <view class="v12-card record-card" role="button" aria-label="{{item.title + '，' + item.status}}" data-id="{{item.id}}"
+        bindtap="open">
         <view class="record-body">
           <view class="record-cover {{item.coverUrl ? '' : 'record-cover-empty'}}">
             <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFit" lazy-load catchtap="previewCover" data-url="{{item.coverUrl}}" aria-label="放大查看封面" role="button" />

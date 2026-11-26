@@ -28,12 +28,9 @@
     </view>
     <view class="budget-card result-section"><text class="section-title">{{legacy ? '历史测算依据' : '方案概况'}}</text><view class="result-grid"><view wx:for="{{basis}}" wx:key="label" class="result-cell"><text>{{item.label}}</text><text>{{item.value}}</text></view></view></view>
     <button wx:if="{{!legacy}}" class="v12-primary-button commission-entry" bindtap="commission">发起设计委托 <t-icon name="chevron-right" size="18px" color="#ffffff" /></button>
-    <text class="save-error result-feedback" wx:if="{{saveError}}">{{saveError}}</text>
     <view class="result-tabs" role="toolbar" aria-label="预算操作">
-      <button class="result-tab {{estimate.saved ? 'is-saved' : ''}}" loading="{{saving}}" disabled="{{legacy || saving || estimate.saved}}" bindtap="save"><image src="/design-migration/assets/budget-icons/save.png" mode="aspectFit" /><text>{{estimate.saved ? '已保存' : '保存预算单'}}</text></button>
-      <button class="result-tab" disabled="{{legacy || saving}}" bindtap="archive"><image src="/assets/team.png" mode="aspectFit" /><text>发送至客户</text></button>
-      <button class="result-tab" disabled="{{saving}}" bindtap="adjust"><image src="/design-migration/assets/budget-icons/refresh.png" mode="aspectFit" /><text>重新测算</text></button>
-      <button class="result-tab" disabled="{{saving}}" bindtap="history"><image src="/assets/studio-clock.png" mode="aspectFit" /><text>预算历史</text></button>
+      <button class="result-tab" disabled="{{legacy}}" bindtap="archive"><image src="/assets/team.png" mode="aspectFit" /><text>发送至客户</text></button>
+      <button class="result-tab" bindtap="history"><image src="/assets/studio-clock.png" mode="aspectFit" /><text>预算历史</text></button>
     </view>
     <canvas type="2d" id="budgetCanvas" class="share-canvas"></canvas>
   </block>

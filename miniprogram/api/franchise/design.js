@@ -20,7 +20,7 @@ const assets = {
 };
 
 const projects = {
-  create: (data, key) => http.post('/franchise/design/projects', data, idem(key, 'proj')),
+  create: retired.reject,
   list: (params) => http.get('/franchise/design/projects', params),
   detail: (projectId, jobId) => http.get('/franchise/design/projects/' + projectId, jobId ? { jobId } : undefined),
   createFlatJob: retired.reject,
@@ -28,8 +28,8 @@ const projects = {
   aiJob: (jobId) => http.get('/franchise/design/ai-jobs/' + jobId),
   cancelJob: (jobId) => http.post('/franchise/design/ai-jobs/' + jobId + '/cancellation-requests', {}),
   notePolish: retired.reject,
-  selectFlat: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/flat-selections', data),
-  selectElevation: (projectId, data) => http.post('/franchise/design/projects/' + projectId + '/elevation-selections', data),
+  selectFlat: retired.reject,
+  selectElevation: retired.reject,
   resultVersions: (projectId) => http.get('/franchise/design/projects/' + projectId + '/result-versions'),
   revision: retired.reject,
   saveToCustomer: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/save-to-customer', data, idem(key, 'save'))
@@ -38,7 +38,7 @@ const projects = {
 const budget = {
   ruleInfo: (regionCode, structureType, materialGrade) =>
     http.get('/franchise/design/budget/rule-info', { regionCode, structureType, materialGrade }),
-  estimate: (projectId, data, key) => http.post('/franchise/design/projects/' + projectId + '/budget-estimates', data, idem(key, 'budget'))
+  estimate: retired.reject
 };
 
 module.exports = { cases, assets, projects, budget };

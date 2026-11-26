@@ -26,7 +26,7 @@
     </view>
     <view class="result-actions">
       <button class="v12-secondary-button" disabled="{{!imageUrl}}" bindtap="saveToAlbum">保存到相册</button>
-      <button class="v12-primary-button" bindtap="budget">生成预算</button>
+      <button class="v12-primary-button" bindtap="budgetHistory">预算历史</button>
     </view>
   </block>
 </view>
