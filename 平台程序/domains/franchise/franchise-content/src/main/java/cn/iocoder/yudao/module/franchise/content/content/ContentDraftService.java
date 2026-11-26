@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressMapper;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftMapper;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftMapper;
@@ -12,15 +13,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.INPUT_INVALID;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.TASK_NOT_FOUND;
 import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.WORK_INVALID;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.WORK_TRASHED;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.WORK_VERSION_CONFLICT;
 
 /**
  * 草稿与作品（§五）：save-work 一任务一件（部分唯一索引兜底，重复返既有——AC9）；
@@ -48,12 +53,13 @@ public class ContentDraftService {
     /** 任务→作品：SUCCEEDED 任务可转作品；task_kind→draft_kind 映射（digital/ai_video 同名，其余 remix）。 */
     public FrContentDraftDO saveWork(long companyId, long userId, long taskId, String title) {
         FrContentTaskDO task = tasks.requireOwned(companyId, taskId);
-        if (!"SUCCEEDED".equals(task.getStatus()) || (java.util.Set.of("copy","asr","link_parse").contains(task.getKind()) && !"READY".equals(task.getResultState()))) {
+        if (!Objects.equals(task.getAuthorUserId(), userId) || !"SUCCEEDED".equals(task.getStatus())
+                || (java.util.Set.of("copy","asr","link_parse").contains(task.getKind()) && !"READY".equals(task.getResultState()))) {
             throw exception(WORK_INVALID);
         }
         FrContentDraftDO existing = drafts.selectByTask(taskId);
         if (existing != null) {
-            return existing; // 幂等：一任务一件
+            return savedTaskWork(existing, companyId, userId);
         }
         String kind = switch (task.getKind()) {
             case "digital" -> "digital";
@@ -68,21 +74,39 @@ public class ContentDraftService {
                 "result", task.getResultSnapshot() == null ? Map.of()
                         : JsonUtils.parseObject(task.getResultSnapshot(), Map.class));
         long id = IdWorker.getId();
-        try {
-            jdbcTemplate.update(
-                    "INSERT INTO fr_content_draft (id, company_id, author_user_id, task_id, kind, title, script, "
-                            + "configuration, status) VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), 'draft')",
-                    id, companyId, userId, taskId, kind,
-                    title == null || title.isBlank() ? defaultTitle(task) : clip(title, 200),
-                    scriptTextOf(task, kind),
-                    JsonUtils.toJsonString(configuration));
-        } catch (org.springframework.dao.DuplicateKeyException e) {
-            return drafts.selectByTask(taskId); // 并发兜底：部分唯一索引
+        jdbcTemplate.update("""
+                INSERT INTO fr_content_draft (id,company_id,author_user_id,task_id,kind,title,script,configuration,status)
+                VALUES (?,?,?,?,?,?,?,CAST(? AS jsonb),'draft')
+                ON CONFLICT (task_id) WHERE task_id IS NOT NULL AND deleted=FALSE DO NOTHING
+                """, id, companyId, userId, taskId, kind,
+                title == null || title.isBlank() ? defaultTitle(task) : clip(title, 200),
+                scriptTextOf(task, kind), JsonUtils.toJsonString(configuration));
+        return savedTaskWork(drafts.selectByTask(taskId), companyId, userId);
+    }
+
+    private static FrContentDraftDO savedTaskWork(FrContentDraftDO row, long companyId, long userId) {
+        if (row == null || !Objects.equals(row.getCompanyId(), companyId) || !Objects.equals(row.getAuthorUserId(), userId)) {
+            throw exception(WORK_INVALID);
         }
-        return drafts.selectById(id);
+        if (row.getTrashedAt() != null) throw exception(WORK_TRASHED);
+        return row;
     }
 
     public FrContentDraftDO workOf(long companyId, long workId) {
+        FrContentDraftDO row = storedWork(companyId, workId);
+        if (row.getTrashedAt() != null) throw exception(WORK_INVALID);
+        return row;
+    }
+
+    public FrContentDraftDO originalPublishedWork(long companyId, FrContentPublicationDO publication) {
+        if (!Objects.equals(publication.getCompanyId(), companyId) || !"published".equals(publication.getStatus())
+                || publication.getWorkId() == null) throw exception(WORK_INVALID);
+        FrContentDraftDO row = storedWork(companyId, publication.getWorkId());
+        if (!Objects.equals(row.getAuthorUserId(), publication.getAuthorUserId())) throw exception(WORK_INVALID);
+        return row;
+    }
+
+    private FrContentDraftDO storedWork(long companyId, long workId) {
         FrContentDraftDO row = drafts.selectById(workId);
         if (row == null || row.getCompanyId() != companyId || Boolean.TRUE.equals(row.getDeleted())) {
             throw exception(WORK_INVALID);
@@ -91,11 +115,17 @@ public class ContentDraftService {
     }
 
     public List<FrContentDraftDO> listWorks(long companyId, long userId) {
+        return listWorks(companyId, userId, false);
+    }
+
+    public List<FrContentDraftDO> listWorks(long companyId, long userId, boolean trashed) {
         return drafts.selectList(new LambdaQueryWrapper<FrContentDraftDO>()
                 .eq(FrContentDraftDO::getCompanyId, companyId)
                 .eq(FrContentDraftDO::getAuthorUserId, userId)
                 .eq(FrContentDraftDO::getDeleted, false)
-                .orderByDesc(FrContentDraftDO::getUpdateTime));
+                .isNull(!trashed, FrContentDraftDO::getTrashedAt)
+                .isNotNull(trashed, FrContentDraftDO::getTrashedAt)
+                .orderByDesc(FrContentDraftDO::getUpdateTime, FrContentDraftDO::getId));
     }
 
     public FrContentDraftDO workOfAuthor(long companyId, long userId, long workId) {
@@ -106,13 +136,36 @@ public class ContentDraftService {
         return row;
     }
 
+    @Transactional
     public FrContentDraftDO updateWorkStatus(long companyId, long userId, long workId, String status) {
         if (!"draft".equals(status) && !"saved".equals(status)) {
             throw exception(INPUT_INVALID);
         }
-        FrContentDraftDO row = workOfAuthor(companyId, userId, workId);
-        row.setStatus(status);
-        drafts.updateById(row);
+        int changed = jdbcTemplate.update("""
+                UPDATE fr_content_draft SET status=?,update_time=now()
+                WHERE company_id=? AND author_user_id=? AND id=? AND NOT deleted AND trashed_at IS NULL
+                """, status, companyId, userId, workId);
+        if (changed != 1) throw exception(WORK_INVALID);
+        return workOfAuthor(companyId, userId, workId);
+    }
+
+    @Transactional
+    public FrContentDraftDO setTrashed(long companyId, long userId, long workId, boolean trashed, long revision) {
+        if (revision < 0 || revision >= 9_007_199_254_740_991L) throw exception(INPUT_INVALID);
+        int changed = jdbcTemplate.update("""
+                UPDATE fr_content_draft
+                   SET trashed_at=CASE WHEN ? THEN now() ELSE NULL END,library_revision=library_revision+1,update_time=now()
+                 WHERE id=? AND company_id=? AND author_user_id=? AND NOT deleted
+                   AND library_revision=? AND (trashed_at IS NOT NULL)<>?
+                """, trashed, workId, companyId, userId, revision, trashed);
+        FrContentDraftDO row = drafts.selectOne(new LambdaQueryWrapper<FrContentDraftDO>()
+                .eq(FrContentDraftDO::getId, workId).eq(FrContentDraftDO::getCompanyId, companyId)
+                .eq(FrContentDraftDO::getAuthorUserId, userId).eq(FrContentDraftDO::getDeleted, false));
+        if (row == null) throw exception(WORK_INVALID);
+        if (changed == 0 && ((row.getTrashedAt() != null) != trashed
+                || (row.getLibraryRevision() != revision && row.getLibraryRevision() != revision + 1))) {
+            throw exception(WORK_VERSION_CONFLICT);
+        }
         return row;
     }
 

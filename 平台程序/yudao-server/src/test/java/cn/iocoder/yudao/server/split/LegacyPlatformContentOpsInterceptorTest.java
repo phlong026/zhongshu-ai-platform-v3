@@ -160,6 +160,8 @@ class LegacyPlatformContentOpsInterceptorTest {
         draftController = new ContentDraftController();
         ReflectionTestUtils.setField(draftController, "currentPost", currentPost);
         ReflectionTestUtils.setField(draftController, "drafts", draftService);
+        ReflectionTestUtils.setField(draftController, "postPermissions",
+                mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class));
 
         publicationController = new ContentPublicationController();
         ReflectionTestUtils.setField(publicationController, "currentPost", currentPost);
@@ -222,14 +224,14 @@ class LegacyPlatformContentOpsInterceptorTest {
         }
     }
 
-    // ---------- DRAINING：15入口 503 零写 ----------
-
-    @Test void drainingRejectsAllFifteenContentOpsEntriesWithoutAnyWrite() throws Exception {
+    @Test void drainingRejectsContentOpsEntriesWithoutAnyWrite() throws Exception {
         gate.apply(new Control(2, State.DRAINING, SCOPE), FreezeEvidence.missing());
         assertEquals(503, code(taskMvc.perform(post("/franchise/content/tasks/" + TASK_ID + "/save-work")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"作品\"}")).andReturn()));
         assertEquals(503, code(draftMvc.perform(put("/franchise/content/drafts/5001/status")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"PUBLISHED\"}")).andReturn()));
+        assertEquals(503, code(draftMvc.perform(put("/franchise/content/drafts/5001/trash")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"trashed\":true,\"revision\":0}")).andReturn()));
         assertEquals(503, code(draftMvc.perform(put("/franchise/content/video-draft")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"v\"}")).andReturn()));
         assertEquals(503, code(draftMvc.perform(post("/franchise/content/course-progress")
@@ -251,7 +253,6 @@ class LegacyPlatformContentOpsInterceptorTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"contentType\":\"image/png\"}")).andReturn()));
         assertEquals(503, code(assetMvc.perform(post("/franchise/content/assets/5001/complete")).andReturn()));
         assertEquals(503, code(assetMvc.perform(post("/franchise/content/assets/5001/download-tickets")).andReturn()));
-        // 15入口断言齐（14+T2归属重复验证在captor用例）——零写。
         assertEquals(0, rows("fr_content_draft"));
         assertEquals(0, rows("fr_content_publication"));
         assertEquals(0, rows("fr_content_persona"));
@@ -294,6 +295,8 @@ class LegacyPlatformContentOpsInterceptorTest {
                 new HandlerMethod(draftController, ContentDraftController.class.getDeclaredMethod(
                         "updateDraftStatus", Long.class, Map.class)),
                 new HandlerMethod(draftController, ContentDraftController.class.getDeclaredMethod(
+                        "setTrash", long.class, ContentDraftController.WorkTrashRequest.class)),
+                new HandlerMethod(draftController, ContentDraftController.class.getDeclaredMethod(
                         "saveVideoDraft", Map.class)),
                 new HandlerMethod(draftController, ContentDraftController.class.getDeclaredMethod(
                         "completeChapter", Map.class)),
@@ -317,15 +320,15 @@ class LegacyPlatformContentOpsInterceptorTest {
                         "complete", Long.class)),
                 new HandlerMethod(assetController, ContentAssetController.class.getDeclaredMethod(
                         "downloadTicket", Long.class)));
-        assertEquals(14, handlers.size());
+        assertEquals(15, handlers.size());
         for (var handler : handlers) {
             assertTrue(selected.preHandle(new org.springframework.mock.web.MockHttpServletRequest(),
                     new org.springframework.mock.web.MockHttpServletResponse(), handler),
                     handler.getMethod().getName());
         }
         var captor = ArgumentCaptor.forClass(String.class);
-        verify(port, times(14)).enter(eq(Owner.B_LEGACY), eq("franchise-http"), captor.capture());
-        assertEquals(Set.of("content-save-work", "content-draft-status", "video-draft-save",
+        verify(port, times(15)).enter(eq(Owner.B_LEGACY), eq("franchise-http"), captor.capture());
+        assertEquals(Set.of("content-save-work", "content-draft-status", "content-work-trash", "video-draft-save",
                 "course-progress", "publication-create", "publication-verify", "publication-link",
                 "publication-fail", "persona-create", "persona-update", "persona-delete",
                 "asset-upload-ticket", "asset-upload-complete", "asset-download-ticket"),

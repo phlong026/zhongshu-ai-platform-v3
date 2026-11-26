@@ -31,6 +31,10 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES;
 
 @Import({ContentPublicationService.class, ContentPublisherAccountService.class, ContentPublicationCoverService.class,
@@ -54,6 +58,8 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     private ContentPublisherAccountService publisherAccounts;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource
+    private org.springframework.transaction.PlatformTransactionManager transactions;
     @MockitoBean
     private AssetAccessPort assets;
     @MockitoBean
@@ -93,6 +99,117 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(drafts.workOfAuthor(store.orgId(), owner.userId(), workId).getStatus()).isEqualTo("draft");
         assertThat(drafts.updateWorkStatus(store.orgId(), owner.userId(), workId, "saved").getStatus())
                 .isEqualTo("saved");
+    }
+
+    @Test
+    void trashAndRestoreKeepTheOriginalWorkAndPublishedReceipt() throws Exception {
+        var publication = service.createFromPost(owner, manualBody("作品回收验收"), "publish-before-trash-" + workId);
+        var controller = new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentDraftController();
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "drafts", drafts);
+        var permissions = mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class);
+        when(permissions.has(cn.iocoder.yudao.module.franchise.content.ContentPermissions.WRITE)).thenReturn(true);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "postPermissions", permissions);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        String list = "/franchise/content/drafts";
+        String action = list + "/" + workId + "/trash";
+        for (int retry = 0; retry < 2; retry++) {
+            mvc.perform(put(action).contentType("application/json").content("{\"trashed\":true,\"revision\":0}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.revision").value(1));
+        }
+        mvc.perform(get(list)).andExpect(jsonPath("$.data.length()").value(0));
+        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)))
+                .andExpect(jsonPath("$.data[0].canManage").value(true));
+        for (var other : java.util.List.of(colleague, outsider)) {
+            assertThat(drafts.listWorks(other.orgId(), other.userId(), true)).isEmpty();
+            assertThatThrownBy(() -> drafts.setTrashed(other.orgId(), other.userId(), workId, false, 1))
+                    .isInstanceOf(ServiceException.class);
+        }
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), publication.getId()).getWorkId()).isEqualTo(workId);
+        assertThatThrownBy(() -> drafts.workOfAuthor(store.orgId(), owner.userId(), workId))
+                .isInstanceOf(ServiceException.class);
+        mvc.perform(put(action).contentType("application/json").content("{\"trashed\":false,\"revision\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.revision").value(2));
+        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data.length()").value(0));
+        mvc.perform(get(list)).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)))
+                .andExpect(jsonPath("$.data[0].title").value("本人作品"));
+        assertThatThrownBy(() -> drafts.setTrashed(store.orgId(), owner.userId(), workId, true, 0))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("状态已更新");
+        assertThat(service.createFromPost(owner, manualBody("作品回收验收"), "publish-before-trash-" + workId).getId())
+                .isEqualTo(publication.getId());
+    }
+
+    @Test
+    void publishedPlaybackAndCustomerSourcesSurviveMovingThePersonalWorkToTrash() throws Exception {
+        long taskId = IdWorker.getId(), customerId = IdWorker.getId(), leadId = IdWorker.getId();
+        jdbc.update("UPDATE fr_content_draft SET task_id=? WHERE id=?", taskId, workId);
+        var publication = service.createFromPost(owner, manualBody("回放验收"), "work-playback-" + workId);
+        service.verify(store.orgId(), owner.userId(), publication.getId());
+        service.link(store.orgId(), owner.userId(), publication.getId(), "https://channels.example/post/" + publication.getId());
+        var taskService = mock(ContentTaskService.class);
+        when(taskService.requireOwned(store.orgId(), taskId)).thenReturn(
+                new cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO().setId(taskId)
+                        .setAuthorUserId(owner.userId()).setStatus("SUCCEEDED").setResultUrl("https://media.example/original.mp4"));
+        var controller = new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentPublicationController();
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "publications", service);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "drafts", drafts);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "tasks", taskService);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "growth", new ContentGrowthService(jdbc));
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        drafts.setTrashed(store.orgId(), owner.userId(), workId, true, 0);
+        mvc.perform(get("/franchise/content/publications/{id}/playback", publication.getId()))
+                .andExpect(jsonPath("$.data.workId").value(String.valueOf(workId)))
+                .andExpect(jsonPath("$.data.resultUrl").value("https://media.example/original.mp4"));
+        // These CRM projections are owned by another Maven module in the combined server.
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint,team_id bigint) ON COMMIT DROP");
+            jdbc.execute("CREATE TEMP TABLE fr_lead(id bigint,company_id bigint,customer_id bigint,source text,need text,status text,create_time timestamptz) ON COMMIT DROP");
+            jdbc.update("INSERT INTO fr_customer VALUES(?,?,?,NULL)", customerId, store.orgId(), owner.userId());
+            jdbc.update("INSERT INTO fr_lead VALUES(?,?,?,?,'庭院咨询','CONVERTED',now())",
+                    leadId, store.orgId(), customerId, ContentGrowthService.SOURCE_PREFIX + publication.getId());
+            assertThat(controller.customerContentSources(customerId).getData()).singleElement()
+                    .satisfies(source -> assertThat(source).containsEntry("leadId", String.valueOf(leadId)));
+        });
+        assertThatThrownBy(() -> service.create(store.orgId(), owner.userId(), manualBody("新账号")))
+                .isInstanceOf(ServiceException.class);
+    }
+
+    @Test
+    void workTrashMigrationPreservesExistingRowsAndRequiresRestoreBeforeUndo() throws Exception {
+        var forward = new org.springframework.core.io.ClassPathResource(
+                "db/migration/franchise/V20261126.1002__personal_work_trash.sql");
+        var undo = new org.springframework.core.io.ClassPathResource(
+                "db/migration-undo/franchise/V20261126.1002__undo_personal_work_trash.sql");
+        try (var connection = jdbc.getDataSource().getConnection(); var sql = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                sql.execute("SET LOCAL search_path TO pg_temp");
+                sql.execute("CREATE TEMP TABLE fr_content_draft(id BIGINT PRIMARY KEY, title TEXT)");
+                sql.execute("INSERT INTO fr_content_draft VALUES(42, '已有作品')");
+                sql.execute(forward.getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+                try (var result = sql.executeQuery("SELECT library_revision,trashed_at FROM fr_content_draft")) {
+                    assertThat(result.next()).isTrue();
+                    assertThat(result.getLong(1)).isZero();
+                    assertThat(result.getObject(2)).isNull();
+                }
+                sql.execute("UPDATE fr_content_draft SET trashed_at=now(),library_revision=1");
+                var save = connection.setSavepoint();
+                String revert = undo.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                assertThatThrownBy(() -> sql.execute(revert)).isInstanceOf(java.sql.SQLException.class)
+                        .hasMessageContaining("Restore works");
+                connection.rollback(save);
+                sql.execute("UPDATE fr_content_draft SET trashed_at=NULL, library_revision=2");
+                sql.execute(revert);
+                try (var work = sql.executeQuery("SELECT id,title FROM fr_content_draft")) {
+                    assertThat(work.next()).isTrue();
+                    assertThat(work.getLong(1)).isEqualTo(42);
+                    assertThat(work.getString(2)).isEqualTo("已有作品");
+                }
+            } finally {
+                connection.rollback();
+            }
+        }
     }
 
     @Test

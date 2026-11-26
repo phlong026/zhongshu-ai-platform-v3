@@ -8,10 +8,14 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftDO;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
+import cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +35,8 @@ public class ContentDraftController {
     private CurrentPost currentPost;
     @Resource
     private ContentDraftService drafts;
+    @Resource
+    private PostPermissionEvaluator postPermissions;
 
     private PostSnapshot post() {
         return currentPost.require();
@@ -41,14 +47,37 @@ public class ContentDraftController {
     @org.springframework.security.access.prepost.PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<List<Map<String, Object>>> drafts() {
         PostSnapshot post = post();
-        return success(drafts.listWorks(post.orgId(), post.userId()).stream()
-                .map(row -> Map.<String, Object>of(
-                        "id", row.getId(),
-                        "taskId", row.getTaskId() == null ? 0L : row.getTaskId(),
-                        "kind", row.getKind(),
-                        "title", row.getTitle(),
-                        "status", row.getStatus()))
-                .toList());
+        return success(workList(drafts.listWorks(post.orgId(), post.userId())));
+    }
+
+    @GetMapping("/drafts/trash")
+    @Operation(summary = "本人作品回收站")
+    @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
+    public CommonResult<List<Map<String, Object>>> trash() {
+        PostSnapshot post = post();
+        return success(workList(drafts.listWorks(post.orgId(), post.userId(), true)));
+    }
+
+    private List<Map<String, Object>> workList(List<FrContentDraftDO> rows) {
+        boolean canManage = postPermissions.has(ContentPermissions.WRITE);
+        return rows.stream().map(row -> Map.<String, Object>of(
+                "id", row.getId(), "workId", row.getId().toString(),
+                "taskId", row.getTaskId() == null ? 0L : row.getTaskId(),
+                "kind", row.getKind(), "title", row.getTitle(), "status", row.getStatus(),
+                "revision", row.getLibraryRevision(), "trashed", row.getTrashedAt() != null,
+                "canManage", canManage)).toList();
+    }
+
+    public record WorkTrashRequest(@NotNull Boolean trashed, @NotNull @PositiveOrZero Long revision) {}
+
+    @PutMapping("/drafts/{id}/trash")
+    @Operation(summary = "将本人作品移入回收站或恢复")
+    @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
+    public CommonResult<Map<String, Object>> setTrash(@PathVariable("id") long id, @Valid @RequestBody WorkTrashRequest body) {
+        PostSnapshot post = post();
+        FrContentDraftDO row = drafts.setTrashed(post.orgId(), post.userId(), id, body.trashed(), body.revision());
+        return success(Map.of("workId", row.getId().toString(), "revision", row.getLibraryRevision(),
+                "trashed", row.getTrashedAt() != null));
     }
 
     @GetMapping("/drafts/{id}")
