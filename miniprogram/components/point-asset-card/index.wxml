@@ -1,15 +1,15 @@
 <view wx:if="{{visible}}" class="asset-card">
-  <view class="asset-head"><text class="asset-label">公司额度</text><text class="asset-status" bindtap="retry">{{refreshing?'更新中':errorMessage?'更新失败，重试':''}}</text><button wx:if="{{purchaseAvailable||hasRechargeOrder}}" class="asset-recharge" bindtap="openRecharge">{{purchaseAvailable?'充值':'查看充值订单'}}</button></view>
+  <view class="asset-head"><text class="asset-label">公司积分</text><text class="asset-status" bindtap="retry">{{refreshing?'更新中':errorMessage?'更新失败，重试':''}}</text><button wx:if="{{purchaseAvailable||hasRechargeOrder}}" class="asset-recharge" bindtap="openRecharge">{{purchaseAvailable?'充值':'查看充值订单'}}</button></view>
   <view class="asset-metrics">
     <view class="asset-metric">
       <text class="asset-num">{{balanceText}}</text>
-      <text class="asset-unit">{{balanceLabel}}</text>
+      <text class="asset-unit">公司{{balanceLabel}}</text>
       <text wx:if="{{balanceError}}" class="asset-unit" bindtap="retry">更新失败，重试</text>
     </view>
     <view class="asset-divider"/>
     <view class="asset-metric">
       <text class="asset-num">{{usedText}}</text>
-      <text class="asset-unit">本人本月使用</text>
+      <text class="asset-unit">本月本人使用</text>
       <text wx:if="{{usageError}}" class="asset-unit" bindtap="retry">更新失败，重试</text>
     </view>
   </view>

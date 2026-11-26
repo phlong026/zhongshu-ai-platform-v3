@@ -5,6 +5,7 @@ const { connect, render } = require('./role-page-runtime.cjs');
 const http = require('../miniprogram/api/http');
 const auth = require('../miniprogram/api/auth');
 const navigation = require('../miniprogram/utils/page-navigation');
+const { templates } = require('../miniprogram/utils/organization');
 const ROOT = path.resolve(__dirname, '../miniprogram');
 const LIST = '/pages/account/announcements/index';
 const DETAIL = '/pages/account/announcements/detail';
@@ -43,22 +44,47 @@ async function setup(role = 'sales', orgType = 'store') {
   return env;
 }
 
-test('业务、老板、工程和总部财务的我的共用独立公告入口，进入后可返回原岗位我的', async () => {
+test('所有加盟商岗位和总部代表岗位都能从我的打开公告列表及详情，再返回原岗位', async () => {
   for (const [role, orgType, profile] of [
-    ['sales', 'store', '/pages/profile/index'], ['boss', 'store', '/pages/profile/index'],
-    ['engineer', 'store', '/pages/profile/index'], ['finance', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
+    ...templates.store.map(role => [role, 'store', ['finance', 'finance-lead'].includes(role)
+      ? '/pages/admin/finance-desk/index?view=profile' : '/pages/profile/index']),
+    ['finance', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
     ['hq-admin', 'headquarters', '/pages/profile/index']
   ]) {
-    const env = await setup(role, orgType), page = await env.open(profile, 'reLaunch');
+    const env = await setup(role, orgType);
+    const published = announcement();
+    env.handler = url => url === API ? { list: [published], total: 1 }
+      : url === API + '/' + published.id ? published : undefined;
+    const page = await env.open(profile, 'reLaunch');
     const control = await (await env.runtime.currentPage()).$('button[data-action="announcements"]');
     assert.ok(control, role + ' has an announcement entry');
+    assert.equal(page.data.announcementTitle, published.title, role);
     const profileText = text(env.render(page));
     assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('学习培训'));
-    assert.ok(profileText.indexOf('帮助与反馈') < profileText.indexOf('学习培训'));
+    assert.ok(profileText.indexOf('公司公告') < profileText.indexOf('消息'));
+    assert.ok(profileText.indexOf('学习培训') < profileText.indexOf('帮助与反馈'));
+    assert.ok(profileText.indexOf('账号与隐私') < profileText.indexOf('退出登录'));
+    if (orgType === 'store') {
+      const rendered = flat(env.render(page));
+      const sections = rendered.map(node => node.attrs?.class || '');
+      const services = sections.findIndex(classes => classes.includes('franchise-section'));
+      const training = sections.findIndex(classes => classes.includes('academy-section'));
+      assert.ok(services >= 0 && training > services, role + ' has fixed franchise and training sections');
+      assert.match(text(rendered[services].children), /展陈设计.*众墅甄选.*门店地图.*商学院/s);
+      assert.match(text(rendered[training].children), /全部课程.*当前岗位暂无已开放课程.*学习资料/s);
+    }
     await control.tap(); await flush();
     const list = getCurrentPages().at(-1);
     assert.equal(list.route, LIST.slice(1));
+    assert.equal(list.data.items[0].id, published.id, role);
     assert.equal(navigation.parent(list), profile);
+    await (await (await env.runtime.currentPage()).$('.announcement-row')).tap(); await flush();
+    const detail = getCurrentPages().at(-1);
+    assert.equal(detail.route, DETAIL.slice(1));
+    assert.equal(detail.data.announcement.content, published.content, role);
+    assert.ok(env.reads().every(({ request }) => request.header['X-Post-Id'] === env.post.postId));
+    navigation.back(); await flush();
+    assert.equal(getCurrentPages().at(-1), list);
     navigation.back(); await flush();
     assert.equal(getCurrentPages().at(-1), page);
   }
@@ -67,6 +93,7 @@ test('业务、老板、工程和总部财务的我的共用独立公告入口�
 test('游客不显示内部公告入口，列表和详情深链接转登录且保留原目标', async () => {
   const env = await setup(null), profile = await env.open('/pages/profile/index');
   assert.equal(text(env.render(profile)).includes('公司公告'), false);
+  assert.equal(text(env.render(profile)).includes('退出登录'), false);
   const redirects = [];
   wx.redirectTo = options => redirects.push(options.url);
   for (const route of [LIST, DETAIL + '?id=' + LONG_ID]) {
@@ -76,6 +103,52 @@ test('游客不显示内部公告入口，列表和详情深链接转登录且�
     assert.equal(login.searchParams.get('return'), route);
   }
   assert.equal(env.reads().length, 0);
+});
+
+test('页尾退出登录先提示确认，仅确认后清除当前账号与岗位', async () => {
+  const env = await setup('boss');
+  await env.open('/pages/profile/index', 'reLaunch');
+  let modal;
+  wx.showModal = options => { modal = options; };
+  const logout = await (await env.runtime.currentPage()).$('.profile-logout');
+  await logout.tap();
+  assert.equal(modal.title, '退出登录');
+  modal.success({ confirm: false });
+  assert.equal(http.token(), 'test-token');
+  assert.equal(http.currentPostId(), env.post.postId);
+  await logout.tap();
+  modal.success({ confirm: true });
+  await flush();
+  assert.equal(http.token(), '');
+  assert.equal(http.currentPostId(), '');
+  assert.equal(getCurrentPages().at(-1).data.loggedIn, false);
+});
+
+test('我的页只显示当前品牌获准看到的公告，忽略同岗位旧品牌回包', async () => {
+  const env = await setup();
+  const pending = [];
+  env.handler = (url, request) => {
+    if (url !== API) return undefined;
+    assert.deepEqual(request.data, { pageNo: 1, pageSize: 1 });
+    pending.push(request);
+    return { pending: true };
+  };
+  const page = await env.open('/pages/profile/index', 'reLaunch');
+  reply(pending[0], { list: [announcement(LONG_ID, { title: '原公告' })], total: 1 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '原公告');
+  page.onShow();
+  auth.savePosts([{ ...env.post, brandId: 'brand-2' }]);
+  page.onShow();
+  assert.equal(page.data.announcementTitle, '');
+  reply(pending[2], { list: [announcement(LONG_ID, { title: '新品牌公告' })], total: 1 });
+  reply(pending[1], { list: [announcement(LONG_ID, { title: '旧品牌迟到回包' })], total: 1 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '新品牌公告');
+  page.onShow();
+  reply(pending[3], { list: [], total: 0 });
+  await flush();
+  assert.equal(page.data.announcementTitle, '');
 });
 
 test('缺失或缓存不匹配的当前岗位不发起公告请求', async () => {

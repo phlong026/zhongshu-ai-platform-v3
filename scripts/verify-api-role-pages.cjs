@@ -152,11 +152,11 @@ const bossProfile = pageOf(definitions.profile);
 bossProfile.onShow();
 assert.equal(bossProfile.data.company, '南宁门店');
 assert.ok(bossProfile.data.managementEntries.some(row => row.text === '成员与权限'));
-assert.deepEqual(bossProfile.data.managementEntries, [
+assert.deepEqual(bossProfile.data.managementEntries.map(({text,url})=>({text,url})), [
   { text: '加盟商资料', url: '/pages/account/store-profile/index' },
   { text: '成员与权限', url: '/pages/account/index?view=api-members' }
 ]);
-assert.deepEqual(bossProfile.data.entries, [{ text: '团队绩效', url: '/pages/admin/tasks/index?view=team' }]);
+assert.deepEqual(bossProfile.data.entries, []);
 
 for (const [role, expected] of [
   ['sales-lead', [{ text: '客户与责任转交', url: '/pages/customers/index' }]],

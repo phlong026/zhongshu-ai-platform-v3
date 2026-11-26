@@ -1,1 +1,0 @@
-.profile-logout{display:flex;align-items:center;justify-content:center;width:100%;min-height:88rpx;box-sizing:border-box;margin:28rpx 0 32rpx;padding:18rpx 24rpx;background:var(--zs-card);border:1rpx solid #d6bba7;border-radius:14rpx;color:var(--zs-brand);font-family:inherit;font-size:var(--zs-font-emphasis);line-height:42rpx;font-weight:400}.profile-logout::after{border:0}

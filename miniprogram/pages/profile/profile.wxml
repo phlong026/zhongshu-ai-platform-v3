@@ -1,31 +1,106 @@
 <template name="profile">
-<view class="page profile-page {{nested?'profile-nested':''}}"><brand-header title="我的" divider="{{true}}" branded="{{true}}"/><view class="content">
-<button class="profile-card profile-menu" data-action="{{loggedIn?'profile':'login'}}" bindtap="open">
-  <image class="profile-avatar {{!loggedIn?'guest-avatar':''}}" src="{{loggedIn?avatar:'/assets/account-guest-avatar.jpg'}}" mode="aspectFill"/>
-  <view class="profile-info">
-    <view class="profile-name-row"><text class="profile-name">{{loggedIn?(name||(profileLoading?'资料加载中…':'个人资料')):'欢迎来到众墅之家'}}</text><text wx:if="{{loggedIn&&identityRole}}" class="profile-role-label">{{identityRole}}</text></view>
-    <text wx:if="{{loggedIn}}" class="profile-organization">{{identityOrganization}}</text>
-    <text wx:if="{{loggedIn&&profileError}}" class="profile-organization">{{profileError}}</text>
-  </view>
-  <view wx:if="{{loggedIn}}" class="profile-action"><text class="profile-link">个人资料</text><view class="chevron"/></view><text wx:else class="profile-link login-link">登录</text>
-</button>
-<point-asset-card wx:if="{{loggedIn}}" id="company-points"/>
-<view wx:if="{{loggedIn}}" class="quick-card"><button class="profile-menu" data-action="messages" bindtap="open"><image src="/assets/account-message.jpg"/><view><text>消息</text><text class="count">{{unread}}</text></view><view class="chevron"/></button><button class="profile-menu" data-action="performance" bindtap="open"><image src="/assets/account-chart.jpg"/><text>{{ownerProfile?'绩效任务':'我的任务'}}</text><view class="chevron"/></button></view>
-<view wx:if="{{loggedIn}}" class="section service-section announcement-section"><button class="service-row profile-menu" data-action="announcements" bindtap="open"><text>公司公告</text><view class="chevron"/></button></view>
-<view wx:if="{{loggedIn}}" class="section service-section"><button class="service-row profile-menu" data-action="identity" bindtap="open"><text>组织与工作身份</text><view class="chevron"/></button><button wx:for="{{entries}}" wx:key="text" class="service-row profile-menu" data-url="{{item.url}}" bindtap="open"><text>{{item.text}}</text><view class="chevron"/></button></view>
-<view wx:if="{{ownerProfile&&managementEntries.length}}" class="section service-section owner-management"><view class="section-heading"><text class="section-title">门店管理</text></view><button wx:for="{{managementEntries}}" wx:key="text" class="service-row profile-menu" data-url="{{item.url}}" bindtap="open"><text>{{item.text}}</text><view class="chevron"/></button></view>
-<view wx:if="{{showStoreServices||showAdminMap}}" class="section franchise-section">
-  <view class="section-heading"><text class="section-title">加盟商服务</text></view>
-  <view wx:if="{{showStoreServices}}" class="two-grid">
-    <button class="tile profile-menu" data-action="services" bindtap="open"><image src="/assets/account-shop.jpg"/><text>展陈设计</text><view class="chevron"/></button>
-    <button class="tile profile-menu" data-action="selection" bindtap="open"><image src="/assets/account-bag.jpg"/><text>众墅甄选</text><view class="chevron"/></button>
-  </view>
-  <view class="two-grid">
-    <button wx:if="{{showStoreMap}}" class="tile profile-menu" data-action="storeMap" bindtap="open"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>门店地图</text><view class="chevron"/></button>
-    <button wx:if="{{showStoreServices}}" class="tile profile-menu" data-action="academy" bindtap="open"><image src="/assets/book.png" mode="aspectFit"/><text>商学院</text><view class="chevron"/></button>
+<view class="page profile-page {{nested?'profile-nested':''}}">
+  <brand-header title="我的" divider="{{true}}" branded="{{true}}"/>
+  <view class="content">
+    <view wx:if="{{loggedIn}}" class="profile-card">
+      <image class="profile-avatar" src="{{avatar}}" mode="aspectFill"/>
+      <view class="profile-info">
+        <view class="profile-name-row">
+          <text class="profile-name">{{name||(profileLoading?'资料加载中…':'个人资料')}}</text>
+          <text wx:if="{{identityRole}}" class="profile-role-label">{{identityRole}}</text>
+        </view>
+        <view class="profile-identity">
+          <text class="profile-organization">{{identityOrganization}}</text>
+          <button class="text-link identity-link" data-action="identity" bindtap="open">切换身份<view class="chevron"/></button>
+        </view>
+        <text wx:if="{{profileError}}" class="profile-organization">{{profileError}}</text>
+      </view>
+      <button class="text-link profile-action" data-action="profile" bindtap="open">个人资料<view class="chevron"/></button>
+    </view>
+    <button wx:else class="profile-card guest-card" data-action="login" bindtap="open">
+      <image class="profile-avatar" src="/assets/account-guest-avatar.jpg" mode="aspectFill"/>
+      <text class="profile-name">欢迎来到众墅之家</text>
+      <text class="login-link">登录</text>
+    </button>
+    <point-asset-card wx:if="{{loggedIn}}" id="company-points"/>
+    <view wx:if="{{loggedIn}}" class="section service-section announcement-section">
+      <button class="service-row" data-action="announcements" bindtap="open">
+        <image src="/assets/icons/profile-megaphone.svg" mode="aspectFit"/>
+        <view class="row-body">
+          <text class="announcement-title">公司公告</text>
+          <text wx:if="{{announcementTitle}}" class="announcement-preview">{{announcementTitle}}</text>
+        </view>
+        <view class="chevron"/>
+      </button>
+    </view>
+    <view wx:if="{{loggedIn}}" class="section service-section message-section">
+      <button class="service-row" data-action="messages" bindtap="open">
+        <image src="/assets/account-message.jpg" mode="aspectFit"/>
+        <text class="row-body">消息</text>
+        <text wx:if="{{unread>0}}" class="message-count">{{unread>99?'99+':unread}}</text>
+        <view class="chevron"/>
+      </button>
+    </view>
+    <view wx:if="{{loggedIn}}" class="section service-section management-section">
+      <view class="section-heading"><text class="section-title">{{ownerProfile?'门店管理':'工作入口'}}</text></view>
+      <button class="service-row" data-action="performance" bindtap="open">
+        <image src="/assets/account-chart.jpg" mode="aspectFit"/>
+        <text class="row-body">{{ownerProfile?'绩效任务':'我的任务'}}</text><view class="chevron"/>
+      </button>
+      <button wx:for="{{managementEntries}}" wx:key="text" class="service-row" data-url="{{item.url}}" bindtap="open">
+        <image wx:if="{{item.icon}}" src="{{item.icon}}" mode="aspectFit"/>
+        <text class="row-body">{{item.text}}</text><view class="chevron"/>
+      </button>
+      <button wx:for="{{entries}}" wx:key="text" class="service-row" data-url="{{item.url}}" bindtap="open">
+        <text class="row-body">{{item.text}}</text><view class="chevron"/>
+      </button>
+    </view>
+    <view wx:if="{{showStoreServices||showAdminMap}}" class="section franchise-section">
+      <view class="section-heading"><text class="section-title">加盟商服务</text></view>
+      <view class="two-grid">
+        <button wx:if="{{showStoreServices}}" class="tile" data-action="services" bindtap="open"><image src="/assets/account-shop.jpg" mode="aspectFit"/><text>展陈设计</text><view class="chevron"/></button>
+        <button wx:if="{{showStoreServices}}" class="tile" data-action="selection" bindtap="open"><image src="/assets/account-bag.jpg" mode="aspectFit"/><text>众墅甄选</text><view class="chevron"/></button>
+        <button wx:if="{{showStoreMap}}" class="tile" data-action="storeMap" bindtap="open"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>门店地图</text><view class="chevron"/></button>
+        <button wx:if="{{showStoreServices}}" class="tile" data-action="academy" bindtap="open"><image src="/assets/icons/profile-graduation-cap.svg" mode="aspectFit"/><text>商学院</text><view class="chevron"/></button>
+      </view>
+    </view>
+    <view wx:if="{{learningAvailable}}" class="section academy-section">
+      <view class="section-heading">
+        <text class="section-title">学习培训</text>
+        <button class="text-link" data-action="learning" bindtap="open">全部课程<view class="chevron"/></button>
+      </view>
+      <button wx:if="{{!loggedIn||courseId}}" class="course-card" data-action="course" bindtap="open">
+        <image class="course-image" src="{{courseImage}}" mode="aspectFill"/>
+        <view class="course-info">
+          <text class="course-title">{{courseTitle}}</text>
+          <block wx:if="{{loggedIn}}">
+            <text class="course-status">已完成{{progress.completed}}/{{progress.total}}节<text wx:if="{{learningLoading||learningError}}"> · {{learningLoading?'更新中…':'更新失败'}}</text></text>
+            <view class="progress-track"><view class="progress-value" style="width:{{progress.percent}}%"/></view>
+          </block>
+          <text class="continue">{{loggedIn?'继续学习':'登录学习'}}</text>
+        </view>
+      </button>
+      <view wx:else class="course-status">{{learningLoading?'课程加载中…':learningError||'当前岗位暂无已开放课程'}}</view>
+      <button wx:if="{{loggedIn}}" class="service-row course-resources" data-action="resources" bindtap="open">
+        <image src="/assets/icons/profile-file-text.svg" mode="aspectFit"/>
+        <text class="row-body">学习资料</text><view class="chevron"/>
+      </button>
+    </view>
+    <view class="section service-section support-section">
+      <button class="service-row" data-action="help" bindtap="open">
+        <image src="/assets/account-headset.jpg" mode="aspectFit"/>
+        <text class="row-body">帮助与反馈</text><view class="chevron"/>
+      </button>
+      <button class="service-row" data-action="{{loggedIn?'privacy':'policy'}}" bindtap="open">
+        <image src="/assets/account-shield.jpg" mode="aspectFit"/>
+        <text class="row-body">{{loggedIn?'账号与隐私':'隐私政策'}}</text><view class="chevron"/>
+      </button>
+      <button wx:if="{{!loggedIn}}" class="service-row" data-action="agreement" bindtap="open">
+        <image src="/assets/account-agreement.jpg" mode="aspectFit"/>
+        <text class="row-body">用户协议</text><view class="chevron"/>
+      </button>
+    </view>
+    <button wx:if="{{loggedIn}}" class="section profile-logout" bindtap="logout">退出登录</button>
   </view>
 </view>
-<view class="section service-section"><button class="service-row profile-menu" data-action="help" bindtap="open"><image src="/assets/account-headset.jpg"/><text>帮助与反馈</text><view class="chevron"/></button><button class="service-row profile-menu" data-action="{{loggedIn?'privacy':'policy'}}" bindtap="open"><image src="/assets/account-shield.jpg"/><text>{{loggedIn?'账号与隐私':'隐私政策'}}</text><view class="chevron"/></button><button wx:if="{{!loggedIn}}" class="service-row profile-menu" data-action="agreement" bindtap="open"><image src="/assets/account-agreement.jpg"/><text>用户协议</text><view class="chevron"/></button></view>
-<view wx:if="{{learningAvailable}}" class="section academy-section"><view class="section-heading"><text class="section-title">学习培训</text><button class="text-link profile-menu" data-action="learning" bindtap="open">全部课程 <view class="chevron"/></button></view><button wx:if="{{!loggedIn||courseId}}" class="course-card profile-menu" data-action="course" bindtap="open"><image class="course-image" src="{{courseImage}}" mode="aspectFill"/><view class="course-info"><text class="course-tag">{{!loggedIn?'精选课程':learningLoading?'更新中':learningError?'更新失败':'继续学习'}}</text><text class="course-title">{{courseTitle}}</text><block wx:if="{{loggedIn}}"><text class="course-status">已完成{{progress.completed}}/{{progress.total}}节</text><view class="progress-track"><view class="progress-value" style="width:{{progress.percent}}%"/></view></block><text class="continue">{{loggedIn?'继续学习':'登录学习'}}</text></view></button><view wx:else class="course-status">{{learningLoading?'课程加载中…':learningError||'当前岗位暂无已开放课程'}}</view><view wx:if="{{loggedIn}}" class="two-grid course-links"><button class="tile profile-menu" data-action="learning" bindtap="open"><text>课程中心</text><view class="chevron"/></button><button class="tile profile-menu" data-action="resources" bindtap="open"><text>学习资料</text><view class="chevron"/></button></view></view>
-<button wx:if="{{loggedIn}}" class="profile-logout" bindtap="logout">退出登录</button></view></view>
 </template>

@@ -213,7 +213,16 @@ for(const [role,expected] of Object.entries(franchiseCourses)) test(role+'从服
  assert.equal(profile.data.showStoreServices,true);assert.equal(profile.data.learningAvailable,true);
  assert.equal(profile.data.courseId,['boss','owner'].includes(role)?'management':expected[0]);
  const nodes=render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),profile.data);
- assert.ok(allText(nodes).includes('学习培训')&&allText(nodes).includes('加盟商服务'));
+ const sections=flatten(nodes);
+ const franchise=sections.find(node=>hasClass(node,'franchise-section'));
+ const training=sections.find(node=>hasClass(node,'academy-section'));
+ assert.ok(franchise&&training);
+ assert.deepEqual(flatten(franchise.children).filter(node=>node.tag==='button').map(node=>node.attrs['data-action']),
+   ['services','selection','storeMap','academy']);
+ assert.deepEqual(flatten(training.children).filter(node=>node.tag==='button').map(node=>node.attrs['data-action']),
+   ['learning','course','resources']);
+ const text=allText(nodes);
+ assert.ok(text.indexOf('学习培训')>=0&&text.indexOf('学习培训')<text.indexOf('帮助与反馈'));
  let page=await env.open('/pages/account/index?view=learning');
  assert.equal(page.route,'pages/account/training/index');assert.deepEqual(page.data.visibleCourses.map(c=>c.id),expected);
  assert.deepEqual(page.data.visibleResources.map(r=>r.courseId),Learning.resourcesFor(role).map(r=>r.courseId));
@@ -247,7 +256,8 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
   wx.navigateTo=options=>{navigations.push(options.url);return {};};
   for(const [selector,target] of [
     ['.academy-section [data-action="learning"]','/pages/account/index?view=learning'],
-    ['.academy-section .course-card','/pages/account/index?view=course&id=ai-video']
+    ['.academy-section .course-card','/pages/account/index?view=course&id=ai-video'],
+    ['.franchise-section [data-action="academy"]','/pages/account/index?view=learning&entry=academy']
   ]){
     await (await ui.$(selector)).tap();
     const url=new URL(navigations.at(-1),'http://local');

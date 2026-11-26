@@ -4,6 +4,8 @@ const A = require('../../utils/account');
 const O = require('../../utils/organization');
 const M = require('../../utils/platform-messages');
 const http = require('../../api/http');
+const auth = require('../../api/auth');
+const announcements = require('../../api/announcements');
 const Learning = require('../../utils/learning-catalog');
 const Profile = require('../../utils/platform-profile');
 const apiScope = require('../../utils/api-scope');
@@ -25,10 +27,14 @@ const ACTIONS = {
 };
 // actions that need a signed-in account
 const LOGIN_ONLY = ['profile', 'messages', 'announcements', 'performance', 'storeMap', 'academy'];
-const emptyCourse = () => ({ learningLabel: '', courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
+const emptyCourse = () => ({ courseId: '', courseTitle: '', courseImage: '', progress: { completed: 0, total: 0, percent: 0 } });
 const denied = error => error && (error.postInvalid || [401,403].includes(Number(error.code)));
+const profileScope = () => {
+  const key = apiScope();
+  return key && JSON.stringify([key, auth.currentApiPost()?.brandId]);
+};
 const emptyPrivate = () => ({ ...emptyCourse(), name: '', avatar: Profile.emptyProfile().avatar, unread: 0, role: '', company: '',
-  identityText: '', identityOrganization: '', identityRole: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
+  identityOrganization: '', identityRole: '', announcementTitle: '', entries: [], managementEntries: [], profileLoading: false, learningLoading: false,
   showAdminMap:false, showStoreMap:false });
 
 // Keep one entry per company setting; task access stays in the profile quick card.
@@ -37,9 +43,9 @@ function managementEntries(a) {
   const X = require('../../utils/access');
   if (X.isBoss(a)) {
     if (a.api) {
-      const items = [{ text: '成员与权限', url: account('api-members') }];
+      const items = [{ text: '成员与权限', url: account('api-members'), icon: '/assets/icons/profile-users.svg' }];
       if (a.orgType === 'store' && a.role === 'boss') {
-        items.unshift({ text: '加盟商资料', url: '/pages/account/store-profile/index' });
+        items.unshift({ text: '加盟商资料', url: '/pages/account/store-profile/index', icon: '/assets/account-shop.jpg' });
       }
       return items;
     }
@@ -57,7 +63,7 @@ function entries(a) {
   if (!a.active) return [];
   if (a.api) {
     if (O.headquartersReader(a)) return [{ text: '总部全品牌工作台', url: '/pages/headquarters/index?section=' + (a.role === 'hq-admin' ? 'overview' : 'finance') }, { text: '公司与项目账本', url: '/pages/headquarters/index?section=books' }];
-    if (require('../../utils/access').isBoss(a)) return [{ text: '团队绩效', url: '/pages/admin/tasks/index?view=team' }];
+    if (require('../../utils/access').isBoss(a)) return [];
     if (a.role === 'sales-lead') return [{ text: '客户与责任转交', url: '/pages/customers/index' }];
     if (a.role === 'project-manager') return [{ text: '工程项目', url: '/pages/build/projects/index' }];
   }
@@ -71,14 +77,14 @@ function entries(a) {
 
 module.exports = function (tabIndex) {
   return {
-    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, ...emptyCourse(), learningAvailable: false, learningLoading: false, learningError: '', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
+    data: { loggedIn: true, name: '', role: '', company: '', avatar: '/assets/account-avatar.jpg', profileLoading: false, profileError: '', unread: 0, announcementTitle: '', ...emptyCourse(), learningAvailable: false, learningLoading: false, learningError: '', engineeringProfile: false, ownerProfile: false, showStoreServices: false, entries: [], managementEntries: [] },
     logout() { return require('../../utils/session-actions').logout(); },
     onHide() { this.__profileHidden = true; this.__profileFlight = null; },
     onUnload() { this.onHide(); },
     onShow() {
       const s = A.load(), c = A.company(s), a = A.access.context(s);
-      const apiPost = http.token() ? require('../../api/auth').currentApiPost() : null;
-      const key = apiScope(), sameScope = !!key && key === this.__profileKey;
+      const apiPost = http.token() ? auth.currentApiPost() : null;
+      const key = profileScope(), sameScope = !!key && key === this.__profileKey;
       this.__profileHidden = false;
       if (!sameScope) { this.__profileFlight = null; this.__courseCover = ''; this.apiUnread = 0; this.__profileDenied = false; }
       this.__profileKey = key;
@@ -87,6 +93,7 @@ module.exports = function (tabIndex) {
       if (this.__profileFlight) return this.__profileFlight.promise;
       const apiLoggedIn = !!apiPost, loggedIn = s.session.loggedIn || apiLoggedIn;
       const actor = apiLoggedIn ? { ...O.apiContext(apiPost), companyId: apiPost.orgId } : a;
+      const storeProfile = actor.orgType === 'store', showAdminMap = canViewAllStores(apiPost);
       const engineeringProfile = apiLoggedIn ? ['engineer','project-manager'].includes(apiPost.roleCode) : !!(a.active && O.has(a.role,'engineer'));
       const ownerProfile = apiLoggedIn ? ['boss','owner'].includes(apiPost.roleCode) : !!(a.active && require('../../utils/access').isBoss(a));
       const courses = Learning.coursesFor(actor.active ? actor.role : '');
@@ -96,12 +103,12 @@ module.exports = function (tabIndex) {
       const company = apiLoggedIn ? (apiPost.orgName || '') : (c ? c.name : '');
       const role = apiLoggedIn ? (O.roles[apiPost.roleCode] || apiPost.roleCode) : (A.roles[s.session.role] || '');
       this.setData({
-        identityText: Profile.compactIdentity(company,role), identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
-        ...(sameScope ? {} : { ...emptyCourse(), learningLabel: course ? course.category+'培训' : '', courseId: course ? course.id : '',
+        identityOrganization: Profile.compactIdentity(company,''), identityRole: Profile.compactIdentity('',role),
+        ...(sameScope ? {} : { ...emptyCourse(), announcementTitle: '', courseId: course ? course.id : '',
           courseTitle: course ? course.name : '', courseImage: course ? course.image : '', progress: { completed: 0, total: course ? course.lessons : 0, percent: 0 } }),
-        learningAvailable: apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
-        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || ['store','headquarters'].includes(actor.orgType),
-        showAdminMap: canViewAllStores(apiPost), showStoreMap:!loggedIn || actor.orgType === 'store' || canViewAllStores(apiPost),
+        learningAvailable: storeProfile || apiLoggedIn || !!course, learningLoading: apiLoggedIn, learningError: '',
+        engineeringProfile, ownerProfile, loggedIn, showStoreServices: !loggedIn || storeProfile || actor.orgType === 'headquarters',
+        showAdminMap, showStoreMap: !loggedIn || storeProfile || showAdminMap,
         entries: entries(actor), managementEntries: managementEntries(actor),
         name: this.__profileDenied ? '' : s.profile.name, avatar: this.__profileDenied ? Profile.emptyProfile().avatar : s.profile.avatar, profileLoading: !!http.token(), profileError: '', role,
         company: apiLoggedIn ? (apiPost.orgName || '当前组织') : (c ? require('../../utils/access').rawBook(a.companyId)?.managementSettings?.company?.displayName || c.name : '未选择公司'),
@@ -111,7 +118,7 @@ module.exports = function (tabIndex) {
       const flight = this.__profileFlight = {};
       const alive = () => {
         if (this.__profileHidden || this.__profileFlight !== flight) return false;
-        if (apiScope() !== key) { this.__profileFlight = null; this.setData({ ...emptyPrivate(), loggedIn: !!http.token() }); return false; }
+        if (profileScope() !== key) { this.__profileFlight = null; this.setData({ ...emptyPrivate(), loggedIn: !!http.token() }); return false; }
         return true;
       };
       const profileUserId = http.currentUserId();
@@ -139,15 +146,23 @@ module.exports = function (tabIndex) {
         if (alive() && denied(error)) this.apiUnread = 0;
         failed(error, { unreadError: '消息未能加载，请进入消息中心重试' }, { unread: '—' });
       });
+      const announcementRead = apiPost && String(apiPost.postId) === String(http.currentPostId() || '')
+        ? announcements.page(1, 1).then(result => {
+          if (!alive()) return;
+          const row = Array.isArray(result?.list) && result.list[0];
+          this.setData({ announcementTitle: row?.status === 'PUBLISHED' && typeof row.title === 'string' ? row.title.trim() : '' });
+        }).catch(error => failed(error, { announcementTitle: '' }, { announcementTitle: '' }))
+        : Promise.resolve();
       const training = require('../../api/training');
       const courseRead = apiPost ? training.courses('').then(rows => {
         if (!alive()) return;
         const available = Array.isArray(rows) ? rows : Array.isArray(rows && rows.list) ? rows.list : [];
         const next = available.find(c => c.completed > 0 && c.percent < 100) || available.find(c => ['boss','owner'].includes(apiPost.roleCode) && c.category === '经营管理') || available[0];
         const cover = next ? JSON.stringify([next.id,next.coverVersionId]) : '';
-        const image = cover && cover === this.__courseCover ? this.data.courseImage : A.courseImage;
+        const fallback = next?.category === '经营管理' ? '/assets/profile-management-course.jpg' : A.courseImage;
+        const image = cover && cover === this.__courseCover ? this.data.courseImage : fallback;
         this.__courseCover = cover;
-        this.setData({ learningLoading: false, learningLabel: next ? next.category+'培训' : '', courseId: next ? next.id : '',
+        this.setData({ learningLoading: false, courseId: next ? next.id : '',
           courseTitle: next ? next.title : '', courseImage: next ? image : '',
           progress: { completed: next ? next.completed : 0, total: next ? next.lessons : 0, percent: next ? next.percent : 0 } });
         if (next && next.coverVersionId) return training.ticket(next.id,next.coverVersionId,'poster').then(async t => {
@@ -156,7 +171,7 @@ module.exports = function (tabIndex) {
           if (alive() && image.path) this.setData({ courseImage: image.path });
         }).catch(error => failed(error, {}, { courseImage: '' }));
       }).catch(error => failed(error, { learningLoading: false, learningError: '课程未能加载，请进入课程中心重试' }, emptyCourse())) : Promise.resolve();
-      return flight.promise = Promise.all([profileRead,unreadRead,courseRead]).finally(() => { if (this.__profileFlight === flight) this.__profileFlight = null; });
+      return flight.promise = Promise.all([profileRead,unreadRead,courseRead,announcementRead]).finally(() => { if (this.__profileFlight === flight) this.__profileFlight = null; });
     },
     open(e) {
       const d = e.currentTarget.dataset;

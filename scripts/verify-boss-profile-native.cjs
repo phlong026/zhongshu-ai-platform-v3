@@ -53,6 +53,11 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       else if (route === '/platform/messages/unread-count') data = { count: 0 };
       else if (route === '/franchise/company-points/summary') data = { balance: 9300, inFlight: 0, status: 'ACTIVE' };
       else if (route === '/franchise/company-points/my-usage') data = { used: 0, list: [], total: 0 };
+      else if (route === '/training/app/courses') data = [
+        ['ai-video', 'AI短视频获客实战', '业务', 8], ['sales', '客户跟进与业务办理', '业务', 6],
+        ['engineering', '乡墅开工与现场交底', '工程', 6], ['finance', '财务收支与项目对账', '财务', 6],
+        ['design', '设计委托与成果交付', '设计', 6], ['management', '门店经营与团队管理', '经营管理', 6]
+      ].map(([id, title, category, lessons]) => ({ id, title, category, lessons }));
       else if (route === '/platform/org/staff') data = [{ userId: '7', postId: 'p7', name: '张业务', roleCode: 'sales', active: true }];
       else if (route === '/franchise/performance/tasks') {
         if (method === 'POST') {
@@ -103,7 +108,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.equal((await data()).courseId, 'management');
     const geometry = await mp.evaluate(() => new Promise(resolve => {
       const query = wx.createSelectorQuery();
-      ['.profile-card', '.profile-avatar', '.profile-name', '.profile-role-label', '.profile-organization', '.profile-action .profile-link'].forEach(selector => query.select(selector).boundingClientRect());
+      ['.profile-card', '.profile-avatar', '.profile-name', '.profile-role-label', '.profile-organization', '.profile-action'].forEach(selector => query.select(selector).boundingClientRect());
       query.exec(resolve);
     }));
     assert(geometry.every(Boolean));
@@ -119,19 +124,25 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       assert(services && services.width > 0 && services.height > 0);
       const serviceActions = await mp.evaluate(() => new Promise(resolve => wx.createSelectorQuery().selectAll('.franchise-section .tile').boundingClientRect().exec(rows => resolve((rows[0] || []).map(row => row.dataset.action)))));
       assert.deepEqual(serviceActions, ['services', 'selection', 'storeMap', 'academy']);
+      const training = await rect('.academy-section');
+      const [help, academy] = await mp.evaluate(() => new Promise(resolve => wx.createSelectorQuery()
+        .selectAll('.service-row').boundingClientRect()
+        .selectAll('.franchise-section .tile').boundingClientRect()
+        .exec(([rows, links]) => resolve([rows.find(row => row.dataset.action === 'help'), links.find(row => row.dataset.action === 'academy')]))));
+      assert.ok(help && training && academy && academy.bottom <= training.top && training.bottom <= help.top);
       await mp.evaluate(top => { wx.pageScrollTo({ scrollTop: Math.max(0, top - 100), duration: 0 }); return true; }, services.top);
       await delay(250);
       await shot('08-boss-franchise-services');
-      checks.push('门店老板登录后显示展陈设计、众墅甄选、门店地图、商学院四个入口');
+      checks.push('加盟商服务四个入口齐全，学习培训位于帮助与反馈上方');
       fs.writeFileSync(path.join(directory, '../profile-layout-results.json'), JSON.stringify({ result: 'passed', mode: 'isolated native WeChat renderer; all requests mocked', checks, geometry, exceptions: errors }, null, 2));
       console.log('PASS 个人资料右侧入口及门店登录后的加盟商服务模块均正常显示');
       return;
     }
 
     console.log('native: courses');
-    page = await open('/pages/account/index?view=learning');
+    page = await open('/pages/account/training/index');
     await delay(250);
-    assert.equal(((await data()).filteredCourses).length, 6);
+    assert.equal(((await data()).visibleCourses).length, 6);
     await shot('02-all-courses'); checks.push('老板课程中心显示全部六门课程');
 
     console.log('native: tasks');
