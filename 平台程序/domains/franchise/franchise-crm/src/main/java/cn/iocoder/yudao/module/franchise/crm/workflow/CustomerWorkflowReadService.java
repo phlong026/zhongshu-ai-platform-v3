@@ -166,7 +166,7 @@ public class CustomerWorkflowReadService {
                             writable && active && completed, errors, "MANUAL"));
                 } else {
                     var fact = source.get(code.name());
-                    List<String> errors = fact == null ? List.of(code == Step.CONTRACT ? "等待正式签约记录" : "等待工程实际开工记录") : fact.missingEvidence();
+                    List<String> errors = fact == null ? List.of(code == Step.CONTRACT ? "等待正式施工合同签署记录" : "等待工程实际开工记录") : fact.missingEvidence();
                     boolean completed = fact != null && fact.complete();
                     steps.add(new StepView(code.name(), code.label, code.ordinal() + 1,
                             fact == null ? "TODO" : completed ? "COMPLETED" : "DRAFT", 0,
