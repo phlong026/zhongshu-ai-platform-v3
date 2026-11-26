@@ -280,19 +280,44 @@ public class EngClosureService {
                     .forEach(financeCosts::remove);
             var expenseIds = new java.util.HashSet<Long>();
             long expensesTotal = 0;
+            boolean hasRevisedExpense = false;
             for (FrEngExpenseDO expense : expenses.selectByProject(post.orgId(), projectId)) {
                 Long id = expense.getPayableId();
                 Long financialAmount = id == null ? null : financeCosts.remove(id);
                 if (FrEngExpenseDO.STATUS_REGISTERED.equals(expense.getStatus())) {
                     expensesTotal += financialAmount == null ? expense.getAmountCents() : financialAmount;
                     if (id != null) expenseIds.add(id);
+                    hasRevisedExpense |= financialAmount != null
+                            && !financialAmount.equals(expense.getAmountCents());
                 }
             }
             // 剩余原单由财务直接登记或划入项目账，原单已计成本，无需复制一张工程费用单。
             expensesTotal += financeCosts.values().stream().mapToLong(Long::longValue).sum();
             expenseIds.addAll(financeCosts.keySet());
-            long expensesPaid = ledger.paidCentsByPayableIds(post, expenseIds).values().stream()
-                    .mapToLong(Long::longValue).sum();
+            var paidByExpense = ledger.paidCentsByPayableIds(post, expenseIds);
+            long expensesPaid = paidByExpense.values().stream().mapToLong(Long::longValue).sum();
+            // 展示工程修订与原财务单据的差异，不变更结算口径或触发账务动作。
+            if (hasRevisedExpense) {
+                var reviewRows = jdbcTemplate.query("""
+                        SELECT e.id, e.name, e.amount_cents, p.id payable_id, p.total_cents
+                        FROM fr_eng_expense e JOIN fr_fin_payable p ON p.id=e.payable_id
+                          AND p.company_id=e.company_id AND p.project_id=e.project_id
+                        WHERE e.company_id=? AND e.project_id=? AND e.status='REGISTERED'
+                          AND NOT p.deleted AND p.status<>'已作废'
+                          AND p.stage='engineering_expense' AND p.total_cents<>e.amount_cents
+                          AND (p.source_type IS NULL OR
+                            (p.source_type='engineering_expense'
+                             AND p.source_ref=concat('engineering-expense:', e.project_id, ':', e.id)))
+                        ORDER BY e.id
+                        """, (rs, n) -> {
+                    long current = rs.getLong("amount_cents");
+                    long net = paidByExpense.getOrDefault(rs.getLong("payable_id"), 0L);
+                    return Map.<String, Object>of("expenseId", rs.getString("id"), "name", rs.getString("name"),
+                            "revisedCents", current, "bookedCents", rs.getLong("total_cents"),
+                            "netPaidCents", net, "netAboveRevisedCents", Math.max(0, net - current));
+                }, post.orgId(), projectId);
+                if (!reviewRows.isEmpty()) view.put("expenseReviewRows", reviewRows);
+            }
             view.put("expensesTotalCents", expensesTotal);
             view.put("expensesPaidCents", expensesPaid);
             view.put("expensesRemainingCents", Math.max(0, expensesTotal - expensesPaid));
