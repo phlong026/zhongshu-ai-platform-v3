@@ -50,10 +50,7 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach
     void registerOrgTypesAndTemplates() {
-        jdbc.update("""
-                INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店')
-                ON CONFLICT (code) DO UPDATE SET domain=EXCLUDED.domain,name=EXCLUDED.name
-                """);
+        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店') ON CONFLICT DO NOTHING");
         // The shared PostgreSQL test database may already contain a production/other-suite boss template.
         // Capture it, temporarily install the test contract, and restore it after each method.
         var existing = jdbc.queryForList("""
