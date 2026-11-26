@@ -5,4 +5,14 @@ scripts/fixtures/design-source/budget-view.js text eol=lf
 scripts/fixtures/design-source/design-inputs.js text eol=lf
 scripts/fixtures/design-source/format.js text eol=crlf
 scripts/fixtures/design-source/generation-options.js text eol=lf
-miniprogram/pages/build/vendor/xlsx.mini.min.js text eol=lf
+
+# WeChat counts the bytes in the checkout, including line endings.
+miniprogram/**/*.js text eol=lf
+miniprogram/**/*.json text eol=lf
+miniprogram/**/*.wxml text eol=lf
+miniprogram/**/*.wxss text eol=lf
+miniprogram/**/*.wxs text eol=lf
+miniprogram/**/*.scss text eol=lf
+miniprogram/**/*.svg text eol=lf
+miniprogram/**/*.txt text eol=lf
+miniprogram/**/*.md text eol=lf
