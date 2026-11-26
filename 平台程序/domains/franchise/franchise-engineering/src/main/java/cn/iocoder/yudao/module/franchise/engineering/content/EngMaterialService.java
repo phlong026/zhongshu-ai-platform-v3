@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyReceiptMappe
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -740,6 +741,7 @@ public class EngMaterialService {
 
     // ===================== 汇总（到货+付款派生态，蓝本 plans()） =====================
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Map<String, Object> summary(PostSnapshot post, long projectId, Long materialPlanId) {
         FrEngProjectDO project = projects.selectById(projectId);
         if (project == null || project.getCompanyId() != post.orgId()) {
@@ -760,6 +762,13 @@ public class EngMaterialService {
         Map<Long, List<FrEngSupplyReceiptDO>> bySupply = new LinkedHashMap<>();
         for (FrEngSupplyReceiptDO r : receiptRows) {
             bySupply.computeIfAbsent(r.getSupplyId(), k -> new ArrayList<>()).add(r);
+        }
+        Map<Long, List<FrEngMaterialMovementDO>> byMaterial = new LinkedHashMap<>();
+        if (full) {
+            movements.selectByProject(post.orgId(), projectId).stream()
+                    .sorted(Comparator.comparing(FrEngMaterialMovementDO::getCreateTime)
+                            .thenComparing(FrEngMaterialMovementDO::getId).reversed())
+                    .forEach(row -> byMaterial.computeIfAbsent(row.getMaterialId(), k -> new ArrayList<>()).add(row));
         }
         List<Map<String, Object>> plans = new ArrayList<>();
         Map<Long, List<Map<String, Object>>> planGroups = new LinkedHashMap<>();
@@ -791,6 +800,28 @@ public class EngMaterialService {
             line.put("paymentStatus", cancelled ? "已取消"
                     : total == 0 ? "待记录采购金额" : paid >= total ? "已付清" : paid > 0 ? "部分已付" : "待付款");
             if (full) {
+                var history = byMaterial.getOrDefault(m.getId(), List.of());
+                BigDecimal allocated = BigDecimal.ZERO;
+                BigDecimal consumed = BigDecimal.ZERO;
+                for (var movement : history) {
+                    allocated = allocated.add(movement.getQuantity());
+                    if (FrEngMaterialMovementDO.KIND_CONSUME.equals(movement.getKind())) {
+                        consumed = consumed.add(movement.getQuantity());
+                    }
+                }
+                line.put("consumedQuantity", consumed);
+                line.put("availableQuantity", received.subtract(allocated).max(BigDecimal.ZERO));
+                line.put("allocationShortfallQuantity", allocated.subtract(received).max(BigDecimal.ZERO));
+                line.put("movements", history.stream().map(EngMaterialService::movementView).toList());
+                line.put("pendingReships", receipts.stream()
+                        .filter(r -> FrEngSupplyReceiptDO.KIND_RESHIP.equals(r.getKind()) && r.getActualQuantity() == null)
+                        .map(r -> {
+                            Map<String, Object> pending = new LinkedHashMap<>();
+                            pending.put("id", r.getId().toString());
+                            pending.put("parentReceiptId", r.getParentReceiptId() == null ? null : r.getParentReceiptId().toString());
+                            pending.put("expectedQuantity", r.getExpectedQuantity());
+                            return pending;
+                        }).toList());
                 // 这里是实收历史。待补发行只影响剩余量提示，不是实收、质检或可更正记录。
                 line.put("receipts", receipts.stream().filter(r -> r.getActualQuantity() != null).map(r -> {
                     Map<String, Object> receipt = new LinkedHashMap<>();
@@ -847,6 +878,19 @@ public class EngMaterialService {
         view.put("projectId", projectId);
         view.put("plans", plans);
         return view;
+    }
+
+    private static Map<String, Object> movementView(FrEngMaterialMovementDO movement) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", movement.getId().toString());
+        row.put("kind", movement.getKind());
+        row.put("quantity", movement.getQuantity());
+        row.put("settlementStatus", movement.getSettlementStatus());
+        row.put("note", movement.getNote());
+        row.put("authorUserId", movement.getAuthorUserId().toString());
+        row.put("receiverUserId", movement.getReceiverUserId() == null ? null : movement.getReceiverUserId().toString());
+        row.put("occurredAt", movement.getCreateTime());
+        return row;
     }
 
     Map<String, Object> supplyView(PostSnapshot post, FrEngSupplyDO supply) {
