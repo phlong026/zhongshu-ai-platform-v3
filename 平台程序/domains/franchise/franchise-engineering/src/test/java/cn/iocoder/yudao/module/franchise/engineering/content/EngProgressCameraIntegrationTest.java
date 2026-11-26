@@ -212,7 +212,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         var assigned=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
         var foreign=fixture.store();
         fixture.postFor(assigned.userId(),foreign.orgId(),"engineer",foreign.engineeringTeam());
-        fixture.postFor(assigned.userId(),engineer.orgId(),"finance",null);
+        var finance=fixture.postFor(assigned.userId(),engineer.orgId(),"finance",null);
         jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",assigned.userId(),projectId);
         var date=EngProgress.today();
         plans.savePlan(engineer,projectId,input(date.minusDays(3)),key());
@@ -225,6 +225,10 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->progress.save(engineer,projectId,id,original,key())).hasMessageContaining("有效工程任职");
         progress.save(engineer,projectId,id,original,originalKey);
         assertThat(todos.list(assigned)).noneMatch(item->item.key().equals("fr-eng:delay:"+id));
+        assertThat(todos.list(finance)).noneMatch(item->item.key().equals("fr-eng:delay:"+id));
+        var activeOwner=new EngProgressService.DelayCommand("无此岗位权限",engineer.userId(),date.plusDays(2),"排水");
+        assertThatThrownBy(()->progress.save(assigned,projectId,id,activeOwner,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->progress.save(finance,projectId,id,activeOwner,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         assertThat(todos.list(engineer)).anyMatch(item->item.key().equals("fr-eng:delay:"+id));
         assertThat(jdbc.queryForObject("SELECT delay_history->0->>'ownerUserId' FROM fr_eng_plan_node WHERE id=?",String.class,id)).isEqualTo(Long.toString(assigned.userId()));
         progress.save(engineer,projectId,id,new EngProgressService.DelayCommand("继续复核",engineer.userId(),date.plusDays(3),"重新排水"),key());
