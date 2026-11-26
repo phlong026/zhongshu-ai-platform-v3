@@ -20,3 +20,13 @@ test('new delay forms require explicit responsibility and recovery date, while l
  const saved=P.recordView(b,opts);
  assert.equal(saved.form.delayOwnerUserId,'149');assert.equal(saved.form.delayOwnerName,'现场责任工程师');assert.equal(saved.form.recoveryDate,'2026-12-05');
 });
+test('delay history renders the first three recorded updates and expands to include older entries',()=>{
+ const {P}=harness(),b=bundle();
+ b.detail.nodes[1].delayHistory=[1,2,3,4].map(n=>({reason:'现场复核'+n,action:'分段排水'+n,ownerName:'李琦',recoveryDate:'2026-11-20'}));
+ const view=P.recordView(b,{view:'delay',nodeId:'102',writeRole:true,userId:'148'});
+ const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children||[])).join('');
+ const history=expanded=>text(require('./role-page-runtime.cjs').render(path.resolve('miniprogram/pages/build/record/index.wxml'),
+   {...view,view:'delay',delayHistory:[...view.delayHistory].reverse(),expanded:{delay:expanded}}));
+ assert.match(history(false),/现场复核4/);assert.match(history(false),/分段排水2/);assert.doesNotMatch(history(false),/现场复核1/);
+ assert.match(history(true),/现场复核1/);
+});
