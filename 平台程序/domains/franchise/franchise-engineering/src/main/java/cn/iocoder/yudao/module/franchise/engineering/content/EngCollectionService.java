@@ -85,8 +85,7 @@ public class EngCollectionService {
         LocalDate toppingDue = nodes.stream()
                 .filter(n -> FrEngPlanNodeDO.MILESTONE_TOPPING.equals(n.getMilestone()))
                 .findFirst().map(FrEngPlanNodeDO::getEndDate).orElse(null);
-        boolean full = EngProjectService.isFinanceOrAbove(post)
-                || post.userId() == project.getManagerUserId();
+        boolean full = canViewProjectAmounts(post,project);
         List<Map<String, Object>> stages = new ArrayList<>();
         // M07-T06：三期遍历（存量两期值经迁移已映射；RUN 期旧值兼容保留遍历不删）
         // M07-T06/R2 P1-1：统一余额贯穿读侧——有统一合同时期累计经统一端口（fr_sale_stage_receipt 净口径）；
@@ -128,9 +127,7 @@ public class EngCollectionService {
 
     public List<Map<String,Object>> declarations(PostSnapshot post,long projectId) {
         var project=projectService.requireProject(post,projectId);
-        if (project.getSaleContractId()==null || !(EngProjectService.isFinanceOrAbove(post)
-                || java.util.Objects.equals(project.getManagerUserId(),post.userId())
-                || java.util.Objects.equals(project.getAssignedEngineerUserId(),post.userId()))) return List.of();
+        if (project.getSaleContractId()==null || !canViewProjectAmounts(post,project)) return List.of();
         return jdbcTemplate.queryForList("""
                 SELECT d.id::text AS id,s.stage,d.amount_cents AS "amountCents",d.received_date::text AS "receivedDate",
                     d.transaction_no AS "transactionNo",d.status,d.return_reason AS "returnReason",d.receipt_id::text AS "receiptId"
@@ -143,8 +140,7 @@ public class EngCollectionService {
 
     public List<Map<String, Object>> list(PostSnapshot post, long projectId) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
-        boolean full = EngProjectService.isFinanceOrAbove(post)
-                || post.userId() == project.getManagerUserId();
+        boolean full = canViewProjectAmounts(post,project);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (FrEngCollectionDO c : collections.selectByProject(post.orgId(), projectId)) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -293,12 +289,13 @@ public class EngCollectionService {
         if (contractId == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请先签订统一建房合同（统一实收账收款前提）");
         }
-        if (frozenContractId != null && activeContractId != null
-                && frozenContractId.longValue() != activeContractId.longValue()) {
+        // The unified stage read locks the contract until this registration commits. Recheck the
+        // customer's active contract under that same lock before accepting a branch's payment.
+        var balances=unifiedStages.stageBalances(post,contractId);
+        if (project.getCustomerId()!=null && !java.util.Objects.equals(contractId,unifiedStages.activeContractId(post,project.getCustomerId()))) {
             throw exception(ENGINEERING_INPUT_INVALID,
                     "统一建房合同已变更（作废重签），请先重新核对合同付款计划");
         }
-        var balances=unifiedStages.stageBalances(post,contractId);
         if(balances!=null && !balances.isEmpty() && balances.stream().noneMatch(b->stage.equals(b.stage())))
             throw exception(ENGINEERING_INPUT_INVALID,"合同付款节点不存在或已调整，请刷新后重试");
         if (declaration && (balances==null || balances.stream().noneMatch(b -> stage.equals(b.stage())
@@ -337,6 +334,12 @@ public class EngCollectionService {
     /** M07-T06 三期门禁用节点读取 */
     private List<FrEngPlanNodeDO> planNodesForGate(PostSnapshot post, long projectId) {
         return planNodes.selectByProject(post.orgId(), projectId);
+    }
+
+    private static boolean canViewProjectAmounts(PostSnapshot post,FrEngProjectDO project) {
+        return EngProjectService.isFinanceOrAbove(post) || (java.util.Set.of("engineer","project-manager").contains(post.roleCode())
+                && (java.util.Objects.equals(project.getManagerUserId(),post.userId())
+                || java.util.Objects.equals(project.getAssignedEngineerUserId(),post.userId())));
     }
 
     private static String purposeOf(String stage) {

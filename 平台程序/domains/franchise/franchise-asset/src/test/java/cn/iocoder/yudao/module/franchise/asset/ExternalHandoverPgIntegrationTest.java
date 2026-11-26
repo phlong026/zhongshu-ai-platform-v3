@@ -429,13 +429,61 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long revision=jdbc.queryForObject("SELECT revision FROM fr_sale_contract WHERE id=?",Long.class,contract.getId());
         var signature=new SaleContractService.SignCommand(today(),evidence);
         assertError(400,()->as(sales,()->contracts.sign(sales,contract.getId(),signature,revision,key())));
-        var stage=saleStages.selectByContract(contract.getId()).get(0);
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
         var dated=new PaymentPlanRules.Input(stage.getId(),"一次付清",100000L,null,today().plusDays(3),"DATE",null);
         var fixed=as(sales,()->contracts.replacePaymentPlan(sales,contract.getId(),
                 new SaleContractService.PaymentPlanCommand(100000,List.of(dated),revision,"客户确定一次付清日期"),key()));
         assertThat(as(sales,()->contracts.sign(sales,contract.getId(),signature,fixed.getRevision(),key())).getStatus()).isEqualTo("SIGNED");
         assertThat(as(sales,()->contracts.stageSummary(sales,contract.getId()))).singleElement()
                 .satisfies(s -> { assertThat(s.get("amountCents")).isEqualTo(100000L); assertThat(s.get("dueDate")).isEqualTo(dated.dueDate()); });
+    }
+
+    @Test void onlyTheAssignedSiteEngineerOrManagerCanSeeAndDeclareTheProjectsInstallment() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var first=as(sales,()->contracts.stageSummary(sales,contract.getId())).get(0);
+        long evidence=upload(secondEngineer,"FIN_VOUCHER");
+        var claim=new EngCollectionService.CollectCommand((String)first.get("stage"),new BigDecimal("35.00"),
+                key(),today(),evidence,(Long)first.get("stageId"),1L);
+        assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).doesNotContainKey("remainingCents");
+        assertThatThrownBy(()->as(secondEngineer,()->collections.register(secondEngineer,project,claim,key()))).isInstanceOf(ServiceException.class);
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",secondEngineer.userId(),project);
+        assertThat(as(secondEngineer,()->collections.summary(secondEngineer,project)).get(0)).containsEntry("remainingCents",40000L);
+        long declaration=(long)as(secondEngineer,()->collections.register(secondEngineer,project,claim,key())).get("declarationId");
+        assertThat(as(engineer,()->collections.declarations(engineer,project))).singleElement()
+                .satisfies(row->assertThat(row).containsEntry("id",Long.toString(declaration)).containsEntry("status","PENDING"));
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",engineer.userId(),project);
+        assertThat(as(secondEngineer,()->collections.declarations(secondEngineer,project))).isEmpty();
+    }
+
+    @Test void engineeringDeclarationWaitingForAPlanAmendmentCannotApplyOldTermsToTheNewVersion() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var stages=as(sales,()->contracts.stageSummary(sales,contract.getId()));
+        long first=(long)stages.get(0).get("stageId"),last=(long)stages.get(1).get("stageId");
+        long proof=upload(engineer,"FIN_VOUCHER");
+        var original=new EngCollectionService.CollectCommand((String)stages.get(0).get("stage"),new BigDecimal("1.00"),
+                key(),today(),proof,first,1L);
+        var changed=new SaleContractService.PaymentPlanCommand(100000,List.of(
+                new PaymentPlanRules.Input(first,"调整后的开工前款",35000L,null,null,"BEFORE_START",null),
+                new PaymentPlanRules.Input(last,"完工时",65000L,null,null,"ON_FINISH",null)),contract.getRevision(),"门店已经确认新计划");
+        var writing=new CountDownLatch(1); var release=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
+        try {
+            var amendment=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return new TransactionTemplate(transactions).execute(tx -> {
+                    var updated=as(finance,()->contracts.replacePaymentPlan(finance,contract.getId(),changed,key()));
+                    writing.countDown(); await(release); return updated;
+                });
+            } finally {TenantContextHolder.clear();}});
+            assertThat(writing.await(8,TimeUnit.SECONDS)).isTrue();
+            var submitting=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try {
+                return as(engineer,()->collections.register(engineer,project,original,key()));
+            } finally {TenantContextHolder.clear();}});
+            assertThatThrownBy(()->submitting.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            release.countDown(); assertThat(amendment.get(8,TimeUnit.SECONDS).getPaymentPlanVersion()).isEqualTo(2);
+            assertThatThrownBy(()->submitting.get(8,TimeUnit.SECONDS)).hasRootCauseMessage("付款计划已有变化，请刷新核对本期");
+            assertThat(count("fr_sale_collection_declaration","stage_id",first)).isZero();
+        } finally {release.countDown();pool.shutdownNow();}
     }
 
     @Test void changedContractPlanRequiresReturningTheOriginalPacketBeforeAcceptance() throws Exception {
@@ -877,7 +925,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         return as(sales,()->handover.submit(sales,commission,submitCommand(view,file,receiver),key()));
     }
     private Submit submitCommand(View view,long file,PostSnapshot receiver) {
-        return new Submit(view.revision(),view.resultVersion(),Long.toString(file),today(),"已核对客户确认、施工图及专业审核记录",Long.toString(receiver.userId()),true);
+        var plan=view.submissionTerms()==null?null:view.submissionTerms().plan();
+        var checked=new ContractVersion(plan==null || plan.contractId()==null?null:plan.contractId().toString(),
+                plan==null?null:plan.contractPlanVersion());
+        return new Submit(view.revision(),view.resultVersion(),Long.toString(file),today(),"已核对客户确认、施工图及专业审核记录",Long.toString(receiver.userId()),true,checked);
     }
     private static Decision decision(View view) { return new Decision(view.revision(),view.currentPacket().version(),"核查齐全，接收工程资料",true); }
     private View receive(View pending,PostSnapshot actor,String key) { return as(actor,()->handover.receive(actor,Long.parseLong(pending.commissionId()),decision(pending),key)); }
