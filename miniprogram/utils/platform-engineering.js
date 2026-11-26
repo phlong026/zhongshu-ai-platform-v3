@@ -125,9 +125,13 @@ function paymentText(planRow) {
   return paid >= total ? '已付清' : paid > 0 ? '部分已付' : '待付款';
 }
 
-/** 结算屏视图（材料三组数+费用 0 占位+两期汇总 → 蓝本 settleSummary 形状） */
 function settleView(view) {
+  const review = Array.isArray(view.expenseReviewRows) ? view.expenseReviewRows : [];
   return {
+    expenseReview: review.map(r => ({
+      id: r.expenseId, name: r.name, revised: centsText(r.revisedCents), booked: centsText(r.bookedCents),
+      paid: centsText(r.netPaidCents), above: r.netAboveRevisedCents > 0 ? centsText(r.netAboveRevisedCents) : ''
+    })),
     materialsTotal: view.materialsTotalCents || 0, materialsPaid: view.materialsPaidCents || 0,
     materialsRemaining: view.materialsRemainingCents || 0,
     expensesTotal: view.expensesTotalCents || 0, expensesPaid: view.expensesPaidCents || 0,
@@ -218,7 +222,6 @@ function uploadVoucher(filePath, assetType) {
   return api.uploadVoucher(filePath, assetType);
 }
 
-/** 汇总装载：detail+两期收款+材料汇总+结算屏+催办（record 页一次拉齐） */
 async function loadProject(id) {
   const [detail, collections, materials, settle, followups] = await Promise.all([
     api.projects.get(id), api.collections.page(id), api.materials.summary(id),
