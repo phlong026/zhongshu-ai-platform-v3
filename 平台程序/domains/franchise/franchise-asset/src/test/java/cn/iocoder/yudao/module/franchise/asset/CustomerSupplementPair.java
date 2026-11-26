@@ -1,12 +1,16 @@
 package cn.iocoder.yudao.module.franchise.asset;
 
+import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.security.core.LoginUser;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.test.FixedCurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
@@ -21,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exposes only the test fixture's customer HTTP endpoints and protected file bytes to the exact paired Node client. */
+/** Serves the paired page's customer endpoints, signed-in profile and protected file bytes. */
 final class CustomerSupplementPair {
     private CustomerSupplementPair() {}
 
@@ -58,8 +62,17 @@ final class CustomerSupplementPair {
                                     id,uri.getQuery().substring(6));
                             response=json.writeValueAsString(Map.of("code",0,"data",Map.of("bytesBase64",Base64.getEncoder().encodeToString(content.bytes()),"contentType",content.mimeType())));
                         } else {
-                            assertThat(uri.getPath()).startsWith("/franchise/customers/");
+                            boolean ownProfile = method.equals("GET") && uri.getPath().equals("/platform/profile/mine");
+                            assertThat(ownProfile || uri.getPath().startsWith("/franchise/customers/"))
+                                    .as("allowed fixture route %s %s", method, uri).isTrue();
                             var http=MockMvcRequestBuilders.request(HttpMethod.valueOf(method),uri);
+                            if (ownProfile) {
+                                http.with(servletRequest -> {
+                                    var login = new LoginUser().setId(actor.userId()).setUserType(UserTypeEnum.ADMIN.getValue());
+                                    SecurityFrameworkUtils.setLoginUser(login, servletRequest);
+                                    return servletRequest;
+                                });
+                            }
                             if(request.hasNonNull("body")) http.contentType("application/json").content(request.path("body").toString());
                             if(request.hasNonNull("key")) http.header("Idempotency-Key",request.path("key").asText());
                             var result=mvc.perform(http).andReturn().getResponse();
@@ -71,7 +84,10 @@ final class CustomerSupplementPair {
                         response=json.writeValueAsString(Map.of("code",denied.getCode(),"msg",denied.getMessage()));
                     } catch(ServiceException denied) {
                         response=json.writeValueAsString(Map.of("code",denied.getCode(),"msg",denied.getMessage()));
-                    } finally { posts.clear(); }
+                    } finally {
+                        posts.clear();
+                        SecurityContextHolder.clearContext();
+                    }
                     outgoing.write(response);outgoing.newLine();outgoing.flush();
                 }
                 throw new AssertionError("八步配对未返回完成结果");

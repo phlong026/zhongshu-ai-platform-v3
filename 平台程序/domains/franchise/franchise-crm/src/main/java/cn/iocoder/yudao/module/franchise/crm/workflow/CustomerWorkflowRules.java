@@ -22,7 +22,7 @@ public final class CustomerWorkflowRules {
     private static final Map<Step, Set<String>> FIELDS = Map.of(
             Step.INVITATION, Set.of("contactMethod", "invitationResult", "appointmentAt", "nextContactOn"),
             Step.INTRODUCTION, Set.of("receptionist", "requirements", "feedback"),
-            Step.HOUSE_SELECTION, Set.of("referenceCaseId", "referenceCaseName", "selectionResult", "versionLabel", "confirmed"),
+            Step.HOUSE_SELECTION, Set.of("selectionMode", "customDirection", "referenceCaseId", "referenceCaseName", "selectionResult", "versionLabel", "confirmed"),
             Step.SITE_VISIT, Set.of("siteName", "address", "feedback"),
             Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "checked"),
             Step.QUOTATION, Set.of("quoteId", "amountCents", "scope", "versionLabel", "communicated", "result"));
@@ -59,6 +59,15 @@ public final class CustomerWorkflowRules {
             } else {
                 if (!(value instanceof String text)) throw invalid("文本字段格式无效");
                 fields.put(key, text(text, key.equals("requirements") || key.equals("feedback") ? 4000 : 1000));
+            }
+        }
+        if (step == Step.HOUSE_SELECTION) {
+            boolean custom = "EXTERNAL_CUSTOM".equals(fields.get("selectionMode"));
+            if (fields.containsKey("selectionMode") && !custom) throw invalid("户型选择方式无效");
+            if (!custom && fields.containsKey("customDirection")) throw invalid("请先选择外部定制");
+            if (custom && (fields.containsKey("referenceCaseId") || fields.containsKey("referenceCaseName")
+                    || fields.containsKey("selectionResult") || fields.containsKey("versionLabel"))) {
+                throw invalid("外部定制方向与标准户型或外部方案记录不能混填");
             }
         }
         if (fields.containsKey("invitationResult") && !Set.of("CONFIRMED", "PENDING", "DECLINED").contains(fields.get("invitationResult")))
@@ -103,9 +112,16 @@ public final class CustomerWorkflowRules {
                 required(errors, fields, "feedback", "讲解反馈");
             }
             case HOUSE_SELECTION -> {
-                required(errors, fields, "selectionResult", "选型结果");
+                if ("EXTERNAL_CUSTOM".equals(fields.get("selectionMode"))) {
+                    String direction = String.valueOf(fields.getOrDefault("customDirection", "")).trim();
+                    if (direction.isEmpty() || Set.of("EXTERNAL_CUSTOM", "外部定制", "已确认", "待确认").contains(direction)) {
+                        errors.add("请填写实际定制方向");
+                    }
+                } else {
+                    required(errors, fields, "selectionResult", "选型结果");
+                    if (!present(fields, "referenceCaseId") && attachments.isEmpty()) errors.add("请选择参考户型或上传外部方案");
+                }
                 if (!Boolean.TRUE.equals(fields.get("confirmed"))) errors.add("请确认客户的选型结果");
-                if (!present(fields, "referenceCaseId") && attachments.isEmpty()) errors.add("请选择参考户型或上传外部方案");
             }
             case SITE_VISIT -> { required(errors, fields, "siteName", "工地名称"); required(errors, fields, "feedback", "客户反馈"); }
             case MEASUREMENT -> {

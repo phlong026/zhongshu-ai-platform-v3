@@ -204,6 +204,52 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void externalCustomDirectionRequiresAnExplicitChoiceAndCustomerConfirmationWithoutInventingAnAttachment() {
+        long id = customer();
+        String step = "HOUSE_SELECTION", direction = "一层无台阶，老人房朝南，厨房临院";
+        var incomplete = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", direction, "confirmed", false);
+        var draft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", incomplete, List.of()), "direction-draft"));
+        assertThat(draft.steps().get(2).canComplete()).isFalse();
+        failure(400, () -> as(sales, () -> workflow.complete(sales, id, step, draft.revision(), "unconfirmed")));
+        var confirmed = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", direction, "confirmed", true);
+        var doneDraft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", confirmed, List.of()), "direction-confirmed"));
+        var done = as(sales, () -> workflow.complete(sales, id, step, doneDraft.revision(), "direction-done"));
+        assertThat(done.steps().get(2).attachments()).isEmpty();
+        assertThat(done.steps().get(2).fields()).containsAllEntriesOf(confirmed).doesNotContainKeys("referenceCaseId", "versionLabel");
+        assertThat(done.completedCount()).isEqualTo(1);
+        assertThat(as(sales, () -> workflow.complete(sales, id, step, doneDraft.revision(), "direction-done")).revision()).isEqualTo(done.revision());
+        assertThat(as(boss, () -> workflow.records(boss, id, 1, 20)).getList()).filteredOn(row -> row.type().equals("COMPLETE"))
+                .singleElement().satisfies(row -> assertThat(row.fields()).containsAllEntriesOf(confirmed));
+        failure(1_110_000_000, () -> as(colleague, () -> workflow.records(colleague, id, 1, 20)));
+    }
+
+    @Test
+    void anUnselectedDirectionOrBareConfirmationCannotReplaceAnExistingHousePlan() {
+        long id = customer();
+        String step = "HOUSE_SELECTION";
+        for (var bad : List.of(Map.<String, Object>of("selectionMode", "OTHER", "confirmed", true),
+                Map.<String, Object>of("customDirection", "庭院", "confirmed", true),
+                Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "referenceCaseId", "7001", "customDirection", "庭院"),
+                Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "referenceCaseName", "假原单", "confirmed", true))) {
+            failure(400, () -> as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", bad, List.of()), "invalid-direction")));
+        }
+        var blank = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", "  ", "confirmed", true);
+        var draft = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(0, today(), "", blank, List.of()), "empty-direction"));
+        assertThat(draft.steps().get(2).completionErrors()).anyMatch(error -> error.contains("定制方向"));
+        failure(400, () -> as(sales, () -> workflow.complete(sales, id, step, draft.revision(), "empty-done")));
+        var onlyMode = Map.<String, Object>of("selectionMode", "EXTERNAL_CUSTOM", "customDirection", "外部定制", "confirmed", true);
+        var placeholder = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(draft.revision(), today(), "", onlyMode, List.of()), "mode-as-direction"));
+        assertThat(placeholder.steps().get(2).canComplete()).isFalse();
+        var legacy = Map.<String, Object>of("selectionResult", "已确定外部方案", "confirmed", true);
+        var missing = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(placeholder.revision(), today(), "", legacy, List.of()), "legacy-no-proof"));
+        assertThat(missing.steps().get(2).canComplete()).isFalse();
+        var file = as(sales, () -> workflow.save(sales, id, step, new SaveCommand(missing.revision(), today(), "", legacy,
+                List.of(new Attachment("9001", "客户原户型.pdf"))), "old-external-plan"));
+        assertThat(file.steps().get(2).canComplete()).isTrue();
+        assertThat(file.steps().get(2).fields()).doesNotContainKeys("selectionMode", "customDirection");
+    }
+
+    @Test
     void onlyPublishedCatalogReferencesAreAllowedAndTheirNameIsServerOwned() {
         long id = customer();
         var fields = Map.<String, Object>of("referenceCaseId", "7001", "referenceCaseName", "伪造名称", "selectionResult", "两层方案", "confirmed", true);
