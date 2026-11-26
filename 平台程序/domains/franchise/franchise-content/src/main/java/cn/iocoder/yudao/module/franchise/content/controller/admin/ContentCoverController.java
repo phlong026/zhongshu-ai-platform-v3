@@ -7,7 +7,9 @@ import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.module.franchise.content.enums.FranchiseContentErrorCodes.COVER_GENERATION_RETIRED;
 
 @RestController
 @RequestMapping("/franchise/content/covers")
@@ -18,15 +20,15 @@ public class ContentCoverController {
 
     @GetMapping("/templates")
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
-    public CommonResult<Map<String, Object>> templates(@RequestParam(defaultValue = "1") int page,
-                                                       @RequestParam(defaultValue = "20") int size) {
-        return success(covers.templates(posts.require(), page, size));
+    public CommonResult<Map<String, Object>> templates() {
+        posts.require();
+        throw exception(COVER_GENERATION_RETIRED);
     }
 
     @PostMapping
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
-    public CommonResult<Map<String, Object>> create(@RequestHeader("Idempotency-Key") String key,
-                                                   @RequestBody Map<String, Object> body) {
-        return success(covers.create(posts.require(), key, body));
+    public CommonResult<Map<String, Object>> recover(@RequestHeader("Idempotency-Key") String key,
+                                                    @RequestBody Map<String, Object> body) {
+        return success(covers.recover(posts.require(), key, body));
     }
 }
