@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
 import static cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.*;
 
@@ -638,7 +639,14 @@ public class EngMaterialService {
         if (q.compareTo(receipt.getActualQuantity()) == 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "更正后的数量与原记录相同");
         }
-        BigDecimal others = supplyReceipts.selectBySupply(post.orgId(), supply.getId()).stream()
+        var receipts = supplyReceipts.selectBySupply(post.orgId(), supply.getId());
+        if (EngGuard.qualityPassed(receipt) && q.compareTo(receipt.getActualQuantity()) < 0) {
+            BigDecimal correctedGood = EngGuard.goodQuantity(receipts).subtract(receipt.getActualQuantity()).add(q);
+            if (correctedGood.compareTo(movements.allocatedQuantity(post.orgId(), supply.getProjectId(), material.getId())) < 0) {
+                throw exception0(MATERIAL_INVALID.getCode(), "更正后合格到货量低于已登记去向的数量，请核对领用、损耗、退料和调拨记录");
+            }
+        }
+        BigDecimal others = receipts.stream()
                 .filter(r -> r.getId() != receiptId && r.getActualQuantity() != null)
                 .map(FrEngSupplyReceiptDO::getActualQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal correctedTotal = others.add(q);
@@ -707,10 +715,8 @@ public class EngMaterialService {
         // 行锁串行化可分配量读-判-写（评审十三 P2-1）
         FrEngSupplyDO supply = supplies.selectByMaterial(post.orgId(), material.getId());
         BigDecimal good = EngGuard.goodQuantity(supplyReceipts.selectBySupply(post.orgId(), supply.getId()));
-        BigDecimal used = movements.selectByProject(post.orgId(), projectId).stream()
-                .filter(m -> m.getMaterialId() != null && m.getMaterialId().equals(material.getId()))
-                .map(FrEngMaterialMovementDO::getQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (q.add(new BigDecimal("0.0001")).compareTo(good.subtract(used)) > 0) {
+        BigDecimal used = movements.allocatedQuantity(post.orgId(), projectId, material.getId());
+        if (q.compareTo(good.subtract(used)) > 0) {
             throw exception(ENGINEERING_INPUT_INVALID, "本批可分配材料不足，不能重复耗用或退料");
         }
         movements.insert(new FrEngMaterialMovementDO().setCompanyId(post.orgId()).setProjectId(projectId)
