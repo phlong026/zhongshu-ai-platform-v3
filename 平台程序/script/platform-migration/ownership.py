@@ -11,6 +11,7 @@ import sys
 DIRECTORY = Path(__file__).resolve().parent
 MANIFEST_FORMAT = "zhongshu-platform-ownership/v1"
 FIXTURE_FORMAT = "zhongshu-platform-synthetic/v1"
+STANDALONE_MODULES = ("yudao-platform-server", "yudao-module-infra", "yudao-platform-operations")
 LOCATIONS = (
     "platform-bootstrap", "platform", "pf", "franchise", "franchise-system",
     "platform-wallet", "franchise-asset", "franchise-design-remote",
@@ -52,7 +53,7 @@ def digest(path):
 
 def migration_paths(root):
     """Only source modules shipped in B; yudao-server's same-name location is excluded."""
-    modules = [root / "yudao-platform-server", root / "yudao-module-infra"]
+    modules = [root / name for name in STANDALONE_MODULES]
     modules += list((root / "platform").glob("*"))
     modules += list((root / "domains/franchise").glob("*"))
     paths = []
@@ -69,8 +70,8 @@ def valid_migration_path(value, location):
     demand(not path.is_absolute() and ".." not in parts and path.suffix == ".sql", "MIGRATION_PATH_INVALID")
     demand("/src/main/resources/db/migration/" in value and path.parent.name == location,
            "MIGRATION_PATH_INVALID")
-    demand(value.startswith(("platform/", "domains/franchise/", "yudao-module-infra/",
-                             "yudao-platform-server/")), "MIGRATION_PATH_INVALID")
+    demand(parts[0] in STANDALONE_MODULES or value.startswith(("platform/", "domains/franchise/")),
+           "MIGRATION_PATH_INVALID")
 
 
 def validate_manifest(manifest, source_root=None):

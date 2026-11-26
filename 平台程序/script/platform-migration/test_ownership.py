@@ -16,7 +16,7 @@ SPEC.loader.exec_module(ownership)
 
 class OwnershipTest(unittest.TestCase):
     def setUp(self):
-        self.fixture = json.loads((DIRECTORY / "fixtures" / "synthetic.json").read_text())
+        self.fixture = ownership.read_json(DIRECTORY / "fixtures" / "synthetic.json")
 
     def rejected(self, evidence, code):
         with self.assertRaisesRegex(ownership.EvidenceError, code):
@@ -267,11 +267,11 @@ class OwnershipTest(unittest.TestCase):
             ownership.validate_coverage(coverage)
 
     def test_manifest_rejects_missing_table_and_path_escape(self):
-        manifest = json.loads((DIRECTORY / "manifest.json").read_text())
+        manifest = ownership.read_json(DIRECTORY / "manifest.json")
         manifest["tables"][0]["owner"] = "UNKNOWN"
         with self.assertRaisesRegex(ownership.EvidenceError, "TABLE_OWNER_INVALID"):
             ownership.validate_manifest(manifest)
-        manifest = json.loads((DIRECTORY / "manifest.json").read_text())
+        manifest = ownership.read_json(DIRECTORY / "manifest.json")
         manifest["migrations"][0]["path"] = "../../.env"
         with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_PATH_INVALID"):
             ownership.validate_manifest(manifest)
