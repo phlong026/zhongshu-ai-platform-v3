@@ -47,9 +47,19 @@ class OrgOnboardIntegrationTest extends PlatformPgIntegrationTest {
 
     @BeforeEach
     void registerOrgTypesAndTemplates() {
-        jdbc.update("INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店') ON CONFLICT DO NOTHING");
-        jdbc.update("INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code) VALUES "
-                + "('boss','test','t-hq,t-store','management',FALSE,NULL) ON CONFLICT DO NOTHING");
+        jdbc.update("""
+                INSERT INTO pf_org_type(code, domain, name) VALUES ('t-hq','test','总部'),('t-store','test','门店')
+                ON CONFLICT (code) DO UPDATE SET domain=EXCLUDED.domain,name=EXCLUDED.name
+                """);
+        // The shared PostgreSQL test database may already contain a production/other-suite boss template.
+        // ON CONFLICT DO NOTHING made this fixture depend on test execution order and could leave store
+        // onboarding bound to a template that rejects t-store.
+        jdbc.update("""
+                INSERT INTO pf_post_template(role_code, domain, org_types, line, lead, inherits_role_code)
+                VALUES ('boss','test','t-hq,t-store','management',FALSE,NULL)
+                ON CONFLICT (role_code) DO UPDATE SET domain=EXCLUDED.domain,org_types=EXCLUDED.org_types,
+                    line=EXCLUDED.line,lead=EXCLUDED.lead,inherits_role_code=EXCLUDED.inherits_role_code
+                """);
         directory.roleIdsByCode.put("boss", 501L);
     }
 
