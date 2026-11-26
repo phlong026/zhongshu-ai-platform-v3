@@ -160,6 +160,8 @@ class LegacyPlatformContentOpsInterceptorTest {
         draftController = new ContentDraftController();
         ReflectionTestUtils.setField(draftController, "currentPost", currentPost);
         ReflectionTestUtils.setField(draftController, "drafts", draftService);
+        ReflectionTestUtils.setField(draftController, "postPermissions",
+                mock(cn.iocoder.yudao.module.platform.authz.PostPermissionEvaluator.class));
 
         publicationController = new ContentPublicationController();
         ReflectionTestUtils.setField(publicationController, "currentPost", currentPost);

@@ -58,6 +58,8 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     private ContentPublisherAccountService publisherAccounts;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource
+    private org.springframework.transaction.PlatformTransactionManager transactions;
     @MockitoBean
     private AssetAccessPort assets;
     @MockitoBean
@@ -138,19 +140,12 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    @org.springframework.transaction.annotation.Transactional
     void publishedPlaybackAndCustomerSourcesSurviveMovingThePersonalWorkToTrash() throws Exception {
         long taskId = IdWorker.getId(), customerId = IdWorker.getId(), leadId = IdWorker.getId();
         jdbc.update("UPDATE fr_content_draft SET task_id=? WHERE id=?", taskId, workId);
         var publication = service.createFromPost(owner, manualBody("回放验收"), "work-playback-" + workId);
         service.verify(store.orgId(), owner.userId(), publication.getId());
         service.link(store.orgId(), owner.userId(), publication.getId(), "https://channels.example/post/" + publication.getId());
-        // The content module reads these projections from CRM in the combined server.
-        jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint,team_id bigint) ON COMMIT DROP");
-        jdbc.execute("CREATE TEMP TABLE fr_lead(id bigint,company_id bigint,customer_id bigint,source text,need text,status text,create_time timestamptz) ON COMMIT DROP");
-        jdbc.update("INSERT INTO fr_customer VALUES(?,?,?,NULL)", customerId, store.orgId(), owner.userId());
-        jdbc.update("INSERT INTO fr_lead VALUES(?,?,?,?,'庭院咨询','CONVERTED',now())",
-                leadId, store.orgId(), customerId, ContentGrowthService.SOURCE_PREFIX + publication.getId());
         var taskService = mock(ContentTaskService.class);
         when(taskService.requireOwned(store.orgId(), taskId)).thenReturn(
                 new cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO().setId(taskId)
@@ -166,8 +161,16 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         mvc.perform(get("/franchise/content/publications/{id}/playback", publication.getId()))
                 .andExpect(jsonPath("$.data.workId").value(String.valueOf(workId)))
                 .andExpect(jsonPath("$.data.resultUrl").value("https://media.example/original.mp4"));
-        mvc.perform(get("/franchise/content/growth/customers/{id}/sources", customerId))
-                .andExpect(jsonPath("$.data[0].leadId").value(String.valueOf(leadId)));
+        // These CRM projections are owned by another Maven module in the combined server.
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint,team_id bigint) ON COMMIT DROP");
+            jdbc.execute("CREATE TEMP TABLE fr_lead(id bigint,company_id bigint,customer_id bigint,source text,need text,status text,create_time timestamptz) ON COMMIT DROP");
+            jdbc.update("INSERT INTO fr_customer VALUES(?,?,?,NULL)", customerId, store.orgId(), owner.userId());
+            jdbc.update("INSERT INTO fr_lead VALUES(?,?,?,?,'庭院咨询','CONVERTED',now())",
+                    leadId, store.orgId(), customerId, ContentGrowthService.SOURCE_PREFIX + publication.getId());
+            assertThat(controller.customerContentSources(customerId).getData()).singleElement()
+                    .satisfies(source -> assertThat(source).containsEntry("leadId", String.valueOf(leadId)));
+        });
         assertThatThrownBy(() -> service.create(store.orgId(), owner.userId(), manualBody("新账号")))
                 .isInstanceOf(ServiceException.class);
     }

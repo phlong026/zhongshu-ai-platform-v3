@@ -80,8 +80,8 @@ public class ContentPublicationController {
         if (publication.getWorkId() == null) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "该发布记录未关联原作品");
         }
-        FrContentDraftDO work = drafts.workOf(post.orgId(), publication.getWorkId());
-        if (!java.util.Objects.equals(work.getAuthorUserId(), publication.getAuthorUserId()) || work.getTaskId() == null) {
+        FrContentDraftDO work = drafts.originalPublishedWork(post.orgId(), publication);
+        if (work.getTaskId() == null) {
             throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "发布记录与原作品关联无效");
         }
         FrContentTaskDO task = tasks.requireOwned(post.orgId(), work.getTaskId());

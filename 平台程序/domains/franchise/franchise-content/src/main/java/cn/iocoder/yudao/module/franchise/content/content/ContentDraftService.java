@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentCourseProgressMapper;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftMapper;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentPublicationDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentVideoDraftMapper;
@@ -92,8 +93,22 @@ public class ContentDraftService {
     }
 
     public FrContentDraftDO workOf(long companyId, long workId) {
+        FrContentDraftDO row = storedWork(companyId, workId);
+        if (row.getTrashedAt() != null) throw exception(WORK_INVALID);
+        return row;
+    }
+
+    public FrContentDraftDO originalPublishedWork(long companyId, FrContentPublicationDO publication) {
+        if (!Objects.equals(publication.getCompanyId(), companyId) || !"published".equals(publication.getStatus())
+                || publication.getWorkId() == null) throw exception(WORK_INVALID);
+        FrContentDraftDO row = storedWork(companyId, publication.getWorkId());
+        if (!Objects.equals(row.getAuthorUserId(), publication.getAuthorUserId())) throw exception(WORK_INVALID);
+        return row;
+    }
+
+    private FrContentDraftDO storedWork(long companyId, long workId) {
         FrContentDraftDO row = drafts.selectById(workId);
-        if (row == null || row.getCompanyId() != companyId || Boolean.TRUE.equals(row.getDeleted()) || row.getTrashedAt() != null) {
+        if (row == null || row.getCompanyId() != companyId || Boolean.TRUE.equals(row.getDeleted())) {
             throw exception(WORK_INVALID);
         }
         return row;
