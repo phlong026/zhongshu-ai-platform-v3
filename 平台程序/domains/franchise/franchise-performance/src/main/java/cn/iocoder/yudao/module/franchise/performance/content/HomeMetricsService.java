@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.franchise.performance.content;
 
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.jdbc.core.JdbcTemplate;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.ROUTING;
+import static cn.iocoder.yudao.module.franchise.api.EngineeringRectificationAssignments.STATE_LABEL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,7 +58,17 @@ public class HomeMetricsService {
             add(m,"delivered","本月交付","个",true,"按工程交付登记日期统计，每个项目计一次。","SELECT p.id::text id,p.name title,COALESCE(p.customer_name,'') subtitle,e.delivered_at date,0::bigint amount,'project' source_type,p.id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM projects p JOIN fr_eng_closure e ON e.project_id=p.id AND e.company_id=p.company_id WHERE "+month("e.delivered_at"));
             add(m,"overdueNodes","逾期节点","个",false,"计划结束日期早于今天且仍未完成的节点。",NODE+"n.end_date<(SELECT today FROM cfg)");
             add(m,"materials","待到货材料","单",false,"已安排供货、累计实际到货数量小于供货数量的供货单。","SELECT s.id::text id,p.name title,COALESCE(s.supplier,'待补供应商') subtitle,s.promise_date date,0::bigint amount,'material' source_type,s.id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM fr_eng_supply s JOIN projects p ON p.id=s.project_id AND p.company_id=s.company_id WHERE p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER') AND s.quantity>COALESCE((SELECT sum(r.actual_quantity) FROM fr_eng_supply_receipt r WHERE r.supply_id=s.id AND r.company_id=s.company_id AND r.kind='RECEIPT'),0)");
-            add(m,"rectifications","待整改","项",false,"待处理材料质检异常和未销项施工整改单；含待复验。","SELECT r.id::text id,p.name title,'材料质检不合格 · 待处置' subtitle,r.occurred_at date,0::bigint amount,'quality' source_type,r.supply_id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM fr_eng_supply_receipt r JOIN projects p ON p.id=r.project_id AND p.company_id=r.company_id WHERE r.quality='REJECTED' AND (r.quality_resolution IS NULL OR r.quality_resolution->>'result' IS DISTINCT FROM '更换后合格') UNION ALL SELECT i.id::text,p.name,i.title||CASE i.state WHEN 'REVIEW' THEN ' · 待复验' ELSE ' · 待整改' END,(i.create_time AT TIME ZONE 'Asia/Shanghai')::date,0::bigint,'issue',i.id::text,p.customer_id::text,p.id::text FROM fr_eng_rectification i JOIN projects p ON p.id=i.project_id AND p.company_id=i.company_id WHERE i.state<>'CLOSED'");
+            String ownIssue=Set.of("engineer","project-manager").contains(post.roleCode())?" AND routing.handler="+post.userId():"";
+            add(m,"rectifications","待整改","项",false,"待处理材料质检与未销项施工整改。工程岗位查看本人办理的整改，待分派单由项目负责人承接。","""
+                SELECT r.id::text id,p.name title,'材料质检不合格 · 待处置' subtitle,r.occurred_at date,0::bigint amount,
+                       'quality' source_type,r.supply_id::text source_id,p.customer_id::text customer_id,p.id::text project_id
+                FROM fr_eng_supply_receipt r JOIN projects p ON p.id=r.project_id AND p.company_id=r.company_id
+                WHERE r.quality='REJECTED' AND r.quality_resolution->>'result' IS DISTINCT FROM '更换后合格'
+                UNION ALL SELECT r.id::text,p.name,r.title||CASE r.state WHEN 'REVIEW' THEN ' · 待复验' ELSE ' · 待整改' END||
+                """+STATE_LABEL+"""
+                       ,r.due_date,0::bigint,'issue',r.id::text,p.customer_id::text,p.id::text
+                FROM fr_eng_rectification r JOIN projects p ON p.id=r.project_id AND p.company_id=r.company_id
+                """+ROUTING+" WHERE r.state<>'CLOSED'"+ownIssue);
             add(m,"projectDue","到期款未收","个",false,"有到期未收施工合同款的项目，每个项目计一次；明细显示待收余额。","""
                 SELECT p.id::text id,p.name title,(array_agg(d.subtitle ORDER BY t.due,d.id))[1] subtitle,
                     (array_agg(d.stage_code ORDER BY t.due,d.id))[1] stage_code,(array_agg(d.id ORDER BY t.due,d.id))[1] stage_id,
