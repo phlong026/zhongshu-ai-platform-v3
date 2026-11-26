@@ -1,0 +1,27 @@
+<view class="flow-card supplements">
+  <view class="flow-section-heading"><text>补充资料</text><text class="flow-muted">选填</text></view>
+  <view wx:if="{{canWrite}}" class="entry">
+    <textarea class="flow-input note" value="{{note}}" maxlength="4000" placeholder="填写本步的补充说明" bindinput="inputNote" disabled="{{saving||uncertain}}" />
+    <view wx:for="{{files}}" wx:key="assetId" class="flow-file"><text>{{item.title}}</text><button class="flow-link" data-asset="{{item.assetId}}" bindtap="removeAttachment" disabled="{{saving||uncertain}}">移除</button></view>
+    <view wx:if="{{files.length<20}}" class="flow-inline-actions">
+      <button class="flow-secondary" data-kind="photo" bindtap="chooseAttachment" disabled="{{saving||uncertain||uploading||uploadName}}">拍照或选图</button>
+      <button class="flow-secondary" data-kind="file" bindtap="chooseAttachment" disabled="{{saving||uncertain||uploading||uploadName}}">选择附件</button>
+    </view>
+    <text class="flow-muted">支持 PDF、JPG、PNG，每件最多 30 MB，最多 20 件</text>
+    <view wx:if="{{uploadName}}" class="flow-upload-state"><text>{{uploading?'正在上传':'待上传'}} · {{uploadName}}</text><text wx:if="{{uploadError}}">{{uploadError}}</text>
+      <view wx:if="{{!uploading}}" class="flow-inline-actions"><button wx:if="{{retryUploadAllowed}}" class="flow-link" bindtap="retryUpload">重试上传</button><button class="flow-link" bindtap="discardUpload">移除这项</button></view>
+    </view>
+    <text wx:if="{{writeError||uncertain}}" class="message" aria-live="polite">{{uncertain?'保存回执未确认，请重试原记录':writeError}}</text>
+    <button class="flow-secondary save" loading="{{saving}}" disabled="{{saving||uploading||uploadName}}" bindtap="saveSupplement">{{uncertain?'重试原记录':'保存补充资料'}}</button>
+  </view>
+  <view wx:for="{{rows}}" wx:key="id" wx:for-item="record" class="record">
+    <view class="flow-record-top"><text>{{record.actorName}}</text><text class="flow-muted">{{record.createdText}}</text></view>
+    <text wx:if="{{record.note}}" class="record-note">{{record.note}}</text>
+    <button wx:for="{{record.attachments}}" wx:key="assetId" wx:for-item="file" class="flow-file-name" data-id="{{record.id}}" data-asset="{{file.assetId}}" bindtap="openAttachment">{{file.title}}</button>
+  </view>
+  <text wx:if="{{previewError}}" class="message">{{previewError}}</text>
+  <text wx:if="{{loading}}" class="flow-muted">正在读取资料…</text>
+  <view wx:elif="{{loadError}}" class="flow-inline-actions"><text class="message">{{loadError}}</text><button class="flow-link" bindtap="refresh">重新加载</button></view>
+  <button wx:elif="{{more}}" class="flow-link" bindtap="moreSupplements">查看更多资料</button>
+  <text wx:elif="{{!rows.length&&!canWrite}}" class="flow-muted">暂无补充资料</text>
+</view>
