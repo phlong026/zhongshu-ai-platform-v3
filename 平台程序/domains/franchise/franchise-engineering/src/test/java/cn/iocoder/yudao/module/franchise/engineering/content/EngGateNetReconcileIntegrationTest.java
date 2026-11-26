@@ -250,6 +250,35 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void defaultDateResolvedByThePreviousVersionStillReplaysAcrossMidnight() {
+        String key = idem();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        var original = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), yesterday, 9002L);
+        var first = as(finance, () -> collectionService.register(finance, projectId, original, key));
+        var old = new java.util.LinkedHashMap<String, Object>();
+        old.put("projectId", projectId);
+        old.put("stage", SIGN_AFTER);
+        old.put("amountCents", 10_000L);
+        old.put("transactionNo", original.transactionNo());
+        old.put("occurredAt", yesterday.toString());
+        old.put("fileAssetId", 9002L);
+        String payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        jdbc.update("UPDATE pf_command_event SET occurred_at=?,payload=?,payload_hash=? "
+                        + "WHERE aggregate_id=? AND command='eng-collect'",
+                yesterday.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                payload, cn.hutool.crypto.digest.DigestUtil.sha256Hex(payload), first.get("collectionId"));
+        var omitted = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, original.amount(), original.transactionNo(), null, 9002L);
+        assertThat(as(finance, () -> collectionService.register(finance, projectId, omitted, key)))
+                .containsEntry("collectionId", first.get("collectionId")).containsEntry("replayed", true);
+        var changed = new EngCollectionService.CollectCommand(
+                SIGN_AFTER, original.amount(), original.transactionNo(), yesterday.minusDays(1), 9002L);
+        assertError(() -> as(finance, () -> collectionService.register(finance, projectId, changed, key)),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    @Test
     void legacyCollectionReplayChecksTheOriginalReceiptFacts() {
         String key = idem();
         String txn = txn();
