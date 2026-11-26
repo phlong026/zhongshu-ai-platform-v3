@@ -5,8 +5,10 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.api.StoreServiceAccountPort;
 import cn.iocoder.yudao.module.franchise.crm.CrmOrgScope;
+import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
+import cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowAssetPolicy;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService;
@@ -15,10 +17,18 @@ import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowSupplement
 import cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowSupplementController;
 import cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.sales.SaleQuoteService;
+import cn.iocoder.yudao.module.franchise.sales.SaleRequirementService;
+import cn.iocoder.yudao.module.franchise.sales.SalesAccess;
+import cn.iocoder.yudao.module.franchise.sales.controller.admin.CustomerWorkflowQuotesController;
+import cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.controller.admin.StaffProfileController;
+import cn.iocoder.yudao.module.platform.org.profile.StaffProfileService;
+import cn.iocoder.yudao.module.platform.org.profile.StaffProfileStore;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +38,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -50,9 +61,12 @@ import java.util.function.Supplier;
 
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.*;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 /** Real PG, upload scanning, accepted bytes and permission rechecks. Storage alone is an in-memory fixture. */
 @Import({LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
+        SaleQuoteService.class, SaleRequirementService.class, SalesAccess.class, CustomerSchemeAdapter.class,
+        StaffProfileService.class, StaffProfileController.class,
         CustomerWorkflowService.class, CustomerWorkflowReadService.class, CustomerWorkflowAssetPolicy.class,CustomerWorkflowSupplementService.class,
         cn.iocoder.yudao.module.franchise.sales.SaleWorkflowFactsAdapter.class,cn.iocoder.yudao.module.franchise.engineering.EngWorkflowFactsAdapter.class,
         AssetAccessService.class, CustomerWorkflowAssetPgIntegrationTest.Config.class})
@@ -66,6 +80,10 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
     @Resource CustomerWorkflowService workflow;
     @Resource CustomerWorkflowSupplementService supplements;
     @Resource LeadService leads;
+    @Resource CustomerService customers;
+    @Resource SaleQuoteService quotes;
+    @Resource StaffProfileController profiles;
+    @MockitoBean StaffProfileStore profileStore;
     @Resource MemoryStorage storage;
     private PostSnapshot sales, colleague, lead, boss, other;
     private long tenant;
@@ -202,7 +220,11 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
     @Test void realMiniCanAppendToOngoingAndCompletedStepsAndReadOnlyTheOriginalFiles() throws Exception {
         String client=System.getProperty("franchise.customer-supplement.client");
         org.junit.jupiter.api.Assumptions.assumeTrue(client!=null&&!client.isBlank(),"requires the paired mini checkout");
-        long user=cn.iocoder.yudao.module.franchise.test.FakeSystemDirectory.INSTANCE.createUser("黄工","13799221119",sales.teamId());
+        var directory = FakeSystemDirectory.INSTANCE;
+        long user = directory.createUser("黄工","13799221119",sales.teamId());
+        var employee = directory.usersByIds(List.of(user)).get(0);
+        when(profileStore.findByUserId(user)).thenReturn(
+                new StaffProfileStore.UserProfile(user, employee.name(), employee.mobile(), null));
         sales=fixture.postFor(user,sales.orgId(),SALES,sales.teamId());
         currentPost.use(sales);
         long id=customer(),another=customer();
@@ -228,7 +250,9 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
         new cn.iocoder.yudao.framework.jackson.config.YudaoJacksonAutoConfiguration().ldtEpochMillisCustomizer().customize(builder);
         var json=builder.build();
         var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
-                new CustomerWorkflowController(workflow,currentPost),new CustomerWorkflowSupplementController(supplements,currentPost))
+                new CustomerWorkflowController(workflow,currentPost), new CustomerWorkflowSupplementController(supplements,currentPost),
+                new CustomerController(customers,currentPost,directory), new CustomerWorkflowQuotesController(quotes,currentPost),
+                profiles)
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
         var actors=Map.of("sales",sales,"readonly",boss,"otherPost",other);
         Map<String,Object> input=new java.util.LinkedHashMap<>();
