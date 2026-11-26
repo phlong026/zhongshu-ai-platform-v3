@@ -1,9 +1,54 @@
 <brand-header title="{{quality?'材料质检处置':'现场整改与复验'}}" back="{{true}}"/>
-<view class="body"><view class="card"><text class="heading">{{projectName}}</text><text wx:if="{{loading}}">正在读取…</text>
-  <view wx:if="{{selected}}"><text class="title">{{selected.title}}</text><text>{{selected.status}} · 单号 {{selected.id}}</text><text wx:if="{{selected.node}}">{{selected.node}}</text><text>{{selected.note}}</text></view>
-  <block wx:elif="{{!loading&&!quality}}"><button class="row" wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="open">{{item.title}} · {{item.status}} ›</button><text wx:if="{{!rows.length}}">暂无现场整改单</text></block>
-  <block wx:if="{{!loading&&editable&&(!selected||selected.state!=='CLOSED')}}"><text class="title">{{selected?'办理记录':'登记现场整改'}}</text><input wx:if="{{!selected}}" placeholder="整改事项" maxlength="160" value="{{title}}" data-field="title" bindinput="input"/><textarea placeholder="填写现场情况、处置或复验说明" maxlength="800" value="{{note}}" data-field="note" bindinput="input"/>
-    <button wx:if="{{quality}}" bindtap="photo">{{photo?'已选择照片 · 更换':'选择质检凭据照片'}}</button><button wx:if="{{quality}}" data-action="resolve" bindtap="save" disabled="{{saving}}">确认更换后合格</button>
-    <button wx:elif="{{!selected}}" data-action="create" bindtap="save" disabled="{{saving}}">登记整改</button><button wx:elif="{{selected.state==='OPEN'}}" data-action="submit" bindtap="save" disabled="{{saving}}">提交复验</button><block wx:else><button data-action="pass" bindtap="save" disabled="{{saving}}">复验通过并销项</button><button data-action="return" bindtap="save" disabled="{{saving}}">退回整改</button></block>
-  </block><text class="error" wx:if="{{error}}">{{error}}</text><button wx:if="{{error&&!editable}}" bindtap="load">重新加载</button>
+<view class="body"><view class="card">
+  <text class="heading">{{projectName}}</text>
+  <text wx:if="{{loading}}">正在读取…</text>
+  <view wx:if="{{selected}}">
+    <text class="title">{{selected.title}}</text><text>{{selected.status}} · 单号 {{selected.id}}</text>
+    <text wx:if="{{selected.node}}">{{selected.node}}</text>
+    <text wx:if="{{quality}}">{{selected.note}}</text>
+    <block wx:else>
+      <text>{{selected.ownerLabel?'负责人 '+selected.ownerLabel:'负责人未登记'}} · {{selected.dueDate?'期限 '+selected.dueDate:'期限未登记'}}</text>
+      <text class="title">处理记录</text>
+      <view wx:for="{{selected.history}}" wx:key="id" class="history">
+        <text>{{item.label}} · {{item.occurredAt}} · {{item.actorLabel}}</text><text>{{item.note}}</text>
+        <text wx:if="{{item.ownerLabel||item.dueDate}}">{{item.ownerLabel?'负责人 '+item.ownerLabel:'负责人未登记'}} · {{item.dueDate?'期限 '+item.dueDate:'期限未登记'}}</text>
+      </view>
+      <text wx:if="{{!selected.history.length}}">{{selected.note||'暂无已登记的处理记录'}}</text>
+    </block>
+  </view>
+  <block wx:elif="{{!loading&&!quality}}">
+    <button class="row" wx:for="{{rows}}" wx:key="id" data-id="{{item.id}}" bindtap="open">
+      <text>{{item.title}} · {{item.status}} ›</text>
+      <text>{{item.ownerLabel||'负责人未登记'}} · {{item.dueDate||'期限未登记'}}</text>
+    </button>
+    <text wx:if="{{!rows.length}}">暂无现场整改单</text>
+  </block>
+  <block wx:if="{{!loading&&editable&&(!selected||selected.state!=='CLOSED')}}">
+    <text class="title">{{selected?'办理记录':'登记现场整改'}}</text>
+    <input wx:if="{{!selected}}" placeholder="整改事项" maxlength="160" value="{{title}}" data-field="title" bindinput="input"/>
+    <button wx:if="{{!quality&&selected&&!editingAssignment}}" bindtap="showAssignment">分派或调整负责人、期限</button>
+    <block wx:if="{{!quality&&(!selected||editingAssignment)}}">
+      <picker range="{{handlers}}" range-key="name" value="{{ownerIndex}}" bindchange="pickOwner">
+        <view class="picker">负责人 · {{ownerIndex>=0?handlers[ownerIndex].name:'请选择本项目人员'}}</view>
+      </picker>
+      <picker mode="date" value="{{dueDate}}" bindchange="pickDate"><view class="picker">整改期限 · {{dueDate||'请选择日期'}}</view></picker>
+    </block>
+    <textarea placeholder="填写现场情况、处置或复验说明" maxlength="800" value="{{note}}" data-field="note" bindinput="input"/>
+    <block wx:if="{{quality}}">
+      <button bindtap="photo">{{photo?'已选择照片 · 更换':'选择质检凭据照片'}}</button>
+      <button data-action="resolve" bindtap="save" disabled="{{saving}}">确认更换后合格</button>
+    </block>
+    <button wx:elif="{{!selected}}" data-action="create" bindtap="save" disabled="{{saving}}">登记整改</button>
+    <block wx:elif="{{editingAssignment}}">
+      <button data-action="assign" bindtap="save" disabled="{{saving}}">保存分派记录</button>
+      <button bindtap="cancelAssignment" disabled="{{saving}}">取消调整</button>
+    </block>
+    <button wx:elif="{{selected.state==='OPEN'}}" data-action="submit" bindtap="save" disabled="{{saving}}">提交复验</button>
+    <block wx:else>
+      <button data-action="pass" bindtap="save" disabled="{{saving}}">复验通过并销项</button>
+      <button data-action="return" bindtap="save" disabled="{{saving}}">退回整改</button>
+    </block>
+  </block>
+  <text class="error" wx:if="{{error}}">{{error}}</text>
+  <button wx:if="{{error&&!editable}}" bindtap="load">重新加载</button>
 </view></view>

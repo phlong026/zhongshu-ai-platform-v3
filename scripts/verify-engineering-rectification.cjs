@@ -29,7 +29,8 @@ function setup({role='engineer',legacy=false,quality=false}={}) {
     require:name=>name.endsWith('/engineering')?api:name.endsWith('/auth')?{currentApiPost:()=>current}:http});
   const page={...definition,data:snapshot(definition.data),setData(patch){Object.assign(this.data,patch);}};
   page.onLoad({project,...(legacy?{issue}:{}),...(quality?{supply:'52',receipt:'53'}:{})});
-  const screen=()=>JSON.stringify(render(route+'.wxml',page.data));
+  const textOf=node=>(node.text||'')+(node.children||[]).map(textOf).join('');
+  const screen=()=>render(route+'.wxml',page.data).map(textOf).join('');
   return {page,calls,requests,screen,base,switchPost:()=>session++};
 }
 
@@ -57,6 +58,6 @@ test('历史无负责人无期限允许经办人明确补录，所有者只读�
 
 test('材料质检仍回原收货单，分派字段不进入换货请求',async()=>{
   const {page,calls,requests}=setup({quality:true});await page.load();assert.equal(requests.length,0);
-  assert.equal(page.data.selected.id,'53');page.setData({note:'验收合格',photo:'receipt.jpg'});await page.save(event({action:'resolve'}));
+  assert.equal(page.data.selected.id,'53');page.setData({note:'验收合格',photo:'receipt.jpg'});await page.load();await page.save(event({action:'resolve'}));
   assert.deepEqual(calls[0].body,{qualityResolution:{receiptId:'53',note:'验收合格',fileAssetId:'111'}});assert.equal(calls[0].id,'52');
 });
