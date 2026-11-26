@@ -60,15 +60,19 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         payments.register(finance,"advance",new FinPaymentService.PaymentCommand(design,20000,LocalDate.now(),null,null,"EMPLOYEE",finance.userId(),"业务经办",null));
         workbench.register(finance,"customer-paid",entry("project:"+project,"receipt",40000,"COMPANY"));
         workbench.register(finance,"unrelated",entry("company","expense",7000,"COMPANY"));
+        workbench.register(finance,"company-debt",entry("company","payable",9000,"COMPANY"));
         var before=accounting.get(finance,project);
         assertThat(before).containsEntry("confirmedCostCents","30000").containsEntry("grossProfitCents","70000")
-            .containsEntry("cashNetCents","30000").containsEntry("companyNetPaidCents","10000");
+            .containsEntry("cashNetCents","30000").containsEntry("companyNetPaidCents","10000")
+            .containsEntry("payableOutstandingCents","20000");
         long debt=Long.parseLong((String)workbench.reimbursements(finance.orgId()).get(0).get("payable_id"));
         payments.register(finance,"reimburse",new FinPaymentService.PaymentCommand(debt,20000,LocalDate.now(),null,null));
         assertThat(accounting.get(finance,project)).containsEntry("confirmedCostCents","30000")
-            .containsEntry("grossProfitCents","70000").containsEntry("cashNetCents","10000");
+            .containsEntry("grossProfitCents","70000").containsEntry("cashNetCents","10000")
+            .containsEntry("payableOutstandingCents","0");
         @SuppressWarnings("unchecked") var readOnly=(Map<String,Object>)workbench.ledger(finance.orgId(),"project:"+project).get("accounting");
-        assertThat(readOnly).containsEntry("canConfirm",false).containsEntry("confirmedCostCents","30000");
+        assertThat(readOnly).containsEntry("canConfirm",false).containsEntry("confirmedCostCents","30000")
+            .containsEntry("payableOutstandingCents","0");
     }
 
     @Test void refundsChangeCashAndCostChangesRequireChangingTheOriginalObligation() {
@@ -78,10 +82,12 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         refunds.registerExpense(finance,"supplier-return",new FinRefundService.ExpenseRefundCommand(payment,10000,"材料款退回",LocalDate.now(),null,null,null));
         var row=accounting.get(finance,project);
         assertThat(row).containsEntry("netReceivedCents","75000").containsEntry("companyNetPaidCents","20000")
-            .containsEntry("cashNetCents","55000").containsEntry("confirmedCostCents","30000").containsEntry("grossProfitCents","70000");
+            .containsEntry("cashNetCents","55000").containsEntry("confirmedCostCents","30000").containsEntry("grossProfitCents","70000")
+            .containsEntry("payableOutstandingCents","10000");
         long payable=jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,payment);
         workbench.adjustPayable(finance,payable,"reduce",new FinWorkbenchService.PayableAdjustment(20000,"退料确认后减少成本",null));
-        assertThat(accounting.get(finance,project)).containsEntry("cashNetCents","55000").containsEntry("grossProfitCents","80000");
+        assertThat(accounting.get(finance,project)).containsEntry("cashNetCents","55000").containsEntry("grossProfitCents","80000")
+            .containsEntry("payableOutstandingCents","0");
     }
 
     @Test void dynamicStagesAndInactiveFactsHaveTheSameEffectiveBasisInBothLedgers() {
@@ -97,7 +103,8 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         long receipt=workbench.register(finance,"stage-receipt",entry("project:"+project,"receipt",25000,"COMPANY"));
         jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,contract_id,stage_id,receipt_id) VALUES(?,?,?,?,?)",IdWorker.getId(),finance.orgId(),contract,s1,receipt);
         refunds.register(finance,"partial-return",new FinRefundService.RegisterCommand(receipt,5000,"部分退款",LocalDate.now(),null,null,null));
-        assertThat(accounting.get(finance,project)).containsEntry("confirmedCostCents","10000").containsEntry("receivableCents","80000");
+        assertThat(accounting.get(finance,project)).containsEntry("confirmedCostCents","10000").containsEntry("receivableCents","80000")
+            .containsEntry("payableOutstandingCents","10000");
         var ledger=(Map<?,?>)workbench.ledger(finance.orgId(),"project:"+project).get("summary");
         assertThat(((Number)ledger.get("committed_cents")).longValue()).isEqualTo(10000);
         assertThat(((Number)ledger.get("outstanding_cents")).longValue()).isEqualTo(10000);
@@ -120,6 +127,8 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         var second=accounting.confirm(finance,project,"confirm-v2",command(accounting.get(finance,project)));
         assertThat(second.get("version")).isEqualTo(2L);
         assertThat(((Map<?,?>)confirmed.get("snapshot")).get("grossProfitCents")).isEqualTo("70000");
+        assertThat(((Map<?,?>)confirmed.get("snapshot")).get("payableOutstandingCents")).isEqualTo("30000");
+        assertThat(((Map<?,?>)second.get("snapshot")).get("payableOutstandingCents")).isEqualTo("40000");
         assertThat(accounting.history(finance,project,1,1)).containsEntry("total",2L);
         assertThatThrownBy(()->jdbc.update("UPDATE fr_fin_project_accounting SET note='覆盖' WHERE id=?",Long.parseLong((String)confirmed.get("id"))))
             .hasMessageContaining("immutable");
