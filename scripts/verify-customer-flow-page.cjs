@@ -22,11 +22,12 @@ function harness(options = {}) {
   let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
   const calls = [], navigations = [], toasts = [];
   const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download'].map(name => [name, async (...args) => {
+  const api = Object.fromEntries(['get', 'save', 'complete', 'reopen', 'records', 'download', 'listQuotes'].map(name => [name, async (...args) => {
     calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
     if (name === 'records') return { list: [], total: 0 };
+    if (name === 'listQuotes') return [];
     if (name === 'download') return { downloadUrl: 'https://storage.test/file', expiresAt: '2026-11-25T12:00:00Z' };
     const step = h.state.steps.find(s => s.code === args[1]);
     h.state.revision += 1;
@@ -43,6 +44,7 @@ function harness(options = {}) {
     '../../api/http': http, '../../api/auth': { currentApiPost: () => post }, '../../utils/api-scope': () => JSON.stringify([session, post?.postId]),
     '../../utils/page-navigation': { open: url => navigations.push({ url }), back: value => navigations.push({ back: value }) },
     '../../utils/platform-crm': { commandKey: prefix => prefix + '-' + ++keyCount }, './api': api, './model': model,
+    '../../utils/finance-date': require('../miniprogram/utils/finance-date'),
     './upload': { run: options.upload || (async () => ({ assetId: '800', title: '资料.pdf', mimeType: 'application/pdf' })) },
     '../../utils/b-asset-download': { downloadTicketFile: async () => ({ tempFilePath: '/download.pdf', contentType: 'application/pdf' }) }
   };
@@ -59,6 +61,37 @@ function harness(options = {}) {
   h.callsFor = name => calls.filter(call => call.name === name);
   return h;
 }
+
+test('step six uses an exact quote for this customer and submits a communication without entering amounts or uploading a file', async () => {
+  const quote = { id: '900719925474099999', customerId: '42', companyId: '9', totalCents: '1234500',
+    budgetVersion: 3, priceVersion: '门店价目', createTime: '2026-11-25T09:00:00+08:00' };
+  const h = harness({ step: 'QUOTATION', api: { listQuotes: async () => [
+    { ...quote, id: '888', customerId: '43' }, quote, { ...quote, id: '777', companyId: '8' },
+    { ...quote, id: '776', totalCents: '0' }
+  ] } });
+  await h.open();
+  await tick();
+  const { render } = require('./role-page-runtime.cjs');
+  const file = path.join(root, 'miniprogram/pages/customer-flow/index.wxml');
+  const flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  const controls = () => flatten(render(file, h.page.data));
+  assert.ok(controls().some(node => node.attrs?.bindchange === 'chooseQuote'));
+  assert.ok(controls().some(node => node.attrs?.bindtap === 'openBudget'));
+  assert.deepEqual(h.page.data.quoteOptions.map(item => item.id), [quote.id]);
+  h.page.chooseQuote({ detail: { value: '0' } });
+  assert.equal(h.page.data.form.fields.amountCents, '12345.00');
+  assert.ok(!h.page.data.fields.some(field => field.key === 'amountCents'));
+  assert.ok(controls().some(node => node.attrs?.bindtap === 'quoteCommunicated'));
+  h.page.openLinkedQuote();
+  assert.equal(h.navigations.at(-1).url, '/pages/workflow/quote-export/index?quote-id=' + quote.id);
+  h.page.quoteCommunicated({ currentTarget: { dataset: { result: '已发给客户' } } });
+  assert.match(h.page.data.form.occurredOn, /^\d{4}-\d{2}-\d{2}$/);
+  await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
+  const [save] = h.callsFor('save');
+  assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户' });
+  assert.deepEqual(save.args[2].attachments, []);
+  assert.equal(h.callsFor('complete').length, 1);
+});
 
 test('05测量和06报价能进入外部委托，06保留预算并提供付款草案，跳转不保存或完成步骤', async () => {
   const { render } = require('./role-page-runtime.cjs'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);

@@ -4,6 +4,7 @@ const step = (id, code) => base(id) + '/steps/' + encodeURIComponent(code);
 const headers = key => ({ 'Idempotency-Key': key });
 module.exports = {
   get: id => http.get(base(id)),
+  listQuotes: id => require('../../api/franchise/sales').quotes.list(id),
   save: (id, code, body, key) => http.put(step(id, code), body, headers(key)),
   complete: (id, code, body, key) => http.post(step(id, code) + '/complete', body, headers(key)),
   reopen: (id, code, body, key) => http.post(step(id, code) + '/reopen', body, headers(key)),
