@@ -283,6 +283,38 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void overlappingIdenticalCollectionsReturnTheOriginalReceipt() throws Exception {
+        String key = idem();
+        var cmd = new EngCollectionService.CollectCommand(SIGN_AFTER, new java.math.BigDecimal("100.00"), txn(), null, 9002L);
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waiter = new java.util.concurrent.atomic.AtomicInteger();
+        try {
+            var second = tx.execute(status -> {
+                int firstPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                var first = as(finance, () -> collectionService.register(finance, projectId, cmd, key));
+                var pending = pool.submit(() -> {
+                    TenantContextHolder.setTenantId(store.orgId());
+                    try {
+                        return tx.execute(other -> {
+                            waiter.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                            var replay = as(finance, () -> collectionService.register(finance, projectId, cmd, key));
+                            assertThat(replay.get("receiptId")).isEqualTo(first.get("receiptId"));
+                            return replay.get("replayed");
+                        });
+                    } finally { TenantContextHolder.clear(); }
+                });
+                org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(() ->
+                        waiter.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                                "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, firstPid, waiter.get())));
+                return pending;
+            });
+            assertThat(second.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(true);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fr_eng_collection WHERE project_id=?", Integer.class, projectId)).isOne();
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test
     void collectionWithoutDateReplaysAfterTheServerDayChanges() {
         String key = idem();
         String transactionNo = txn();
