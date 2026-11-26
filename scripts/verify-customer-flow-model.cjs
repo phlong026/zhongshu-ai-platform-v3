@@ -51,3 +51,22 @@ test('实际开工是业务日期，不把日期字段显示成虚构的北京�
   const facts = model.facts({ code: 'START', fields: { projectId: '91', actualStartAt: '2026-11-25' } });
   assert.equal(facts.find(f => f.label === '实际开工').value, '2026-11-25');
 });
+
+const { customerRow, tabFilter } = require('../miniprogram/utils/platform-crm');
+test('客户列表的预约回访与八步邀约日期分开，筛选和卡片使用同一日期', () => {
+  const today='2026-11-26';
+  const common={id:'1',name:'测试客户',lastFollowAt:'2026-11-25',workflow:{nextContactOn:'2026-11-25',currentStepName:'邀约确认'}};
+  const booked=customerRow({...common,nextVisitDate:[2026,12,1]},{today});
+  assert.equal(booked.appointment,'2026-12-01');
+  assert.doesNotMatch(booked.cue,/逾期/);
+  assert.match(booked.cue,/回访/);
+  assert.equal(booked.workflow.nextContactOn,'2026-11-25');
+  assert.deepEqual(tabFilter([booked],'appointments',{today}),[booked]);
+  const cleared=customerRow({...common,nextVisitDate:null},{today});
+  assert.equal(cleared.appointment,'');
+  assert.doesNotMatch(cleared.cue,/逾期|回访/);
+  assert.deepEqual(tabFilter([cleared],'appointments',{today}),[]);
+  const due=customerRow({...common,workflow:{nextContactOn:'2026-12-02'},nextVisitDate:[2026,11,25]},{today});
+  assert.equal(due.cue,'逾期 1 天');
+  assert.deepEqual(tabFilter([due],'due',{today}),[due]);
+});
