@@ -168,12 +168,12 @@ test('省市无中心且零记录时，使用下属真实县中心定位视野�
 });
 
 const flush=async()=>{for(let i=0;i<12;i++)await new Promise(resolve=>setImmediate(resolve));};
-async function openMap({manual=false,source=fixture()}={}) {
+async function openMap({manual=false,source=fixture(),post={postId:'hq-map',userId:7,orgId:'hq',orgType:'headquarters',roleCode:'finance'}}={}) {
   const {connect}=require('./role-page-runtime.cjs');
   const runtime=await connect(),auth=require('../miniprogram/api/auth');
   auth.saveLogin({accessToken:'map-test-session',userId:7});
-  auth.savePosts([{postId:'hq-map',userId:7,orgId:'hq',orgType:'headquarters',roleCode:'finance'}]);
-  auth.switchPost('hq-map');
+  auth.savePosts([post]);
+  auth.switchPost(post.postId);
   const network=[],viewports=[],fits=[];
   wx.request=options=>{
     const url=new URL(options.url).pathname.replace('/admin-api','');
@@ -191,10 +191,37 @@ test('真实地图页面展示公开地址，Page 数据与搜索不保留原始
   Object.assign(source.records[0],{publicAddress:'公开门店大道 18 号',ownerName:'隐藏老板',phone:'13900139000',originalRegionText:'隐藏老板 13900139000'});
   const {page,runtime}=await openMap({source});
   const screen=await runtime.currentPage();
-  assert.match(await (await screen.$('.stores')).text(),/门店地址：公开门店大道 18 号/);
+  assert.match(await (await screen.$('.record-address')).text(),/公开门店大道 18 号/);
   assert(!JSON.stringify(page.data).includes('隐藏老板'));assert(!JSON.stringify(page.snapshot).includes('13900139000'));
   page.searchInput({detail:{value:'公开门店大道'}});page.searchName();assert.equal(page.data.rows.length,1);
   page.searchInput({detail:{value:'隐藏老板'}});page.searchName();assert.equal(page.data.rows.length,0);
+});
+
+test('加盟商与总部地图隐藏顶部范围横条，保留各自的统计、筛选和品牌图例',async()=>{
+  const source=fixture(), brand=source.brands[0];
+  const own={
+    ...source,scope:'brand',brandId:brand.id,brandName:brand.name,brands:[brand],
+    records:source.records.filter(row=>row.brandId===brand.id),
+    points:source.points.filter(point=>source.records.some(row=>row.id===point.recordId&&row.brandId===brand.id))
+  };
+  for(const admin of [false,true]){
+    const options=admin?{}:{source:own,post:{postId:'store-map',userId:7,orgId:'store',orgType:'store',roleCode:'boss',brandId:brand.id}};
+    const {runtime,page}=await openMap(options);
+    const screen=await runtime.currentPage();
+    assert.equal(page.data.admin,admin);
+    assert.equal(await screen.$('.scope'),null);
+    assert.match(await (await screen.$('.map-overview')).text(),admin?/加盟商总数/:/本品牌加盟商/);
+    assert.equal(!!await screen.$('.brand-filter'),admin);
+    assert.equal(!!await screen.$('.map-legend'),admin);
+    assert.equal(!!await screen.$('.brand-list'),admin);
+    const zoomIn=await screen.$('.zoom-actions [data-delta="1"]');
+    const zoomOut=await screen.$('.zoom-actions [data-delta="-1"]');
+    assert.ok(zoomIn&&zoomOut);
+    const before=page.data.scale;
+    await zoomIn.tap();
+    assert.notEqual(page.data.scale,before);
+    assert.equal(page.data.scale,10);
+  }
 });
 
 test('真实Page地区优先搜索和品牌切换保留区县；setData不包含全国目录；图钉名单可恢复',async()=>{
@@ -245,14 +272,16 @@ test('地图和地区目录加载失败可重试，隐藏/重开后迟到的旧�
   assert.match(page.data.error,/目录请求失败/);assert.equal(page.data.rows.length,0);
 });
 
-test('同县气泡渲染每个品牌名称与各自家/条数；点气泡保留全部品牌名单',async()=>{
+test('同县点位先显示家数，点击后展示品牌明细及该点名单',async()=>{
   const {page,runtime}=await openMap();
   page.applyRegion('420115');page.renderMap(true);
   const screen=await runtime.currentPage(),callout=await screen.$('.county-callout'),caption=await callout.text();
-  assert.match(caption,/测试甲/);assert.match(caption,/测试乙/);assert.match(caption,/1条覆盖记录/);
+  assert.equal(caption.trim(),'2');
   assert.equal(page.data.callouts[0].brands.length,2);
   await callout.tap();assert.equal(page.data.pinned,true);assert.equal(page.data.rows.length,3);
-  assert.match(await (await screen.$('.area-quick-status')).text(),/江夏区.*已有加盟商/);
+  const detail=await (await screen.$('.callout-detail')).text();
+  assert.match(detail,/测试甲/);assert.match(detail,/测试乙/);assert.match(detail,/1条覆盖记录/);
+  assert.match(await (await screen.$('.area-quick-status')).text(),/江夏区\s*已有加盟商/);
 });
 
 test('名称搜索跨所选县找出全范围记录，点击跨县加盟商定位所有真实县中心并高亮',async()=>{

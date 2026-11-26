@@ -37,13 +37,18 @@ const trainingByRole = {
   finance: ['finance', '财务收支与项目对账', '财务对账', '项目对账核对表', 1],
   'finance-lead': ['finance-lead', '财务复核与月度结账', '财务对账', '月度结账复核清单', 2]
 };
-const brand = { id: 'preview-brand', name: '合家美宅', color: '#985523' };
-const province = { provinceCode: '360000', provinceName: '江西省' };
-const city = { ...province, cityCode: '360100', cityName: '南昌市' };
+const brands = [
+  { id: 'preview-brand', name: '合家美宅', color: '#a389ce' },
+  { id: 'preview-villa', name: '别墅先生', color: '#d55351' },
+  { id: 'preview-house', name: '金宅子', color: '#3e985d' },
+  { id: 'preview-unplaced', name: '墅达人', color: '#407ecf' }
+];
+const province = { provinceCode: '420000', provinceName: '湖北省' };
+const city = { ...province, cityCode: '420100', cityName: '武汉市' };
 const districts = [
-  ['360102', '东湖区', 28.686, 115.899],
-  ['360103', '西湖区', 28.657, 115.877],
-  ['360121', '南昌县', 28.545, 115.945]
+  ['420115', '江夏区', 30.349, 114.314],
+  ['420111', '洪山区', 30.503, 114.344],
+  ['420105', '汉阳区', 30.555, 114.216]
 ].map(([code, name, latitude, longitude]) => ({
   ...city, code, name, level: 'district', parentCode: city.cityCode, districtCode: code, districtName: name, latitude, longitude
 }));
@@ -52,17 +57,26 @@ const regions = [
   { ...city, code: city.cityCode, name: city.cityName, level: 'city', parentCode: province.provinceCode },
   ...districts
 ];
-const stores = districts.map(district => ({
-  ...district, id: 'preview-store-' + district.code, brandId: brand.id, brandName: brand.name, brandColor: brand.color,
-  recordType: 'FRANCHISE', matchStatus: 'RESOLVED', regionCodes: [district.code],
-  name: district.name + '示例门店', publicAddress: city.cityName + district.name + '（演示资料）'
-}));
-const storeMap = {
-  scope: 'brand', schemaVersion: 2, publicProjectionVersion: 1, brandId: brand.id, brandName: brand.name, brands: [brand], records: stores,
-  points: stores.map(({ id, districtCode, latitude, longitude }) => ({
-    id: id + '-point', recordId: id, regionCode: districtCode, latitude, longitude, locationPrecision: 'district'
-  }))
-};
+const stores = [
+  [0, 0, '家居体验店'], [0, 0, '样板展示店'], [0, 0, '区县服务店'],
+  [1, 1, '家居体验店'], [1, 1, '样板展示店'], [2, 2, '家居体验店']
+].map(([brandIndex, districtIndex, label], index) => {
+  const district = districts[districtIndex], brand = brands[brandIndex];
+  return { ...district, id: 'preview-store-' + index, brandId: brand.id, brandName: brand.name, brandColor: brand.color,
+    recordType: 'FRANCHISE', matchStatus: 'RESOLVED', regionCodes: [district.code],
+    name: brand.name + ' · ' + label, publicAddress: city.cityName + district.name + '（示例地址）' };
+});
+function storeMap(admin) {
+  const brand = brands[0];
+  const records = admin ? stores : stores.filter(store => store.brandId === brand.id);
+  return {
+    scope: admin ? 'all' : 'brand', schemaVersion: 2, publicProjectionVersion: 1,
+    brandId: admin ? '' : brand.id, brandName: admin ? '' : brand.name, brands: admin ? brands : [brand], records,
+    points: records.map(({ id, districtCode, latitude, longitude }) => ({
+      id: id + '-point', recordId: id, regionCode: districtCode, latitude, longitude, locationPrecision: 'district'
+    }))
+  };
+}
 const replies = new Map([
   ['/platform/profile/mine', { id: '701', nickname: '陈明', avatar: '/assets/account-avatar.jpg' }],
   ['/platform/messages/center/summary', { count: 3 }],
@@ -83,8 +97,9 @@ if (require.main === module) {
     if (path === '/health') return send({ ready: true });
     if (path === '/franchise/store-map' || path === '/franchise/store-map/regions') {
       const role = String(req.headers['x-post-id'] || '').replace(/^preview-/, '');
-      if (!Object.hasOwn(trainingByRole, role)) return send(null, 403, '请选择本地加盟商演示身份');
-      if (path === '/franchise/store-map') return send(storeMap);
+      const admin = role === 'hq-admin';
+      if (!admin && !Object.hasOwn(trainingByRole, role)) return send(null, 403, '请选择本地地图演示身份');
+      if (path === '/franchise/store-map') return send(storeMap(admin));
       const parent = url.searchParams.get('parentCode');
       return send(parent ? regions.filter(row => row.parentCode === parent) : regions);
     }
