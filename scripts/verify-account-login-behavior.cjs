@@ -49,6 +49,8 @@ function createPage(overrides = {}) {
       const modules = {
         '../../utils/view-container': { routeValue: value => value || '', fail(message) { this.setData({ error: message }); } },
         '../../utils/learning-catalog':require('../miniprogram/utils/learning-catalog'),
+        '../../utils/store-map-access': require('../miniprogram/utils/store-map-access'),
+        './announcements/model': require('../miniprogram/pages/account/announcements/model'),
         '../../api/auth': auth, '../../utils/account-login': { defaultAccount: () => null, clearDefault() {}, saveDefault() {}, validNewPassword: () => true, consent: policy => ({accepted:true,agreementVersion:policy.agreementVersion,privacyVersion:policy.privacyVersion}), saveConsent:policy=>({accepted:true,agreementVersion:policy.agreementVersion,privacyVersion:policy.privacyVersion}), clearConsent(){}, ...overrides.accountLoginUtils },
         '../../api/http': http, '../../api/org': overrides.org || {}, '../../utils/organization': { roles: { boss: '老板', owner: '门店负责人', sales: '业务员', 'sales-lead': '业务负责人' }, templates: { store: ['boss', 'owner', 'sales', 'sales-lead'], headquarters: ['boss', 'owner', 'sales'] }, enabled: () => true, navigation: () => ({ tabs: [{ url: '/pages/admin/index', native: true }] }), apiContext: post => post, ...overrides.organization },
         '../../utils/sample-files': {}, './procurement': { products: [] }, '../../utils/account': account,
@@ -63,6 +65,33 @@ function createPage(overrides = {}) {
   page.data.view = 'login'; page.data.loginPolicy={agreementVersion:'2026-11-15',privacyVersion:'2026-11-15'}; page.data.checked = true; page.data.form = {};
   return { page, auth, http, wx, saved, navigated };
 }
+
+test('访客从服务和培训进入登录，按当前岗位恢复有效站内目标', () => {
+  const services = '/pages/account/index?view=services';
+  const selection = '/pages/account/index?view=selection';
+  const training = '/pages/account/training/index';
+  const map = '/pages/account/store-map/index';
+  for (const [detail, target] of [['services', services], ['selection', selection], ['service', services], ['product', selection]]) {
+    const env = createPage();
+    env.page.onLoad({ view: detail });
+    const login = new URL(env.navigated[0], 'https://fixture.invalid');
+    assert.equal(login.searchParams.get('view'), 'login');
+    assert.equal(login.searchParams.get('return'), target);
+  }
+  const store = { postId:'p1', orgType:'store', roleCode:'sales' };
+  const finance = { postId:'p1', orgType:'headquarters', roleCode:'finance' };
+  for (const [post, target, expected] of [
+    [store, services, services], [store, selection, selection], [store, map, map],
+    [store, training, training], [store, training+'?entry=academy', training+'?entry=academy'],
+    [finance, map, map], [finance, services, '/pages/admin/index'],
+    [store, services+'&extra=1', '/pages/admin/index'], [store, 'https://fixture.invalid', '/pages/admin/index']
+  ]) {
+    const env = createPage({ currentPost:post, http:{ currentPostId:()=>post.postId } });
+    env.page.options.return = target;
+    env.page.goAfterLogin();
+    assert.deepEqual(env.navigated, [expected]);
+  }
+});
 
 test('切换登录方式会取消迟到的微信登录并复位忙碌态', async () => {
   const pending = deferred();

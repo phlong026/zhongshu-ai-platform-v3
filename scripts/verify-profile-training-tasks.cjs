@@ -251,13 +251,15 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
   assert.equal(page.data.loggedIn,false);assert.equal(page.data.learningAvailable,true);
   assert.equal(page.data.courseId,'ai-video');assert.ok(page.data.courseImage);
   const text=allText(render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),page.data));
-  assert.ok(text.includes('学习培训')&&text.includes('AI短视频获客实战')&&text.includes('登录学习'));
+  assert.ok(text.includes('学习培训')&&text.includes('AI短视频获客实战')&&text.includes('登录后学习'));
   assert.ok(!text.includes('已完成'));assert.equal(requests.length,0);
   wx.navigateTo=options=>{navigations.push(options.url);return {};};
   for(const [selector,target] of [
-    ['.academy-section [data-action="learning"]','/pages/account/index?view=learning'],
-    ['.academy-section .course-card','/pages/account/index?view=course&id=ai-video'],
-    ['.franchise-section [data-action="academy"]','/pages/account/index?view=learning&entry=academy']
+    ['.academy-section .course-card','/pages/account/training/index'],
+    ['.franchise-section [data-action="academy"]','/pages/account/training/index?entry=academy'],
+    ['.franchise-section [data-action="services"]','/pages/account/index?view=services'],
+    ['.franchise-section [data-action="selection"]','/pages/account/index?view=selection'],
+    ['.franchise-section [data-action="storeMap"]','/pages/account/store-map/index']
   ]){
     await (await ui.$(selector)).tap();
     const url=new URL(navigations.at(-1),'http://local');
@@ -265,6 +267,18 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
     assert.equal(url.searchParams.get('return'),target);
   }
   assert.equal(requests.length,0);
+});
+
+test('用户协议归入隐私政策，返回协议上一级仍是隐私政策',async()=>{
+  const runtime=await connect();
+  await runtime.callWxMethod('navigateTo',{url:'/pages/account/index?view=policy'});await flush();
+  const page=getCurrentPages().at(-1),ui=await runtime.currentPage();
+  const screen=allText(render(path.resolve(__dirname,'../miniprogram/pages/account/index.wxml'),page.data));
+  assert.match(screen,/生效日期.*2026-11-15.*用户协议.*我们收集的信息/s);
+  await (await ui.$('button[data-view="agreement"]')).tap();await flush();
+  const agreement=getCurrentPages().at(-1);
+  assert.equal(agreement.data.view,'agreement');
+  assert.equal(require('../miniprogram/utils/page-navigation').parent(agreement),'/pages/account/index?view=policy');
 });
 
 test('头像上传和资料保存全部成功才更新显示，保存失败保留原头像',async()=>{

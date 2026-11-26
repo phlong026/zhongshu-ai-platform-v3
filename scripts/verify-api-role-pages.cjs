@@ -165,7 +165,7 @@ for (const [role, expected] of [
   reset(post(role, { lead: true }));
   const profile = pageOf(definitions.profile);
   profile.onShow();
-  assert.deepEqual(profile.data.entries, expected, role + ' must reach an implemented page with its required context');
+  assert.deepEqual(profile.data.entries.map(({text,url})=>({text,url})), expected, role + ' must reach an implemented page with its required context');
 }
 
 reset(post('finance-lead', { lead: true }));
