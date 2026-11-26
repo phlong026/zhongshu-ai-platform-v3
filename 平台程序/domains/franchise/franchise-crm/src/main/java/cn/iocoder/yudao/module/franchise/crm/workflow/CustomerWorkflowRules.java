@@ -66,17 +66,21 @@ public final class CustomerWorkflowRules {
             try { fields.put("nextContactOn", LocalDate.parse(String.valueOf(fields.get("nextContactOn"))).toString()); }
             catch (RuntimeException error) { throw invalid("下次联系日期格式无效"); }
         }
+        return new SaveCommand(input.revision(), input.occurredOn(), text(input.note(), 4000),
+                new LinkedHashMap<>(fields), attachments(input.attachments()));
+    }
+
+    static List<Attachment> attachments(List<Attachment> input) {
         List<Attachment> attachments = new ArrayList<>();
         Set<Long> ids = new java.util.HashSet<>();
-        for (Attachment attachment : input.attachments() == null ? List.<Attachment>of() : input.attachments()) {
+        for (Attachment attachment : input == null ? List.<Attachment>of() : input) {
             if (attachment == null) throw invalid("附件参数无效");
             long id = integer(attachment.assetId(), "assetId");
             if (id <= 0 || !ids.add(id)) throw invalid("附件编号无效或重复");
             attachments.add(new Attachment(Long.toString(id), text(attachment.title(), 200)));
         }
         if (attachments.size() > 20) throw invalid("每个步骤最多保留20个附件");
-        return new SaveCommand(input.revision(), input.occurredOn(), text(input.note(), 4000),
-                new LinkedHashMap<>(fields), List.copyOf(attachments));
+        return List.copyOf(attachments);
     }
 
     public static List<String> missing(Step step, LocalDate date, Map<String, Object> fields, List<Attachment> attachments) {
