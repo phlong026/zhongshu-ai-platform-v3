@@ -21,7 +21,7 @@ class DesignProjectCompanyPointsTest {
             return call.path().equals("/design-projects")?Map.of("list",List.of(flat,elevation),"nextCursor","next"):flat;
         });
         when(remote.projectPointsSpent(eq(post),anySet())).thenReturn(Map.of(123L,4L,456L,9L));
-        var service=new DesignFlowAccessService(null,remote,null,null,null,null);
+        var service=new DesignFlowAccessService(null,remote,null);
         var page=(Map<?,?>)service.invoke(post,new DesignFlowCall("GET","/design-projects",Map.of(),Map.of(),"read"));
         var rows=(List<?>)page.get("list");
         assertThat(((Map<?,?>)rows.get(0)).get("pointsSpent")).isEqualTo(4L);

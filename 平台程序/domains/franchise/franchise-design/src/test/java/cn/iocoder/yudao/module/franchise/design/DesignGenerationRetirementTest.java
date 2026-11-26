@@ -34,16 +34,16 @@ class DesignGenerationRetirementTest {
         verifyNoInteractions(legacy,remote,accounts,commands);
     }
     @Test void flowAliasesAndOldDrawingPriceRequestsCannotCreateJobsOrChargePoints() {
-        var remote=mock(RemoteDesignGateway.class);var points=mock(OrgPointPort.class);
-        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null,null,null,points);
+        var remote=mock(RemoteDesignGateway.class);
+        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null);
         for(String path:List.of("/design-projects/7/flat-jobs","/design-projects/7/elevation-jobs","/design-projects/7/revision-requests"))
             retired(()->flow.invoke(post,new DesignFlowCall("POST",path,Map.of(),Map.of("count",2),"key")));
         retired(()->flow.quote(post,"ai_flat",2));retired(()->flow.quote(post,"ai_elevation",2));
-        verifyNoInteractions(remote,points);
+        verifyNoInteractions(remote);
     }
     @Test void budgetAndHistoricalProjectWritesStopBeforeRemoteCallsAndCharges() {
-        var remote=mock(RemoteDesignGateway.class);var points=mock(OrgPointPort.class);
-        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null,null,null,points);
+        var remote=mock(RemoteDesignGateway.class);
+        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null);
         for (String route : List.of("POST /budget-drafts","PUT /budget-drafts/7","PUT /budget-drafts/7/name",
                 "POST /budget-drafts/7/import","POST /budget-drafts/7/estimates","POST /design-projects/7/budget-estimates/itemized",
                 "POST /budget-estimates/7/save","POST /budget/my-regions","PUT /budget/my-prices/7",
@@ -53,11 +53,11 @@ class DesignGenerationRetirementTest {
             retired(() -> flow.invoke(post, new DesignFlowCall(parts[0], parts[1], Map.of(), Map.of(), "old-key")));
         }
         retired(() -> flow.quote(post,"budget_estimate",1));
-        verifyNoInteractions(remote,points);
+        verifyNoInteractions(remote);
     }
     @Test void frozenBudgetsQuotesAndDesignVersionsRemainReadable() {
         var remote=mock(RemoteDesignGateway.class);
-        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null,null,null,mock(OrgPointPort.class));
+        var flow=new DesignFlowAccessService(mock(DesignAccessService.class),remote,null);
         for (String path : List.of("/budget-estimates/independent","/budget-estimates/9","/budget-estimates/9/quotes/10",
                 "/design-projects/7/result-versions","/design-projects/7/budget-estimates")) {
             var history=new DesignFlowCall("GET",path,Map.of(),Map.of(),"read-key");

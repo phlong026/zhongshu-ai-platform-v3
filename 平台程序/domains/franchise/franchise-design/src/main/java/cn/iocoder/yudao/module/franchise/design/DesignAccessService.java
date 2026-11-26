@@ -57,11 +57,6 @@ public class DesignAccessService {
     private final TransactionTemplate txTemplate;
     private final JdbcTemplate jdbcTemplate;
     private RemoteDesignGateway remote;
-    private cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader referenceReader;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setReferenceReader(cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader reader) {
-        this.referenceReader = reader;
-    }
     private PublicCaseAccessService publicCases;
     private AssetAccessPort localAssets;
 
@@ -145,27 +140,7 @@ public class DesignAccessService {
     // ========== 项目与任务 ==========
 
     public DesignServicePort.ProjectCreated createProject(PostSnapshot post, DesignServicePort.DesignProjectCreate cmd) {
-        if (remote != null) {
-            var ids = cn.iocoder.yudao.module.franchise.design.remote.RemoteReferenceReader.referenceIds(cmd.requirementInputs());
-            if (!ids.isEmpty()) {
-                if (referenceReader == null || localAssets == null) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
-                        1_112_100_003, "参考图读取协议尚未配置");
-                if (cmd.idempotencyKey() == null || cmd.idempotencyKey().isBlank()) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"创建参考图项目需要稳定业务键");
-                var translated = referenceReader.translate(post, cmd, localAssets, new AssetAccessPort.Actor(post.orgId(), serviceAccount(post), post.userId(), post.postId()));
-                return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), translated);
-            }
-            return remote.call(post, Operation.CREATE_PROJECT, cmd.idempotencyKey(), cmd);
-        }
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var created = designService.createProject(accountId, cmd, actor(post));
-            if (!created.replayed()) {
-                audit(post, "create-project", created.projectId(),
-                        Map.of("projectId", created.projectId(), "sourceType", String.valueOf(cmd.sourceType()),
-                                "line", String.valueOf(cmd.line())));
-            }
-            return created;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.ProjectPageView listProjects(PostSnapshot post, String cursor, int limit) {
@@ -286,17 +261,7 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved confirmFlatCandidate(PostSnapshot post, long projectId,
                                                                  Long expectedJobId, long candidateId, String key) {
-        if (remote != null) return remote.call(post, Operation.CONFIRM_FLAT_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var saved = designService.confirmFlatCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
-            if (!saved.replayed()) {
-                audit(post, "flat-selection", projectId,
-                        Map.of("projectId", projectId, "candidateId", candidateId,
-                                "versionId", saved.resultVersionId() == null ? 0L : saved.resultVersionId()));
-            }
-            return saved;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
@@ -306,17 +271,7 @@ public class DesignAccessService {
 
     public DesignServicePort.SelectionSaved selectElevationCandidate(PostSnapshot post, long projectId,
                                                                      Long expectedJobId, long candidateId, String key) {
-        if (remote != null) return remote.call(post, Operation.SELECT_ELEVATION_CANDIDATE, key, new Selection(projectId, expectedJobId, candidateId));
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var saved = designService.selectElevationCandidate(accountId, projectId, expectedJobId, candidateId, actor(post));
-            if (!saved.replayed()) {
-                audit(post, "elevation-selection", projectId,
-                        Map.of("projectId", projectId, "candidateId", candidateId,
-                                "versionId", saved.resultVersionId() == null ? 0L : saved.resultVersionId()));
-            }
-            return saved;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.RevisionSubmitted createRevisionRequest(PostSnapshot post, long projectId,
@@ -556,17 +511,7 @@ public class DesignAccessService {
 
     public DesignServicePort.EstimateCreated createBudgetEstimate(PostSnapshot post, long projectId,
                                                                   DesignServicePort.BudgetEstimateCreate cmd) {
-        if (remote != null) return remote.call(post, Operation.CREATE_BUDGET_ESTIMATE, cmd.idempotencyKey(), new Budget(projectId, cmd));
-        long accountId = serviceAccount(post);
-        return txTemplate.execute(status -> {
-            var created = designService.createBudgetEstimate(accountId, projectId, cmd, actor(post));
-            if (!created.replayed()) {
-                audit(post, "budget-estimate", created.estimateId(),
-                        Map.of("projectId", projectId, "estimateId", created.estimateId(),
-                                "regionCode", String.valueOf(cmd.regionCode()), "buildingArea", cmd.buildingArea()));
-            }
-            return created;
-        });
+        throw DesignGenerationPolicy.retired();
     }
 
     public DesignServicePort.UploadTicketView createUploadTicket(PostSnapshot post,
