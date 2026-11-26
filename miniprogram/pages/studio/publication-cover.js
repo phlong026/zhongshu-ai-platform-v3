@@ -1,6 +1,10 @@
 const { identity } = require('./publication-pending');
 const id = value => value == null ? '' : String(value);
-const validId = value => /^[1-9]\d{0,18}$/.test(id(value));
+function validAssetId(value) {
+  if (typeof value !== 'string' && !Number.isSafeInteger(value)) return '';
+  const text = String(value);
+  return /^[1-9]\d{0,18}$/.test(text) && (text.length < 19 || text <= '9223372036854775807') ? text : '';
+}
 const call = (wx, method, options) => new Promise((resolve, reject) => wx[method]({ ...options, success: resolve, fail: reject }));
 
 function guard(page, env, view = page.data.view) {
@@ -13,7 +17,7 @@ function guard(page, env, view = page.data.view) {
 }
 
 async function preview(env, assetId, alive = () => true) {
-  if (!validId(assetId)) throw Error('封面未保存，请重新选择');
+  if (!validAssetId(assetId)) throw Error('封面未保存，请重新选择');
   const ticket = await env.api.assets.downloadUrl(id(assetId));
   if (!alive()) throw { cancelled: true };
   const url = id(ticket && ticket.downloadUrl);
@@ -69,9 +73,9 @@ async function upload(page, env) {
     const mime = info.type === 'png' ? 'image/png' : ['jpeg', 'jpg'].includes(info.type) ? 'image/jpeg' : '';
     if (!mime) throw Error('请选择 JPG 或 PNG 图片作为封面');
     const uploader = env.uploadContent || require('../../utils/content-upload');
-    const assetId = id(await uploader(selected, mime, current, { maxBytes: 10 * 1024 * 1024 }));
+    const assetId = validAssetId(await uploader(selected, mime, current, { maxBytes: 10 * 1024 * 1024 }));
     if (!current()) return;
-    if (!validId(assetId)) throw Error('封面保存结果无效，请重新上传');
+    if (!assetId) throw Error('封面保存结果无效，请重新上传');
     let url = selected;
     try { url = await preview(env, assetId, current); } catch (error) { if (!current()) return; }
     if (!current()) return;
@@ -95,7 +99,7 @@ async function hydrate(page, env) {
   const list = page.data.view === 'records', rows = list ? page.data.records : [page.data.detail];
   const seq = page.__publicationPreviewSeq = (page.__publicationPreviewSeq || 0) + 1;
   const current = () => alive() && seq === page.__publicationPreviewSeq;
-  const pending = (rows || []).filter(row => row && validId(row.coverAssetId));
+  const pending = (rows || []).filter(row => row && validAssetId(row.coverAssetId));
   let next = 0;
   await Promise.all([0, 1, 2, 3].map(async () => {
     while (next < pending.length && current()) {
@@ -114,4 +118,4 @@ async function hydrate(page, env) {
   }));
 }
 
-module.exports = { preview, restore, upload, clear, hydrate };
+module.exports = { assetId: validAssetId, preview, restore, upload, clear, hydrate };

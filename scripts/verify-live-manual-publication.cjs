@@ -10,7 +10,7 @@ function flush() {
   return new Promise(resolve => setImmediate(resolve));
 }
 
-function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], work = async () => null, accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [], studioState = {}, storage = new Map(), downloadUrl }) {
+function loadPage({ create, list, verify = async () => {}, link = async () => {}, capture, works = async () => [], work = async () => null, accounts = async () => [], growthContents = [], pageData, alive = () => true, scope = () => 'post-42', toasts = [], routes = [], writes = [], studioState = {}, storage = new Map(), downloadUrl, token = 'fixture-token' }) {
   let definition;
   const studio = {
     title: '',
@@ -62,7 +62,7 @@ function loadPage({ create, list, verify = async () => {}, link = async () => {}
     '../../api/franchise/crm': { leads: { capture: capture || (async () => ({ result: 'CREATED', customerId: 'customer-1' })) } },
     '../../api/http': {
       base: () => 'https://fixture.example.test/admin-api',
-      token() { return 'fixture-token'; }, currentUserId() { return '42'; },
+      token() { return token; }, currentUserId() { return '42'; },
       sessionGeneration() { return 1; }, tenantId() { return 1; },
       sessionGuard() { return alive; },
       requestGuard() { return alive; }
@@ -103,7 +103,7 @@ const basePublishData = {
 };
 
 test('旧生成任务不会恢复，只有本作品已应用的封面可以随外部发布链接登记', async () => {
-  for (const scenario of ['applied', 'foreign', 'candidate', 'unsafe', 'frozen']) {
+  for (const scenario of ['applied', 'foreign', 'candidate', 'unsafe', 'overflow', 'frozen']) {
     const assetId = '900719925474099992', previews = [], created = [], reads = [];
     const oldKey = 'zs-publication-cover-generation-v1:' + encodeURIComponent(JSON.stringify(['1','42','8','post-42'])) + ':8';
     const storage = new Map([[oldKey, { workId:'8', key:'old-cover-job', result:{status:'READY',assetId:'903'} }]]);
@@ -111,7 +111,7 @@ test('旧生成任务不会恢复，只有本作品已应用的封面可以随�
     storage.get = key => { reads.push(key); return read(key); };
     const draft = { ...basePublishData, workId:scenario==='foreign'?'9':'8', cover:'wxfile://expired.jpg',
       coverTemplateId:'old', coverGeneratedAssetId:'903', sheet:'cover-templates' };
-    if (scenario !== 'candidate') draft.coverAssetId = scenario === 'unsafe' ? Number(assetId) : assetId;
+    if (scenario !== 'candidate') draft.coverAssetId = { unsafe: Number(assetId), overflow: '9223372036854775808' }[scenario] || assetId;
     const cached = { publishDrafts:{'8':draft} };
     if (scenario === 'frozen') cached.linkFlows = { '8': { workId:'8', createKey:'unchanged', payload:{
       workId:'8',title:'原草稿',publishText:'原正文',publisherAccountId:'201',platform:'channels'
@@ -124,13 +124,45 @@ test('旧生成任务不会恢复，只有本作品已应用的封面可以随�
     assert.equal(page.data.workId,'8'); assert.notEqual(page.data.sheet,'cover-templates');
     assert.equal(page.data.coverGeneratedAssetId,undefined);assert.equal(page.restoreCoverGeneration,undefined);
     assert.equal(reads.includes(oldKey),false);
-    assert.deepEqual(previews,['applied','frozen'].includes(scenario)?[assetId]:[]);
+    const hasAppliedCover = ['applied','frozen'].includes(scenario);
+    assert.deepEqual(previews,hasAppliedCover ? [assetId] : []);
+    assert.equal(page.data.cover,hasAppliedCover ? 'https://assets.example.test/'+assetId+'.png' : '');
     page.setData({...basePublishData, publisherAccountsLoaded:true, publisherAccounts:[{id:'201',platform:'channels',enabled:true}]});
     await page.submitLinkAndLead();
     assert.equal(created.length,1);assert.equal(page.data.linkSaved,true);
     assert.equal(Object.hasOwn(created[0].body,'coverAssetId'),scenario==='applied');
     if(scenario==='applied') assert.equal(created[0].body.coverAssetId,assetId);
     if(scenario==='frozen') assert.equal(created[0].key,'unchanged');
+  }
+});
+
+test('从客资发布设置进入时，在线只展示本作品已采用资产的受控预览', async () => {
+  const oldUrl = 'wxfile://abandoned-candidate.png', rawPack = 'https://legacy.example.test/pack.png';
+  const assetId = '9223372036854775807', preview = 'https://assets.example.test/authorized.png';
+  for (const scenario of ['raw', 'applied', 'unavailable', 'demo']) {
+    const hasAsset = ['applied', 'unavailable'].includes(scenario), previews = [], writes = [];
+    const draft = { workId:'8', cover:oldUrl, ...(hasAsset ? {coverAssetId:assetId} : {}) };
+    const page = loadPage({writes, token:scenario === 'demo' ? '' : 'fixture-token',
+      studioState:{publishDrafts:{'8':draft}}, growthContents:[{id:'content-51',workId:'8',
+        pack:{title:'来源文案',publishText:'内容',tags:'',platform:'channels',cover:rawPack}}],
+      downloadUrl:async id=>{previews.push(id); if(scenario === 'unavailable') throw Error('读取失败'); return {downloadUrl:preview};} });
+    const rendered = [], setData = page.setData.bind(page);
+    page.setData = patch => { if (Object.hasOwn(patch,'cover')) rendered.push(patch.cover); setData(patch); };
+    page.onLoad({view:'publish',work:'8',[scenario === 'raw' ? 'content' : 'confirm']:'content-51'});
+    page.onShow(); await flush(); await flush();
+    assert.equal(page.data.publishText,'内容');
+    if (scenario === 'demo') {
+      assert.equal(page.data.cover,rawPack);
+      assert.deepEqual(previews,[]);
+      continue;
+    }
+    assert.equal(rendered.includes(rawPack) || rendered.includes(oldUrl), false);
+    assert.deepEqual(previews,hasAsset ? [assetId] : []);
+    assert.equal(page.data.cover,scenario === 'applied' ? preview : '');
+    assert.equal(Boolean(page.data.coverError),scenario === 'unavailable');
+    page.persistEditor();
+    assert.equal(writes.at(-1).publishDrafts['8'].cover,'');
+    assert.equal(writes.at(-1).publishDrafts['8'].coverAssetId,hasAsset ? assetId : '');
   }
 });
 
