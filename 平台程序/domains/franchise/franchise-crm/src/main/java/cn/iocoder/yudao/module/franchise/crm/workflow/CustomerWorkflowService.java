@@ -151,7 +151,7 @@ public class CustomerWorkflowService {
         return reads.read(post, customer);
     }
 
-    private CustomerDO lockWritable(PostSnapshot post, long customerId, String key) {
+    CustomerDO lockWritable(PostSnapshot post, long customerId, String key) {
         commands.requireIdempotencyKey(key);
         CustomerDO before = customers.requireWritable(post, customerId);
         long tenant = CustomerWorkflowReadService.tenant();
@@ -191,7 +191,7 @@ public class CustomerWorkflowService {
         return normalized;
     }
 
-    private void validateAttachments(PostSnapshot post, long customerId, List<Attachment> attachments) {
+    void validateAttachments(PostSnapshot post, long customerId, List<Attachment> attachments) {
         if (attachments.isEmpty()) return;
         attachmentPolicy.requireAttachable(post, customerId, attachments);
         var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
@@ -205,7 +205,7 @@ public class CustomerWorkflowService {
 
     @Transactional(rollbackFor = Exception.class)
     public AssetAccessPort.DownloadUrlView download(PostSnapshot post, long customerId, String code, long assetId) {
-        Step step = manual(code);
+        Step step = Step.parse(code);
         CustomerDO customer = customers.requireReadable(post, customerId);
         long tenant = CustomerWorkflowReadService.tenant(); reads.requireTenantCompany(tenant, customer.getCompanyId());
         attachmentPolicy.requireReferenced(tenant, customer.getCompanyId(), customerId, step.name(), assetId);

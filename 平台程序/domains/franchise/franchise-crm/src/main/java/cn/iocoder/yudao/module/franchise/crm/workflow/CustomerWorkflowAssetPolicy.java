@@ -53,7 +53,7 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
     }
 
     @Override public void requireReadable(PostSnapshot post, long customerId, String code, long assetId) {
-        if (!post.equals(posts.require()) || !CustomerWorkflowModel.Step.parse(code).manual()) throw exception(RESOURCE_FORBIDDEN);
+        if (!post.equals(posts.require())) throw exception(RESOURCE_FORBIDDEN);
         long tenant = CustomerWorkflowReadService.tenant();
         var customers = jdbc.query("""
                 SELECT c.id,c.company_id,c.owner_user_id,c.team_id FROM fr_customer c
@@ -81,6 +81,12 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
     public void requireReferenced(long tenant, long company, long customerId, String code, long assetId) {
         if (tenant != CustomerWorkflowReadService.tenant() || assetId <= 0) throw exception(RESOURCE_FORBIDDEN);
         String json = reference(assetId);
+        Boolean supplement = jdbc.queryForObject("""
+                SELECT EXISTS(SELECT 1 FROM fr_customer_step_supplement
+                WHERE tenant_id=? AND company_id=? AND customer_id=? AND step_code=? AND attachments @> CAST(? AS jsonb))
+                """, Boolean.class, tenant, company, customerId, code, json);
+        if (Boolean.TRUE.equals(supplement)) return;
+        if (!CustomerWorkflowModel.Step.parse(code).manual()) throw exception(RESOURCE_FORBIDDEN);
         Boolean exists = jdbc.queryForObject("""
                 SELECT EXISTS(
                   SELECT 1 FROM fr_customer_workflow w JOIN fr_customer_workflow_step s
@@ -104,10 +110,12 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                   UNION
                   SELECT w.customer_id FROM fr_customer_workflow w JOIN fr_customer_workflow_event e
                     ON e.workflow_id=w.id AND e.tenant_id=w.tenant_id AND e.company_id=w.company_id
-                    WHERE w.tenant_id=? AND w.company_id=? AND e.attachments @> CAST(? AS jsonb))
+                    WHERE w.tenant_id=? AND w.company_id=? AND e.attachments @> CAST(? AS jsonb)
+                  UNION
+                  SELECT customer_id FROM fr_customer_step_supplement WHERE tenant_id=? AND company_id=? AND attachments @> CAST(? AS jsonb))
                 """, (rs, n) -> new CustomerDO().setId(rs.getLong("id")).setCompanyId(rs.getLong("company_id"))
                         .setOwnerUserId(rs.getLong("owner_user_id")).setTeamId(rs.getObject("team_id", Long.class)),
-                company, tenant, company, json, tenant, company, json));
+                company, tenant, company, json, tenant, company, json, tenant, company, json));
         var extra = references.orderedStream().flatMap(port -> port.customerIds(tenant, company, asset).stream())
                 .filter(id -> owners.stream().noneMatch(customer -> customer.getId().equals(id))).distinct().toList();
         if (!extra.isEmpty()) {
