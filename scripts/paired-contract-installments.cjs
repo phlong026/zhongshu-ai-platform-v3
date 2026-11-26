@@ -28,6 +28,15 @@ function read(data, post) { return model.detail(data, f.commission, f.sales.orgI
 async function scenario() {
   const before = read(await handover.get(f.commission), f.sales);
   assert.equal(before.submissionTerms.plan.source, 'DRAFT');
+  const form = { ...model.form(before), confirmationDate: f.today, confirmationAssetId: f.confirmationFile,
+    managerUserId: f.engineer.userId, note: '按本版客户成果交接资料', confirmed: true };
+  await handover.submit(f.commission,model.payload('submit',form,before,[f.engineer],f.today),key('design-only'));
+  actor = 'engineer';
+  const unsigned = read(await handover.get(f.commission), f.engineer);
+  assert.equal(unsigned.canReceive,false); assert.equal(unsigned.canReturn,true); assert.equal(unsigned.projectId,'');
+  await assert.rejects(handover.receive(f.commission,{ revision: unsigned.revision,handoverVersion: unsigned.currentPacket.version,
+    reason: '尚未签约', confirmed: true }, key('unsigned')), /已签施工合同/);
+  await handover.return(f.commission,model.payload('return',{ reason: '请补齐已签施工合同及分期' },unsigned,[],f.today),key('return-design'));
   actor = 'finance';
   const deposit = await finance.registerReceipt({ customerId: f.customer, name: '签约前施工预收',
     amountCents: 10000, method: 'bank', receivedDate: f.today,
@@ -51,8 +60,7 @@ async function scenario() {
   let context = read(await handover.get(f.commission), f.sales);
   assert.equal(context.submissionTerms.plan.version, 1);
   assert.deepEqual(context.submissionTerms.plan.rows.map(row => [row.paidText, row.remainingText]), [['100.00','300.00'],['0.00','600.00']]);
-  const form = { ...model.form(context), confirmationDate: f.today, confirmationAssetId: f.confirmationFile,
-    managerUserId: f.engineer.userId, note: '按正式施工合同逐期交接，首期已登记原预收款', confirmed: true };
+  form.note = '按正式施工合同逐期交接，首期已登记原预收款';
   const submit = model.payload('submit', form, context, [f.engineer], f.today);
   // A pre-signing client can still see the old design proposal. Never silently substitute it.
   const legacy = { ...submit }; delete legacy.checkedContract;
@@ -81,22 +89,33 @@ async function scenario() {
   await assert.rejects(engineering.register(project, { ...payment, amount: '400.00' }, key('exceed')));
   const pending = await engineering.register(project, payment, key('declare'));
   assert.equal(pending.stageStatus, 'PENDING_CONFIRMATION'); assert.equal(Number(pending.receiptId), 0);
-  const declaration = model.id(pending.declarationId); assert.ok(declaration);
+  let declaration = model.id(pending.declarationId); assert.ok(declaration);
   assert.equal(model.id((await engineering.register(project, payment, key('declare'))).declarationId), declaration);
   assert.equal((await engineering.page(project)).declarations[0].status, 'PENDING');
   await assert.rejects(engineering.register(project, { ...payment, transactionNo: key('changed-no') }, key('declare')));
   await engineeringBalance(10000);
+  actor = 'finance';
+  await http.post('/franchise/sales/collection-declarations/' + declaration + '/return', { reason: '请补清晰到账凭据' }, header('return'));
+  actor = 'engineer';
+  const returned = (await engineering.page(project)).declarations.find(d => d.id === declaration);
+  assert.equal(returned.status,'RETURNED'); assert.match(returned.returnReason,/清晰/);
+  const corrected = { ...payment, fileAssetId: f.correctedProof };
+  const next = await engineering.register(project,corrected,key('correct'));
+  assert.ok(model.id(next.declarationId)); assert.notEqual(next.declarationId,declaration);
+  declaration=model.id(next.declarationId);
+  assert.equal((await engineering.register(project,corrected,key('correct'))).declarationId,declaration);
   const confirm = '/franchise/sales/collection-declarations/' + declaration + '/confirm';
   await assert.rejects(http.post(confirm, {}, header('no-finance')));
   actor = 'finance';
   const row = (await http.get('/franchise/sales/collection-declarations')).find(r => r.id === declaration);
-  assert.equal(row.voucher_file_id, f.engineeringProof); assert.equal(row.amount_cents, 15000);
+  assert.equal(row.voucher_file_id, f.correctedProof); assert.equal(row.amount_cents, 15000);
   const receipt = model.id((await http.post(confirm, {}, header('confirm'))).receiptId);
   assert.ok(receipt && receipt !== model.id(deposit.receiptId));
   assert.equal(model.id((await http.post(confirm, {}, header('confirm-again'))).receiptId), receipt);
   actor = 'engineer'; await engineeringBalance(25000);
   const history = (await engineering.page(project)).declarations;
-  assert.equal(history.length, 1); assert.equal(history[0].status, 'CONFIRMED'); assert.equal(history[0].receiptId, receipt);
+  assert.equal(history.length, 2); assert.equal(history[0].status, 'CONFIRMED'); assert.equal(history[0].receiptId, receipt);
+  assert.equal(history[1].status,'SUPERSEDED');
   const reread = read(await handover.get(f.commission), f.engineer);
   assert.equal(reread.currentPacket.plan.rows[0].paidText,'100.00');
   assert.equal(reread.currentContractTerms.rows[0].paidText,'250.00');
