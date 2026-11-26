@@ -429,6 +429,37 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  }
 
  @Test @org.springframework.transaction.annotation.Transactional
+ void ownerBusinessTeamReadsMonthlyVisitsFromBothSourcesWithoutDuplicates() {
+  var store=fixture.store();
+  var boss=fixture.post(store.orgId(),"boss",null);
+  long org=boss.orgId(), member=boss.userId();
+  jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,owner_user_id bigint,name text,summary text,last_follow_at timestamptz,next_visit_date date)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow(id bigint,company_id bigint,customer_id bigint,status text)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow_event(workflow_id bigint,company_id bigint,actor_user_id bigint,step_code text,action text,occurred_on date)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_follow(customer_id bigint,company_id bigint,author_user_id bigint,contact_kind text,occurred_on date)");
+  jdbc.execute("CREATE TEMP TABLE system_users(id bigint,nickname text)");
+  jdbc.update("INSERT INTO fr_customer VALUES(11,?,?,'两处都有','',NULL,NULL),(12,?,?,'只有旧记录','',NULL,NULL),(13,?,?,'只有八步记录','',NULL,NULL),(14,?,?,'非本月','',NULL,NULL),(21,?,?,'其他门店','',NULL,NULL)",org,member,org,member,org,member,org,member,org+1,member);
+  jdbc.update("INSERT INTO fr_customer_workflow VALUES(51,?,11,'ACTIVE'),(53,?,13,'ACTIVE'),(54,?,14,'ACTIVE'),(61,?,21,'ACTIVE')",org,org,org,org+1);
+  jdbc.update("""
+    INSERT INTO fr_customer_workflow_event VALUES
+    (51,?,?,'INTRODUCTION','SAVE','2026-11-03'),(51,?,?,'INTRODUCTION','COMPLETE','2026-11-05'),
+    (53,?,?,'INTRODUCTION','COMPLETE','2026-11-30'),(54,?,?,'INTRODUCTION','COMPLETE','2026-12-01'),
+    (61,?,?,'INTRODUCTION','COMPLETE','2026-11-06')
+    """,org,member,org,member,org,member,org,member,org+1,member);
+  jdbc.update("""
+    INSERT INTO fr_customer_follow VALUES
+    (11,?,?,'VISIT','2026-11-04'),(12,?,?,'VISIT','2026-11-01'),(14,?,?,'VISIT','2026-10-31'),
+    (21,?,?,'VISIT','2026-11-06')
+    """,org,member,org,member,org,member,org+1,member);
+  var team=new HomeTeamService(jdbc);
+  var row=team.members(boss,"business","2026-11").stream()
+          .filter(m->Long.toString(member).equals(m.get("id"))).findFirst().orElseThrow();
+  assertThat(row).containsEntry("visits",3L);
+  var records=(List<Map<String,Object>>)team.records(boss,"business","2026-11",member,"visitCustomers",1).get("rows");
+  assertThat(records).extracting(m->m.get("id")).containsExactly("11","12","13");
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
  void completedReshipsClearTheOriginalSupplyFromBothWorkbenchesOnlyAfterPhysicalArrival() {
   createHomeTables();
   var store=fixture.store();
