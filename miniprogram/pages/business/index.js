@@ -67,11 +67,12 @@ const patch={platformStatus:'ready',platformError:'',platCustomers:rows,platComm
 recentCustomer:desk[0]?{id:desk[0].id,initial:desk[0].initial,name:desk[0].name,stage:desk[0].stageName}:null,
 recentCreation:(works&&works[0])?{id:'work:'+(works[0].workId!=null?works[0].workId:works[0].id),title:String(works[0].title||'我的作品'),badge:'我的作品',image:'/assets/business-video.jpg'}:null};
 if(['boss','owner'].includes(post.roleCode)){
-const leads=Number(g.leads)||0,pubs=Number(g.publications)||0,converted=Number(g.converted)||0,max=Math.max(leads,pubs,converted,monthRows.length,1);
-const width=v=>Math.max(6,Math.round(v/max*100));
-const funnel=[{label:'新增线索',value:leads,source:'',width:width(leads),strong:false},{label:'内容发布',value:pubs,source:'',width:width(pubs),strong:false},{label:'转化客户',value:converted,source:'',width:width(converted),strong:false},{label:'设计委托',value:monthRows.length,source:'',width:width(monthRows.length),strong:true}];
+const leads=g.consultations??'—',converted=g.linkedCustomers??'—',signed=g.signedCustomers??'—';
+const metrics=[['已发布',g.publishedCount],['有效咨询',leads],['关联客户',converted],['已签约客户',signed],['有净实收客户',g.netPaidCustomers]];
+const max=Math.max(1,...metrics.map(([,v])=>Number(v)||0));
+const funnel=metrics.map(([label,v])=>({label,value:v??'—',width:Math.round(100*(Number(v)||0)/max)}));
 patch.isSalesHome=false;patch.isBossBiz=true;patch.bizDate=dateText;
-patch.bossBiz={commission,commissionCount:monthRows.length,leads,following,converted,conversion:leads?Math.round(monthRows.length/leads*100):null,funnel,staleCount:overdue.length,staleNames:overdue.slice(0,2).map(r=>r.name).join('、'),due:due.length,appointments:upcoming.length};
+patch.bossBiz={commission,commissionCount:monthRows.length,leads,following,converted,signed,funnel,staleCount:overdue.length,staleNames:overdue.slice(0,2).map(r=>r.name).join('、'),due:due.length,appointments:upcoming.length};
 }else{
 patch.isSalesHome=true;patch.isBossBiz=false;
 patch.customerCount=summaryRows.length;

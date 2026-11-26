@@ -52,7 +52,8 @@ function loadBusiness({ customerPage, commissionPage, session }) {
       if (request === '../../api/franchise/crm') return { customers: { page: customerPage } };
       if (request === '../../api/franchise/commission') return { commissions: { page: commissionPage } };
       if (request === '../../api/franchise/content') return {
-        growth: { summary: async () => ({ leads: 200, publications: 30, converted: 80 }) },
+        growth: { summary: async () => ({ publications: { published: 30, failed: 10 }, leads: { INVALID: 5, CONVERTED: 111 },
+          converted: 80, consultations: 200, publishedCount: 30, linkedCustomers: 80, signedCustomers: 12, netPaidCustomers: 6 }) },
         drafts: { works: async () => [] }
       };
       if (request === '../../api/auth') return auth;
@@ -95,6 +96,9 @@ function paged(all, calls, failure) {
   assert.deepEqual(customerCalls, [[1, 100], [2, 100]], '客户汇总应按100条分页拉完');
   assert.deepEqual(commissionCalls, [[1, 100], [2, 100]], '委托汇总应按100条分页拉完');
   assert.equal(page.data.bossBiz.following, 120, '跟进数不得只算前50条');
+  assert.equal(page.data.bossBiz.leads, 200);
+  assert.equal(page.data.bossBiz.signed, 12);
+  assert.deepEqual(Array.from(page.data.bossBiz.funnel, row => row.value), [30, 200, 80, 12, 6]);
   assert.equal(page.data.bossBiz.commissionCount, 125, '本月委托数不得只算前50条');
   assert.equal(page.data.bossBiz.commission.value, '1.25', '本月委托金额应基于完整结果');
   assert.equal(page.data.bossBiz.commission.unit, '万元');

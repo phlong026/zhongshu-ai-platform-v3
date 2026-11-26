@@ -10,11 +10,16 @@ const MANAGERS=['sales-lead','boss','owner'];
 const pendingAccessLost=error=>error?.postInvalid||[401,403,1103000002].includes(Number(error?.code));
 const currentPost=()=>{try{return http.token()?require('../../api/auth').currentApiPost():null;}catch(e){return null;}};
 const displayContent=content=>content?{...content,status:content.status==='演示已发布'?'已登记发布':content.status}:content;
-const totalOf=value=>{
-if(typeof value==='number'&&Number.isFinite(value))return value;
-if(!value||typeof value!=='object'||Array.isArray(value))return 0;
-return Object.values(value).reduce((total,count)=>total+(Number.isFinite(Number(count))?Number(count):0),0);
-};
+const validId=id=>typeof id==='number'?Number.isSafeInteger(id)&&id>0:typeof id==='string'&&/^[1-9]\d*$/.test(id);
+function count(value){
+  if(typeof value!=='number'&&!(typeof value==='string'&&/^\d+$/.test(value)))return '—';
+  const n=Number(value);
+  return Number.isSafeInteger(n)&&n>=0?n:'—';
+}
+function cohort(row){
+  return {consultations:count(row.consultations),linkedCustomers:count(row.linkedCustomers),
+    signedCustomers:count(row.signedCustomers),netPaidCustomers:count(row.netPaidCustomers)};
+}
 Page({...makeFormHandlers(),data:{view:'home',title:'内容与客资',contents:[],leads:[],form:{source:'直接来访'},error:'',primary:'',id:'',staff:[],published:[],directSourceChosen:false,pendingLeads:[]},
 onLoad(o){
 this.__captureUnloaded=false;this.id=o.id||'';
@@ -46,19 +51,21 @@ const current=()=>!this.__captureUnloaded&&request()&&identity===this.__growthId
 return contentApi.growth.summary().then(summary=>{
 if(!current())return;
 if(!summary||!Array.isArray(summary.perPublication))throw Error('发布作品读取失败');
-const rows=summary.perPublication.filter(row=>row&&/^\d+$/.test(String(row.publicationId??row.id))).map(row=>{
+const rows=summary.perPublication.filter(row=>row&&validId(row.publicationId??row.id)).map(row=>{
   const publicationId=String(row.publicationId??row.id);
-  return {id:publicationId,publicationId,workId:String(row.workId||''),publishedUrl:String(row.publishedUrl||''),title:String(row.title||row.workTitle||('发布作品 '+publicationId)),
-    leads:totalOf(row.leads),converted:totalOf(row.converted)};
+  return {id:publicationId,publicationId,workId:validId(row.workId)?String(row.workId):'',publishedUrl:String(row.publishedUrl||''),title:String(row.title||row.workTitle||('发布作品 '+publicationId)),
+    ...cohort(row)};
 });
 const selected=this.data.form.contentId;
 const index=selected?rows.findIndex(row=>row.id===selected)+1:0;
-this.setData({growthStats:{publications:totalOf(summary.publications),leads:totalOf(summary.leads),converted:totalOf(summary.converted)},
+const statuses=summary.publications;
+const publishedCount=summary.publishedCount??(statuses&&typeof statuses==='object'&&!Array.isArray(statuses)?statuses.published??0:null);
+this.setData({growthStats:{publishedCount:count(publishedCount),...cohort(summary)},
   published:rows,publishedNames:[DIRECT_SOURCE,...rows.map(row=>row.title)],publishedIndex:index,
   publicationError:selected&&!index?'原发布作品当前不可用，请重新选择客资来源。':''});
 }).catch(()=>{
-  if(current()&&this.data.view==='capture')this.setData({published:[],publishedNames:[DIRECT_SOURCE],publishedIndex:0,
-    publicationError:'发布作品暂时无法读取，请重试加载。'});
+  if(current())this.setData({growthStats:null,published:[],publishedNames:[DIRECT_SOURCE],publishedIndex:0,
+    publicationError:'发布作品与获客统计暂时无法读取，请重试。'});
 });
 },
 open(e){wx.navigateTo({url:'/pages/growth/index?view='+e.currentTarget.dataset.view+(e.currentTarget.dataset.id?'&id='+encodeURIComponent(e.currentTarget.dataset.id):'')});},
