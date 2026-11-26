@@ -124,6 +124,13 @@ module.exports = function (page, api) {
   page.submitWorkbench = async function () {
     if (this.data.wbBusy || !this.data.wbForm) return;
     const f = { ...this.data.wbForm }, aliveSession = http.sessionGuard(), generation = this.wbGeneration;
+    if (f.payrollRecordId) {
+      const post = auth.currentApiPost(), route = this.options || {};
+      if (String(post?.orgId) !== route.payrollCompany || String(post?.postId) !== route.payrollPost ||
+          !['finance', 'finance-lead'].includes(post?.roleCode) || require('../../../utils/api-scope')() !== this.__ledgerRouteIdentity) {
+        return this.setData({ wbForm: null, paymentNotice: '当前工作身份已变化，请重新核对薪酬原单' });
+      }
+    }
     const alive = () => aliveSession() && !this.__disposed && generation === this.wbGeneration;
     try {
       if (!f.name || !f.name.trim()) throw Error('请填写名称或事项说明');
@@ -160,6 +167,11 @@ module.exports = function (page, api) {
         if(alive())this.setData({'wbForm.voucherFileId':body.voucherFileId});
       }
       if (!alive()) return;
+      if (f.payrollRecordId) {
+        return await this.dispatchPreparedPayment({ payrollRecordId: f.payrollRecordId, expectedRegistrationCount: f.payrollRegistrationCount,
+          amountCents: body.amountCents, date: body.date, accountName: body.accountName, transactionNo: body.transactionNo,
+          voucherFileId: body.voucherFileId }, this.wbKey, f, 'payroll-payment');
+      }
       const result=f.type==='receipt'&&f.stageId?await http.post('/franchise/sales/stages/'+encodeURIComponent(f.stageId)+'/collect',{amountCents:body.amountCents,method:'other',transactionNo:body.transactionNo,receivedDate:body.date,voucherFileId:body.voucherFileId,accountName:body.accountName},{'Idempotency-Key':this.wbKey}):await http.post(endpoint.startsWith('/franchise/')?endpoint:base + endpoint, body, { 'Idempotency-Key': this.wbKey });
       if (!alive()) return;
       if(f.type==='linkbook'){this.options={...this.options,bookScope:f.scope};this.setData({bookScope:f.scope,canLinkBook:false});}

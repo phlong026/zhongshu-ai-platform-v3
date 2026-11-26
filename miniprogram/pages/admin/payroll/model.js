@@ -53,6 +53,19 @@ function record(value, company) {
     baseText: money(facts.baseSalaryCents), commissionText: money(facts.commissionCents), adjustmentText: money(facts.adjustmentCents), totalText: money(facts.totalCents),
     base: inputMoney(facts.baseSalaryCents), adjustment: inputMoney(facts.adjustmentCents), commissions: lines };
 }
+function settlement(value) {
+  if (!id(value?.currentRecordId) || !Number.isSafeInteger(value.registrationCount) || value.registrationCount < 0 ||
+      !Number.isSafeInteger(value.paymentCount) || value.paymentCount < 0) throw Error('原单归属尚未核实');
+  const result = { currentRecordId: id(value.currentRecordId), registrationCount: value.registrationCount, paymentCount: value.paymentCount };
+  if (value.latestPaymentId != null && !id(value.latestPaymentId)) throw Error('财务付款原单编号无效');
+  result.latestPaymentId = id(value.latestPaymentId);
+  for (const key of ['due', 'gross', 'refunded', 'paid', 'unpaid', 'overpaid']) {
+    const amount = value[key + 'Cents'];
+    if (typeof amount !== 'string' || !/^\d{1,19}$/.test(amount)) throw Error('付款核对金额无效');
+    result[key + 'Text'] = money(amount);
+  }
+  return result;
+}
 function page(value, expectedPage, company, kind) {
   if (!value || !Array.isArray(value.list) || Number(value.pageNo) !== expectedPage || !Number.isSafeInteger(Number(value.total)) || Number(value.total) < 0) throw Error('薪酬分页响应无效');
   return { rows: value.list.map(item => kind === 'rules' ? rule(item, company) : record(item, company)), total: Number(value.total) };
@@ -93,4 +106,4 @@ function rulePayload(form, ctx, selectedFamily) {
   }
   return body;
 }
-module.exports = { FAMILIES, id, money, month, cents, context, record, rule, page, stages, total, recordPayload, rulePayload };
+module.exports = { FAMILIES, id, money, month, cents, context, record, settlement, rule, page, stages, total, recordPayload, rulePayload };

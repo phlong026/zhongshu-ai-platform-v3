@@ -101,6 +101,18 @@ test('金额使用精确的分，规则与记录严格绑定公司、岗位和�
   assert.throws(() => model.rule(rule(1, { calculationMode: 'AUTO' }), '31'), /不匹配/);
 });
 
+test('核算详情按当前核算和财务原单分别展示应发、实际已发、未发及历史边界', async () => {
+  const env = await setup(), row = record();
+  env.records = [row];
+  env.handler = route => route === base + '/records/' + row.id ? { ...row, settlement: {
+    currentRecordId: row.id, dueCents: '300000', paidCents: '120000', unpaidCents: '180000', overpaidCents: '0',
+    grossCents: '150000', refundedCents: '30000', registrationCount: 1, paymentCount: 1 } } : undefined;
+  const page = await env.open(); await page.openRecord({ currentTarget: { dataset: { id: row.id } } }); await flush();
+  const view = env.text(page); assert.match(view, /应发[\s\S]*3,000\.00/); assert.match(view, /实际已发[\s\S]*1,200\.00/);
+  assert.match(view, /未发[\s\S]*1,800\.00/); assert.match(view, /历史付款/);
+  assert.match(view, /登记薪酬付款/); assert.equal(env.posts().length, 0);
+});
+
 test('实际页面明确规则待配置与人工核算，没有自动工资或发款动作', async () => {
   const env = await setup(), page = await env.open(); assert.equal(page.data.ready, true);
   assert.match(env.text(page), /薪酬规则待配置/); assert.match(env.text(page), /不自动生成工资/); assert.match(env.text(page), /不代表真实发款/);
@@ -108,6 +120,62 @@ test('实际页面明确规则待配置与人工核算，没有自动工资或�
   await page.submit(); assert.equal(env.posts().length, 0);
   const request = env.requests.find(row => row.route === base + '/context').request;
   assert.equal(request.header['X-Post-Id'], '42'); assert.equal(request.header['tenant-id'], '1');
+});
+
+const amounts = row => ({ currentRecordId: row.id, dueCents: '300000', paidCents: '0', unpaidCents: '300000', overpaidCents: '0',
+  grossCents: '0', refundedCents: '0', registrationCount: 0, paymentCount: 0 });
+test('财务由核算记录进入原支出表，固定员工和月份，只登记实际输入金额，双击只出一张原单', async () => {
+  const env = await setup(), row = record(), resultId = '9007199254740999881'; env.records = [row];
+  const recordPath = base + '/records/' + row.id, payPath = recordPath + '/payments';
+  let pending;
+  env.handler = (route, req) => route === recordPath ? { ...row, settlement: amounts(row) } :
+    route === payPath ? (pending = req, { pending: true }) : undefined;
+  const payroll = await env.open(); await payroll.openRecord({ currentTarget: { dataset: { id: row.id } } });
+  await payroll.openPayment(); await flush();
+  const desk = getCurrentPages().at(-1); assert.equal(desk.route, 'pages/admin/finance-desk/index');
+  assert.equal(desk.data.wbForm.payrollRecordId, row.id); assert.equal(desk.data.wbForm.counterparty, row.snapshot.userName);
+  assert.equal(desk.data.wbForm.scope, 'company'); assert.equal(desk.data.wbForm.category, '绩效薪酬'); assert.ok(!desk.data.wbForm.amount);
+  desk.setData({ 'wbForm.amount': '123.45', 'wbForm.accountName': '公司账户' });
+  const save = desk.submitJourneyEntry(); desk.submitJourneyEntry(); await flush();
+  assert.equal(env.requests.filter(r => r.route === payPath).length, 1); assert.equal(env.requests.filter(r => r.route.endsWith('/workbench/entries')).length, 0);
+  assert.equal(pending.data.amountCents, 12345); assert.equal(pending.data.expectedRegistrationCount, 0); assert.ok(pending.header['Idempotency-Key']);
+  assert.equal(pending.data.counterparty, undefined); assert.equal(pending.data.payrollRecordId, undefined);
+  send(pending, { id: resultId, payrollRecordId: row.id }); await save; await flush();
+  assert.equal(desk.data.journeyResult.id, resultId); assert.equal(desk.data.paymentPending, false); assert.equal(desk.data.wbForm, null);
+});
+
+test('旧版本、只读岗位、原单口径缺失不能登记；切岗后迟到的原单信息被丢弃', async () => {
+  for (const role of ['boss', 'finance']) {
+    const env = await setup(role), row = record(), latest = record(2); env.records = [row];
+    const route = base + '/records/' + row.id;
+    env.handler = p => p === route ? { ...row, settlement: amounts(role === 'boss' ? row : latest) } : undefined;
+    const page = await env.open(); await page.openRecord({ currentTarget: { dataset: { id: row.id } } });
+    assert.doesNotMatch(env.text(page), /登记薪酬付款/); page.openPayment(); assert.equal(getCurrentPages().at(-1), page);
+    env.handler = p => p === route ? { ...row } : undefined; await page.loadSettlement();
+    assert.equal(page.data.settlement, null); assert.match(page.data.settlementError, /原单/);
+    let read; env.handler = (p, req) => p === route ? (read = req, { pending: true }) : undefined;
+    const loading = page.loadSettlement(); await flush(); page.onHide(); send(read, { ...row, settlement: amounts(row) }); await loading;
+    assert.equal(page.data.settlement, null); assert.equal(page.data.detail, null);
+  }
+});
+
+test('财务付款丢失回执后重进用原登记核验，另一员工回执不能解锁或重复入账', async () => {
+  const env = await setup(), row = record(), recordPath = base + '/records/' + row.id, resultId = '9007199254740999892'; env.records = [row];
+  let sent, wrong = true; const lookup = [];
+  env.handler = (url, request) => {
+    if (url === recordPath) return { ...row, settlement: amounts(row) };
+    if (url === recordPath + '/payments') { sent = request; return { pending: true }; }
+    if (url === recordPath + '/payments/registration-result') { lookup.push(request.data.key);
+      return { id: resultId, payrollRecordId: wrong ? '99001' : row.id }; }
+  };
+  const payroll = await env.open(); await payroll.openRecord({ currentTarget: { dataset: { id: row.id } } });
+  await payroll.openPayment(); await flush(); const desk = getCurrentPages().at(-1);
+  desk.setData({ 'wbForm.amount': '20.50', 'wbForm.accountName': '公司账户' });
+  const save = desk.submitJourneyEntry(); await flush(); sent.fail({ errMsg: '网络中断' }); await save;
+  assert.equal(desk.data.paymentPending, true); const key = sent.header['Idempotency-Key'];
+  desk.onHide(); desk.onShow(); await flush(); assert.equal(desk.data.paymentPending, true); assert.equal(desk.data.journeyResult, null);
+  wrong = false; await desk.retryPendingPayment(); await flush(); assert.equal(desk.data.journeyResult.id, resultId);
+  assert.equal(desk.data.paymentPending, false); assert.ok(lookup.every(k => k === key)); assert.equal(env.posts().length, 1);
 });
 
 test('财务可录入，老板只读，总部必须走独立只读模式', async () => {

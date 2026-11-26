@@ -8,6 +8,28 @@ const today=()=>require('../../../utils/account').localDate();
 const event=(type,extra={})=>({currentTarget:{dataset:{type,...extra}}});
 const contractStageName=(row,stages=[])=>row.stageLabel||row.stage_label||stages.find(s=>String(s.id)===String(row.stage_id||row.stageId))?.stageLabel||J.stageName(row.stage);
 module.exports=function(page,api){
+ page.openPayrollExpense=async function(){
+  const route=this.options||{},post=auth.currentApiPost();
+  if(!route.payrollRecord||this.__payrollOpened||!this.data.journeyEnabled||this.data.wbForm||this.data.registerBusy||this.data.paymentPending)return;
+  const model=require('../payroll/model'),recordId=model.id(route.payrollRecord);
+  if(!recordId||model.id(post?.orgId)!==route.payrollCompany||model.id(post?.postId)!==route.payrollPost||this.__ledgerRouteIdentity!==this.__financeIdentity)return;
+  const session=http.sessionGuard(),generation=this.wbGeneration,epoch=this.__financeReadEpoch,request=this.__payrollRead={};
+  const alive=()=>session()&&!this.__disposed&&!this.__financeHidden&&this.__payrollRead===request&&generation===this.wbGeneration&&epoch===this.__financeReadEpoch&&this.options?.payrollRecord===recordId;
+  try{
+   const response=await http.get('/franchise/finance/payroll/records/'+recordId);
+   if(!alive()||this.data.wbForm||this.data.registerBusy||this.data.paymentPending||this.data.journeyResult)return;
+   const row=model.record(response,route.payrollCompany),settlement=model.settlement(response.settlement);
+   if(row.id!==recordId||settlement.currentRecordId!==recordId)throw Error('核算版本已有更正，请返回核算记录重新核对');
+   this.openWorkbenchEntry(event('expense'));
+   if(this.data.wbForm?.type!=='expense')return;
+   this.__payrollOpened=true;
+   this.setData({'wbForm.payrollRecordId':recordId,'wbForm.payrollRegistrationCount':settlement.registrationCount,
+    'wbForm.scope':'company','wbForm.scopeLabel':'公司日常账','wbForm.category':'绩效薪酬','wbForm.fundingType':'COMPANY',
+    'wbForm.counterparty':row.userName,'wbForm.name':row.month+' 绩效薪酬','wbForm.payrollFamily':model.FAMILIES.find(r=>r.key===row.family).label,
+    'wbForm.payrollPaid':settlement.paidText,'wbForm.payrollRemaining':settlement.unpaidText,
+    journeyReturnLabel:'返回薪酬核算'});
+  }catch(error){if(alive())this.setData({paymentNotice:error.msg||error.message||'薪酬原单暂不可用，请返回核算记录重新核对'});}
+ };
  page.openMessageSource=function(){
   const o=this.options||{},id=String(o.messageObject||''),type=o.messageType;if(!/^\d+$/.test(id)||!type||!this.data.journeyEnabled||!this.__financeFacts||!this.__messageWorkbenchReady||this.data.platformFinance?.status!=='ready'||this.__messageSourceOpened)return;
   const event={currentTarget:{dataset:{id}}};
@@ -125,6 +147,7 @@ module.exports=function(page,api){
   const origin=this.__entryOrigin,scroll=this.__entryScroll||0;if(this.__entryOptions)this.options={...this.__entryOptions};this.__entryOrigin=null;this.__entryOptions=null;
   this.setData({...(origin||{}),journeyResult:null,journeyDeclaration:null,bookEntryDetail:null,journeyErrorField:''});
   if(this.options?.from==='commission')return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/commission/index'});
+  if(this.options?.payrollRecord)return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/payroll/index'});
   this.refresh();if(this.data.view==='desk')this.syncPlatformTasks();wx.pageScrollTo({scrollTop:scroll,duration:0});
  };
  page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
@@ -201,6 +224,7 @@ module.exports=function(page,api){
   this.setData({journeyErrorField:'',registerError:''});return submit.call(this,{type,form:f});
  };
  page.submitJourneyEntry=function(){
+  if(this.data.wbBusy||this.data.registerBusy||this.data.paymentPending)return;
   const f=this.data.wbForm||{},contract=f.type==='receipt'&&f.receiptMode!=='other';
   if(!f.scope)return this.journeyInvalid('scope','请选择项目或账本',true);
   if(contract&&!f.stageId)return this.journeyInvalid('stage','请选择本次收到的合同款项',true);
