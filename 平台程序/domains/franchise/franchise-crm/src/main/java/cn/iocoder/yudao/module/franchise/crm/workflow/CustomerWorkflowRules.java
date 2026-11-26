@@ -24,12 +24,16 @@ public final class CustomerWorkflowRules {
             Step.INTRODUCTION, Set.of("receptionist", "requirements", "feedback"),
             Step.HOUSE_SELECTION, Set.of("selectionMode", "customDirection", "referenceCaseId", "referenceCaseName", "selectionResult", "versionLabel", "confirmed"),
             Step.SITE_VISIT, Set.of("siteName", "address", "feedback"),
-            Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "orientation", "siteElevationNote", "checked"),
-            Step.QUOTATION, Set.of("quoteId", "amountCents", "scope", "versionLabel", "communicated", "result"));
+            Step.MEASUREMENT, Set.of("address", "measurer", "width", "depth", "area", "floors", "orientation", "siteElevationNote", "checked",
+                    "designContractAssetId", "designContractName"),
+            Step.QUOTATION, Set.of("quoteId", "amountCents", "scope", "versionLabel", "communicated", "result",
+                    "designFileAssetId", "designFileName"));
     private static final Set<String> BOOLEAN_FIELDS = Set.of("confirmed", "checked", "communicated");
     private static final Set<String> DECIMAL_FIELDS = Set.of("width", "depth", "area");
     private static final Set<String> MEASUREMENT_SITE_FIELDS = Set.of("orientation", "siteElevationNote");
     private static final Set<String> QUOTE_SNAPSHOT_FIELDS = Set.of("amountCents", "scope", "versionLabel");
+    /** 专用资料槽位的资产引用字段：05 步设计合同、06 步设计文件，与通用附件列表分开存放。 */
+    public static final Set<String> SLOT_ASSET_FIELDS = Set.of("designContractAssetId", "designFileAssetId");
 
     public static SaveCommand normalize(Step step, SaveCommand input) {
         SaveCommand normalized = normalizeForReplay(step, input);
@@ -61,9 +65,11 @@ public final class CustomerWorkflowRules {
                 if (decimal.signum() < 0 || decimal.compareTo(new BigDecimal("1000000")) > 0 || decimal.scale() > 2)
                     throw invalid("尺寸或面积超出允许范围");
                 fields.put(key, decimal.stripTrailingZeros().toPlainString());
-            } else if ("amountCents".equals(key) || "floors".equals(key) || "referenceCaseId".equals(key) || "quoteId".equals(key)) {
+            } else if ("amountCents".equals(key) || "floors".equals(key) || "referenceCaseId".equals(key) || "quoteId".equals(key)
+                    || SLOT_ASSET_FIELDS.contains(key)) {
                 long number = integer(value, key);
                 if ("quoteId".equals(key) && number <= 0) throw invalid("报价原单编号无效");
+                if (SLOT_ASSET_FIELDS.contains(key) && number <= 0) throw invalid("资料编号无效");
                 if (number < 0 || "amountCents".equals(key) && number > 9_000_000_000_000L
                         || "floors".equals(key) && number > 200) throw invalid("数值超出允许范围");
                 fields.put(key, Long.toString(number));
