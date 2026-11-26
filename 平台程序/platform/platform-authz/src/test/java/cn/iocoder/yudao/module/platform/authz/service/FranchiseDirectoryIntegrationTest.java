@@ -241,6 +241,74 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
                 .isInstanceOf(ServiceException.class).hasMessageContaining("加盟商档案");
     }
 
+    @Test void replacingAnAuthorizedAddressRequiresFreshConsentAndRenamingPreservesIt() {
+        var opened = onboard.onboardWithDistrict("测试甲", "湖北省", "武汉市", "黄陂区", "测试用户甲",
+                "13900001384", null, null, "", 7, "420116");
+        var listed = directory.get(opened.accountId());
+        String oldAddress = "合成门店旧地址88号";
+        String newAddress = "合成门店新地址89号";
+        var authorized = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                "", oldAddress, true, listed.version()), 7);
+        String authQuery = "SELECT public_address_authorized_by, public_address_authorized_at "
+                + "FROM pf_franchise_directory WHERE tenant_id=? AND id=?";
+        var grant = jdbc.queryForMap(authQuery, tenant, listed.id());
+        var renamed = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                "新显示名称", "  " + oldAddress + "  ", true, authorized.version()), 9);
+        assertThat(renamed.publicAddress()).isEqualTo(oldAddress);
+        assertThat(jdbc.queryForMap(authQuery, tenant, listed.id())).isEqualTo(grant);
+
+        assertThatThrownBy(() -> directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                renamed.publicName(), newAddress, true, renamed.version()), 9))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("重新确认");
+        assertThat(records(maps.snapshot())).filteredOn(r -> r.id().equals(listed.id()))
+                .extracting(FranchiseMapService.MapRecord::publicAddress).containsExactly(oldAddress);
+        var replaced = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                renamed.publicName(), newAddress, true, renamed.version(), true), 9);
+        assertThat(replaced.publicAddress()).isEqualTo(newAddress);
+        assertThat(jdbc.queryForMap(authQuery, tenant, listed.id())).containsEntry("public_address_authorized_by", 9L);
+        assertThat(records(maps.snapshot())).filteredOn(r -> r.id().equals(listed.id()))
+                .extracting(FranchiseMapService.MapRecord::publicAddress).containsExactly(newAddress);
+    }
+
+    @Test void changingBrandRevokesAddressConsentForLinkedAndImportedRecords() {
+        var opened = onboard.onboardWithDistrict("测试甲", "湖北省", "武汉市", "黄陂区", "测试甲甲",
+                "13900001381", null, null, "", 7, "420116");
+        var reader = onboard.onboardWithDistrict("测试乙", "湖北省", "武汉市", "新洲区", "测试乙乙",
+                "13900001382", null, null, "", 7, "420117");
+        String address = "武汉市黄陂区测试公开路88号";
+        var listed = directory.get(opened.accountId());
+        var authorized = directory.updateMapDisplay(listed.id(), new FranchiseDirectoryService.MapDisplayRequest(
+                "", address, true, listed.version()), 7);
+        var renamed = directory.update(listed.id(), new FranchiseDirectoryService.RecordRequest(
+                "合成门店改名", "测试甲", "FRANCHISE", "黄陂区", List.of("420116"),
+                "420000", "420100", authorized.version()), 7);
+        assertThat(renamed.publicAddress()).isEqualTo(address);
+        assertThat(renamed.publicAddressAuthorized()).isTrue();
+        var transferred = directory.update(listed.id(), new FranchiseDirectoryService.RecordRequest(
+                renamed.name(), "测试乙", "FRANCHISE", "黄陂区", List.of("420116"),
+                "420000", "420100", renamed.version()), 7);
+        assertThat(transferred.publicAddress()).isEmpty();
+        assertThat(transferred.publicAddressAuthorized()).isFalse();
+
+        var importA = new FranchiseDirectoryWorkbook.Row("synthetic:address:brand", 1, "Synthetic", "C3",
+                "测试甲", "合成导入门店", "湖北省", "武汉市", "黄陂区", "FRANCHISE", List.of("420116"), "");
+        var importB = new FranchiseDirectoryWorkbook.Row("synthetic:address:brand", 1, "Synthetic", "C3",
+                "测试乙", "合成导入门店", "湖北省", "武汉市", "黄陂区", "FRANCHISE", List.of("420116"), "");
+        String importedId = directory.importRows(List.of(importA), false, 7).rows().get(0).recordId();
+        var imported = directory.get(importedId);
+        directory.updateMapDisplay(importedId, new FranchiseDirectoryService.MapDisplayRequest(
+                "", address, true, imported.version()), 7);
+        assertThat(directory.importRows(List.of(importB), false, 7).updated()).isEqualTo(1);
+        assertThat(directory.get(importedId).publicAddressAuthorized()).isFalse();
+
+        selected.value = new PostSnapshot(2, 7, reader.orgId(), "store", "sales", null, false, Set.of());
+        var map = maps.snapshot();
+        assertThat(records(map)).filteredOn(r -> r.id().equals(listed.id()) || r.id().equals(importedId))
+                .hasSize(2).extracting(FranchiseMapService.MapRecord::publicAddress).containsOnly("");
+        assertThat(stores(map)).filteredOn(r -> r.id().equals(listed.id()) || r.id().equals(importedId))
+                .hasSize(2).extracting(FranchiseMapService.Store::publicAddress).containsOnly("");
+    }
+
     @Test void importsAndDirectoryReadsRemainTenantScoped() {
         var result=directory.importRows(List.of(row("shared-key","测试甲","黄陂区",List.of("420116"))),false,7);
         String id=result.rows().get(0).recordId();

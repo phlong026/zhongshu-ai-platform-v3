@@ -27,7 +27,12 @@ public class FranchiseDirectoryService {
                                 String provinceCode,String cityCode,Long expectedVersion) { }
     public record FromDirectoryRequest(String recordId,Long expectedVersion,String adminName,String adminMobile,
                                        String areaPinyin,String ownerPinyin,String remark,String districtCode) { }
-    public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion) { }
+    public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion,
+                                    Boolean publicAddressConfirmed) {
+        public MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion) {
+            this(publicName,publicAddress,publicAddressAuthorized,expectedVersion,null);
+        }
+    }
     public record ImportRow(String sourceKey,int sourceRow,String sourceSheet,String sourceCell,String brand,String name,
                             String recordType,String originalRegionText,String provinceCode,String cityCode,List<String> regionCodes,
                             String matchStatus,String status,String message,String recordId) { }
@@ -157,17 +162,18 @@ public class FranchiseDirectoryService {
                     """,id,tenant(),brand,row.name().trim(),row.recordType(),row.originalRegionText().trim(),resolution.status(),
                         emptyNull(resolution.provinceCode()),emptyNull(resolution.cityCode()),row.sourceKey(),row.sourceRow(),row.sourceSheet(),row.sourceCell(),actor,fingerprint);
             } else {
+                boolean carryAuthorization = keepsMapAddressAuthorization(before, row.recordType(), brand);
                 jdbc.update("""
                     UPDATE pf_franchise_directory SET brand_id=?,name=?,record_type=?,original_region_text=?,match_status=?,
                       province_code=?,city_code=?,source_fingerprint=?,
-                      public_address=CASE WHEN ?='FRANCHISE' THEN public_address ELSE NULL END,
-                      public_address_authorized=CASE WHEN ?='FRANCHISE' THEN public_address_authorized ELSE false END,
-                      public_address_authorized_by=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_by ELSE NULL END,
-                      public_address_authorized_at=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_at ELSE NULL END,
+                      public_address=CASE WHEN ? THEN public_address ELSE NULL END,
+                      public_address_authorized=CASE WHEN ? THEN public_address_authorized ELSE false END,
+                      public_address_authorized_by=CASE WHEN ? THEN public_address_authorized_by ELSE NULL END,
+                      public_address_authorized_at=CASE WHEN ? THEN public_address_authorized_at ELSE NULL END,
                       version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
                     """,brand,row.name().trim(),row.recordType(),row.originalRegionText().trim(),resolution.status(),
                         emptyNull(resolution.provinceCode()),emptyNull(resolution.cityCode()),fingerprint,
-                        row.recordType(),row.recordType(),row.recordType(),row.recordType(),tenant(),id);
+                        carryAuthorization,carryAuthorization,carryAuthorization,carryAuthorization,tenant(),id);
             }
             replaceRegions(id,resolution.codes());
         }
@@ -229,6 +235,12 @@ public class FranchiseDirectoryService {
             if(authorized&&address.isEmpty())throw invalid("请填写公开门店地址后再确认授权");
             if(!address.isEmpty()&&!"FRANCHISE".equals(before.recordType()))throw invalid("只有加盟商档案可以设置公开门店地址");
             rejectPrivateAccountValues(address,before,"公开门店地址");
+            if (before.publicAddressAuthorized() && authorized && !address.equals(before.publicAddress())
+                    && !Boolean.TRUE.equals(input.publicAddressConfirmed())) {
+                throw invalid("公开地址已变更，请重新确认新地址的公开展示授权");
+            }
+            // Legacy clients send the prior values with a name edit. Keep the original grant.
+            updateAddress = !address.equals(before.publicAddress()) || authorized != before.publicAddressAuthorized();
         }
         if(updateAddress) {
             jdbc.update("""
@@ -281,18 +293,25 @@ public class FranchiseDirectoryService {
                 """,row.name(),row.brand(),district.provinceName(),district.cityName(),district.name(),district.code(),tenant(),Long.parseLong(before.linkedOrgId()),accounts.get(0).get("account_id"));
             jdbc.update("UPDATE system_dept SET name=? WHERE tenant_id=? AND id=?",row.name(),tenant(),Long.parseLong(before.linkedOrgId()));
         }
+        long nextBrandId = brand(row.brand());
+        boolean carryAuthorization = keepsMapAddressAuthorization(before, row.recordType(), nextBrandId);
         jdbc.update("""
             UPDATE pf_franchise_directory SET name=?,brand_id=?,record_type=?,original_region_text=?,match_status=?,province_code=?,city_code=?,
-              public_address=CASE WHEN ?='FRANCHISE' THEN public_address ELSE NULL END,
-              public_address_authorized=CASE WHEN ?='FRANCHISE' THEN public_address_authorized ELSE false END,
-              public_address_authorized_by=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_by ELSE NULL END,
-              public_address_authorized_at=CASE WHEN ?='FRANCHISE' THEN public_address_authorized_at ELSE NULL END,
+              public_address=CASE WHEN ? THEN public_address ELSE NULL END,
+              public_address_authorized=CASE WHEN ? THEN public_address_authorized ELSE false END,
+              public_address_authorized_by=CASE WHEN ? THEN public_address_authorized_by ELSE NULL END,
+              public_address_authorized_at=CASE WHEN ? THEN public_address_authorized_at ELSE NULL END,
               version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
-            """,row.name(),brand(row.brand()),row.recordType(),row.originalRegionText(),after.resolution().status(),
+            """,row.name(),nextBrandId,row.recordType(),row.originalRegionText(),after.resolution().status(),
                 emptyNull(after.resolution().provinceCode()),emptyNull(after.resolution().cityCode()),
-                row.recordType(),row.recordType(),row.recordType(),row.recordType(),tenant(),id);
+                carryAuthorization,carryAuthorization,carryAuthorization,carryAuthorization,tenant(),id);
         replaceRegions(id,after.resolution().codes());return get(id);
     }
+    private static boolean keepsMapAddressAuthorization(Item previous, String nextType, long nextBrandId) {
+        // The existing permission applies to the brand to which the address was disclosed.
+        return "FRANCHISE".equals(nextType) && Long.toString(nextBrandId).equals(previous.brandId());
+    }
+
     private static FranchiseDirectoryWorkbook.Row requestRow(RecordRequest input,String source) {
         if(input==null)throw invalid("请填写名录资料");
         String type=text(input.recordType()).isEmpty()?"COVERAGE":input.recordType();
