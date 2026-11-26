@@ -9,9 +9,9 @@ COMMENT ON COLUMN pf_franchise_directory.public_address IS
 COMMENT ON COLUMN pf_franchise_directory.public_address_authorized IS
     '总部是否已明确确认该门店地址可对同品牌加盟商公开展示';
 COMMENT ON COLUMN pf_franchise_directory.public_address_authorized_by IS
-    '最近一次启用公开门店地址授权的后台操作人用户ID';
+    '当前公开门店地址授权的后台操作人用户ID；撤销授权时清空';
 COMMENT ON COLUMN pf_franchise_directory.public_address_authorized_at IS
-    '最近一次启用公开门店地址授权的时间';
+    '当前公开门店地址授权生效时间；撤销授权时清空';
 
 ALTER TABLE pf_franchise_directory
     ADD CONSTRAINT ck_pf_franchise_directory_public_address_authorized
