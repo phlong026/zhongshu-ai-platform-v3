@@ -70,6 +70,59 @@ test('财务按合同读取付款计划，不触发客户列表、需求、预�
   assert.equal(h.page.data.context.canEdit, false);
 });
 
+test('已签合同从详情、旧链接和版本历史进入都只读，旧服务返回可编辑也不开放调整', async () => {
+  for (const role of ['sales', 'sales-lead', 'boss', 'finance', 'finance-lead', 'project-manager', 'engineer', 'hq-admin']) {
+    const h = harness({ role, route: { contractId: '91', edit: '1', history: '1' } });
+    h.state.contract.status = 'SIGNED';
+    await h.open(); await tick();
+    assert.equal(h.page.data.context.canEdit, false);
+    assert.equal(h.page.data.showHistory, true);
+    h.page.viewVersion(tap({ version: '1' }));
+    assert.equal(h.page.data.selectedVersion.rows[0].amountText, '100.00');
+    h.page.closeVersion(); h.page.toggleHistory(); h.edit(); h.page.addRow();
+    await h.page.submit(); await h.page.runPending();
+    assert.equal(h.callsFor('save').length, 0); assert.equal(h.page.data.dirty, false);
+    assert.equal(h.nodes().some(n => n.tag === 'input' || ['startEdit', 'submit', 'runPending'].includes(n.attrs?.bindtap)), false);
+    assert.match(h.nodes().map(n => n.text || '').join(''), /施工合同已签署，付款计划已锁定/);
+    assert.equal(h.page.data.summary.rows[0].collectedText, '30.00');
+  }
+  const h = harness({ create: true, role: 'sales', api: { prepare: async () => ({
+    contracts: [{ contract: { id: '91', customerId: '42', status: 'SIGNED' } }], requirements: [], quotes: []
+  }) } });
+  h.state.contract.status = 'SIGNED'; await h.open(); h.edit(); await h.page.submit();
+  assert.equal(h.page.contractId, '91'); assert.equal(h.page.data.context.canEdit, false);
+  assert.equal(h.callsFor('create').length, 0); assert.equal(h.callsFor('save').length, 0);
+});
+
+test('旧页面发生签署或签前保存超时，丢弃未确认的调整并按签约原单展示', async () => {
+  for (const mode of ['return', 'retry', 'during-save']) {
+    const h = harness(); await h.open(); h.edit();
+    h.page.input(event('label', '签前未保存的备注', '900719925474099991'));
+    if (mode === 'retry') {
+      h.overrides.save = async () => { throw { code: -1 }; };
+      await h.page.submit();
+      h.overrides.get = async () => { throw { code: -1, msg: '网络中断' }; };
+      await h.page.runPending();
+      assert.equal(h.callsFor('save').length, 1); assert.equal(h.page.data.uncertain, true);
+      delete h.overrides.get;
+    }
+    h.state.contract.status = 'SIGNED'; h.state.contract.revision += 1;
+    if (mode === 'return') { h.page.onHide(); await h.open(); }
+    if (mode === 'retry') await h.page.runPending();
+    if (mode === 'during-save') {
+      h.overrides.save = async () => { throw { code: 409, msg: '施工合同已签署，付款计划已锁定' }; };
+      await h.page.submit();
+    }
+    assert.equal(h.page.data.context.status, 'SIGNED'); assert.equal(h.page.data.context.canEdit, false);
+    assert.equal(h.page._pending, null); assert.equal(h.page.data.uncertain, false);
+    assert.equal(h.page.data.editing, false); assert.equal(h.page.data.dirty, false);
+    assert.equal(h.page.data.form.rows[0].label, '备料款');
+    h.state.contract.status = 'WAIT_SIGN'; await h.page.load();
+    h.edit(); await h.page.submit(); await h.page.runPending();
+    assert.equal(h.page.data.context.status, 'SIGNED'); assert.equal(h.callsFor('save').length, mode === 'return' ? 0 : 1);
+  }
+});
+
 test('创建合同按任意期数提交统一比例，保留需求引用且不发送固定三期字段', async () => {
   const h = harness({ create: true, role: 'sales' }); await h.open();
   h.page.input(event('total', '100')); h.page.chooseMode(tap({ mode: 'RATIO' }));

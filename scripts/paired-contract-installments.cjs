@@ -7,6 +7,7 @@ global.wx = { getStorageSync: () => '', getSystemInfoSync: () => ({}) };
 const http = require('../miniprogram/api/http');
 const sale = require('../miniprogram/api/franchise/sales');
 const pay = require('../miniprogram/pages/workflow/payment-plan/api');
+const planModel = require('../miniprogram/pages/workflow/payment-plan/model');
 const finance = require('../miniprogram/api/finance');
 const engineering = require('../miniprogram/api/franchise/engineering').collections;
 const handover = require('../miniprogram/pages/external-handover/api');
@@ -53,6 +54,21 @@ async function scenario() {
   assert.equal((await sale.contracts.sign(contract, { signedDate: f.today, assetId: f.contractFile, revision: original.contract.revision }, key('sign'))).status, 'SIGNED');
   const first = original.stages[0], stage = first.stage;
   actor = 'finance';
+  const signed = await pay.get(contract);
+  assert.equal(signed.canEdit, false);
+  const locked = planModel.detail(signed, contract, String(f.sales.orgId));
+  assert.equal(locked.status, 'SIGNED'); assert.equal(locked.canEdit, false);
+  const attempted = planModel.payload({ ...locked.form, reason: '核对签后锁定' },
+    { contractId: contract, revision: locked.revision });
+  attempted.stages[0].amountCents -= 100;
+  attempted.stages[1].amountCents += 100;
+  const requiredLock = error => error.code === 409 && error.message === '施工合同已签署，付款计划已锁定';
+  await assert.rejects(pay.save(contract, attempted, key('try-changing-terms')), requiredLock);
+  await assert.rejects(http.post('/franchise/sales/contracts/' + contract + '/change-amounts',
+    { signAfterCents: 39900, baseDoneCents: 60100, capDoneCents: 0, tailCents: 0, reason: '旧付款页面' },
+    header('try-legacy-change')), requiredLock);
+  const afterAttempts = await pay.get(contract);
+  assert.deepEqual(afterAttempts.contract, signed.contract); assert.deepEqual(afterAttempts.stages, signed.stages);
   const allocation = '/franchise/sales/stages/' + first.stageId + '/allocate-receipt/' + deposit.receiptId;
   await http.post(allocation, {}, header('allocate'));
   await http.post(allocation, {}, header('allocate'));

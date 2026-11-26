@@ -7,6 +7,7 @@ const api = require('./api');
 const model = require('./model');
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorText = error => String(error?.msg || error?.message || '操作未完成，请重试');
+const lockedMessage = '施工合同已签署，付款计划已锁定';
 const revoked = error => error?.postInvalid || [401, 403, 404, 1110000000, 1110000001, 1113000004].includes(Number(error?.code));
 
 Page({
@@ -65,12 +66,8 @@ Page({
         const context = model.detail(result, this.contractId, String(post.orgId));
         if (this.data.context && context.revision < this.data.context.revision) { this.setData({ loading: false, refreshing: false }); return; }
         this.customerId = context.customerId;
-        const keep = !options.replace && this.data.dirty && context.canEdit;
-        const form = keep ? this.data.form : clone(context.form);
-        if (!keep) this._baseRevision = context.revision;
-        this.setData({ ready: true, loading: false, refreshing: false, context, customerName: context.customerName, creating: false,
-          editing: keep && this.data.editing, form, summary: model.preview(form), dirty: keep,
-          conflict: keep && this._baseRevision !== context.revision });
+        if (this.data.context?.status === 'SIGNED' && context.status === 'WAIT_SIGN') { this.setData({ loading: false, refreshing: false }); return; }
+        this.displayContract(context, !options.replace && this.data.dirty && context.canEdit);
       } else {
         if (!['sales', 'sales-lead', 'boss'].includes(post.roleCode) || post.orgType !== 'store') return this.clear('当前岗位不能创建合同');
         const result = await api.prepare(this.customerId);
@@ -97,11 +94,20 @@ Page({
           editing: true, form, summary: model.preview(form), dirty: keep, conflict: false });
       }
       if ((this._openHistory || this.data.showHistory) && this.contractId) { this._openHistory = false; this.setData({ showHistory: true }); this.loadHistory(); }
+      return true;
     } catch (error) {
       if (!current()) return;
       if (revoked(error)) this.clear(errorText(error));
       else this.setData({ loading: false, refreshing: false, error: errorText(error) });
     }
+  },
+  displayContract(context, keep) {
+    if (!context.canEdit) this._pending = null;
+    const form = keep ? this.data.form : clone(context.form);
+    if (!keep) this._baseRevision = context.revision;
+    this.setData({ ready: true, loading: false, refreshing: false, context, customerName: context.customerName, creating: false,
+      editing: keep && this.data.editing, form, summary: model.preview(form), dirty: keep,
+      uncertain: !!this._pending && this.data.uncertain, conflict: keep && this._baseRevision !== context.revision });
   },
   editable() { return this.alive() && this.data.editing && (this.data.creating || this.data.context?.canEdit)
     && !this.data.busy && !this.data.uncertain && !this.data.conflict; },
@@ -169,7 +175,11 @@ Page({
   },
   async runPending() {
     const command = this._pending;
-    if (!command || this.data.busy || !this.alive(command.scope)) return;
+    if (!command || this.data.busy || !this._visible || !this.alive(command.scope)) return;
+    if (command.contractId && this.data.uncertain) {
+      if (this.data.refreshing || !await this.load() || this._pending !== command || !this._visible
+          || !this.alive(command.scope) || !this.data.context?.canEdit) return;
+    }
     this._read = null; this._historyRead = null;
     this.setData({ busy: true, uncertain: false, error: '', refreshing: false, historyLoading: false });
     try {
@@ -195,6 +205,11 @@ Page({
       if (revoked(error)) return this.clear(errorText(error));
       const code = Number(error?.code), uncertain = !Number.isFinite(code) || code === -1 || code >= 500 && code < 600;
       if (!uncertain) this._pending = null;
+      if (command.contractId && code === 409 && errorText(error) === lockedMessage && this.data.context) {
+        this.setData({ busy: false });
+        this.displayContract({ ...this.data.context, status: 'SIGNED', statusLabel: '已签订', canEdit: false }, false);
+        return this.load({ replace: true });
+      }
       this.setData({ busy: false, uncertain, conflict: code === 409 || code === 1099000001,
         error: uncertain ? '保存结果尚未确认，请用原请求重试核对' : errorText(error) });
     }

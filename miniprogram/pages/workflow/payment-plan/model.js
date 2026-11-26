@@ -57,7 +57,7 @@ function detail(response, contractId, companyId) {
     signedDate: day(c.signedDate), reason: '', rows };
   return { contractId, customerId: id(c.customerId), customerName: String(response.customerName || ''), status: c.status,
     statusLabel: STATUS[c.status] || '待核对', revision: c.revision, planVersion: c.paymentPlanVersion,
-    totalText: money(c.totalCents), canEdit: response.canEdit === true && ['WAIT_SIGN', 'SIGNED'].includes(c.status), form };
+    totalText: money(c.totalCents), canEdit: response.canEdit === true && c.status === 'WAIT_SIGN', form };
 }
 function draft(response, customerId) {
   if (!response || id(response.customerId) !== customerId || !Number.isSafeInteger(response.revision) || response.revision < 0
