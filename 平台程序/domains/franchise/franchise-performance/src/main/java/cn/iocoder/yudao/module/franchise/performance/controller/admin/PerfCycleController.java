@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import jakarta.annotation.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -41,7 +42,7 @@ public class PerfCycleController {
                                                     @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(cycles.submit(post(), str(body.get("period")),
                 longOrNull(body.get("userId")) == null ? 0 : longOrNull(body.get("userId")),
-                str(body.get("note")), requireIdem(idem)));
+                str(body.get("note")), expectedRevision(body), requireIdem(idem)));
     }
 
     @PostMapping("/cycles/review")
@@ -51,7 +52,7 @@ public class PerfCycleController {
                                                     @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         return success(cycles.review(post(), str(body.get("period")),
                 longOrNull(body.get("userId")) == null ? 0 : longOrNull(body.get("userId")),
-                Boolean.TRUE.equals(body.get("approve")), str(body.get("note")), requireIdem(idem)));
+                Boolean.TRUE.equals(body.get("approve")), str(body.get("note")), expectedRevision(body), requireIdem(idem)));
     }
 
     @PostMapping("/cycles/appeal-resolve")
@@ -71,5 +72,15 @@ public class PerfCycleController {
     @PreAuthorize("@post.has('" + PerformancePermissions.QUERY + "')")
     public CommonResult<List<Map<String, Object>>> list(@RequestParam String period) {
         return success(cycles.list(post(), period));
+    }
+
+    private static Long expectedRevision(Map<String, Object> body) {
+        if (!body.containsKey("expectedRevision")) return null;
+        try {
+            long version = Long.parseLong(String.valueOf(body.get("expectedRevision")));
+            if (version >= 0) return version;
+        } catch (NumberFormatException ignored) {
+        }
+        throw new ServiceException(400, "周期版本须为非负整数");
     }
 }
