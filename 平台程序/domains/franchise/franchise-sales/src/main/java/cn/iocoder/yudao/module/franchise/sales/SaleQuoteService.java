@@ -152,11 +152,15 @@ public class SaleQuoteService implements CustomerWorkflowQuotePort {
                 || quote.getTotalCents() == null || quote.getTotalCents() <= 0) {
             throw exception(REFERENCE_INVALID);
         }
+        return new Quote(quote.getTotalCents(), quoteVersionLabel(quote));
+    }
+
+    private static String quoteVersionLabel(SaleQuoteDO quote) {
         String version = quote.getPriceVersion();
         if (quote.getBudgetVersion() != null && quote.getBudgetVersion() > 0) {
             version = "V" + quote.getBudgetVersion() + (version == null || version.isBlank() ? "" : " · " + version);
         }
-        return new Quote(quote.getTotalCents(), version == null || version.isBlank() ? "报价 #" + quoteId : version);
+        return version == null || version.isBlank() ? "报价 #" + quote.getId() : version;
     }
 
     /** B4：规范票据 JSON（字段对齐 v3 quote-export sheet；全部取自创建时冻结快照） */
@@ -165,6 +169,7 @@ public class SaleQuoteService implements CustomerWorkflowQuotePort {
         Map<String, Object> sheet = new LinkedHashMap<>();
         sheet.put("kind", "budget");
         sheet.put("version", quote.getId());
+        sheet.put("quoteVersionLabel", quoteVersionLabel(quote));
         sheet.put("date", quote.getCreateTime() == null ? null
                 : quote.getCreateTime().atZoneSameInstant(BUSINESS_ZONE).toLocalDate().toString());
         sheet.put("name", quote.getCustomerName());

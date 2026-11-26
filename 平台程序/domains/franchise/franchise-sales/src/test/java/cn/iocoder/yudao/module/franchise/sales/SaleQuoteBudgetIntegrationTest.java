@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 import cn.iocoder.yudao.module.franchise.crm.CustomerSchemeAdapter;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowAssetPolicy;
+import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.ReopenCommand;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.SaveCommand;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService;
 import cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowService;
@@ -100,6 +101,44 @@ class SaleQuoteBudgetIntegrationTest extends FranchisePgIntegrationTest {
             assertThat(as(() -> workflow.records(sales, customer, 1, 20)).getList()).hasSize(2)
                     .allSatisfy(event -> assertThat(event.fields()).containsEntry("quoteId", originalId));
             assertThat(budgetCount()).isEqualTo(2);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test void reopenedQuotationKeepsTheOldCommunicationAndRequiresAResultForTheReplacement() {
+        bindWorkflowTenant();
+        try {
+            var date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var original = as(() -> quotes.create(sales, command("12", "原价目"), key()));
+            var replacement = as(() -> quotes.create(sales, command("13", "调整价目"), key()));
+            String first = original.getId().toString(), second = replacement.getId().toString();
+            assertThat(as(() -> quotes.exportSheet(sales, original.getId())))
+                    .containsEntry("quoteVersionLabel", "V" + original.getBudgetVersion() + " · 原价目");
+            var firstFields = Map.<String,Object>of("quoteId", first, "communicated", true, "result", "客户要求调整");
+            var saved = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(0, date.minusDays(1), "", firstFields, List.of()), key()));
+            var done = as(() -> workflow.complete(sales, customer, "QUOTATION", saved.revision(), key()));
+            var reopened = as(() -> workflow.reopen(sales, customer, "QUOTATION", new ReopenCommand(done.revision(), "客户要求调整"), key()));
+            var unconfirmed = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(reopened.revision(), date, "", Map.of("quoteId", second), List.of()), key()));
+            assertThat(unconfirmed.steps().get(5).canComplete()).isFalse();
+            assertThatThrownBy(() -> as(() -> workflow.complete(sales, customer, "QUOTATION", unconfirmed.revision(), key())))
+                    .isInstanceOf(ServiceException.class).hasMessageContaining("向客户发送或说明");
+            var secondFields = Map.<String,Object>of("quoteId", second, "communicated", true, "result", "已向客户讲解");
+            var confirmed = as(() -> workflow.save(sales, customer, "QUOTATION",
+                    new SaveCommand(unconfirmed.revision(), date, "", secondFields, List.of()), key()));
+            var result = as(() -> workflow.complete(sales, customer, "QUOTATION", confirmed.revision(), key()));
+            assertThat(result.steps().get(5).fields()).containsEntry("quoteId", second)
+                    .containsEntry("versionLabel", "V" + replacement.getBudgetVersion() + " · 调整价目");
+            var completed = as(() -> workflow.records(sales, customer, 1, 20)).getList().stream()
+                    .filter(row -> row.type().equals("COMPLETE")).toList();
+            assertThat(completed).hasSize(2);
+            assertThat(completed.get(0).fields()).containsAllEntriesOf(secondFields);
+            assertThat(completed.get(0).occurredOn()).isEqualTo(date);
+            assertThat(completed.get(1).fields()).containsAllEntriesOf(firstFields)
+                    .containsEntry("amountCents", original.getTotalCents().toString());
+            assertThat(completed.get(1).occurredOn()).isEqualTo(date.minusDays(1));
         } finally {
             TenantContextHolder.clear();
         }
