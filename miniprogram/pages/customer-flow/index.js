@@ -10,8 +10,8 @@ const clone = value => JSON.parse(JSON.stringify(value));
 function quoteSourceChanged(previous, next) {
   if (previous.fields.quoteId || next.fields.quoteId) return previous.fields.quoteId !== next.fields.quoteId;
   return ['versionLabel', 'amountCents', 'scope'].some(key => previous.fields[key] !== next.fields[key])
-    || previous.attachments.length !== next.attachments.length
-    || previous.attachments.some((file, i) => file.assetId !== next.attachments[i].assetId);
+    || (previous.attachments.length > 0 && (previous.attachments.length !== next.attachments.length
+      || previous.attachments.some((file, i) => file.assetId !== next.attachments[i].assetId)));
 }
 const accessRevoked = error => error.postInvalid || [401, 403, 404, 1110000000, 1110000001].includes(Number(error.code));
 
@@ -146,6 +146,7 @@ Page({
     if (!this.editable() || this.selectedCode !== 'QUOTATION' || !this.data.form.fields.quoteId) return;
     const form = clone(this.data.form);
     Object.assign(form.fields, { quoteId: '', amountCents: '', versionLabel: '', scope: '', communicated: false, result: '' });
+    form.attachments = []; // A linked quote's supporting files do not identify the new external quotation.
     this.change(form);
   },
   quoteCommunicated(event) {

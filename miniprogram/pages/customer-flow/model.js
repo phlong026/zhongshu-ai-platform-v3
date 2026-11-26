@@ -45,7 +45,7 @@ function date(value) {
 }
 function dateTime(value) {
   if (!value) return '';
-  const timestamp = typeof value === 'number' ? value : Date.parse(value);
+  const timestamp = typeof value === 'number' ? (Math.abs(value) < 1e12 ? value * 1000 : value) : Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : '';
 }
 function fromCents(value) {
@@ -103,7 +103,7 @@ function quoteOptions(rows, customerId, companyId) {
     const price = String(row.priceVersion || '').trim();
     const version = Number.isSafeInteger(row.budgetVersion) && row.budgetVersion > 0
       ? 'V' + row.budgetVersion + (price ? ' · ' + price : '') : price || '报价 #' + quoteId;
-    const createdOn = typeof row.createTime === 'number' ? dateTime(row.createTime).slice(0, 10) : date(row.createTime);
+    const createdOn = Array.isArray(row.createTime) ? date(row.createTime.slice(0, 3)) : dateTime(row.createTime).slice(0, 10);
     return [{ id: quoteId, amount, version, label: [createdOn, version, '¥' + amount].filter(Boolean).join(' · ') }];
   });
 }

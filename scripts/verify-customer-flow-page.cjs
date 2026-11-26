@@ -79,6 +79,9 @@ test('step six uses an exact quote for this customer and submits a communication
   assert.ok(controls().some(node => node.attrs?.bindtap === 'openBudget'));
   assert.deepEqual(h.page.data.quoteOptions.map(item => item.id), [quote.id]);
   assert.match(h.page.data.quoteOptions[0].label, /^2026-11-25/);
+  const seconds = quote.createTime / 1000 + 0.345;
+  assert.match(model.quoteOptions([{ ...quote, createTime: seconds }], '42', '9')[0].label, /^2026-11-25/);
+  assert.equal(model.dateTime(seconds), '2026-11-25 00:05');
   h.page.chooseQuote({ detail: { value: '0' } });
   assert.equal(h.page.data.form.fields.amountCents, '12345.00');
   assert.ok(!h.page.data.fields.some(field => field.key === 'amountCents'));
@@ -167,6 +170,14 @@ test('外部正式报价改版或替换文件须重新登记沟通，原单选�
   Object.assign(step, { fields: { ...external, quoteId: '7701' } });
   await h.page.load({ replace: true });
   await h.page.startUpload({ name: '补充说明.pdf', path: '/local/n.pdf' });
+  assert.equal(h.page.data.form.fields.communicated, true);
+  assert.equal(h.page.data.form.occurredOn, oldDate);
+  h.page.removeQuote();
+  assert.deepEqual(h.page.data.form.attachments, []);
+  assert.equal(h.page.data.form.fields.communicated, false);
+  Object.assign(step, { fields: external, occurredOn: oldDate, attachments: [] });
+  await h.page.load({ replace: true });
+  await h.page.startUpload({ name: '首次正式报价.pdf', path: '/local/first.pdf' });
   assert.equal(h.page.data.form.fields.communicated, true);
   assert.equal(h.page.data.form.occurredOn, oldDate);
 });
