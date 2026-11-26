@@ -59,7 +59,8 @@ public class UnifiedStageAccountAdapter implements UnifiedStageAccountPort {
         var result = collectService.collect(post, stageRow.getId(),
                 new SaleContractService.CollectCommand(input.amountCents(), input.method(),
                         input.transactionNo(), input.occurredAt(),input.fileAssetId(),null),
-                "eng-unified:" + contractId + ":" + stage + ":" + input.transactionNo());
+                input.declarationKey()==null ? "eng-unified:" + contractId + ":" + stage + ":" + input.transactionNo()
+                        : "eng-declaration:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(input.declarationKey()));
         return new StageCollectResult(((Number) result.get("receiptId")).longValue(),
                 ((Number) result.getOrDefault("collectedCents", 0)).longValue(),
                 String.valueOf(result.get("stageStatus")),

@@ -149,10 +149,10 @@ public class EngCollectionService {
             row.put("id", c.getId());
             row.put("stage", c.getStage());
             row.put("purpose", c.getPurpose());
-            row.put("transactionNo", c.getTransactionNo());
             row.put("occurredAt", c.getOccurredAt());
             row.put("registrarUserId", c.getRegistrarUserId());
             if (full) {
+                row.put("transactionNo", c.getTransactionNo());
                 row.put("amountCents", c.getAmountCents());
                 row.put("fileAssetId", c.getFileAssetId());
                 row.put("receiptId", c.getReceiptId());
@@ -307,10 +307,16 @@ public class EngCollectionService {
                 && amount<=b.expectedCents()-b.collectedCents())) throw exception(ENGINEERING_INPUT_INVALID,"本次登记超过该期余款，请刷新核对");
         var unified = unifiedStages.collectStage(post, contractId, stage,
                 new cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.CollectInput(
-                        amount, "bank", transactionNo, date, cmd.fileAssetId()));
+                        amount, "bank", transactionNo, date, cmd.fileAssetId(),declaration?idempotencyKey:null));
         if (declaration) {
             if (!"PENDING_CONFIRMATION".equals(unified.stageStatus()) || unified.declarationId()==null)
                 throw new IllegalStateException("工程收款申报未返回待核实原单");
+            if (unified.replayed() && !Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type=?
+                    AND aggregate_id=? AND command='eng-collection-declare' AND org_id=? AND payload::jsonb->>'projectId'=?)
+                    """,Boolean.class,AGGREGATE,unified.declarationId(),post.orgId(),Long.toString(projectId)))) {
+                throw exception(ENGINEERING_INPUT_INVALID,"这笔流水已提交，请核对本工程原单");
+            }
             commands.record(post,AGGREGATE,unified.declarationId(),com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),
                     "eng-collection-declare",payload,idempotencyKey);
             return Map.of("receiptId",0,"declarationId",unified.declarationId(),"stageStatus",unified.stageStatus(),"replayed",unified.replayed());

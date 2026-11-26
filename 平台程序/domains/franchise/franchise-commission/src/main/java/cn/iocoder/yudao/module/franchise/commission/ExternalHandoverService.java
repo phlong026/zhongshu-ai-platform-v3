@@ -79,6 +79,7 @@ public class ExternalHandoverService {
             var actual=terms(post,subject.customer().getId(),null);
             if (ContractVersion.of(currentPacket.paymentPlan()).equals(ContractVersion.of(actual))) currentTerms=actual;
         }
+        if (decide && !validConstructionTerms(currentTerms)) actions.remove("external-packet-receive");
         SubmissionTerms submissionTerms=null;
         if (submit) {
             var request=external.requests(commissionId,post.orgId()).stream()
@@ -162,6 +163,7 @@ public class ExternalHandoverService {
             var docs=files(packet).stream().map(f -> new EngineeringPort.HandoverDocument(f.title(),f.assetId(),
                     "DRAWING".equals(f.slot())?"DRAWING":"DOCUMENT",packet.getDrawingVersion())).toList();
             var frozen=storedPlan(packet);
+            if (!validConstructionTerms(frozen)) throw conflict("请退回业务补齐已签施工合同及各期有效付款约定，再提交工程接收");
             var expected=ContractVersion.of(frozen);
             Long contractId=frozen==null?null:frozen.contractId();
             requireCurrentContract(post,customer.getId(),expected);
@@ -226,7 +228,19 @@ public class ExternalHandoverService {
     private void requireCurrentContract(PostSnapshot post,long customerId,ContractVersion expected) {
         var current=contracts.findPaymentPlan(post,customerId);
         var actual=current==null?new ContractVersion(null,null):new ContractVersion(Long.toString(current.contractId()),current.version());
-        if (!actual.equals(expected)) throw conflict("本包的施工合同或付款计划已变化，请退回业务重新移交");
+        if (current==null || !actual.equals(expected) || current.stages().isEmpty() || current.totalCents()<=0
+                || current.stages().stream().mapToLong(SaleContractQueryPort.PaymentStage::amountCents).sum()!=current.totalCents()
+                || current.stages().stream().anyMatch(s -> s.amountCents()<0 || s.amountCents()>0
+                    && !SaleContractQueryPort.hasAgreedDueCondition(s.trigger(),s.nodeIndex(),s.dueDate()))) {
+            throw conflict("本包的施工合同或付款计划已变化，请退回业务重新移交");
+        }
+    }
+    private static boolean validConstructionTerms(CustomerPaymentPlanDraftPort.Snapshot plan) {
+        return plan!=null && "CONTRACT".equals(plan.source()) && plan.contractId()!=null && plan.contractPlanVersion()!=null
+                && plan.contractPlanVersion()>0 && plan.stages()!=null && !plan.stages().isEmpty() && plan.totalCents()>0
+                && plan.stages().stream().mapToLong(CustomerPaymentPlanDraftPort.Stage::amountCents).sum()==plan.totalCents()
+                && plan.stages().stream().allMatch(s -> s.amountCents()>=0 && (s.amountCents()==0
+                    || SaleContractQueryPort.hasAgreedDueCondition(s.trigger(),s.nodeIndex(),s.dueDate())));
     }
     private CustomerPaymentPlanDraftPort.Snapshot terms(PostSnapshot post,long customerId,CustomerPaymentPlanDraftPort.Snapshot proposal) {
         // Stabilize the signed version, its stage amounts and net receipts for this snapshot.

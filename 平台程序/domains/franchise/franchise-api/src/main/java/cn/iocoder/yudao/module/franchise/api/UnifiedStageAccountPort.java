@@ -53,7 +53,10 @@ public interface UnifiedStageAccountPort {
     StageCollectResult collectStage(PostSnapshot post, long contractId, String stage, CollectInput input);
 
     record CollectInput(long amountCents, String method, String transactionNo,
-                        LocalDate occurredAt, Long fileAssetId) {
+                        LocalDate occurredAt, Long fileAssetId,String declarationKey) {
+        public CollectInput(long amountCents,String method,String transactionNo,LocalDate occurredAt,Long fileAssetId) {
+            this(amountCents,method,transactionNo,occurredAt,fileAssetId,null);
+        }
     }
 
     record StageCollectResult(long receiptId, long collectedCents, String stageStatus, boolean replayed, Long declarationId) {
