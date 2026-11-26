@@ -27,7 +27,8 @@
         <template #default="{ row }"
           ><strong>{{ row.name || row.originalRegionText }}</strong
           ><div class="muted">{{ row.brandName || row.brand }}</div
-          ><div v-if="row.publicName" class="muted">地图：{{ row.publicName }}</div></template
+          ><div v-if="row.publicName" class="muted">地图名称：{{ row.publicName }}</div
+          ><div v-if="row.publicAddressAuthorized && row.publicAddress" class="muted">公开地址：{{ row.publicAddress }}</div></template
         >
       </el-table-column>
       <el-table-column label="地区资料" min-width="240">
@@ -53,7 +54,7 @@
       </el-table-column>
       <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" :disabled="busy" @click="openMapEditor(row)">地图名称</el-button>
+          <el-button link type="primary" :disabled="busy" @click="openMapEditor(row)">地图展示</el-button>
           <el-button
             link
             type="primary"
@@ -85,13 +86,40 @@
 
     <el-dialog
       v-model="mapEditVisible"
-      title="公开地图名称"
-      width="min(520px, 96vw)"
+      title="公开地图展示设置"
+      width="min(600px, 96vw)"
       :close-on-click-modal="!saving"
       :close-on-press-escape="!saving"
       :show-close="!saving"
     >
-      <el-input v-model.trim="mapPublicName" maxlength="128" :disabled="saving" placeholder="不含人员姓名；留空则显示品牌与行政区" />
+      <div class="map-display-fields">
+        <label class="map-display-label">地图名称</label>
+        <el-input v-model.trim="mapPublicName" maxlength="128" :disabled="saving" placeholder="留空则显示品牌与行政区" />
+        <label class="map-display-label">公开门店地址</label>
+        <el-input
+          v-model.trim="mapPublicAddress"
+          type="textarea"
+          :rows="2"
+          maxlength="300"
+          show-word-limit
+          :disabled="saving || mapEditing?.recordType !== 'FRANCHISE'"
+          placeholder="仅填写已获授权可公开的门店经营地址"
+        />
+        <el-checkbox
+          :model-value="mapPublicAddressAuthorized"
+          :disabled="saving || mapEditing?.recordType !== 'FRANCHISE'"
+          @change="togglePublicAddressAuthorization"
+        >
+          我已确认该地址可对外公开，并已获得公开展示授权
+        </el-checkbox>
+        <el-alert
+          title="只有明确勾选并保存后，地址才会展示给同品牌加盟商及总部人员。不得填写业主住宅地址或个人联系方式；取消授权会清空公开地址。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        <p v-if="mapEditing?.recordType !== 'FRANCHISE'" class="muted">品牌区域资料不是门店档案，不支持设置公开门店地址。</p>
+      </div>
       <el-alert v-if="mapEditError" :title="mapEditError" type="error" :closable="false" />
       <template #footer>
         <el-button :disabled="saving" @click="mapEditVisible = false">取消</el-button>
@@ -287,6 +315,8 @@ const editError = ref('')
 const mapEditVisible = ref(false)
 const mapEditing = ref<DirectoryItem | null>(null)
 const mapPublicName = ref('')
+const mapPublicAddress = ref('')
+const mapPublicAddressAuthorized = ref(false)
 const mapEditError = ref('')
 const draft = reactive<DirectoryInput>({
   name: '',
@@ -433,19 +463,37 @@ function openMapEditor(item: DirectoryItem) {
   if (busy.value) return
   mapEditing.value = item
   mapPublicName.value = item.publicName || ''
+  mapPublicAddress.value = item.recordType === 'FRANCHISE' ? item.publicAddress || '' : ''
+  mapPublicAddressAuthorized.value = item.recordType === 'FRANCHISE' && !!item.publicAddressAuthorized
   mapEditError.value = ''
   mapEditVisible.value = true
+}
+
+function togglePublicAddressAuthorization(checked: boolean | string | number) {
+  mapPublicAddressAuthorized.value = checked === true
+  if (!mapPublicAddressAuthorized.value) mapPublicAddress.value = ''
 }
 
 async function saveMapDisplay() {
   if (busy.value || !mapEditing.value) return
   const generation = lifecycleGeneration
   const item = mapEditing.value
+  const publicAddress = mapPublicAddress.value.trim()
+  if (publicAddress && !mapPublicAddressAuthorized.value) {
+    mapEditError.value = '请确认已获得该门店地址的公开展示授权。'
+    return
+  }
+  if (mapPublicAddressAuthorized.value && !publicAddress) {
+    mapEditError.value = '请先填写公开门店地址。'
+    return
+  }
   saving.value = true
   mapEditError.value = ''
   try {
     await updateDirectoryMapDisplay(item.id, {
       publicName: mapPublicName.value.trim(),
+      publicAddress,
+      publicAddressAuthorized: mapPublicAddressAuthorized.value,
       expectedVersion: item.version
     })
     if (!active || generation !== lifecycleGeneration) return
@@ -594,6 +642,8 @@ function dispose() {
   mapEditVisible.value = false
   mapEditing.value = null
   mapPublicName.value = ''
+  mapPublicAddress.value = ''
+  mapPublicAddressAuthorized.value = false
   mapEditError.value = ''
   Object.assign(draft, { name: '', brand: '', originalRegionText: '', regionCodes: [] })
   saving.value = false
