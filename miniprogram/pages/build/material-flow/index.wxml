@@ -1,0 +1,44 @@
+<view class="eng-page">
+  <brand-header title="材料流转与补发" back="{{true}}"/>
+  <view class="flow-body">
+    <text wx:if="{{loading}}" class="eng-muted">正在读取材料原单…</text>
+    <view wx:if="{{error}}" class="eng-section">
+      <text class="flow-error">{{error}}</text>
+      <button wx:if="{{!line&&!loading}}" class="eng-outline" bindtap="load">重新加载</button>
+    </view>
+    <block wx:if="{{line}}">
+      <view class="eng-section">
+        <view class="eng-heading"><text>{{line.name}} {{line.spec}}</text></view>
+        <view class="flow-totals"><view><text>合格实收</text><text>{{line.received}}{{line.unit}}</text></view><view><text>已领用</text><text>{{line.consumedQuantity}}{{line.unit}}</text></view><view><text>可分配</text><text>{{line.availableQuantity}}{{line.unit}}</text></view></view>
+        <text wx:if="{{line.allocationShortfallQuantity>0}}" class="flow-error">已登记去向超出合格实收 {{line.allocationShortfallQuantity}}{{line.unit}}，请核对原收货和去向记录。</text>
+      </view>
+      <view wx:if="{{uncertain}}" class="eng-section"><text>上次提交的结果待核对</text><button wx:if="{{editable}}" class="eng-outline" bindtap="retry" disabled="{{saving}}" loading="{{saving}}">重试原请求</button></view>
+      <view wx:if="{{editable&&!uncertain}}" class="eng-section">
+        <view class="eng-heading"><text>登记材料去向</text></view>
+        <view class="flow-field"><text>去向</text><picker range="{{kinds}}" range-key="name" value="{{kindIndex}}" bindchange="pickKind"><view>{{kinds[kindIndex].name}} ›</view></picker></view>
+        <label class="flow-field"><text>数量（{{line.unit}}）</text><input type="digit" value="{{quantity}}" data-key="quantity" bindinput="input"/></label>
+        <view class="flow-field"><text>接收人（选填）</text><picker range="{{receivers}}" range-key="name" value="{{receiverIndex}}" bindchange="pickReceiver"><view>{{receivers[receiverIndex].name}} ›</view></picker></view>
+        <label class="flow-field"><text>用途或原因</text><textarea value="{{note}}" data-key="note" bindinput="input" maxlength="500" auto-height/></label>
+        <text wx:if="{{kindIndex===2}}" class="eng-muted">退料登记后进入待财务结算。</text>
+        <button class="eng-outline" bindtap="submitMovement" disabled="{{saving}}" loading="{{saving}}">保存材料去向</button>
+      </view>
+      <view wx:if="{{reships.length}}" class="eng-section">
+        <view class="eng-heading"><text>待补发到场</text></view>
+        <view wx:for="{{reships}}" wx:key="id" class="flow-row"><text>待补 {{item.expectedQuantity}}{{line.unit}}</text><text wx:if="{{item.parentReceiptId}}" class="eng-muted">原收货单 {{item.parentReceiptId}}</text><button wx:if="{{editable&&!uncertain}}" class="eng-link" data-id="{{item.id}}" bindtap="pickReship">登记这批补发实收</button></view>
+        <block wx:if="{{selectedReship&&editable&&!uncertain}}">
+          <label class="flow-field"><text>实际到货数量（{{line.unit}}）</text><input type="digit" data-key="arrivalQuantity" value="{{arrivalQuantity}}" bindinput="input"/></label>
+          <view class="flow-field"><text>到货日期</text><picker mode="date" data-key="arrivalDate" value="{{arrivalDate}}" bindchange="input"><view>{{arrivalDate}} ›</view></picker></view>
+          <label class="flow-field"><text>收货流水号</text><input data-key="transaction" value="{{transaction}}" maxlength="128" bindinput="input"/></label>
+          <view class="flow-field"><text>质检结论</text><picker range="{{qualityOptions}}" value="{{qualityIndex}}" bindchange="pickQuality"><view>{{qualityOptions[qualityIndex]}} ›</view></picker></view>
+          <label class="flow-field"><text>到货说明（选填）</text><textarea data-key="arrivalNote" value="{{arrivalNote}}" maxlength="500" bindinput="input" auto-height/></label>
+          <button class="eng-link" bindtap="choosePhoto" disabled="{{saving}}">{{photo?'更换现场凭据照片':'选择现场凭据照片'}}</button>
+          <button class="eng-outline" bindtap="submitReship" disabled="{{saving}}" loading="{{saving}}">确认补发实收</button>
+        </block>
+      </view>
+      <view wx:if="{{qualityRows.length}}" class="eng-section"><view class="eng-heading"><text>待处置的质量问题</text></view><view wx:for="{{qualityRows}}" wx:key="id" class="flow-row"><text>不合格实收 {{item.quantity}}{{line.unit}}</text><button class="eng-link" data-id="{{item.id}}" bindtap="openQuality">{{editable?'换货后登记复验':'查看收货原单'}} ›</button></view></view>
+      <view class="eng-section"><view class="eng-heading"><text>材料去向记录</text></view><text wx:if="{{!history.length}}" class="eng-muted">暂无去向记录</text>
+        <view wx:for="{{history}}" wx:key="id" class="flow-row"><text>{{item.kind}} · {{item.quantity}}{{line.unit}} · {{item.settlement}}</text><text>{{item.note}}</text><text class="eng-muted">{{item.date}} · {{item.author}}</text><text wx:if="{{item.receiver}}" class="eng-muted">接收人 {{item.receiver}}</text></view>
+      </view>
+    </block>
+  </view>
+</view>
