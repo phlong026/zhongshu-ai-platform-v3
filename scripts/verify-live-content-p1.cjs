@@ -46,7 +46,7 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-test('LIVE-03 growth summary aggregates backend status maps and accepts per-publication id', async () => {
+test('LIVE-03 growth retains historical publication ids and marks unverified cohort metrics unavailable', async () => {
   const growthDefinition = loadPage('miniprogram/pages/growth/index.js', {
     '../../utils/organization': { has() { return true; } },
     '../../utils/growth': {},
@@ -66,9 +66,35 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
   page.syncGrowth();
   await flush();
 
-  assert.deepEqual(plain(page.data.growthStats), { publications: 6, leads: 6, converted: 2 });
+  assert.deepEqual(plain(page.data.growthStats), { publishedCount: 3, consultations: '—', linkedCustomers: '—', signedCustomers: '—', netPaidCustomers: '—' });
   assert.equal(page.data.published[0].publicationId, '91');
   assert.equal(page.data.publishedNames[1], '庭院实拍');
+});
+
+test('CONTENT-07 renders authoritative deduplicated cohorts and clears stale results on a failed refresh', async () => {
+  const fields = { publishedCount: 2, consultations: 6, linkedCustomers: 3, signedCustomers: 2, netPaidCustomers: 1 };
+  const first = { publicationId: '9223372036854775806', workId: '9223372036854775807', title: '山居',
+    consultations: 4, linkedCustomers: 3, signedCustomers: 2, netPaidCustomers: 0 };
+  const second = { ...first, publicationId: '81', consultations: 2, linkedCustomers: 1, netPaidCustomers: 1 };
+  let result = { ...fields, publications: { published: 2, failed: 100 }, converted: 90, perPublication: [first, second] };
+  const definition = loadPage('miniprogram/pages/growth/index.js', {
+    '../../utils/organization': {}, '../../utils/growth': {}, '../../utils/platform-content': {}, '../../api/franchise/crm': {},
+    '../../api/franchise/content': { growth: { summary: async () => { if (!result) throw Error('offline'); return result; } } },
+    '../../api/http': { requestGuard: () => () => true }, '../../utils/view-container': { makeFormHandlers: () => ({}) }
+  });
+  const page = instantiate(definition, { view: 'home' });
+  await page.syncGrowth();
+  assert.deepEqual(plain(page.data.growthStats), fields);
+  assert.equal(page.data.published[0].publicationId, first.publicationId);
+  assert.equal(page.data.published[0].netPaidCustomers, 0);
+  assert.equal(page.data.published[1].linkedCustomers, 1);
+  result = null;
+  await page.syncGrowth();
+  assert.equal(page.data.growthStats, null);
+  assert.deepEqual(plain(page.data.published), []);
+  assert.ok(page.data.publicationError);
+  const view = fs.readFileSync(path.join(root, 'miniprogram/pages/growth/index.wxml'), 'utf8');
+  for (const label of ['有效咨询','关联客户','已签约','有净实收','按发布']) assert.ok(view.includes(label), label);
 });
 
 function studioFixture(overrides = {}, wxOverrides = {}) {
