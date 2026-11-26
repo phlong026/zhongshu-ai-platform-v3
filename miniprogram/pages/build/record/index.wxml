@@ -26,6 +26,11 @@
     <text wx:if="{{p.actualStart.note}}" class="eng-name">{{p.actualStart.note}}</text>
     <button wx:for="{{p.actualStart.assetIds}}" wx:key="*this" class="eng-link" data-asset-id="{{item}}" bindtap="previewAsset">查看开工凭据{{p.actualStart.assetIds.length>1?' '+(index+1):''}}</button>
    </view>
+   <view wx:if="{{view==='start'&&startSaveState}}" class="eng-section">
+    <text class="eng-muted">{{startSaveState==='sending'?'正在提交原开工记录':startSaveState==='saved'?'已提交，正在核对原单':'开工回执待核对'}}</text>
+    <button wx:if="{{startCanRetry}}" class="eng-outline" bindtap="retryStart" disabled="{{busy}}">使用原开工记录重试</button>
+    <button wx:elif="{{startSaveState!=='sending'}}" class="eng-link" bindtap="reloadProject">重新核对工程原单</button>
+   </view>
    <text wx:if="{{view==='start'&&fields.length}}" class="eng-muted">现场记录均选填，可填写待核对事项。各栏连同标题共限 1000 字符。</text>
    <view wx:if="{{view==='start'&&startBlocked}}" class="eng-section"><button class="eng-primary" data-url="{{startPrerequisiteUrl}}" bindtap="go">{{startBlocked}}</button></view>
    <block wx:if="{{view==='cameras'}}">

@@ -39,7 +39,7 @@ function harness(view = 'prepare', overrides = {}) {
     requestGuard: key => { const i = reads[key] = (reads[key] || 0) + 1, g = generation; return () => reads[key] === i && generation === g; },
     get: async url => { calls.push(['get', url]); return overrides.get ? overrides.get(url) : clone(h.payment); }
   };
-  const api = { projects: { get: async () => clone(h.bundle.detail) }, materials: { summary: async () => clone(h.bundle.materials) },
+  const api = { projects: { get: async () => overrides.project ? overrides.project() : clone(h.bundle.detail) }, materials: { summary: async () => clone(h.bundle.materials) },
     closure: { settleSummary: async () => clone(h.bundle.settle) }, cameras: { list: async () => [] },
     collections: { page: async () => clone(h.bundle.collections), followups: async () => clone(h.bundle.followups),
       dunning: async (...args) => { calls.push(['dunning', ...clone(args)]); return overrides.dunning ? overrides.dunning(...args) : { id: '201' }; },
@@ -48,7 +48,7 @@ function harness(view = 'prepare', overrides = {}) {
       prepare: async (...args) => { calls.push(['prepare', ...clone(args)]); return overrides.prepare ? overrides.prepare(...args) : { id: '100' }; },
       start: async (...args) => { calls.push(['start', ...clone(args)]); return overrides.start ? overrides.start(...args) : { id: '100' }; }
     },
-    uploadVoucher: async (...args) => { calls.push(['upload', ...args]); return '900719925474099995'; }
+    uploadVoucher: async (...args) => { calls.push(['upload', ...args]); return overrides.upload ? overrides.upload(...args) : '900719925474099995'; }
   };
   const wx = { showToast: value => calls.push(['toast', value]), getStorageSync: () => '', getSystemInfoSync: () => ({}) };
   global.wx = wx;
@@ -149,7 +149,7 @@ test('实际开工在两种付款入口据实登记三项，保留原日期、�
     input('note', '保留现场原备注');
     page.data.form.file = { path: 'wxfile://proof.pdf' };
     await page.perform(tap('start'));
-    await page.perform(tap('start'));
+    await page.retryStart();
     const writes = h.calls.filter(c => c[0] === 'start');
     assert.equal(writes.length, 2);
     assert.deepEqual(writes[0][2], { date: '2026-11-25',
@@ -158,29 +158,35 @@ test('实际开工在两种付款入口据实登记三项，保留原日期、�
     assert.equal(writes[0][3], writes[1][3]);
     assert.equal(page.data.form.note, '保留现场原备注');
     input('startOwner', '业主仅核对通行道路');
+    page.setFile('file', { path:'wxfile://other.pdf' });
     await page.perform(tap('start'));
-    assert.notEqual(h.calls.filter(c => c[0] === 'start').at(-1)[3], writes[0][3]);
+    assert.equal(h.calls.filter(c => c[0] === 'start').length, 2);
+    assert.equal(h.calls.filter(c => c[0] === 'upload').length, 1);
+    assert.equal(page.data.form.startOwner, '业主未到场，约明日上午复核');
+    assert.equal(page.data.form.file.path, 'wxfile://proof.pdf');
   }
 });
 
 test('开工选填兼容既有备注，组合 UTF-16 长度在上传前检查，付款与岗位门槛持续生效', async () => {
-  const h = harness('start', { start: () => { throw Error('待重试'); } });
+  const h = harness('start', { start: () => { throw {code:400, msg:'已拒绝的测试命令'}; } });
   await h.open();
   assert.equal(h.page.data.fields.length, 0);
   await h.page.perform(tap('start'));
   assert.equal(h.calls.filter(c => c[0] === 'upload').length, 0);
   h.bundle.collections.stages[1].confirmedCents = 3000;
   await h.open();
-  const form = h.page.data.form;
+  let form = h.page.data.form;
   form.note = '只记原备注';
   form.file = { path: 'wxfile://old.pdf' };
   await h.page.perform(tap('start'));
   assert.equal(h.calls.find(c => c[0] === 'start')[2].note, form.note);
+  form = h.page.data.form;
   form.note = '';
   const prefix = '业主确认情况：';
   form.startOwner = '水'.repeat(1000 - prefix.length - 2) + '😀';
   await h.page.perform(tap('start'));
   assert.equal(h.calls.filter(c => c[0] === 'start').at(-1)[2].note.length, 1000);
+  form = h.page.data.form;
   form.startOwner += '水';
   await h.page.perform(tap('start'));
   assert.match(h.page.data.error, /1000/);
@@ -195,6 +201,93 @@ test('开工选填兼容既有备注，组合 UTF-16 长度在上传前检查，
   await h.open(); assert.equal(h.page.data.fields.length, 0);
   h.bundle.collections.stages[0].planVersion = 3; h.switchSession('finance'); await h.open();
   assert.equal(h.page.data.fields.length, 0);
+});
+
+test('开工回执在途切后台再返回仍锁定，确认有权后只重放原正文、原资产及原键', async () => {
+  const answer = deferred(), h = harness('start', {start: () => answer.promise}), page = h.page;
+  h.bundle.collections.stages[1].confirmedCents = 3000;
+  await h.open();
+  Object.assign(page.data.form, {startOwner:'业主未到场', file:{path:'wxfile://first.pdf'}});
+  const sent = page.perform(tap('start'));
+  await new Promise(resolve => setImmediate(resolve));
+  const first = h.calls.find(row => row[0] === 'start');
+  page.onHide(); page.onShow(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(page.data.startSaveState, 'sending'); assert.equal(page.data.busy, true);
+  page.input({currentTarget:{dataset:{key:'startOwner'}},detail:{value:'业主已到场'}});
+  page.setFile('file', {path:'wxfile://other.pdf'}); await page.perform(tap('start')); await page.retryStart();
+  assert.equal(h.calls.filter(row => row[0] === 'start').length, 1);
+  page.onHide(); answer.reject(Error('回执丢失')); await sent;
+  const reread = deferred(); h.overrides.project = () => reread.promise;
+  page.onShow(); await page.retryStart();
+  assert.equal(page.data.p, null); assert.equal(page.data.startCanRetry, false);
+  reread.resolve(clone(h.bundle.detail)); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(page.data.startCanRetry, true);
+  delete h.overrides.project;
+  h.overrides.start = (_id, body) => {
+    h.bundle.detail.actualStartAt = body.date;
+    h.bundle.detail.siteRecords = [{id:'8',node_id:'101',occurred_at:body.date,note:body.note,completion:true,
+      author_user_id:'11',file_asset_ids:JSON.stringify([body.fileAssetId])}];
+    return clone(h.bundle.detail);
+  };
+  // Even if a temporary file or UI state changed, the business retry reads neither.
+  page.data.form.startOwner = '过期控件'; page.data.form.file = {path:'wxfile://replaced.pdf'};
+  await page.retryStart();
+  const writes = h.calls.filter(row => row[0] === 'start');
+  assert.deepEqual(writes, [first,first]); assert.equal(h.calls.filter(row => row[0] === 'upload').length, 1);
+  assert.equal(page.data.startSaveState, ''); assert.equal(page.data.p.actualStart.note, '业主确认情况：业主未到场');
+});
+
+test('返回原工程先读到实际开工时展示原单，已核实的记录不重复提交', async () => {
+  for(const note of ['业主确认情况：待复核','他人记录的新事实']){
+    const answer=deferred(), h=harness('start',{start:()=>answer.promise}), page=h.page;
+    h.bundle.collections.stages[1].confirmedCents=3000;await h.open();
+    Object.assign(page.data.form,{startOwner:'待复核',file:{path:'wxfile://fact.pdf'}});
+    const sending=page.perform(tap('start'));await new Promise(resolve=>setImmediate(resolve));
+    page.onHide();assert.deepEqual(clone(page.data.form),{});
+    h.bundle.detail.actualStartAt='2026-11-25';
+    h.bundle.detail.siteRecords=[{id:'9',node_id:'101',occurred_at:'2026-11-25',completion:true,note,author_user_id:'11',file_asset_ids:'["900719925474099995"]'}];
+    page.onShow();await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(page.data.p.actualStart.note,note);assert.equal(page.data.startSaveState,'');
+    if(note==='他人记录的新事实')assert.match(page.data.error,/另一份开工记录/);
+    answer.reject(Error('迟到回执'));await sending;await page.retryStart();await page.perform(tap('start'));
+    assert.equal(h.calls.filter(row=>row[0]==='start').length,1);
+  }
+});
+
+test('待核对的开工遇转交清页，切岗和换工程后的迟到回执不能显示或代为重试', async () => {
+  for (const change of ['transfer','role','project']) {
+    const delayed = deferred(), h = harness('start', {start: () => delayed.promise}), page = h.page;
+    h.bundle.collections.stages[1].confirmedCents = 3000; await h.open();
+    Object.assign(page.data.form, {startOwner:'旧业主情况',file:{path:'wxfile://old.pdf'}});
+    const sending = page.perform(tap('start')); await new Promise(resolve => setImmediate(resolve));
+    page.onHide();
+    if (change === 'transfer') h.overrides.project = () => {throw {code:1115000000,msg:'工程已转交'};};
+    if (change === 'role') h.switchSession('finance');
+    if (change === 'project') { page.id='200';h.bundle.detail.id='200'; }
+    page.onShow(); await new Promise(resolve => setImmediate(resolve));
+    delayed.reject(Error('前工程的迟到回执')); await sending; await page.retryStart();
+    assert.equal(h.calls.filter(row=>row[0]==='start').length,1);
+    assert.equal(page.data.startCanRetry,false);assert.equal(page.data.startSaveState,'');assert.ok(!page.data.form.startOwner);
+    assert.doesNotMatch(page.data.error,/迟到回执/);
+    if(change==='transfer') assert.equal(page.data.p,null);
+  }
+});
+
+test('开工传输确定被拒才能修改，切换工程期间完成上传不会发出旧工程开工', async () => {
+  const pause=deferred(), h=harness('start',{upload:()=>pause.promise}), page=h.page;
+  h.bundle.collections.stages[1].confirmedCents=3000;await h.open();
+  Object.assign(page.data.form,{startOwner:'旧现场',file:{path:'wxfile://old.pdf'}});
+  const sending=page.perform(tap('start'));page.onHide();page.id='200';h.bundle.detail.id='200';page.onShow();
+  await new Promise(resolve=>setImmediate(resolve));pause.resolve('88');await sending;
+  assert.equal(h.calls.filter(r=>r[0]==='start').length,0);
+  assert.equal(page.data.startSaveState,'');assert.ok(!page.data.form.startOwner);
+  delete h.overrides.upload;h.overrides.start=()=>{throw {code:400,msg:'已拒绝，未保存'};};
+  Object.assign(page.data.form,{startOwner:'新现场待核对',file:{path:'wxfile://new.pdf'}});
+  await page.perform(tap('start'));assert.equal(page.data.form.startOwner,'新现场待核对');assert.equal(page.data.error,'已拒绝，未保存');
+  page.input({currentTarget:{dataset:{key:'startOwner'}},detail:{value:'经业主另行核对'}});
+  await page.perform(tap('start'));
+  const writes=h.calls.filter(r=>r[0]==='start');assert.equal(writes.length,2);assert.notEqual(writes[0][3],writes[1][3]);
+  assert.match(writes[1][2].note,/经业主另行核对/);assert.equal(writes[1][1],'200');
 });
 
 test('已开工从真实 START 完成原单显示原文、办理人和精确凭据，旧项目不补造确认', async () => {
