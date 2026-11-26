@@ -113,6 +113,8 @@ function plansView(summary) {
       supplier: l.supplier || '', paymentStatus: l.paymentStatus || '',
       payableId: l.payableId ? String(l.payableId) : '',
       receipts: l.receipts || [],
+      flowAvailable: l.availableQuantity != null && l.consumedQuantity != null
+        && Array.isArray(l.movements) && Array.isArray(l.pendingReships),
       // 对照版按仍有效的付款事实锁定，退款净额为零不解锁；缺投影时关闭编辑。
       locked: l.termsLocked !== false,
       termsEditable: l.termsLocked === false && !l.cancelled && !!l.supplyId
@@ -450,11 +452,14 @@ async function perform(action, id, form, node, key) {
       const raw = String(f.actual == null ? '' : f.actual).trim(), actual = Number(raw);
       if (!/^\d+(\.\d{1,3})?$/.test(raw) || !Number.isFinite(actual) || actual <= 0)
         throw { code: 0, msg: '请填写大于0、最多三位小数的本次实际到货数量' };
+      const batch = String(f.batchExpected ?? '').trim();
+      const expected = batch ? Number(batch) : actual;
+      if (batch && (!/^\d+(\.\d{1,3})?$/.test(batch) || expected <= 0 || expected > 10000000))
+        throw { code: 0, msg: '本批应到数量须大于0、最多三位小数，且不超过一千万' };
       if (!String(f.transaction || '').trim() || !f.file?.path)
         throw { code: 0, msg: '请填写收货流水并选择到货凭据' };
       return api.materials.arrival(f.supplyId, {
-        // 此页记录本次合格分批到货；不把全部计划余量误当本批应到量而生成补发。
-        expected: actual, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
+        expected, actual, quality: f.quality === '不合格' ? 'REJECTED' : 'OK',
         transactionNo: String(f.transaction).trim(), occurredAt: dateStr,
         fileAssetId: await uploadVoucher(f.file.path, 'ENG_SITE_PHOTO'), note: f.note || ''
       }, key);
@@ -595,6 +600,9 @@ function recordView(bundle, ctx) {
   // 计划单行补 url/due（后端汇总行无计划级 due，取首行需用日期派生）
   const plans = data.plans.map(r => ({
     ...r,
+    lines: r.lines.map(l => ({ ...l, flowUrl: l.flowAvailable
+      ? '/pages/build/material-flow/index?project=' + encodeURIComponent(p.id) + '&plan=' + encodeURIComponent(r.id)
+        + '&material=' + encodeURIComponent(l.id) : '' })),
     due: r.due || (r.lines && r.lines[0] && r.lines[0].requiredDate) || '',
     url: base + 'material&planId=' + encodeURIComponent(r.id)
   }));
@@ -719,7 +727,8 @@ function recordView(bundle, ctx) {
         // R6 P2：label 从最新选项同步（选中行余量变化时显示不再过期）
         form.supplyLabel = stillValid ? stillValid.label : form.supplyOptions[0].label;
         fields = [viewField('supplyId', '确认到货的供应事项', 'supply'),
-          viewField('actual', '实际到货数量', 'digit'), viewField('date', '到货日期', 'date'),
+          viewField('batchExpected', '本批应到数量（短货时填写）', 'digit'), viewField('actual', '实际到货数量', 'digit'),
+          { ...viewField('quality', '质检结论', 'quality'), options: ['合格', '不合格'] }, viewField('date', '到货日期', 'date'),
           viewField('transaction', '收货流水号'), viewField('file', '到货凭据（jpg/png/pdf）', 'file'),
           viewField('note', '到货说明（选填）', 'textarea')];
         actions = [{ action: 'arrival', label: '确认本次到货' }];

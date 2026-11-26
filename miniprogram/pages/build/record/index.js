@@ -237,6 +237,7 @@ Page({
    if(action==='node-reopen')Object.assign(f,{reason:f.nodeReason,date:undefined});
    return this.performOnline(action,f,this.data.node);},
  pickArrival(e){const r=this.data.arrivals.find(r=>r.id===e.currentTarget.dataset.id);if(r)this.setData({'form.correctId':r.id,'form.correctActual':String(r.actual),'form.correctReason':''});},
+ pickArrivalQuality(e){if(!this.data.busy)this.setData({'form.quality':Number(e.detail.value)===1?'不合格':'合格'});},
  supplyPick(e){ // R4 P1-2/R5：到货供应事项显式选定（picker index→id+label 预计算——WXML 只读字段）
   const idx=Number(e.detail.value),opts=(this.data.form&&this.data.form.supplyOptions)||[];
   if(opts[idx])this.setData({'form.supplyId':opts[idx].id,'form.supplyLabel':opts[idx].label});

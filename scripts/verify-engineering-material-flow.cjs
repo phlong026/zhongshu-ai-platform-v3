@@ -18,7 +18,7 @@ async function open(role = 'engineer') {
       note: '退原供应商', occurredAt: '2026-11-25T10:00:00Z', authorUserId: '71' }],
     pendingReships: [{ id: batch, parentReceiptId: '700', expectedQuantity: 0.5 }],
     receipts: [{ id: '701', quality: 'REJECTED', qualified: false, actualQuantity: 0.25 }] };
-  const state = { row, calls, fail: false };
+  const state = { row, calls, fail: false, post };
   wx.request = request => {
     const url = new URL(request.url).pathname.replace('/admin-api', '');
     const write = request.method === 'POST';
@@ -33,13 +33,29 @@ async function open(role = 'engineer') {
       : request.success({ statusCode: 200, data: { code: 0, data } }));
     return {};
   };
-  await runtime.callWxMethod('navigateTo', { url: route + '?project=' + project + '&plan=' + plan + '&material=' + material });
-  for (let i=0;i<9;i++) await tick();
-  state.page = getCurrentPages().at(-1);
+  state.reopen = async () => {
+    await runtime.callWxMethod('navigateTo', { url: route + '?project=' + project + '&plan=' + plan + '&material=' + material });
+    for (let i=0;i<9;i++) await tick();
+    state.page = getCurrentPages().at(-1);
+  };
+  await state.reopen();
   state.text = () => texts(render(path.resolve(__dirname, '../miniprogram' + route + '.wxml'), state.page.data));
   return state;
 }
 const input = (page,key,value) => page.input({ currentTarget: { dataset: { key } }, detail: { value } });
+
+test('离页重开保留已提交的原键，同人切岗后不能沿用原页面写入', async () => {
+  const s=await open(),first=s.page;
+  first.pickKind({ detail:{ value:'3' } }); input(first,'quantity','0.125');input(first,'note','现场余料结转');
+  s.fail=true;await first.submitMovement();
+  assert.equal(s.calls[0].body.kind,'SURPLUS_TRANSFER');
+  await s.reopen(); const reopened=s.page;
+  assert.equal(reopened.data.uncertain,true);s.fail=false;await reopened.retry();
+  assert.equal(s.calls[0].key,s.calls[1].key);
+  reopened.pickKind({detail:{value:'1'}}); input(reopened,'quantity','0.100');input(reopened,'note','破损');
+  const other={...s.post,postId:'43',orgId:'32'};auth.savePosts([s.post,other]);auth.switchPost('43');
+  await reopened.submitMovement();assert.equal(s.calls.length,2);
+});
 
 test('工程原单可领用、退料、查看待结算和进入原收货质检，财务仅读', async () => {
   const s = await open(), p=s.page;
