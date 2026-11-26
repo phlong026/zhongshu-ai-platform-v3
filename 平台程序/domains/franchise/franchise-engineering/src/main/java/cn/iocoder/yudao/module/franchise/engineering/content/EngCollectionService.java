@@ -187,21 +187,24 @@ public class EngCollectionService {
         // A missing date is part of the original request; the server's default day is not.
         payload.put("occurredAt", cmd.occurredAt() == null ? null : date.toString());
         payload.put("fileAssetId", cmd.fileAssetId());
+        payload.put("dateProvided", cmd.occurredAt() != null);
 
         var replayed = commands.replayed(post, idempotencyKey, payload, legacyPayload, event -> {
             // The previous version fingerprinted the resolved day. Recover only from a matching
             // recorded collection, never from today's default or another project's receipt.
-            if (cmd.occurredAt() != null || !AGGREGATE.equals(event.getAggregateType())
+            if (!AGGREGATE.equals(event.getAggregateType())
                     || !"eng-collect".equals(event.getCommand())) {
                 return null;
             }
-            FrEngCollectionDO prior = collections.selectById(event.getAggregateId());
-            if (prior == null || !java.util.Objects.equals(prior.getProjectId(), projectId)
-                    || prior.getOccurredAt() == null) {
-                return null;
-            }
+            var original = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(event.getPayload());
+            if (original.has("dateProvided") || !original.has("projectId")) return null;
             Map<String, Object> recordedPayload = new LinkedHashMap<>(payload);
-            recordedPayload.put("occurredAt", prior.getOccurredAt().toString());
+            recordedPayload.remove("dateProvided");
+            if (cmd.occurredAt() == null) {
+                // The former default was the server's posting day. A backdated explicit date could not be that default.
+                var day = event.getOccurredAt().atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate();
+                recordedPayload.put("occurredAt", day.toString());
+            }
             return recordedPayload;
         });
         if (replayed.isPresent()) {
