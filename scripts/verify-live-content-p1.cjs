@@ -72,7 +72,7 @@ test('LIVE-03 growth summary aggregates backend status maps and accepts per-publ
 });
 
 function studioFixture(overrides = {}, wxOverrides = {}) {
-  let worksResult = Promise.resolve([]), workResult = Promise.resolve(null);
+  let worksResult = Promise.resolve([]), workResult = Promise.resolve(null), trashResult = Promise.resolve();
   let recordsResult = Promise.resolve([]);
   let tasksResult = Promise.resolve([]);
   let dismissResult = Promise.resolve();
@@ -84,7 +84,10 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   const calls = { tasks: 0, works: 0, records: 0, dismiss: 0, retrySave: 0 }, sequences = {};
   const result = value => typeof value === 'function' ? value() : value;
   const api = {
-    drafts: { works() { calls.works++; return result(worksResult); }, work(id) { calls.work=id; return result(workResult); } },
+    drafts: {
+      works() { calls.works++; calls.trashFilter = false; return result(worksResult); },
+      work(id) { calls.work=id; return result(workResult); }
+    },
     publications: { page() { calls.records++; return result(recordsResult); } },
     tasks: { page() { calls.tasks++; return result(tasksResult); }, dismiss() { calls.dismiss++; return result(dismissResult); }, retrySave() { calls.retrySave++; return result(retrySaveResult); } }
   };
@@ -107,6 +110,17 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
     '../../api/auth': { currentApiPost() { return post; } },
     '../../api/franchise/crm': { leads: { capture: async () => ({ result: 'CREATED', customerId: 'customer-1' }) } },
     '../../api/http': {
+      get(path) {
+        assert.equal(path,'/franchise/content/drafts/trash');
+        calls.works++; calls.trashFilter = true;
+        return result(worksResult);
+      },
+      put(path, body) {
+        const match = path.match(/^\/franchise\/content\/drafts\/(\d+)\/trash$/);
+        assert.ok(match, path);
+        (calls.trashWrites ||= []).push([match[1], body.trashed, body.revision]);
+        return result(trashResult);
+      },
       token() { return token; }, tenantId() { return 1; }, sessionGeneration() { return generation; }, sessionGuard() { return () => alive; },
       requestGuard(domain) { const g = generation, n = sequences[domain] = (sequences[domain] || 0) + 1; return () => alive && generation === g && sequences[domain] === n; }
     }
@@ -117,6 +131,7 @@ function studioFixture(overrides = {}, wxOverrides = {}) {
   return {
     page, calls,
     setWorks(value) { worksResult = value; },
+    setTrash(value) { trashResult = value; },
     setWork(value) { workResult = value; },
     setEditorTitle(value) { editorTitle = value; },
     setRecords(value) { recordsResult = value; },
@@ -248,6 +263,118 @@ test('LIVE-04 works view requests drafts and distinguishes loading, empty and er
   assert.equal(fixture.page.data.worksLoading, false);
   assert.equal(fixture.page.data.worksError, '作品接口超时');
   assert.deepEqual(plain(fixture.page.data.works.map(item => item.id)), ['8']);
+});
+
+test('personal works keeps the original ID and version when moving to trash and back', async () => {
+  const modals = [], f = studioFixture({}, {showModal(options) { modals.push(options); }});
+  const row = {id:'90071992547409931', title:'原文', kind:'remix', status:'saved', revision:0, canManage:true};
+  const tap = {currentTarget:{dataset:{id:row.id}}};
+  f.setWorks(Promise.resolve([row]));
+  await f.page.refreshData();
+  f.page.workTrashTap(tap);
+  assert.equal(modals.length, 1);
+  assert.equal(f.calls.trashWrites, undefined);
+  f.setWorks(Promise.resolve([]));
+  modals[0].success({confirm:true});
+  await flush();
+  assert.deepEqual(f.calls.trashWrites, [[row.id, true, 0]]);
+  assert.equal(f.page.data.works.length, 0);
+  f.setWorks(Promise.resolve([{...row, trashed:true, revision:1}]));
+  await f.page.selectWorkTrash({currentTarget:{dataset:{trash:true}}});
+  assert.equal(f.calls.trashFilter, true);
+  f.setWorks(Promise.resolve([]));
+  await f.page.workTrashTap(tap);
+  assert.deepEqual(f.calls.trashWrites, [[row.id,true,0],[row.id,false,1]]);
+});
+
+test('switching work folders or identity discards late reads and open confirmations', async () => {
+  const modals = [], f = studioFixture({}, {showModal(o){modals.push(o);}});
+  const row = {id:'88', kind:'remix', title:'本人原稿', revision:0, canManage:true};
+  f.setWorks(Promise.resolve([row])); await f.page.refreshData();
+  f.page.workTrashTap({currentTarget:{dataset:{id:'88'}}});
+  const pending = deferred(); f.setWorks(pending.promise);
+  const old = f.page.refreshData();
+  f.setWorks(Promise.resolve([]));
+  await f.page.selectWorkTrash({currentTarget:{dataset:{trash:true}}});
+  pending.resolve([row]); await old;
+  assert.equal(f.page.data.works.length,0);
+  f.switchScope('another-post');
+  modals[0].success({confirm:true});
+  assert.equal(f.calls.trashWrites,undefined);
+});
+
+test('a saved work without an original task opens its own saved text', async () => {
+  const modals = [], f = studioFixture({}, {showModal(options){modals.push(options);}});
+  const id='90071992547409939';
+  f.setWorks(Promise.resolve([{id, taskId:0, title:'旧作品', kind:'remix'}])); await f.page.refreshData();
+  f.setWork(Promise.resolve({workId:id, title:'旧作品', script:'保存的原文'}));
+  await f.page.openWork({currentTarget:{dataset:{id}}});
+  assert.equal(f.calls.work,id);
+  assert.equal(modals[0].content,'保存的原文');
+});
+
+test('a lost trash receipt triggers a fresh list read and cannot submit twice or revive an old response', async () => {
+  const modals = [], f = studioFixture({}, {showModal(options){modals.push(options);}});
+  const id = '90071992547409939', tap = {currentTarget:{dataset:{id}}};
+  const row = {id:Number(id), workId:id, title:'已保存作品', revision:'2', canManage:true};
+  f.setWorks(Promise.resolve([row]));
+  await f.page.refreshData();
+  const write = deferred(), before = deferred(), after = deferred();
+  f.setTrash(write.promise);
+  f.page.workTrashTap(tap); f.page.workTrashTap(tap);
+  assert.equal(modals.length, 1);
+  modals[0].success({confirm:true});
+  f.setWorks(before.promise); const old = f.page.refreshData();
+  f.setWorks(after.promise);
+  write.reject(new Error('回执中断')); await flush();
+  assert.equal(f.calls.works, 3);
+  f.page.workTrashTap(tap);
+  assert.deepEqual(f.calls.trashWrites, [[id, true, 2]]);
+  assert.equal(modals.length, 1);
+  after.resolve([]); await flush();
+  before.resolve([row]); await old;
+  assert.deepEqual(plain(f.page.data.works), []);
+  assert.equal(f.page.data.workBusyId, '');
+});
+
+test('read-only or unversioned work keeps its original task accessible and cannot be moved', async () => {
+  const modals = [], f = studioFixture({}, {showModal(o){modals.push(o);}});
+  f.setWorks(Promise.resolve([
+    {id:'5', taskId:'90071992547409939', canManage:false, revision:0},
+    {id:'6', taskId:7, canManage:true}
+  ]));
+  await f.page.refreshData();
+  for (const row of f.page.data.works) {
+    assert.equal(row.canManage, false);
+    f.page.workTrashTap({currentTarget:{dataset:{id:row.id}}});
+  }
+  assert.equal(modals.length, 0);
+  assert.equal(f.calls.trashWrites, undefined);
+  f.page.go = (view, query) => ({view,query});
+  assert.deepEqual(await f.page.openWork({currentTarget:{dataset:{id:'5'}}}), {view:'result', query:'&task=90071992547409939'});
+});
+
+test('the works template binds each visible action to its own work ID and folder', () => {
+  const {render} = require('./role-page-runtime.cjs');
+  const file = path.join(root, 'miniprogram/pages/studio/index.wxml');
+  const f = studioFixture({worksLoaded:true, works:[
+    {id:'42', title:'可管理', canManage:true}, {id:'43', title:'可查看', canManage:false}
+  ]});
+  const buttons = nodes => nodes.flatMap(node => [
+    ...(node.tag === 'button' ? [node] : []), ...buttons(node.children)
+  ]);
+  for (const trashed of [false,true]) {
+    f.page.data.workTrash = trashed;
+    const rendered = buttons(render(file, f.page.data));
+    const folders = rendered.filter(node => node.attrs.bindtap === 'selectWorkTrash');
+    assert.deepEqual(folders.map(node => node.attrs['data-trash']), [false,true]);
+    const actions = rendered.filter(node => node.attrs.bindtap === 'workTrashTap');
+    assert.deepEqual(actions.map(node => node.attrs['data-id']), ['42']);
+    assert.equal(actions[0].children[0].text, trashed ? '恢复' : '移入回收站');
+    const details = rendered.filter(node => node.attrs.bindtap === 'openWork');
+    assert.deepEqual(details.map(node => node.attrs['data-id']), ['42','43']);
+    assert.ok(details.every(node => node.attrs.disabled === trashed));
+  }
 });
 
 test('LIVE-04 records view maps publication statuses and ignores stale session responses', async () => {

@@ -7,6 +7,7 @@ const TaskDisplay=require('./task-display');
 const contentApi=P.api;                                 // /franchise/content/** 契约层
 const crm=require('../../api/franchise/crm');            // 客资登记（发布链接回填时同页登记）
 const http=require('../../api/http');
+const workPath = '/franchise/content/drafts';
 const keyboard=require('../../utils/creation-keyboard');
 function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
   const labels={ai_video:'AI视频',ai:'AI视频',digital:'数字人口播',copy:'文案二创',remix:'文案二创',image:'AI图片'};
@@ -24,7 +25,11 @@ function listIdentity() {
 const post=require('../../api/auth').currentApiPost()||{};
 return JSON.stringify([studio.scope(),http.sessionGeneration(),http.tenantId(),post.orgId,post.postId,post.userId,post.orgType,post.roleCode]);
 }
-function listQuery(data,kind) { return kind==='tasks'?data.taskFilter:kind==='records'?(data.view==='detail'?String(data.recordId||''):data.recordFilter):''; }
+function listQuery(data,kind) {
+  if (kind === 'works') return data.workTrash;
+  if (kind === 'tasks') return data.taskFilter;
+  return data.view === 'detail' ? String(data.recordId || '') : data.recordFilter;
+}
 function emptyList(kind,view) { return kind==='tasks'?{tasks:[],taskCount:0}:kind==='works'?{works:[]}:view==='detail'?{detail:null,timeline:[]}:{records:[]}; }
 // 仅剥显式标题，不猜测口播开场。
 function spokenBody(value) {
@@ -53,6 +58,7 @@ ipOptions: ['不指定人物'], personaOptions: [{id:'',name:'不指定人物'}]
 taskFilter: 0, recordFilter: 0, taskTabs: ['全部', '生成中', '已完成', '异常'], recordTabs: ['全部', '进行中', '已发布', '异常'],
 taskCount:0,tasks: [], records: [], works: [],  publicationPlatforms:studio.publicationPlatforms||[], sheet: '', sheetTitle: '', editingText: '', selectedAccount: 0,publicationAccount:'',publishSubmitting:false,linkSubmitting:false,linkRecordId:'',linkSaved:false,leadOpen:false,leadName:'',leadPhone:'',leadNeed:'',publishedUrlInput:'',receiptError:'',receiptSaved:false,receiptSaving:false,receiptLoading:false,tasksError:'',tasksLoading:false,worksLoading:false,worksError:'',recordsLoading:false,recordsError:'',
 tasksLoaded:false,worksLoaded:false,recordsLoaded:false,
+workTrash:false,workBusyId:'',
 digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', coverAssetId:'',coverReady:false,coverUploading:false,coverLoading:false,coverError:'', workId: '', saved: false,
@@ -98,10 +104,11 @@ if(http.token()){this.receiptApi=true;this.loadApiReceipt(this.data.recordId);} 
 }
 },
 onPageScroll(e){this.__navigationScrollTop=e.scrollTop;},
-onShow() {if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();const keep=this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):this.data.view==='publish'&&this.data.workId?'&work='+encodeURIComponent(this.data.workId):'';wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+keep});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);if(this.data.view==='publish'&&!initial)this.loadPublisherAccounts();
+onShow() {this.__worksHidden=false;if(!studio.guard()){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();return;}if(this.actorScope!==studio.scope()||this.actorSessionGeneration!==http.sessionGeneration()||(this.__listIdentity&&this.__listIdentity!==listIdentity())){this.resetLists();if(this.data.view==='digital')this.resetDigitalResources();const keep=this.data.view==='detail'?'&record='+encodeURIComponent(this.data.recordId||''):this.data.view==='publish'&&this.data.workId?'&work='+encodeURIComponent(this.data.workId):'';wx.redirectTo({url:'/pages/studio/index?view='+this.data.view+keep});return;}if(this.data.sheet==='editor')keyboard.open(this);const initial=this.__initialShow;this.__initialShow=false;if (this.options&&!initial) this.refreshData();if(this.data.view==='digital')this.loadDigitalProfiles(this.data.digitalPersonaId||this.options&&this.options.persona);if(this.data.view==='publish'&&!initial)this.loadPublisherAccounts();
   },
 onHide() {
 // 返回时保留快照，但不复用隐藏前读取。
+this.__worksHidden=true;this.__workConfirm=null;this.__workRead=null;
 if(this.__listFlights){this.__listFlights={};this.setData({tasksLoading:false,worksLoading:false,recordsLoading:false});}
 if(this.data.view==='digital')this.cancelDigitalResources();
 this.stopOptimization();if(this.data.view==='library')this.materialHide(); keyboard.stop(this);if(this.__voiceAudio)this.__voiceAudio.stop();this.persistEditor(); },
@@ -141,7 +148,8 @@ return;
 resetLists() {
 this.__listFlights={};this.__listSnapshots={};this.__listIdentity='';this.__taskListSeq=(this.__taskListSeq||0)+1;
 this.__dismissingTask=null;this.__retryingSave=null;
-this.setData({tasks:[],taskCount:0,works:[],records:[],detail:null,timeline:[],tasksLoaded:false,worksLoaded:false,recordsLoaded:false,tasksLoading:false,worksLoading:false,recordsLoading:false,tasksError:'',worksError:'',recordsError:''});
+this.__workConfirm=null;this.__workWrite=null;this.__workRead=null;
+this.setData({tasks:[],taskCount:0,works:[],workBusyId:'',records:[],detail:null,timeline:[],tasksLoaded:false,worksLoaded:false,recordsLoaded:false,tasksLoading:false,worksLoading:false,recordsLoading:false,tasksError:'',worksError:'',recordsError:''});
 },
 /** Reuse only a matching in-flight read; a successful snapshot stays mounted during refresh. */
 loadList(kind,request,render,afterRender) {
@@ -185,14 +193,86 @@ return {tasks,taskCount:tasks.length};
 },
 /** 在线作品列表：drafts.works 返回本人作品；异步结果只允许写回发起时的会话、岗位与页面。 */
 syncApiWorks() {
-return this.loadList('works',()=>contentApi.drafts.works(),rows=>{
-const works=P.rowsOf(rows).map(row=>{
-if(!row||row.id==null||row.id==='')return null;
-const kind=row.kind==='ai_video'?'ai':(row.kind==='digital'?'digital':'remix');
-return{id:String(row.id),taskId:row.taskId==null?'':String(row.taskId),title:String(row.title||'未命名作品'),kind,status:String(row.status||'draft'),image:studio.imageFor({kind})};
-}).filter(Boolean);
-return {works};
-});
+  const trashed = this.data.workTrash;
+  return this.loadList('works', () => trashed ? http.get(workPath + '/trash') : contentApi.drafts.works(), rows => {
+    const works = [];
+    for (const row of P.rowsOf(rows)) {
+      const id = row && (row.workId ?? row.id);
+      if (id == null || id === '' || (row.trashed === true) !== trashed) continue;
+      const kind = row.kind === 'ai_video' ? 'ai' : row.kind === 'digital' ? 'digital' : 'remix';
+      const parsed = typeof row.revision === 'string' && /^\d+$/.test(row.revision) ? Number(row.revision) : row.revision;
+      const revision = Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+      works.push({id:String(id), taskId:row.taskId == null || String(row.taskId) === '0' ? '' : String(row.taskId),
+        title:String(row.title || '未命名作品'), kind, status:String(row.status || 'draft'), image:studio.imageFor({kind}),
+        revision, canManage:row.canManage === true && revision !== null});
+    }
+    return {works};
+  });
+},
+selectWorkTrash(e) {
+  const trash = e.currentTarget.dataset.trash;
+  const next = trash === true || trash === 'true';
+  if (next === this.data.workTrash) return;
+  this.__workConfirm = null;
+  this.__workRead = null;
+  if (this.__listSnapshots) delete this.__listSnapshots.works;
+  this.setData({workTrash:next});
+  return this.syncApiWorks();
+},
+workViewCurrent(identity) {
+  return !!identity && !this.__closed && !this.__worksHidden && this.data.view === 'works' &&
+    http.token() && this.actorSessionGeneration === http.sessionGeneration() && this.actorScope === studio.scope() &&
+    identity === this.__listIdentity && identity === listIdentity();
+},
+workTrashTap(e) {
+  const identity = this.__listIdentity;
+  const work = this.data.works.find(row => row.id === String(e.currentTarget.dataset.id));
+  if (!this.workViewCurrent(identity) || !work?.canManage || this.__workConfirm || this.__workWrite) return;
+  if (this.data.workTrash) return this.changeWorkTrash(work, false, identity);
+  this.__workConfirm = work;
+  const guard = http.sessionGuard();
+  wx.showModal({
+    title:'移入回收站', content:'将「' + work.title + '」移入回收站？之后可在回收站恢复。', confirmText:'移入', confirmColor:'#a33b2b',
+    success:answer => {
+      if (this.__workConfirm !== work) return;
+      this.__workConfirm = null;
+      if (answer.confirm && guard()) this.changeWorkTrash(work, true, identity);
+    },
+    fail:() => { if (this.__workConfirm === work) this.__workConfirm = null; }
+  });
+},
+async changeWorkTrash(work, trashed, identity) {
+  if (this.__workWrite || !this.workViewCurrent(identity) || trashed === this.data.workTrash) return;
+  const shown = this.data.works.find(row => row.id === work.id);
+  if (!shown?.canManage || shown.revision !== work.revision) {
+    wx.showToast({title:'作品状态已更新，请核对列表', icon:'none'});
+    return;
+  }
+  const guard = http.sessionGuard();
+  this.__workWrite = work;
+  this.setData({workBusyId:work.id});
+  try {
+    const receipt = await http.put(workPath + '/' + encodeURIComponent(work.id) + '/trash', {trashed, revision:work.revision});
+    if (guard() && this.workViewCurrent(identity) && this.__workWrite === work && this.data.workTrash !== trashed &&
+        receipt && String(receipt.workId ?? receipt.id) === work.id && receipt.trashed === trashed &&
+        Number(receipt.revision) === work.revision + 1) {
+      this.setData({works:this.data.works.filter(row => row.id !== work.id)});
+    }
+  } catch (error) {
+    if (guard() && this.workViewCurrent(identity) && this.__workWrite === work) {
+      wx.showToast({title:P.degradeMessage(error), icon:'none'});
+    }
+  } finally {
+    if (this.__workWrite === work && guard() && this.workViewCurrent(identity)) {
+      // 收件回执可能丢失，重新读取当前列表时不能复用写入前发起的请求。
+      delete this.__listFlights.works;
+      await this.syncApiWorks();
+    }
+    if (this.__workWrite === work) {
+      this.__workWrite = null;
+      if (!this.__closed) this.setData({workBusyId:''});
+    }
+  }
 },
 /** 发布记录列表与详情共用 publications.page；状态筛选在页面端完成。 */
 syncApiRecords(recordId) {
@@ -1070,7 +1150,26 @@ if(record&&record.id&&record.status!=='published')this.go('receipt','&record='+e
 },
 returnHome(){wx.reLaunch({url:'/pages/business/index'});},
 returnRecords() { wx.redirectTo({ url: '/pages/studio/index?view=records' }); },
-openWork(e) { this.go('result', '&task=' + e.currentTarget.dataset.task); },
+async openWork(e) {
+  const identity = this.__listIdentity;
+  if (!this.workViewCurrent(identity) || this.data.workTrash) return;
+  const work = this.data.works.find(row => row.id === String(e.currentTarget.dataset.id));
+  if (!work) return;
+  this.__workRead = null;
+  if (work.taskId) return this.go('result', '&task=' + encodeURIComponent(work.taskId));
+  const guard = http.requestGuard('studio-work-detail');
+  this.__workRead = guard;
+  const current = () => guard() && this.__workRead === guard && this.workViewCurrent(identity) &&
+    !this.data.workTrash && this.data.works.some(row => row.id === work.id);
+  try {
+    const detail = await contentApi.drafts.work(work.id);
+    if (!current()) return;
+    if (!detail || String(detail.workId ?? detail.id) !== work.id) throw Error('未取得该作品的原文，请刷新后重试');
+    wx.showModal({title:detail.title || work.title, content:detail.script || '该作品未保存正文', showCancel:false});
+  } catch (error) {
+    if (current()) wx.showToast({title:P.degradeMessage(error), icon:'none'});
+  }
+},
 openTasks() { this.go('tasks'); },
 returnToList() { this.go(this.data.view === 'detail' ? 'records' : this.data.view === 'result' ? 'tasks' : 'works'); },
 openRecent(e) {
