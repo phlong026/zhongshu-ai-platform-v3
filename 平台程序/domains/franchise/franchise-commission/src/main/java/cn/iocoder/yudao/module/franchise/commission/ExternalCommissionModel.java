@@ -19,9 +19,16 @@ public final class ExternalCommissionModel {
     }
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record MeasurementRef(String eventId, Long revision, String customerId, LocalDate occurredOn,
-                                 Map<String,Object> fields, List<Attachment> attachments) {
-        static MeasurementRef identity(String eventId, long revision) {
-            return new MeasurementRef(eventId, revision, null, null, null, null);
+                                 Map<String,Object> fields, List<Attachment> attachments, String note, Boolean includeSourceNote) {
+        public MeasurementRef(String eventId, Long revision, String customerId, LocalDate occurredOn,
+                              Map<String,Object> fields, List<Attachment> attachments) {
+            this(eventId, revision, customerId, occurredOn, fields, attachments, null, null);
+        }
+        static MeasurementRef identity(String eventId, long revision, Boolean includeSourceNote) {
+            return new MeasurementRef(eventId, revision, null, null, null, null, null, Boolean.TRUE.equals(includeSourceNote) ? true : null);
+        }
+        MeasurementRef withNote(String sourceNote) {
+            return new MeasurementRef(eventId, revision, customerId, occurredOn, fields, attachments, sourceNote, null);
         }
     }
     public record MeasurementPage(String customerId, List<MeasurementRef> list, String nextBeforeId) { }

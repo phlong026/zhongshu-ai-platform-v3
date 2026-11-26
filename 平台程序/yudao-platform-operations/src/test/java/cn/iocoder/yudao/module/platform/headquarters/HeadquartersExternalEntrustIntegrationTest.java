@@ -107,7 +107,7 @@ class HeadquartersExternalEntrustIntegrationTest extends PlatformPgIntegrationTe
     @Test void headquartersRolesPageBothCompaniesAndKeepOriginalRequestPaymentAndResultHistory() {
         long a=commission(companyA,customerA),b=commission(companyB,customerB);
         var measured = Map.of("customerId",Long.toString(customerA),"eventId","9007199254740099251","revision",9,
-                "fields",Map.of("orientation","南偏东 15°","siteElevationNote","北侧 T 形道路高 0.45 米"));
+                "fields",Map.of("orientation","南偏东 15°","siteElevationNote","北侧 T 形道路高 0.45 米"),"note","原测量文字。\n详见原件。");
         request(a,tenant,companyA,customerA,1,id());request(a,tenant,companyA,customerA,2,id(),measured);
         request(b,tenant,companyB,customerB,1,id());result(a,tenant,companyA,customerA,1,1,id());
         for(String role:List.of("hq-admin","finance","finance-lead")) {
