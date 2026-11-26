@@ -45,7 +45,7 @@ test('本人当期提交绑定当前身份与版本，丢回执重试沿用原�
   assert.equal(calls.length, 2); assert.deepEqual(calls[0], calls[1]);
   assert.deepEqual(calls[0].slice(0, 3), [period, id, '本期回款']);
   assert.ok(calls[0][3]); assert.equal(calls[0][4], 0);
-  assert.equal(page.data.current.statusLabel, '待复核'); assert.equal(page.data.canSubmit, false);
+  assert.equal(page.data.current.statusLabel, '待复核'); assert.equal(page.data.canSubmit, true);
 });
 test('复核只针对本组织他人，保留精确原单和金额，签名变化以退回结果显示', async t => {
   const { page, event, opened } = start(t, true);
@@ -146,4 +146,19 @@ test('原单较多时按页展示，翻页后打开当页原单',async t=>{
   await page.onShow();assert.equal(page.data.snapshot.sources.length,30);
   page.pageSources(event('step','next'));assert.equal(page.data.snapshot.sources.length,6);
   page.openSource(event('index',0));assert.equal(opened(),'/pages/workflow/index?view=customer&id=31');
+});
+
+test('本人可显式更新待审当前版，旧提交只读，管理人不能沿用被替代版本',async t=>{
+  const {page}=start(t);
+  t.mock.method(api,'list',async()=>[cycle(id,{revision:1})]);
+  const updated=cycle(id,{revision:2,submission:JSON.stringify({note:'更正说明',sources:[],history:[
+    {revision:1,status:'PENDING_REVIEW',submission:{note:'原待审说明',sources:[]}}
+  ]})});
+  t.mock.method(api,'submit',async(p,u,n,key,expected)=>{
+    assert.deepEqual([p,u,n,expected],[period,id,'更正说明',1]);assert.ok(key);return updated;
+  });
+  await page.onShow();assert.equal(page.data.canSubmit,true);
+  page.inputNote({detail:{value:'更正说明'}});await page.submit();
+  assert.equal(page.data.current.revision,2);assert.equal(page.data.snapshot.note,'更正说明');
+  page.selectVersion({detail:{value:'1'}});assert.equal(page.data.snapshot.note,'原待审说明');assert.equal(page.data.canSubmit,false);
 });

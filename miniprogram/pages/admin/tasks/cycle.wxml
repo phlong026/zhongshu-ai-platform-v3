@@ -28,7 +28,7 @@
       </block>
     </view>
     <view wx:if="{{canSubmit||canReview}}" class="card"><label class="task-field"><text class="task-label">{{canSubmit?'提交说明':'复核意见'}}</text><textarea class="task-textarea" value="{{note}}" maxlength="500" disabled="{{saving}}" bindinput="inputNote" placeholder="{{canSubmit?'填写本周期工作说明':'退回时请填写原因'}}"/></label>
-      <button wx:if="{{canSubmit}}" class="primary" disabled="{{saving}}" bindtap="submit">{{saving?'正在提交':'提交复核'}}</button>
+      <button wx:if="{{canSubmit}}" class="primary" disabled="{{saving}}" bindtap="submit">{{saving?'正在提交':current.status==='PENDING_REVIEW'?'更新提交':'提交复核'}}</button>
       <block wx:if="{{canReview}}"><button class="primary" data-action="approve" disabled="{{saving}}" bindtap="review">复核通过</button><button class="secondary" data-action="return" disabled="{{saving}}" bindtap="review">退回补充</button></block>
     </view>
   </view>

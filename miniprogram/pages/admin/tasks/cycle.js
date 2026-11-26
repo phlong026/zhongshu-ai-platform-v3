@@ -79,7 +79,7 @@ Page({
     if (!row) return;
     this.selectedUser = id(row.userId);
     this.versionRows = row.revision ? versions(row, actor.role) : [];
-    this.setData({current:{userId:this.selectedUser, revision:row.revision, statusLabel:statuses[row.status] || '未提交'},
+    this.setData({current:{userId:this.selectedUser, revision:row.revision, status:row.status, statusLabel:statuses[row.status] || '未提交'},
       versionLabels:this.versionRows.map(v=>v.label), note:''});
     this.showVersion(0);
   },
@@ -88,7 +88,7 @@ Page({
     const actor = identity();
     const active = index === 0 && actor && actor.key === this.scope && row;
     this.setData({versionIndex: index, note:'',
-      canSubmit: !!(active && !this.data.team && id(row.userId) === actor.user && (!row.status || row.status === 'RETURNED')),
+      canSubmit: !!(active && !this.data.team && id(row.userId) === actor.user && (!row.status || row.status === 'RETURNED' || row.status === 'PENDING_REVIEW')),
       canReview: !!(active && this.data.team && id(row.userId) !== actor.user && row.status === 'PENDING_REVIEW' && row.canReview === true)});
     this.showSources(0);
   },
