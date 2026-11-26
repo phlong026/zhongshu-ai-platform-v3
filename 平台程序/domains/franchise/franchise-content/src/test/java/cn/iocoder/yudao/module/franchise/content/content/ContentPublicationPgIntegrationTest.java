@@ -31,6 +31,10 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.SALES;
 
 @Import({ContentPublicationService.class, ContentPublisherAccountService.class, ContentPublicationCoverService.class,
@@ -93,6 +97,31 @@ class ContentPublicationPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(drafts.workOfAuthor(store.orgId(), owner.userId(), workId).getStatus()).isEqualTo("draft");
         assertThat(drafts.updateWorkStatus(store.orgId(), owner.userId(), workId, "saved").getStatus())
                 .isEqualTo("saved");
+    }
+
+    @Test
+    void trashAndRestoreKeepTheOriginalWorkAndPublishedReceipt() throws Exception {
+        var publication = service.createFromPost(owner, manualBody("作品回收验收"), "publish-before-trash-" + workId);
+        var controller = new cn.iocoder.yudao.module.franchise.content.controller.admin.ContentDraftController();
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "currentPost", currentPost);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "drafts", drafts);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        String list = "/franchise/content/drafts";
+        String action = list + "/" + workId + "/trash";
+        for (int retry = 0; retry < 2; retry++) {
+            mvc.perform(put(action).contentType("application/json").content("{\"trashed\":true,\"revision\":0}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.revision").value(1));
+        }
+        mvc.perform(get(list)).andExpect(jsonPath("$.data.length()").value(0));
+        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)));
+        assertThat(service.requireOwned(store.orgId(), owner.userId(), publication.getId()).getWorkId()).isEqualTo(workId);
+        assertThatThrownBy(() -> drafts.workOfAuthor(store.orgId(), owner.userId(), workId))
+                .isInstanceOf(ServiceException.class);
+        mvc.perform(put(action).contentType("application/json").content("{\"trashed\":false,\"revision\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.revision").value(2));
+        mvc.perform(get(list + "/trash")).andExpect(jsonPath("$.data.length()").value(0));
+        mvc.perform(get(list)).andExpect(jsonPath("$.data[0].workId").value(String.valueOf(workId)))
+                .andExpect(jsonPath("$.data[0].title").value("本人作品"));
     }
 
     @Test

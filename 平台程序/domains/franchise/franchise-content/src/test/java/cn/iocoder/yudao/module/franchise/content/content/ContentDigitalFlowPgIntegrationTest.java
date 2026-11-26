@@ -79,6 +79,8 @@ class ContentDigitalFlowPgIntegrationTest extends FranchisePgIntegrationTest {
             tasks.pollOne(running);var completed=tasks.requireOwned(33,task.getId());
             assertThat(completed.getStatus()).isEqualTo("SUCCEEDED");assertThat(completed.getResultUrl()).isEqualTo("https://fixture.example/completed.mp4");
             var drafts=new ContentDraftService(draftMapper,null,null,tasks,jdbc);
+            assertThatThrownBy(() -> drafts.saveWork(33, 23, task.getId(), "同事保存"))
+                    .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
             var work=drafts.saveWork(33,22,task.getId(),"张工口播");assertThat(drafts.saveWork(33,22,task.getId(),"重复保存").getId()).isEqualTo(work.getId());
             assertThat(work.getConfiguration()).contains("completed.mp4");
             assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_content_draft WHERE task_id=?",Long.class,task.getId())).isEqualTo(1);
