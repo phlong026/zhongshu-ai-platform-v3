@@ -112,6 +112,20 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     }
     @AfterEach void clear() { storage.beforeRead=null; TenantContextHolder.clear(); }
 
+    @Test void existingCustomerCanListSavedMeasurementVersionsBeforeAnyCommission() throws Exception {
+        long customerId = customer(sales);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
+                new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost)).build();
+        var reply = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                "/franchise/customers/" + customerId + "/external-entrust/measurements")).andReturn().getResponse();
+        assertThat(reply.getStatus()).isEqualTo(200);
+        var data = JsonUtils.parseTree(reply.getContentAsString()).path("data");
+        assertThat(data.path("customerId").asText()).isEqualTo(Long.toString(customerId));
+        assertThat(data.path("list").isArray()).isTrue();
+        assertThat(data.path("list").isEmpty()).isTrue();
+        assertThat(count("fr_commission","customer_id",customerId)).isZero();
+    }
+
     @Test void allEightStepsUseActualExternalEvidenceSignedContractNetCollectionAndEngineeringStart() throws Exception {
         long customer=customer(sales), document=upload(sales,"BUSINESS_DOCUMENT");
         completeManualSix(customer,document);
