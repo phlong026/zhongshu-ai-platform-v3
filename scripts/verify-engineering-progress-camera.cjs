@@ -8,3 +8,15 @@ test('delay form persists existing fields and completion removes the todo while 
 test('non-owner and finance can read facts but cannot edit delay/cameras',()=>{const {P}=harness();for(const ctx of [{writeRole:true,userId:'149'},{financeRole:true}]){const v=P.recordView(bundle(),{view:'delay',...ctx});assert.equal(v.actions.length,0);assert.equal(v.canManageCameras,false);}});
 test('camera and delay commands retain IDs and ordinary names without changing payment APIs',async()=>{const {P,calls}=harness();await P.perform('delay','100',{delayReason:'连续降雨',delayOwnerUserId:'148',recoveryDate:'2026-11-20',recoveryAction:'增派人员排水'},{id:'102'},'k1');await P.perform('camera-save','100',{cameraId:'301',cameraName:'东侧施工区',cameraLocation:'入口立杆',cameraEnabled:false},null,'k2');assert.equal(calls[0][1],'102');assert.equal(calls[0][2].ownerUserId,'148');assert.equal(calls[1][1].cameraId,'301');assert.equal(calls[1][1].enabled,false);assert.equal(calls[1][1].url,'');});
 test('date-array history is normalized and archived camera management is closed',()=>{const {P}=harness(),b=bundle();b.detail.nodes[1].delayHistory=JSON.stringify([{reason:'连续降雨',recoveryDate:[2026,11,20],ownerUserId:'148'}]);b.detail.closure={archivedAt:'2026-11-18'};const v=P.recordView(b,{view:'delay',writeRole:true});assert.equal(v.delayHistory[0].recoveryDate,'2026-11-20');assert.equal(v.canManageCameras,false);assert.equal(v.actions.length,0);});
+test('new delay forms require explicit responsibility and recovery date, while later changes keep the recorded person',async()=>{
+ const {P,calls}=harness(),b=bundle(),node=b.detail.nodes[1];
+ delete node.delayOwnerUserId;delete node.delayOwnerName;delete node.recoveryDate;
+ const opts={view:'delay',nodeId:'102',writeRole:true,userId:'148',handlers:[{id:'149',name:'现场责任工程师'}]};
+ const fresh=P.recordView(b,opts);
+ assert.equal(fresh.form.delayOwnerUserId,'');assert.equal(fresh.form.delayOwnerName,'');assert.equal(fresh.form.recoveryDate,'');
+ await assert.rejects(P.perform('delay','100',{...fresh.form,delayReason:'现场雨水',recoveryAction:'排水后复测'},{id:'102'},'incomplete'),/责任人|预计完成/);
+ assert.equal(calls.length,0);
+ node.delayOwnerUserId='149';node.recoveryDate='2026-12-05';
+ const saved=P.recordView(b,opts);
+ assert.equal(saved.form.delayOwnerUserId,'149');assert.equal(saved.form.delayOwnerName,'现场责任工程师');assert.equal(saved.form.recoveryDate,'2026-12-05');
+});
