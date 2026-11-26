@@ -1202,6 +1202,54 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
                 Long.class,payableId)).isEqualTo(1);
     }
 
+    @Test
+    void settlementSeparatelyShowsPaidExpenseRevisionWithoutChangingTheLedger() {
+        var expense = as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("劳务核减", "LABOR", new BigDecimal("1000"), ""), idem()));
+        String expenseId = (String) expense.get("expenseId");
+        var withPayable = as(engineer, () -> expensesService.terms(engineer, Long.parseLong(expenseId),
+                new EngExpenseService.TermsCommand("收款人", "原凭据"), idem()));
+        long payable = Long.parseLong((String) withPayable.get("payableId"));
+        var finance = fixture.post(store.orgId(), "finance", null);
+        long payment = paymentService.register(finance, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                        payable, 100000, java.time.LocalDate.now(), null, null));
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .doesNotContainKey("expenseReviewRows");
+        as(engineer, () -> expensesService.revise(engineer, Long.parseLong(expenseId),
+                new BigDecimal("800"), "现场确认减项", idem()));
+
+        var expected = java.util.Map.<String, Object>of("expenseId", expenseId, "name", "劳务核减",
+                "revisedCents", 80000L, "bookedCents", 100000L, "netPaidCents", 100000L,
+                "netAboveRevisedCents", 20000L);
+        assertThat(as(finance, () -> closuresService.settleSummary(finance, projectId)))
+                .containsEntry("expensesTotalCents", 100000L)
+                .containsEntry("expensesPaidCents", 100000L)
+                .containsEntry("expenseReviewRows", java.util.List.of(expected));
+        var nonOwner = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        assertThat(as(nonOwner, () -> closuresService.settleSummary(nonOwner, projectId)))
+                .doesNotContainKeys("expenseReviewRows", "expensesPaidCents");
+        var anotherStore = fixture.store();
+        var outsider = fixture.post(anotherStore.orgId(), "finance", null);
+        assertThatThrownBy(() -> as(outsider, () -> closuresService.settleSummary(outsider, projectId)))
+                .isInstanceOf(ServiceException.class);
+
+        refundService.registerExpense(finance, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(
+                        payment, 20000, "核实的支出退回", java.time.LocalDate.now(), null, null, null));
+        var returned = new java.util.HashMap<>(expected);
+        returned.put("netPaidCents", 80000L);
+        returned.put("netAboveRevisedCents", 0L);
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("expensesTotalCents", 100000L)
+                .containsEntry("expensesPaidCents", 80000L)
+                .containsEntry("expenseReviewRows", java.util.List.of(returned));
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?", Long.class, payable))
+                .isEqualTo(100000L);
+        assertThat(jdbc.queryForObject("SELECT amount_cents FROM fr_fin_payment WHERE id=?", Long.class, payment))
+                .isEqualTo(100000L);
+    }
+
     private static String idem() {
         return "idem-" + IDS.incrementAndGet();
     }
