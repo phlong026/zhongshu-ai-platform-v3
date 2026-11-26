@@ -130,6 +130,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @Test void allEightStepsUseActualExternalEvidenceSignedContractNetCollectionAndEngineeringStart() throws Exception {
         long customer=customerFromPublishedWork(), document=upload(sales,"BUSINESS_DOCUMENT");
+        var publishedSources = growth.customerSources(sales, customer);
         completeManualSix(customer,document);
         assertProgress(customer,6);
         saveDraft(customer,0,100000);
@@ -165,6 +166,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(completed.completedCount()).isEqualTo(8); assertThat(completed.progressPercent()).isEqualByComparingTo("100");
         assertThat(completed.steps().get(6).canComplete()).isFalse(); assertThat(completed.steps().get(7).canComplete()).isFalse();
         assertThat(completed.steps().get(7).fields()).containsEntry("projectId",Long.toString(project)).containsEntry("actualStartAt",today().toString());
+        assertThat(growth.customerSources(sales, customer)).containsExactlyInAnyOrderElementsOf(publishedSources);
         assertThat(count("fr_eng_site_record","project_id",project)).isEqualTo(1);
         assertThat(audit(project,"eng-start")).isEqualTo(1);
         long commission=Long.parseLong(ready.commissionId());
