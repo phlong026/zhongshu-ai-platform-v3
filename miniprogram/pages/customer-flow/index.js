@@ -140,7 +140,7 @@ Page({
       this.setData({ quotesLoading: false, quoteOptions: model.quoteOptions(rows, this.customerId, request.companyId) });
     } catch (error) {
       if (!current()) return;
-      if (error.postInvalid) this.clear(model.errorText(error));
+      if (accessRevoked(error)) this.clear(model.errorText(error));
       else this.setData({ quotesLoading: false, quotesError: model.errorText(error) });
     }
   },
@@ -319,8 +319,9 @@ Page({
     const record = this.data.activeRecord;
     const code = record ? record.stepCode : this.selectedCode;
     const quoteId = model.id(record ? record.fields?.quoteId : this.data.form?.fields?.quoteId);
-    if (this.alive() && code === 'QUOTATION' && quoteId) {
-      navigation.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(quoteId) + '&source=customer-flow');
+    if (!this.alive()) return this.load();
+    if (code === 'QUOTATION' && quoteId) {
+      navigation.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(quoteId) + '&source=customer-flow&customerId=' + encodeURIComponent(this.customerId));
     }
   },
   openEntrust() {
