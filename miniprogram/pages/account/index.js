@@ -442,8 +442,14 @@ Page({
   const post=auth.currentApiPost();
   if(!post){auth.logout();this.loginSessionGeneration=0;this.setData({loginBusy:false,error:'当前账号暂无有效任职，请联系门店老板或平台管理员'});return;}
   this.loginSessionGeneration=0;wx.showToast({title:'以'+(O.roles[post.roleCode]||post.roleCode)+'身份进入',icon:'none'});
-  const announcement=this.data.view==='login'&&this.options&&this.options.return?require('./announcements/model').returnPath(this.options.return):'';
-  if(announcement&&String(post.postId)===String(http.currentPostId())&&O.enabled(post.orgType,post.roleCode))return wx.reLaunch({url:announcement,fail:()=>wx.showToast({title:'公告打开失败，请重试',icon:'none'})});
+  const requested=this.data.view==='login'&&this.options?.return;
+  if(typeof requested==='string'&&requested.length<=300&&String(post.postId)===String(http.currentPostId())&&O.enabled(post.orgType,post.roleCode)){
+   const destination=routeValue(requested);
+   if(destination==='/pages/profile/index')return wx.switchTab({url:destination});
+   if(destination==='/pages/wallet/company-recharge/index')return wx.reLaunch({url:destination});
+   const announcement=require('./announcements/model').returnPath(requested);
+   if(announcement)return wx.reLaunch({url:announcement,fail:()=>wx.showToast({title:'公告打开失败，请重试',icon:'none'})});
+  }
   return openApiHome(post);
  },
  onHide(){if(['profile','identity'].includes(this.data.view)&&(this.data.profileLoading||this.data.busy)&&http.token()){this.__profileNeedsRefresh=true;this.setData({profileLoading:false});}if(this.data.view==='messages'){this.__messagesGen=(this.__messagesGen||0)+1;require('./platform-messages-page').invalidateAction(this);}this.__policySeq=(this.__policySeq||0)+1;this.loginPolicyPromise=null;this.__profileGeneration=(this.__profileGeneration||0)+1;if(this.data.view==='profile')this.setData({busy:false});if(this.data.view==='login')this.cancelLoginFlow({clearSensitive:true});if(this.data.view==='api-members'){this.memberPageHidden=true;this.memberLoadSeq=(this.memberLoadSeq||0)+1;this.resetHandoverPreview();this.resetHandoverSearch();this.memberAccountGeneration=(this.memberAccountGeneration||0)+1;this.setData({apiMembersBusy:false,staffAccountDelivery:null});}},
