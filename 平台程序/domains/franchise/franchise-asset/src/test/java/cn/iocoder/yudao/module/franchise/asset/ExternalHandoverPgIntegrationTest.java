@@ -314,6 +314,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         input.put("today",today().toString()); input.put("sales",miniActor(sales)); input.put("engineer",miniActor(engineer));
         boolean measurementClient = java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client).toAbsolutePath()
                 .resolveSibling("paired-measurement-request.cjs"));
+        boolean siteClient = java.nio.file.Files.isRegularFile(java.nio.file.Path.of(client).toAbsolutePath()
+                .resolveSibling("paired-measurement-site.cjs"));
+        var site = Map.of("orientation","南偏东 15°","siteElevationNote","北侧 T 形路口高出宅基地 0.45 米，入口需放坡");
+        if (siteClient) input.put("measurementSite",site);
         var measurement = as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0);
         if (measurementClient) {
             input.put("measurementEventId", measurement.eventId());
@@ -331,6 +335,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var json=builder.build();
         var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalCommissionController(external,currentPost),
+                new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerWorkflowController(workflow,currentPost),
                 new cn.iocoder.yudao.module.franchise.crm.controller.admin.CustomerController(customers,currentPost,FakeSystemDirectory.INSTANCE),
                 new cn.iocoder.yudao.module.franchise.commission.controller.admin.ExternalHandoverController(handover,currentPost))
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(json)).build();
@@ -345,12 +350,12 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         com.fasterxml.jackson.databind.JsonNode completed=null;
         try(var requests=process.inputReader(StandardCharsets.UTF_8); var replies=process.outputWriter(StandardCharsets.UTF_8)) {
             try {
-                for(int n=0;n<40;n++) {
+                for(int n=0;n<50;n++) {
                     String line=io.submit((Callable<String>)requests::readLine).get(15,TimeUnit.SECONDS);
                     var request=json.readTree(Objects.requireNonNull(line,"配对小程序提前退出"));
                     if(request.path("done").asBoolean()) { completed=request; break; }
                     String role=request.path("actor").asText(), method=request.path("method").asText();
-                    assertThat(role).isIn("sales","engineer","boss"); assertThat(method).isIn("GET","POST");
+                    assertThat(role).isIn("sales","engineer","boss"); assertThat(method).isIn("GET","POST","PUT");
                     currentPost.use(switch (role) { case "sales" -> sales; case "boss" -> boss; default -> engineer; });
                     String response;
                     try {
@@ -378,12 +383,18 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long commission=Long.parseLong(completed.path("commissionId").asText());
         long project=Long.parseLong(completed.path("projectId").asText());
         if (measurementClient) {
-            assertThat(completed.path("measurementEventId").asText()).isEqualTo(measurement.eventId());
+            var selected = siteClient ? as(sales, () -> external.measurements(sales,customer,null,20)).list().get(0) : measurement;
+            if (siteClient) {
+                assertThat(selected.eventId()).isNotEqualTo(measurement.eventId());
+                assertThat(selected.fields()).containsEntry("orientation",site.get("orientation")).containsEntry("siteElevationNote",site.get("siteElevationNote"));
+                assertThat(measurement.fields()).doesNotContainKeys("orientation","siteElevationNote");
+            }
+            assertThat(completed.path("measurementEventId").asText()).isEqualTo(selected.eventId());
             assertThat(completed.path("verifiedCustomerTransfer").asBoolean()).isTrue();
             var versions = as(sales, () -> external.get(sales,customer)).requests();
             assertThat(versions).hasSize(1);
             var original = versions.get(0);
-            assertThat(original.data().measurementRef()).isEqualTo(measurement);
+            assertThat(original.data().measurementRef()).isEqualTo(selected);
             assertThat(original.data().attachments()).containsExactlyElementsOf(measurement.attachments());
             long file = Long.parseLong(measurement.attachments().get(0).assetId());
             var ticket = as(sales, () -> external.download(sales,customer,"requests",original.version(),file));

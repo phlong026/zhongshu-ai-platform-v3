@@ -117,6 +117,39 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void measurementObservationsSurviveLegacySavesAndKeepEachArchivedVersion() {
+        long id = customer();
+        var legacy = Map.<String,Object>of("address","宅基地","measurer","陈工","width","12","depth","15","area","180","checked",true);
+        var proof = List.of(new Attachment("9001","实测原件.pdf"));
+        var first = new SaveCommand(0, today(), "", legacy, proof);
+        var original = as(sales, () -> workflow.save(sales,id,"MEASUREMENT",first,"legacy-0"));
+        assertThat(CustomerWorkflowRules.missing(Step.MEASUREMENT,first.occurredOn(),original.steps().get(4).fields(),proof)).isEmpty();
+        assertThat(original.steps().get(4).fields()).doesNotContainKeys("orientation","siteElevationNote");
+
+        var surveyed = new java.util.LinkedHashMap<>(legacy);
+        surveyed.put("orientation"," 南偏东 15° "); surveyed.put("siteElevationNote","北界比南界高 0.45 米，车库入口需放坡");
+        var capture = new SaveCommand(1, today(), "", surveyed, proof);
+        as(sales, () -> workflow.save(sales,id,"MEASUREMENT",capture,"site-1"));
+        var olderApp = new SaveCommand(2, today(), "复查尺寸", legacy, proof);
+        var kept = as(sales, () -> workflow.save(sales,id,"MEASUREMENT",olderApp,"legacy-2"));
+        assertThat(kept.steps().get(4).fields()).containsEntry("orientation","南偏东 15°")
+                .containsEntry("siteElevationNote",surveyed.get("siteElevationNote"));
+        var clear = new java.util.LinkedHashMap<>(legacy);
+        clear.put("orientation"," ");
+        failure(1099000000, () -> as(sales, () -> workflow.save(sales,id,"MEASUREMENT",
+                new SaveCommand(2,today(),"复查尺寸",clear,proof),"legacy-2")));
+        var updated = as(sales, () -> workflow.save(sales,id,"MEASUREMENT",
+                new SaveCommand(3,today(),"更正朝向",clear,proof),"site-3"));
+        assertThat(updated.steps().get(4).fields()).doesNotContainKey("orientation")
+                .containsEntry("siteElevationNote",surveyed.get("siteElevationNote"));
+        assertThat(as(sales, () -> workflow.save(sales,id,"MEASUREMENT",first,"legacy-0")).revision()).isEqualTo(4);
+        var history = as(sales, () -> workflow.records(sales,id,1,20)).getList();
+        assertThat(history).extracting(record -> record.fields().get("orientation"))
+                .containsExactly(null,"南偏东 15°","南偏东 15°",null);
+        assertThat(history.get(3).fields()).doesNotContainKey("siteElevationNote");
+    }
+
+    @Test
     void savingCompletingAndReopeningAreSeparateVersionedFactsWithImmutableHistory() {
         long id = customer();
         SaveCommand input = invitation(0);

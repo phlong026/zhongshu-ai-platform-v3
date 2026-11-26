@@ -106,7 +106,9 @@ class HeadquartersExternalEntrustIntegrationTest extends PlatformPgIntegrationTe
 
     @Test void headquartersRolesPageBothCompaniesAndKeepOriginalRequestPaymentAndResultHistory() {
         long a=commission(companyA,customerA),b=commission(companyB,customerB);
-        request(a,tenant,companyA,customerA,1,id());request(a,tenant,companyA,customerA,2,id());
+        var measured = Map.of("customerId",Long.toString(customerA),"eventId","9007199254740099251","revision",9,
+                "fields",Map.of("orientation","南偏东 15°","siteElevationNote","北侧 T 形道路高 0.45 米"));
+        request(a,tenant,companyA,customerA,1,id());request(a,tenant,companyA,customerA,2,id(),measured);
         request(b,tenant,companyB,customerB,1,id());result(a,tenant,companyA,customerA,1,1,id());
         for(String role:List.of("hq-admin","finance","finance-lead")) {
             actor(role.equals("hq-admin")?admin:post(user,headquarters,"headquarters",role),tenant);
@@ -114,9 +116,12 @@ class HeadquartersExternalEntrustIntegrationTest extends PlatformPgIntegrationTe
             assertThat(page.total()).isEqualTo(2);assertThat(page.pageNo()).isEqualTo(1);assertThat(page.pageSize()).isEqualTo(1);assertThat(page.readOnly()).isTrue();
             assertThat(page.list()).hasSize(1);assertThat(page.list().get(0).get("version")).isEqualTo(2);
             assertThat(((Map<?,?>)page.list().get(0).get("data")).get("text")).isEqualTo("秘密需求V2");
+            assertThat(((Map<?,?>)page.list().get(0).get("data")).get("measurementRef")).isEqualTo(measured);
             assertThat(((Map<?,?>)page.list().get(0).get("paymentPlan")).get("source")).isEqualTo("DRAFT");
             assertThat(page.list().get(0).get("actorName")).isEqualTo("人员"+user);
-            assertThat(reads.externalVersions(customerA,"requests",2,1).list().get(0).get("version")).isEqualTo(1);
+            var old = reads.externalVersions(customerA,"requests",2,1).list().get(0);
+            assertThat(old.get("version")).isEqualTo(1);
+            assertThat(((Map<?,?>)old.get("data")).get("measurementRef")).isNull();
             assertThat(reads.externalVersions(customerB,"requests",1,20).total()).isEqualTo(1);
             var result=reads.externalVersions(customerA,"results",1,20).list().get(0);
             assertThat(result).doesNotContainKey("paymentPlan");assertThat((List<?>)result.get("attachments")).hasSize(3);
@@ -246,8 +251,12 @@ class HeadquartersExternalEntrustIntegrationTest extends PlatformPgIntegrationTe
     private long customer(long company,long owner){long id=id();jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status) VALUES(?,?,?,'客户',?,'test','REGISTERED')",id,company,owner,"1"+String.format("%010d",id));return id;}
     private long commission(long company,long customer){long id=id();jdbc.update("INSERT INTO fr_commission(id,company_id,design_org_id,customer_id,customer_name,status,submission_version,workflow_mode) VALUES(?,?,?,?,'客户','EXTERNAL_PENDING',1,'EXTERNAL')",id,company,company,customer);return id;}
     private void request(long commission,long ownerTenant,long company,long customer,int version,long asset){
+        request(commission,ownerTenant,company,customer,version,asset,null);
+    }
+    private void request(long commission,long ownerTenant,long company,long customer,int version,long asset,Map<String,?> measurement){
         var attachment=List.of(Map.of("assetId",Long.toString(asset),"title","需求依据"));
-        var data=Map.of("text","秘密需求V"+version,"attachments",attachment);
+        var data=new java.util.LinkedHashMap<String,Object>(Map.of("text","秘密需求V"+version,"attachments",attachment));
+        if (measurement != null) data.put("measurementRef",measurement);
         var plan=Map.of("source","DRAFT","revision",version,"totalCents",10000,"customerId",Long.toString(customer),"companyId",Long.toString(company));
         jdbc.update("INSERT INTO fr_commission_external_version(commission_id,version,tenant_id,company_id,customer_id,action,data,payment_plan,actor_user_id,actor_post_id) VALUES(?,?,?,?,?,'REGISTER',CAST(? AS jsonb),CAST(? AS jsonb),?,?)",commission,version,ownerTenant,company,customer,JsonUtils.toJsonString(data),JsonUtils.toJsonString(plan),user,admin.postId());
     }
