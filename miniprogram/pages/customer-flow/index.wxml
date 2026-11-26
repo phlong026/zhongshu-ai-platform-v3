@@ -50,8 +50,9 @@
       <block wx:if="{{step.code==='CONTRACT'||step.code==='START'}}">
         <view class="flow-card">
           <view wx:for="{{facts}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value || '待登记'}}</text></view>
+          <text wx:if="{{step.code==='CONTRACT'&&step.status!=='COMPLETED'}}" class="flow-muted">设计服务合同可归入设计委托档案。本步在正式施工合同签署后完成。</text>
           <view wx:if="{{step.completionErrors.length}}" class="flow-requirements"><text wx:for="{{step.completionErrors}}" wx:key="*this">{{item}}</text></view>
-          <view class="flow-inline-actions"><button class="flow-primary" bindtap="openSource">{{step.code==='CONTRACT'?'查看合同办理':step.fields.projectId&&step.canReadEngineering?'查看工程记录':'查看委托与移交'}}</button></view>
+          <view class="flow-inline-actions"><button class="flow-primary" bindtap="openSource">{{step.code==='CONTRACT'?'查看施工合同':step.fields.projectId&&step.canReadEngineering?'查看工程记录':'查看委托与移交'}}</button></view>
         </view>
       </block>
       <block wx:else>

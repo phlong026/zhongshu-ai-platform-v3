@@ -23,7 +23,7 @@ const context = post => ({ tenantId: '1', headquartersOrgId: '7', postId: '42', 
     { id: '32', name: '乙公司', orgType: 'store', brandId: '2', brandName: '金宅子', brandState: 'RESOLVED' },
     { id: '33', name: '待核公司', orgType: 'store', brandId: null, brandState: 'AMBIGUOUS' }] });
 const customer = () => row(LONG, { readOnly: true, workflow: { customerId: LONG, companyId: '31', canWrite: false, completedCount: 2, progressPercent: 25,
-  steps: api.STEPS.map((code, index) => ({ code, name: ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '合同签约', '开工大吉'][index],
+  steps: api.STEPS.map((code, index) => ({ code, name: ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '施工签约', '开工大吉'][index],
     order: index + 1, status: index < 2 ? 'COMPLETED' : 'DRAFT', canWrite: false, canComplete: false, canReopen: false, source: index === 6 ? 'CONTRACT' : index === 7 ? 'ENGINEERING' : 'MANUAL',
     fields: code === 'HOUSE_SELECTION' ? { referenceCaseName: '新中式合院', confirmed: true } : code === 'QUOTATION' ? { amountCents: '100001', scope: '主体与外装' }
       : code === 'CONTRACT' ? { contractId: '55', assetId: '66', totalCents: '300000', signedDate: '2026-11-25' } : code === 'START' ? { projectId: '77', actualStartAt: '2026-11-25' } : {},
@@ -166,7 +166,7 @@ test('客户八步展示实际字段与外部成果，合同和开工按真实�
     assert.equal(/保存步骤|完成步骤|重新打开步骤|发起设计|确认收款/.test(text), false);
     if (code === 'HOUSE_SELECTION') assert.ok(text.includes('新中式合院') && text.includes('外部设计软件的户型图'));
     if (code === 'QUOTATION') assert.ok(text.includes('1,000.01'));
-    if (code === 'CONTRACT') assert.ok(text.includes('已签合同附件') && text.includes('以已签合同为准'));
+    if (code === 'CONTRACT') assert.ok(text.includes('已签合同附件') && text.includes('以已签施工合同为准'));
   }
   assert.ok(env.reads().every(item => item.request.method === 'GET'));
   const action = Array.from(page._fileActions.values()).find(item => item.step === 'HOUSE_SELECTION');
