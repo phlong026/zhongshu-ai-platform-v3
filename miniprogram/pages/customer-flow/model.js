@@ -22,7 +22,8 @@ const STEPS = [
   { code: 'MEASUREMENT', name: '现场测量', fields: [
     field('address', '实测地址'), field('measurer', '测量人'), field('width', '面宽', 'number', { unit: 'm' }),
     field('depth', '进深', 'number', { unit: 'm' }), field('area', '建筑面积', 'number', { unit: '㎡' }),
-    field('floors', '层数', 'integer', { unit: '层' }), field('checked', '测量资料已核对', 'boolean')
+    field('floors', '层数', 'integer', { unit: '层' }), field('orientation', '实测朝向（选填）'),
+    field('siteElevationNote', '影响设计的现场高差或说明（选填）', 'textarea'), field('checked', '测量资料已核对', 'boolean')
   ] },
   { code: 'QUOTATION', name: '别墅报价', fields: [
     field('quoteId', '正式报价原单', 'hidden'),

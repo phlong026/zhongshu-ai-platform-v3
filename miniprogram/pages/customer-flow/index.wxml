@@ -1,5 +1,5 @@
 <view class="customer-flow">
-  <business-header title="八步跟进" />
+  <business-header title="客户跟进" />
   <view wx:if="{{!workflow}}" class="flow-empty">
     <text>{{loading ? '正在加载客户流程…' : error || '暂无客户流程'}}</text>
     <view wx:if="{{!loading}}" class="flow-inline-actions"><button class="flow-secondary" bindtap="load">重新加载</button><button class="flow-primary" bindtap="chooseIdentity">登录／切换身份</button></view>
