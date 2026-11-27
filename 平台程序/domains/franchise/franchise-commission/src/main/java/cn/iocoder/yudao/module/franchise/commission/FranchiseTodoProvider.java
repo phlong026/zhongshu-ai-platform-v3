@@ -121,7 +121,6 @@ public class FranchiseTodoProvider implements TodoProvider {
     // ===================== 委托待办 =====================
 
     private void commissionTodos(PostSnapshot post, List<TodoItem> items) {
-        boolean designAdminLine = FranchiseRoles.DESIGN_ADMIN.equals(post.roleCode());
         for (CommissionDO commission : commissions.listVisible(post)) {
             String key = Long.toString(commission.getId());
             OffsetDateTime since = commission.getUpdateTime();
@@ -137,73 +136,8 @@ public class FranchiseTodoProvider implements TodoProvider {
                 if (CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) handoverReviewTodo(post,commission,items);
                 continue;
             }
-            if(commission.getDispatchSeq()!=null && !commissions.readyToDispatch(commission)) {
-                items.add(item("design-finance-anomaly:"+key+":"+commission.getSubmissionVersion(),
-                        "「"+customer+"」下发后设计资金净额不足，请核对退款/退回",commission.getStatus(),null,
-                        false,commissionPage(commission.getId(), "progress"),since));
-            }
-            var simulated=commissions.simulatedPayment(commission);
-            if(simulated!=null&&!simulated.paid()){
-                if(access.canWrite(post,commission))items.add(item("simulation-pay:"+key+":"+commission.getSubmissionVersion(),"「"+customer+"」委托待模拟付款登记","SIMULATION_PENDING",null,true,commissionPage(commission.getId(),"pay"),since));
-                continue;
-            }
-            switch (commission.getStatus()) {
-                case CommissionDO.STATUS_FEE_PENDING -> {
-                    if (designAdminLine) {
-                        break; // 设计行政看不到费用审批（字段裁剪同口径）
-                    }
-                    if (FranchiseRoles.atStore(post) && FranchiseRoles.isBoss(post)) {
-                        items.add(item("fee-approve:" + key, "「" + customer + "」委托费用待审批",
-                                "FEE_PENDING", latestTotalCents(commission.getId()), true, commissionPage(commission.getId(), "progress"), since));
-                    } else {
-                        items.add(item("fee-pending:" + key, "「" + customer + "」委托费用审批中",
-                                "FEE_PENDING", null, false, commissionPage(commission.getId(), "progress"), since));
-                    }
-                }
-                case CommissionDO.STATUS_FEE_RETURNED -> {
-                    if (access.canWrite(post, commission)) {
-                        items.add(item("fee-returned:" + key + ":" + commission.getSubmissionVersion(),
-                                "「" + customer + "」委托费用被退回，待修改重提", "FEE_RETURNED", null,
-                                true, commissionPage(commission.getId(), "submit"), since));
-                    }
-                }
-                case CommissionDO.STATUS_DESIGNING -> {
-                    if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commissions.readyToComplete(commission)) {
-                        items.add(item("design-complete:" + key + ":" + commission.getSubmissionVersion(),
-                                "「" + customer + "」首款已就绪，确认设计完成", "DESIGNING", null,
-                                true, commissionPage(commission.getId(), "complete"), since));
-                    }
-                }
-                case CommissionDO.STATUS_DESIGN_COMPLETED -> {
-                    if (designAdminLine && access.isDesignAdminOf(post, commission)
-                            && commissions.readyToDispatch(commission)) {
-                        items.add(item("design-dispatch:" + key + ":" + commission.getSubmissionVersion(),
-                                "「" + customer + "」尾款已就绪，下发成果", "DESIGN_COMPLETED", null,
-                                true, commissionPage(commission.getId(), "dispatch"), since));
-                    } else if (!commissions.readyToDispatch(commission) && access.canWrite(post, commission)) {
-                        items.add(item("tail-follow:" + key, "「" + customer + "」设计已完成，跟进尾款支付",
-                                "DESIGN_COMPLETED", null, true, commissionPage(commission.getId(), "progress"), since));
-                    }
-                }
-                case CommissionDO.STATUS_DISPATCHED -> {
-                    if (access.canWrite(post, commission)) {
-                        items.add(item("handover-prepare:" + key, "「" + customer + "」成果已下发，收图并移交",
-                                "DISPATCHED", null, true, commissionPage(commission.getId(), "handover"), since));
-                    }
-                }
-                case CommissionDO.STATUS_HANDOVER_SUBMITTED -> handoverReviewTodo(post, commission, items);
-                case CommissionDO.STATUS_HANDOVER_RETURNED -> {
-                    if (access.canWrite(post, commission)) {
-                        items.add(item("handover-returned:" + key + ":" + commission.getHandoverVersion(),
-                                "「" + customer + "」移交被退回，待补充资料", "HANDOVER_RETURNED", null,
-                                true, commissionPage(commission.getId(), "handover"), since));
-                    }
-                }
-                default -> {
-                    // ACCEPTED 无待办
-                }
-            }
+            // 设计岗位退役（V20261127.1201）：LEGACY 委托不可再推进、无人审批/下发，
+            // 除可 convert-legacy 转外部流程外不再产生任何待办；external 分支保留。
         }
     }
 
@@ -234,11 +168,6 @@ public class FranchiseTodoProvider implements TodoProvider {
 
     private static String externalHandoverPage(long commissionId) {
         return "/pages/external-handover/index?commissionId="+commissionId;
-    }
-
-    private Long latestTotalCents(long commissionId) {
-        List<CommissionSubmissionDO> submissions = submissionMapper.selectByCommission(commissionId);
-        return submissions.isEmpty() ? null : submissions.get(0).getTotalCents();
     }
 
     private static String followupPage(CustomerDO customer) {
