@@ -1,6 +1,6 @@
 # 众墅之家 AI 赋能平台 · 微信小程序
 
-本仓库采用两个长期分支：**`main` 保存原生微信小程序，`backend-main` 保存 Java 平台服务和 Vue 管理台**。小程序已通过平台 API 接入账号、客户、内容创作、设计委托、工程、财务和绩效；根目录的 `server/` 是历史联调服务，正式 B 平台入口在后端分支。
+本仓库采用两个长期分支：**`main` 保存原生微信小程序，`backend-main` 保存 Java 平台服务和 Vue 管理台**。小程序通过平台 API 接入账号、客户八步跟进、内容创作、灵感库与免费快速预算、外部委托、工程、财务和绩效。正式 B 平台入口在后端分支；历史 Node 联调服务及其报告只代表当时版本。
 
 ## 从哪里开始
 
@@ -22,14 +22,22 @@
 | --- | --- | --- |
 | 登录、组织、资料 | `pages/account/`、`pages/profile/`、`api/auth.js`、`api/org.js` | 账号/微信登录、岗位切换、成员权限、资料和交接入口 |
 | 创作 | `pages/creation/`、`pages/studio/`、`pages/ai-video/`、`api/franchise/content.js` | 文案、人物及克隆资源、视频任务、草稿、素材库、人工发布登记 |
-| 获客与业务 | `pages/business/`、`pages/workflow/`、`api/franchise/crm.js` | 发布来源、客资、客户、方案、合同相关入口 |
-| AI 设计 | `design-migration/`、`pages/design/`、`api/franchise/design.js` | 公开户型、AI 平面/立面、预算；由 B 的设计适配调用设计能力服务 |
-| 设计委托 | `pages/workflow/commission/`、`api/franchise/commission.js` | 委托、费用和成果、工程移交；保留明确标识的模拟支付流程 |
+| 获客与业务 | `pages/business/`、`pages/customer-flow/`、`pages/workflow/`、`api/franchise/crm.js` | 发布来源、客资、客户八步跟进、外部资料、正式报价与施工合同 |
+| 灵感库与快速预算 | `design-migration/`、`pages/design/`、`api/franchise/design.js` | 公开户型、收藏、免费参考预算和授权历史；内部 AI 平面/立面等新生成已停用 |
+| 外部委托与历史单 | `pages/external-entrust/`、`pages/external-handover/`、`pages/workflow/commission/` | 外部成果、冻结移交包与工程承接；存量原单按权限办理历史结算和必要移交 |
 | 工程 | `pages/build/`、`api/franchise/engineering.js` | 计划、材料、现场记录、收款进度、交付与归档 |
-| 财务与管理 | `pages/admin/`、`pages/management/`、`api/franchise/finance.js` | 收付款、退款、报销、经营摘要和绩效入口 |
+| 财务与管理 | `pages/admin/`、`pages/management/`、`api/finance.js` | 收付款、退款、报销、经营摘要和绩效入口 |
 | 公共能力 | `components/`、`styles/`、`utils/` | 页面组件、样式、导航、会话守卫、上传下载及恢复辅助 |
 
 分包清单以 [app.json](miniprogram/app.json) 为准，打包排除以 [project.config.json](project.config.json) 为准。包检查同时核对资源引用和仓库设置的体积预算。
+
+## 现行业务口径
+
+八步名称固定为：**邀约进店、店面讲解、户型选择、带看工地、现场测量、别墅报价、合同签约、开工大吉**。第 04 步可由经办人填写原因并主动跳过，保存原因、经办人和时间；第 06 步使用正式报价与沟通事实，参考预算不会自动完成该步；第 07 步要求有效的正式施工合同，并锁定签约付款计划。第 08 步读取主工程实际开工事实，接收移交包和填写计划日期不等于开工。业务进度 8/8 不表示工程完工、交付、归档或无欠款。
+
+新快速预算使用 `budget-free-v1`，不预占或扣除公司积分；已有付费预算中断单仍按原请求内容、原幂等键和原回执恢复。人物/声音克隆等内容业务保留原公司积分规则。费用实收来自真实收款原单及退款净额；历史模拟支付记录只供查询，不计实际收支。
+
+外部委托沿用原客户、原合同、冻结成果及原工程。设计三岗已退出新授权；不能重新创建旧 LEGACY 委托、把所有在途旧单强制转换，或为已接收单重建工程。具体允许动作、历史结算前置、旧链接的只读落点及兼容写口退出证据，以[统一整改总表](docs/roadmap/V3-business-engineering-remediation-20261127.md)和[接口说明](miniprogram/api/README.md)为准；代码合并与目标环境验收分别记录。
 
 ## 开发与验证
 
@@ -53,7 +61,7 @@ API 默认基址在 [env.js](miniprogram/config/env.js) 的 `API_BASE` 中配置
 - 历史 `server/` 服务和 `demo:*` 命令不作为现行开发、生产启动或验收入口；清理情况按统一整改总表的 BIZ-T14 记录，不能按旧报告恢复失效入口。
 - `utils/business.js`、`studio.js`、`engineering-records.js` 等混有历史本地模型和仍被调用的辅助函数。维护时先检查实际调用链和 API 会话分支，不按文件名整批删除，也不把本地模拟账本作为正式状态来源。
 - 老入口和历史草稿可能仍有兼容逻辑；旧测试报告的“本地演示”“尚未接后端”不能描述今天整个平台。
-- 支付模拟和人工登记外部作品链接是当前明确保留的业务边界；没有代码和渠道验收依据时，不把它们描述成真实支付或平台自动发布。
+- 实体费用的模拟支付新写已停用，保留原财务收付、退款、授权附件与审计。内容外部作品链接仍由人工登记；不能据此宣称平台已自动发布。
 
 ## 提交与交付
 
