@@ -149,15 +149,18 @@ Page({
  loadTransferTargets(sessionGenAtRequest){
   const PFc=this.__pf,post=this.__post;
   const gen=this.__candGen=(this.__candGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  require('../../api/org').orgStaff(post.orgId).then(rows=>{
+  return require('../../api/org').orgStaff(post.orgId).then(rows=>{
    if(this.__unloaded||gen!==this.__candGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey)return;
    this.__transferStaff={postKey,rows:rows||[]};
    const targets=(rows||[]).filter(r=>['sales','sales-lead'].includes(r.roleCode)&&r.active===true);
-   // M04-I04：同名员工都保留（按 userId 区分），展示名加部门后缀去歧义；映射按 picker 序→userId
-   const candidates=targets.map(r=>({userId:r.userId,label:r.name+' · '+(r.teamName||r.roleCode||'')})); // M04-I04：label 恒含 team 后缀——同名/同部门/缺 teamName 均不产生相同 label（Codex R1 P1-1）
+   // 姓名和部门仅用于展示；即使完全同名，选中值也始终绑定人员 ID。
+   const candidates=targets.map(r=>({userId:String(r.userId),label:r.name+' · '+(r.teamName||r.roleCode||'')}));
    this.__transferCandidates=candidates;
-   this.__transferTargets=candidates.reduce((m,c2)=>{m[c2.label]=c2.userId;return m;},{});
    this.setData({ownerOptions:candidates.map(c=>c.label)});
+   if(!this.__customerWrite){
+    const index=candidates.findIndex(c=>c.userId===this.data.form.newOwnerUserId),chosen=candidates[index];
+    this.setData({'form.newOwnerUserId':chosen?chosen.userId:'','form.newOwner':chosen?chosen.label:'','form.newOwnerIndex':index});
+   }
    this.reconcileTransferOwner();
   }).catch(err=>{
    if(this.handle401(err,sessionGenAtRequest))return;
@@ -203,10 +206,9 @@ Page({
  platformSubmitTransfer(){
   if(this.__customerWrite)return this.runCustomerWrite(this.__customerWrite);
   const f=this.data.form,c=this.data.customer,fail=msg=>this.setData({error:msg,busy:false});
-  // M04-I04：picker 存的是候选 label（同名已加部门后缀去歧义）——按 label 反查唯一 userId
   const cands=this.__transferCandidates||[];
-  const chosen=cands.find(c => c.label === f.newOwner);
-  const targetUserId=chosen?chosen.userId:(this.__transferTargets?this.__transferTargets[f.newOwner]:null);
+  const chosen=cands.find(c=>String(c.userId)===f.newOwnerUserId);
+  const targetUserId=chosen?chosen.userId:null;
   if(!targetUserId)return fail('请选择接手人');
   const reason=String(f.transferReason||'').trim();
   if(!reason||reason.length>200)return fail('请填写转交原因（200字以内）');
@@ -644,7 +646,7 @@ Page({
   const sessionGen=this.__http.sessionGeneration();
   if(write||sessionGen!==this.__pageSession||this.__postKey!==String(post?.postId||'')){
    this.__customerWrite=null;this.__cmdKeys={};
-   this.__transferStaff=null;this.__transferCandidates=[];this.__transferTargets={};
+   this.__transferStaff=null;this.__transferCandidates=[];
    this.__pageSession=sessionGen;this.__post=post;this.__postKey=post?String(post.postId):'';
    this.setData({customer:null,flow:null,rail:[],timeline:[],timelineTotal:0,timelineMore:false,timelineError:'',nextFollowText:'',nextFollowLate:false,canChange:false,form:{},customers:[],filteredCustomers:[],ownerOptions:[],modal:'',error:'',busy:false,customerRetry:'',canFollow:false,canRegister:false,canEditCustomer:false});
    if(!post||PF.pageMode(http.token(),post)!=='api'){
@@ -733,6 +735,12 @@ Page({
  closeModal(){if(this.data.busy)return;this.__customerWrite=null;this.setData({customerRetry:''});if(wx.hideKeyboard)wx.hideKeyboard();this.setData({modal:'',error:'',keyboardInset:0,sheetFocusTarget:''});},
  noop(){},
  input(e){if(this.__customerWrite)return;const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.detail.value,error:''});this.saveDraft();},
+ pickTransferOwner(e){
+  if(this.__customerWrite)return;
+  const index=Number(e.detail.value),chosen=Number.isInteger(index)&&(this.__transferCandidates||[])[index];
+  this.setData({'form.newOwnerUserId':chosen?String(chosen.userId):'','form.newOwner':chosen?chosen.label:'','form.newOwnerIndex':chosen?index:-1,error:''});
+  this.saveDraft();
+ },
  pick(e){if(this.__customerWrite)return;const {key,options}=e.currentTarget.dataset;const values=e.currentTarget.dataset.values||this.data[options];this.setData({['form.'+key]:values?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft();},
  date(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value,error:''});this.saveDraft();},
  select(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.currentTarget.dataset.value,error:''});if(key==='collabRole'){this.setData({'form.collaborator':'','form.collabAction':''});this.refresh(false);}this.saveDraft();},
