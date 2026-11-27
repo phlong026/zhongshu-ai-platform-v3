@@ -131,7 +131,7 @@
     "capture:layout": "node scripts/capture-layout-audit-native.cjs",
     "check:single-project": "node scripts/verify-single-project-journey.cjs",
     "check:project-linkage": "node scripts/verify-content-customer-atomicity.cjs && node scripts/verify-engineering-material-followup.cjs && node scripts/verify-finance-owner-linkage-20261030.cjs && node scripts/verify-owner-dunning-linkage-20261030.cjs",
-    "check:customer-progress": "node scripts/verify-customer-project-progress.cjs && node scripts/verify-customer-workspace.cjs",
+    "check:customer-progress": "node --test scripts/verify-customer-flow-page.cjs",
     "check:personal-performance": "node scripts/verify-personal-performance.cjs && node scripts/verify-performance-task-ui.cjs && node scripts/verify-performance-tasks.cjs",
     "check:all-role-performance": "node scripts/verify-all-role-performance.cjs && node scripts/verify-performance-member-view.cjs && node scripts/verify-performance-notifications.cjs && npm run check:personal-performance",
     "check:all-role-performance:native": "node scripts/verify-all-role-performance-native.cjs",
