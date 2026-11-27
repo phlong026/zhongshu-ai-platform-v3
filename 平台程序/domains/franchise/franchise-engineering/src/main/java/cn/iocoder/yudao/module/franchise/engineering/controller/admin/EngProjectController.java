@@ -52,7 +52,7 @@ public class EngProjectController {
     }
 
     @PostMapping({"/projects", "/projects/contract-filing"})
-    @Operation(summary = "手工新建/增项建档（查重=同组织未归档项目名唯一 008）")
+    @Operation(summary = "按正式合同新建或核对原工程档案")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> create(@RequestBody Map<String, Object> body,
                                                     @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
