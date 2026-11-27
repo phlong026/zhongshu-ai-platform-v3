@@ -1,7 +1,7 @@
 /**
  * 客户跟进状态弹层（标记流失 / 暂缓跟进 / 恢复跟进）的页面行为，八步跟进页使用。
  * 客户工作区的“暂缓 / 标记流失 / 恢复”按钮带 status 参数进入本页后自动打开。
- * 页面提供两个方法：statusContext() 返回 {customerId, api}（api 含 workflow 与 workflowStatus），不可办理时返回空；
+ * 页面提供两个方法：statusContext() 返回 {customerId, api}（api 含 get 与 status），不可办理时返回空；
  * statusDone() 在提交成功后刷新页面。流程版本以服务端当前值为准，别人刚改过就提示刷新，不覆盖。
  */
 const PF = require('../../utils/platform-crm');
@@ -82,13 +82,13 @@ const actions = {
     const current = () => sameContext() && this.__statusCommand === pending;
     try {
       if (!pending.ready) {
-        const view = await context.api.workflow(context.customerId);
+        const view = await context.api.get(context.customerId);
         if (!current()) return;
         // 不确定是否已保存时只能重发首次内容，不能用刷新后的版本覆盖原编号。
         pending.body = { ...pending.body, revision: view.revision };
         pending.ready = true;
       }
-      await context.api.workflowStatus(context.customerId, pending.body, pending.key);
+      await context.api.status(context.customerId, pending.body, pending.key);
     } catch (error) {
       if (!current()) return;
       if (pending.ready && error && (error.code === -1 || (error.code >= 500 && error.code < 600))) {

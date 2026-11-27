@@ -22,13 +22,13 @@ function workflow(patch = {}) {
 }
 function harness(options = {}) {
   let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
-  const calls = [], navigations = [], toasts = [];
-  const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'save', 'complete', 'skipVisit', 'reopen', 'status', 'workflow', 'workflowStatus', 'records', 'download', 'listQuotes', 'entryCustomer', 'entryProfile'].map(name => [name, async (...args) => {
+  const calls = [], requests = [], navigations = [], toasts = [];
+  const h = { state: workflow(), calls, requests, navigations, toasts, overrides: options.api || {} };
+  const respond = async (name, ...args) => {
     calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
-    if (name === 'get' || name === 'workflow') return copy(h.state);
-    if (name === 'workflowStatus') { h.state.revision += 1; h.state.status = args[1].status; h.state.reconsulted = false; return copy(h.state); }
+    if (name === 'get') return copy(h.state);
+    if (name === 'status') { h.state.revision += 1; h.state.status = args[1].status; h.state.reconsulted = false; return copy(h.state); }
     if (name === 'entryCustomer' || name === 'entryProfile') return null;
     if (name === 'records') return { list: [], total: 0 };
     if (name === 'listQuotes') return [];
@@ -42,8 +42,46 @@ function harness(options = {}) {
     }
     if (name === 'reopen') Object.assign(step, { status: 'DRAFT', canWrite: true, canReopen: false });
     return copy(h.state);
-  }]));
-  const http = { token: () => 'token', currentUserId: () => options.loginUser || '', currentPostId: () => post?.postId || '' };
+  };
+  // 加载真实 API 模块，只在 HTTP 边界替换服务端；不存在的 API 方法必须直接暴露为测试失败。
+  const request = async (method, url, body, headers) => {
+    requests.push(copy({ method, url, body, headers }));
+    if (method === 'GET' && url === '/platform/profile/mine') return respond('entryProfile');
+    const match = /^\/franchise\/customers\/([^/]+)(.*)$/.exec(url);
+    assert.ok(match, 'unexpected request: ' + method + ' ' + url);
+    const id = decodeURIComponent(match[1]), route = match[2], key = headers?.['Idempotency-Key'];
+    if (method === 'GET') {
+      if (route === '') return respond('entryCustomer', id);
+      if (route === '/workflow') return respond('get', id);
+      if (route === '/workflow/quotes') return respond('listQuotes', id);
+      if (route === '/workflow/records') return respond('records', id, body.pageNo);
+    }
+    if (method === 'POST' && route === '/workflow/status') return respond('status', id, body, key);
+    const step = /^\/workflow\/steps\/([^/]+)(.*)$/.exec(route);
+    if (step) {
+      const code = decodeURIComponent(step[1]);
+      if (method === 'PUT' && step[2] === '') return respond('save', id, code, body, key);
+      if (method === 'POST' && step[2] === '/complete') return respond('complete', id, code, body, key);
+      if (method === 'POST' && step[2] === '/skip') return respond('skipVisit', id, body, key);
+      if (method === 'POST' && step[2] === '/reopen') return respond('reopen', id, code, body, key);
+      const asset = /^\/assets\/([^/]+)\/download-tickets$/.exec(step[2]);
+      if (method === 'POST' && asset) return respond('download', id, code, decodeURIComponent(asset[1]));
+    }
+    throw Error('unexpected request: ' + method + ' ' + url);
+  };
+  const http = { token: () => 'token', currentUserId: () => options.loginUser || '', currentPostId: () => post?.postId || '',
+    get: (url, query) => request('GET', url, query), post: (url, body, headers) => request('POST', url, body, headers),
+    put: (url, body, headers) => request('PUT', url, body, headers) };
+  const loadApi = (file, dependencies) => {
+    const module = { exports: {} };
+    vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), { module, require: name => {
+      if (!(name in dependencies)) throw Error(name);
+      return dependencies[name];
+    } });
+    return module.exports;
+  };
+  const crm = loadApi('miniprogram/api/franchise/crm.js', { '../http': http });
+  const api = loadApi('miniprogram/pages/customer-flow/api.js', { '../../api/http': http, '../../api/franchise/crm': crm });
   const requires = {
     '../../api/http': http, '../../api/auth': { currentApiPost: () => post }, '../../utils/api-scope': () => JSON.stringify([session, post?.postId]),
     '../../utils/page-navigation': { open: url => navigations.push({ url }), back: value => navigations.push({ back: value }) },
@@ -842,12 +880,19 @@ test('标记流失：必选原因，“其他”须自填；按服务端当前�
   h.actionSheet.success({ tapIndex: 1 });
   assert.equal(h.page.data.statusSheet.kind, 'lost');
   await h.page.submitStatus(); assert.match(h.page.data.statusSheet.error, /请选择流失原因/);
+  assert.equal(h.callsFor('status').length, 0);
+  assert.equal(h.state.status, 'ACTIVE');
   h.page.statusPick({ currentTarget: { dataset: { code: 'COMPETITOR' } } });
   await h.page.submitStatus();
-  assert.deepEqual(h.callsFor('workflowStatus')[0].args.slice(0, 2), ['42', { status: 'LOST', reasonCode: 'COMPETITOR', reason: '', revision: h.state.revision - 1 }]);
+  assert.deepEqual(h.callsFor('status')[0].args.slice(0, 2), ['42', { status: 'LOST', reasonCode: 'COMPETITOR', reason: '', revision: h.state.revision - 1 }]);
+  const request = h.requests.find(row => row.method === 'POST');
+  assert.equal(request.url, '/franchise/customers/42/workflow/status');
+  assert.deepEqual(request.body, h.callsFor('status')[0].args[1]);
+  assert.equal(request.headers['Idempotency-Key'], h.callsFor('status')[0].args[2]);
+  assert.ok(request.headers['Idempotency-Key']);
   assert.equal(h.state.status, 'LOST'); assert.equal(h.page.data.statusSheet, null);
   assert.ok(h.toasts.some(text => text.title === '已标记流失'));
-  assert.equal(h.callsFor('workflow').length, 1, '提交前读取一次当前流程版本');
+  assert.equal(h.callsFor('get').length, 3, '首次加载、提交前取版本、成功后刷新各读取一次');
 
   const other = harness(); await other.open();
   other.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
@@ -855,7 +900,7 @@ test('标记流失：必选原因，“其他”须自填；按服务端当前�
   await other.page.submitStatus(); assert.match(other.page.data.statusSheet.error, /请填写流失原因/);
   other.page.statusInput({ detail: { value: ' 选了同村施工队 ' } });
   await other.page.submitStatus();
-  assert.equal(other.callsFor('workflowStatus')[0].args[1].reason, '选了同村施工队');
+  assert.equal(other.callsFor('status')[0].args[1].reason, '选了同村施工队');
   other.page.closeStatus(); assert.equal(other.page.data.statusSheet, null);
 });
 
@@ -866,17 +911,22 @@ test('暂缓须填写原因和晚于今天的再联系日期；已暂缓或已�
   h.page.statusInput({ detail: { value: '等宅基地批复' } });
   h.page.statusDate({ detail: { value: dayText(0) } });
   await h.page.submitStatus(); assert.match(h.page.data.statusSheet.error, /晚于今天/);
-  assert.equal(h.callsFor('workflowStatus').length, 0);
+  assert.equal(h.callsFor('status').length, 0);
   h.page.statusDate({ detail: { value: dayText(30) } });
   await h.page.submitStatus();
-  assert.deepEqual(h.callsFor('workflowStatus')[0].args[1], { status: 'PAUSED', reason: '等宅基地批复', nextFollowOn: dayText(30), revision: h.state.revision - 1 });
+  assert.deepEqual(h.callsFor('status')[0].args[1], { status: 'PAUSED', reason: '等宅基地批复', nextFollowOn: dayText(30), revision: h.state.revision - 1 });
   assert.equal(h.state.status, 'PAUSED');
   h.page.journeyState(); assert.equal(h.actionSheet.itemList.join(','), '恢复跟进');
   h.actionSheet.success({ tapIndex: 0 });
   assert.equal(h.page.data.statusSheet.kind, 'resume');
   await h.page.submitStatus();
-  assert.deepEqual(h.callsFor('workflowStatus')[1].args[1], { status: 'ACTIVE', revision: h.state.revision - 1 });
+  assert.deepEqual(h.callsFor('status')[1].args[1], { status: 'ACTIVE', revision: h.state.revision - 1 });
   assert.equal(h.state.status, 'ACTIVE');
+
+  const lost = harness(); lost.state.status = 'LOST'; await lost.open();
+  lost.page.journeyState(); lost.actionSheet.success({ tapIndex: 0 }); await lost.page.submitStatus();
+  assert.equal(lost.callsFor('status')[0].args[1].status, 'ACTIVE');
+  assert.equal(lost.page.data.workflow.status, 'ACTIVE');
 });
 
 test('带 status 参数进入时自动打开对应弹层，只打开一次；不可办理的客户不打开', async () => {
@@ -894,19 +944,19 @@ test('状态提交结果未知时保留原键重试，确定失败时提示原�
   const h = harness(); await h.open();
   h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
   h.page.statusInput({ detail: { value: '等批复' } }); h.page.statusDate({ detail: { value: dayText(9) } });
-  h.overrides.workflowStatus = async () => { h.state.revision += 1; throw { code: -1 }; };
+  h.overrides.status = async () => { h.state.revision += 1; throw { code: -1 }; };
   await h.page.submitStatus();
   assert.equal(h.page.data.statusSheet.busy, false); assert.match(h.page.data.statusSheet.error, /未收到保存确认/);
-  const readCount=h.callsFor('workflow').length;
+  const readCount=h.callsFor('get').length;
   h.page.statusInput({ detail: { value: '不能替换旧请求的内容' } });
-  h.overrides.workflowStatus = async () => { throw { code: 409, message: '流程已更新，请刷新后重试' }; };
+  h.overrides.status = async () => { throw { code: 409, message: '流程已更新，请刷新后重试' }; };
   await h.page.submitStatus();
-  assert.deepEqual(h.callsFor('workflowStatus')[1].args, h.callsFor('workflowStatus')[0].args, '回执丢失后只重发原日期、原原因、原版本和原编号');
-  assert.equal(h.callsFor('workflow').length,readCount,'结果未知时不重新取版本');
+  assert.deepEqual(h.callsFor('status')[1].args, h.callsFor('status')[0].args, '回执丢失后只重发原日期、原原因、原版本和原编号');
+  assert.equal(h.callsFor('get').length,readCount,'结果未知时不重新取版本');
   assert.match(h.page.data.statusSheet.error, /流程已更新/);
-  delete h.overrides.workflowStatus;
+  delete h.overrides.status;
   await h.page.submitStatus();
-  assert.notEqual(h.callsFor('workflowStatus')[2].args[2], h.callsFor('workflowStatus')[0].args[2], '确定失败后换新的幂等键');
+  assert.notEqual(h.callsFor('status')[2].args[2], h.callsFor('status')[0].args[2], '确定失败后换新的幂等键');
   assert.equal(h.page.data.statusSheet, null);
 });
 
@@ -915,7 +965,7 @@ test('状态已保存但回执丢失，重试找回原结果且不再执行变�
   h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
   h.page.statusPick({ currentTarget: { dataset: { code: 'PRICE' } } });
   let original, writes=0;
-  h.overrides.workflowStatus=async (...args) => {
+  h.overrides.status=async (...args) => {
     if (!original) {
       original=copy(args);
       h.state.status='LOST'; h.state.revision += 1; writes += 1;
@@ -930,6 +980,61 @@ test('状态已保存但回执丢失，重试找回原结果且不再执行变�
   await h.page.submitStatus();
   assert.equal(writes,1);
   assert.equal(h.page.data.statusSheet,null);
+  const requests = h.requests.filter(row => row.method === 'POST');
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1], requests[0], '真实 HTTP 请求保留首次日期、版本、内容和 Idempotency-Key');
+});
+
+test('状态 revision 冲突保留原状态和填写，重试读取最新版本并使用新命令', async () => {
+  const h = harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+  h.page.statusInput({ detail: { value: '等审批' } });
+  await h.page.submitStatus();
+  assert.equal(h.callsFor('status').length, 0, '缺必要日期不提交');
+  h.page.statusDate({ detail: { value: dayText(3) } });
+  h.overrides.status = async () => { h.state.revision = 4; throw { code: 409, message: '流程已更新，请刷新后重试' }; };
+  await h.page.submitStatus();
+  assert.equal(h.state.status, 'ACTIVE');
+  assert.equal(h.page.data.workflow.status, 'ACTIVE');
+  assert.equal(h.page.data.statusSheet.reasonText, '等审批');
+  assert.match(h.page.data.statusSheet.error, /流程已更新/);
+  assert.equal(h.page.data.statusSheet.pending, false);
+  assert.equal(h.page.__statusCommand, null);
+  delete h.overrides.status;
+  await h.page.submitStatus();
+  const [first, retry] = h.callsFor('status');
+  assert.equal(first.args[1].revision, 0);
+  assert.equal(retry.args[1].revision, 4);
+  assert.notEqual(retry.args[2], first.args[2]);
+  assert.equal(h.page.data.workflow.status, 'PAUSED');
+});
+
+test('状态读取或提交后切换客户/岗位，迟到响应不能污染当前客户或新的弹层', async () => {
+  for (const phase of ['get', 'status']) {
+    for (const change of ['customer', 'post']) {
+      for (const rejected of [false, true]) {
+        const h = harness(); await h.open();
+        h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+        h.page.statusPick({ currentTarget: { dataset: { code: 'PRICE' } } });
+        const held = deferred(); h.overrides[phase] = () => held.promise;
+        const pending = h.page.submitStatus(); await tick();
+        delete h.overrides[phase];
+        if (change === 'customer') { h.page.clear(); h.page.onLoad({ customerId: '43' }); }
+        else h.switchSession();
+        h.state = workflow({ customerId: h.page.customerId, customerName: '当前客户' });
+        await h.open();
+        h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+        h.page.statusInput({ detail: { value: '当前填写' } });
+        const expected = copy(h.page.data);
+        if (rejected) held.reject({ code: 409, message: '旧客户的冲突' });
+        else held.resolve(workflow({ status: 'LOST', revision: 99, customerName: '旧客户' }));
+        await pending;
+        assert.deepEqual(copy(h.page.data), expected, [phase, change, rejected].join('/'));
+        assert.equal(h.toasts.length, 0);
+        assert.equal(h.callsFor('status').length, phase === 'status' ? 1 : 0, '旧客户的迟到读取不得继续提交');
+      }
+    }
+  }
 });
 
 test('八步页模板包含下次跟进日期、可点的流程状态和状态弹层', async () => {
