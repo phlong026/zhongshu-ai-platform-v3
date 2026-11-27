@@ -101,7 +101,7 @@ public class FranchiseDirectoryService {
     }
     public List<Item> candidates(String keyword) {
         if(text(keyword).length()>100)throw invalid("搜索内容最多100字");
-        return query(" AND d.active=true AND d.org_id IS NULL AND CONCAT_WS(' ',d.name,b.name,d.original_region_text) ILIKE ? ESCAPE '!' ORDER BY d.name,d.id LIMIT 50","%"+like(text(keyword))+"%");
+        return query(" AND d.active=true AND d.record_type='FRANCHISE' AND CONCAT_WS(' ',d.name,b.name,d.original_region_text) ILIKE ? ESCAPE '!' ORDER BY d.name,d.id LIMIT 50","%"+like(text(keyword))+"%");
     }
     public List<Item> mapRecords(Long brandId) {
         String filter="""
@@ -360,7 +360,7 @@ public class FranchiseDirectoryService {
         // The legacy account trigger makes a transitional row; bind the selected source row instead.
         jdbc.update("DELETE FROM pf_franchise_directory WHERE tenant_id=? AND account_id=? AND id<>? AND source_key=?",tenant(),result.accountId(),entry.id(),"account:"+result.accountId());
         jdbc.update("""
-            UPDATE pf_franchise_directory SET account_id=?,org_id=?,record_type='FRANCHISE',whole_area_coverage=false,name=?,version=version+1,updated_at=now()
+            UPDATE pf_franchise_directory SET account_id=?,org_id=?,record_type='FRANCHISE',whole_area_coverage=false,name=CASE WHEN record_type='FRANCHISE' THEN name ELSE ? END,version=version+1,updated_at=now()
             WHERE tenant_id=? AND id=? AND org_id IS NULL
             """,result.accountId(),result.orgId(),result.orgName(),tenant(),entry.id());
         return result;
