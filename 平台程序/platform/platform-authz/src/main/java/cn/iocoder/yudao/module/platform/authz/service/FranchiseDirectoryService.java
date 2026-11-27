@@ -100,8 +100,14 @@ public class FranchiseDirectoryService {
         return new PageResult<>(query(filter+" ORDER BY d.created_at DESC,d.id LIMIT ? OFFSET ?",args.toArray()),total==null?0:total);
     }
     public List<Item> candidates(String keyword) {
-        if(text(keyword).length()>100)throw invalid("搜索内容最多100字");
-        return query(" AND d.active=true AND d.record_type='FRANCHISE' AND CONCAT_WS(' ',d.name,b.name,d.original_region_text) ILIKE ? ESCAPE '!' ORDER BY d.name,d.id LIMIT 50","%"+like(text(keyword))+"%");
+        String search=text(keyword);
+        if(search.length()>100)throw invalid("搜索内容最多100字");
+        return query("""
+             AND d.active=true AND d.record_type='FRANCHISE'
+             AND CONCAT_WS(' ',d.name,b.name,d.original_region_text) ILIKE ? ESCAPE '!'
+             ORDER BY CASE WHEN lower(d.name)=lower(?) THEN 0 ELSE 1 END,
+                      (d.org_id IS NOT NULL),d.name,d.id LIMIT 50
+            ""","%"+like(search)+"%",search);
     }
     public List<Item> mapRecords(Long brandId) {
         String filter="""

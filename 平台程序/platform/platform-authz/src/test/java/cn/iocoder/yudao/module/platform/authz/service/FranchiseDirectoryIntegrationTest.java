@@ -478,6 +478,24 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(revoked.wholeAreaCoverage()).isFalse();
     }
 
+    @Test void broadLookupKeepsUnopenedRecordsBeforeLinkedRowsWithoutHidingExactLinkedNames() {
+        var unopened=directory.create(new FranchiseDirectoryService.RecordRequest("Z 待开户测试档案","测试甲","FRANCHISE",
+                "黄陂区",List.of("420116"),"420000","420100",null),7);
+        jdbc.update("""
+            INSERT INTO pf_franchise_directory(id,tenant_id,brand_id,name,record_type,
+                    original_region_text,match_status,source_key,org_id)
+            SELECT 'linked-search-'||n,tenant_id,brand_id,'A 测试已开户档案 '||n,'FRANCHISE',
+                   original_region_text,'RESOLVED','linked-search-'||n,9000000+n
+            FROM pf_franchise_directory CROSS JOIN generate_series(1,50) AS fixture(n)
+            WHERE tenant_id=? AND id=?
+            """,tenant,unopened.id());
+        var results=directory.candidates("黄陂区");
+        assertThat(results).hasSize(50);
+        assertThat(results.get(0).id()).isEqualTo(unopened.id());
+        assertThat(directory.candidates("A 测试已开户档案 50")).extracting(FranchiseDirectoryService.Item::id)
+                .containsExactly("linked-search-50");
+    }
+
     @Test void namedFranchiseLookupShowsOpenedRecordsAndPreservesTheSelectedNameAndId() {
         create("黄陂区",List.of("420116"));
         var item=directory.create(new FranchiseDirectoryService.RecordRequest("现有测试加盟门店","测试甲","FRANCHISE",
