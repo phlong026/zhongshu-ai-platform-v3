@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundDO;
 import cn.iocoder.yudao.module.franchise.finance.dal.FinRefundMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -38,6 +40,7 @@ public class FinReconciliationService {
                                       long abnormalDatePendingCents, int abnormalDatePendingCount) {
     }
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public MonthReconciliation monthReconciliation(long companyId, String month) {
         if (month == null || !month.matches("\\d{4}-(0[1-9]|1[0-2])")) {
             throw exception(RECONCILIATION_MONTH_INVALID);
