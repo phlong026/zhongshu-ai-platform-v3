@@ -608,6 +608,25 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         return ((Number)confirmed.get("receiptId")).longValue();
     }
 
+    @Test void financeExplicitlyConfirmsCashForAnEngineeringDeclaration() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        long proof=upload(engineer,"FIN_VOUCHER");
+        var declared=as(engineer,()->collections.register(engineer,project,new EngCollectionService.CollectCommand(
+                stage.getStage(),new BigDecimal("350.00"),key(),today(),proof,stage.getId(),stage.getPlanVersion().longValue()),key()));
+        long id=((Number)declared.get("declarationId")).longValue();
+        var cash=new SaleContractService.DeclarationConfirmation("门店现金","cash");
+        String confirmKey=key();
+        var first=as(finance,()->contracts.confirmDeclaration(finance,id,cash,confirmKey));
+        assertThat(as(finance,()->contracts.confirmDeclaration(finance,id,cash,confirmKey)))
+                .containsEntry("receiptId",first.get("receiptId")).containsEntry("replayed",true);
+        assertThat(jdbc.queryForMap("SELECT method,account_name,amount_cents,voucher_file_id FROM fr_fin_receipt WHERE id=?",first.get("receiptId")))
+                .containsEntry("method","cash").containsEntry("account_name","门店现金")
+                .containsEntry("amount_cents",35000L).containsEntry("voucher_file_id",proof);
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isOne();
+    }
+
     @Test void engineeringDeclarationConfirmationPreservesOneAccountReceiptAndAllRoleBalances() throws Exception {
         long customer=customer(sales); var contract=signed(customer);
         long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
@@ -617,8 +636,16 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 stage.getStage(),new BigDecimal("350.00"),transaction,today(),proof,stage.getId(),stage.getPlanVersion().longValue()),key()));
         long id=((Number)declaration.get("declarationId")).longValue();
         assertThat(contracts.collectionDeclarations(finance)).anySatisfy(row->assertThat(row)
-                .containsEntry("id",Long.toString(id)).containsEntry("account_name",null).containsEntry("method","bank"));
+                .containsEntry("id",Long.toString(id)).containsEntry("account_name",null).containsEntry("method","bank")
+                .containsEntry("requires_method_confirmation",true));
         assertThatThrownBy(()->as(finance,()->contracts.confirmDeclaration(finance,id,key()))).hasMessageContaining("实际收款账户");
+        String missingMethodKey=key();
+        assertThatThrownBy(()->as(finance,()->contracts.confirmDeclaration(finance,id,
+                new SaleContractService.DeclarationConfirmation("钱包或公司账户",null),missingMethodKey)))
+                .hasMessageContaining("选择收款方式");
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isZero();
+        assertThat(jdbc.queryForMap("SELECT status,receipt_id FROM fr_sale_collection_declaration WHERE id=?",id))
+                .containsEntry("status","PENDING").containsEntry("receipt_id",null);
         var details=new SaleContractService.DeclarationConfirmation("公司银行尾号2468","bank");
         for (var forbidden:List.of(engineer,boss,fixture.post(other.orgId(),"finance",null))) {
             assertThatThrownBy(()->as(forbidden,()->contracts.confirmDeclaration(forbidden,id,details,key()))).isInstanceOf(ServiceException.class);
