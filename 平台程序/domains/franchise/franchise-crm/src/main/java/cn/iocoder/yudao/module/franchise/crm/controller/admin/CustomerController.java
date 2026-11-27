@@ -163,7 +163,7 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/schemes")
-    @Operation(summary = "保存参考方案或预算版本（BUDGET / PLAN / FACADE）")
+    @Operation(summary = "读取旧方案保存回执；不再新增手工方案版本")
     @PreAuthorize("@post.has('franchise:customer:write')")
     public CommonResult<cn.iocoder.yudao.module.franchise.crm.controller.admin.vo.CrmRespVos.Scheme> saveScheme(@PathVariable long id, @RequestBody SchemeCommand req,
                                                      @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {

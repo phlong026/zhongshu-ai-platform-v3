@@ -22,5 +22,6 @@ public interface FranchiseCrmErrorCodes {
     ErrorCode TRANSFER_TARGET_INVALID = new ErrorCode(1_110_000_012, "接手人须为本组织在岗业务人员，负责人只能转给本人管理团队的人");
     ErrorCode LEAD_IMPORT_FORBIDDEN = new ErrorCode(1_110_000_013, "仅老板/负责人可发起客资导入");
     ErrorCode FOLLOW_INPUT_INVALID = new ErrorCode(1_110_000_014, "请核对客户进展、沟通结果和回访安排");
+    ErrorCode SCHEME_WRITE_RETIRED = new ErrorCode(1_110_000_015, "此方案保存方式已停用，请更新小程序后使用快速预算或外部委托；历史方案仍可查看");
 
 }

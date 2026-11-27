@@ -14,7 +14,7 @@ import cn.iocoder.yudao.module.franchise.commission.dal.CommissionProgressDO;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionSubmissionDO;
 import cn.iocoder.yudao.module.franchise.commission.dal.DesignPolicyDO;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
-import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeSaveCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
@@ -198,7 +198,7 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
     private long customerWithBudget() {
         return as(sales,()->{
             long customer=leads.capture(sales,new CaptureCommand("历史客户",String.valueOf(PHONES.incrementAndGet()),"两层建房","测试"),null).customerId();
-            customers.saveScheme(sales,customer,new SchemeCommand("BUDGET","参考预算","{\"kind\":\"budget\"}",new BigDecimal("13"),new BigDecimal("16"),2,new BigDecimal("400"),68000000L),null);
+            customers.saveSchemeInternal(sales,customer,new SchemeSaveCommand("BUDGET","参考预算","{\"kind\":\"budget\"}",new BigDecimal("13"),new BigDecimal("16"),2,new BigDecimal("400"),68000000L,null));
             return customer;
         });
     }
