@@ -66,6 +66,15 @@ test('到账核实回执丢失后冻结原申报账户方式和键，只能原�
  h.page.declarationInput({currentTarget:{dataset:{field:'accountName'}},detail:{value:'另一账户'}});
  h.page.journeyPick({currentTarget:{dataset:{field:'account'}},detail:{value:'0'}});
  h.page.closeFinanceEntry();h.page.openWorkbenchEntry(event('receipt'));
+ let definition;vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/index.js','utf8'),{Page:p=>definition=p,require:n=>n.endsWith('/api/auth')?h.auth:{},wx:h.wx});
+ const before={view:h.page.data.view,origin:h.page.__entryOrigin,options:h.page.options,entryOptions:h.page.__entryOptions,command:h.page.__declarationPending};
+ h.page.__platformActions=true;
+ for(const key of ['finance-home','finance-books','profile']){
+  assert.equal(definition.switchWorkspaceTab.call(h.page,{key}),true);
+  assert.equal(h.page.data.view,before.view);assert.equal(h.page.__entryOrigin,before.origin);
+  assert.equal(h.page.options,before.options);assert.equal(h.page.__entryOptions,before.entryOptions);
+  assert.equal(h.page.__declarationPending,before.command);
+ }
  assert.equal(h.page.data.journeyDeclaration.id,'9007199254741999');assert.equal(h.page.data.declarationForm.accountName,'实际银行账户');
  await h.page.confirmCollectionDeclaration(event('',{id:'9007199254741888'}));assert.equal(writes.length,1);
  h.page.data.declarationForm={accountName:'绕过输入处理器的更改',method:'other'};
@@ -361,3 +370,4 @@ test('only unassigned manual expenses expose book assignment and the original ha
  page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm.payableId,originals[0].id);
  page.data.wbForm=null;originals[0].projectId='91';page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm,null);
 });
+
