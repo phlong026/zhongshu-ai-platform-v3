@@ -133,32 +133,36 @@ public class FranchiseTodoProvider implements TodoProvider {
                     items.add(item("external-entrust:"+key+":"+commission.getRevision(), "「"+customer+"」"+title,
                             commission.getStatus(),null,true,"/pages/external-entrust/index?customerId="+commission.getCustomerId(),since));
                 }
-                if (CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) handoverReviewTodo(post,commission,items);
-                continue;
             }
-            // 设计岗位退役（V20261127.1201）：LEGACY 委托不可再推进、无人审批/下发，
-            // 除可 convert-legacy 转外部流程外不再产生任何待办；external 分支保留。
+            // 设计岗位退役不应隐藏已发给工程接收人的在途移交；不恢复旧设计岗位待办。
+            if (CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) {
+                handoverReviewTodo(post, commission, items);
+            }
         }
     }
 
     private void handoverReviewTodo(PostSnapshot post, CommissionDO commission, List<TodoItem> items) {
+        boolean external = ExternalCommissionService.external(commission);
         Integer version = commission.getHandoverVersion();
         CommissionHandoverDO handover = handoverMapper.selectByCommission(commission.getId()).stream()
                 .filter(h -> version != null && version.equals(h.getVersion()))
+                .filter(h -> external || CommissionHandoverDO.STATUS_PENDING.equals(h.getStatus()))
                 .findFirst().orElse(null);
         if (handover == null) {
             return;
         }
         if (access.isHandoverManager(post, commission.getCompanyId(), handover.getManagerUserId())) {
+            if (!external && !commissions.allowedActions(post, commission).contains("packet-receive")) {
+                return;
+            }
             items.add(item("handover-review:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交资料待核查接收", "HANDOVER_SUBMITTED",
-                    null, true, ExternalCommissionService.external(commission) ? externalHandoverPage(commission.getId())
+                    null, true, external ? externalHandoverPage(commission.getId())
                             : commissionPage(commission.getId(), "receive"), handover.getCreateTime()));
-        } else if (access.canWrite(post, commission)) {
+        } else if (external && access.canWrite(post, commission)) {
             items.add(item("handover-waiting:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交审查中", "HANDOVER_SUBMITTED",
-                    null, false, ExternalCommissionService.external(commission) ? externalHandoverPage(commission.getId())
-                            : commissionPage(commission.getId(), "progress"), handover.getCreateTime()));
+                    null, false, externalHandoverPage(commission.getId()), handover.getCreateTime()));
         }
     }
 

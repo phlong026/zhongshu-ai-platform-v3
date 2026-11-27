@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
         CommissionOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
         cn.iocoder.yudao.module.platform.workflow.ApprovalServiceImpl.class,
-        LeadService.class, CustomerService.class, CrmOrgScope.class,
+        LeadService.class, CustomerService.class, CrmOrgScope.class, FranchiseTodoProvider.class,
         cn.iocoder.yudao.module.franchise.engineering.content.EngineeringPortImpl.class,
         cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.class,
         cn.iocoder.yudao.module.franchise.sales.SaleContractQueryAdapter.class})
@@ -56,6 +56,8 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     private cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService engProjects;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource
+    private FranchiseTodoProvider todoProvider;
 
     private Store store;
     private PostSnapshot salesA1;
@@ -112,6 +114,41 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM fr_eng_project WHERE company_id = ? AND source_commission_id = ?",
                 Long.class, store.orgId(), commissionId)).isEqualTo(1);
+    }
+
+    @Test
+    void legacyHandoverTodoStaysWithAssignedEngineerUntilReceivedOrReturned() {
+        var otherEngineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
+        var outside = fixture.store();
+        var outsideEngineer = fixture.post(outside.orgId(), ENGINEER, outside.engineeringTeam());
+        for (boolean receive : List.of(true, false)) {
+            long customerId = customerWithDispatchedDesign("P1/B1/F1");
+            insertSignedContract(customerId);
+            long commissionId = commissionIdOf(customerId);
+            as(salesA1, () -> handovers.submit(salesA1, commissionId,
+                    packet(1, "P1/B1/F1", engineer.userId()), idem()));
+            String key = "franchise:handover-review:" + commissionId + ":1";
+            assertThat(as(engineer, () -> todoProvider.list(engineer))).filteredOn(todo -> todo.key().equals(key))
+                    .singleElement().satisfies(todo -> {
+                        assertThat(todo.actionable()).isTrue();
+                        assertThat(todo.appPath()).isEqualTo(
+                                "/pages/workflow/commission/index?view=receive&commissionId=" + commissionId);
+                    });
+            for (PostSnapshot viewer : List.of(salesA1, boss, otherEngineer, outsideEngineer)) {
+                assertThat(as(viewer, () -> todoProvider.list(viewer)))
+                        .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).doesNotContain(
+                                key, "franchise:handover-waiting:" + commissionId + ":1");
+            }
+            var detail = receive
+                    ? as(engineer, () -> handovers.receive(engineer, commissionId,
+                            new HandoverService.DecisionCommand("", true), idem()))
+                    : as(engineer, () -> handovers.returnPacket(engineer, commissionId,
+                            new HandoverService.DecisionCommand("请补齐交底资料", false), idem()));
+            assertThat(detail.commission().getStatus()).isEqualTo(
+                    receive ? CommissionDO.STATUS_ACCEPTED : CommissionDO.STATUS_HANDOVER_RETURNED);
+            assertThat(as(engineer, () -> todoProvider.list(engineer)))
+                    .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).doesNotContain(key);
+        }
     }
 
     @Test
