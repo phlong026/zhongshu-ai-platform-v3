@@ -398,6 +398,26 @@ test('未触发施工条件的节点不得催收，旧基础/封顶深链仍指�
   await h.page.perform(tap('dunning')); assert.equal(h.calls.find(c=>c[0]==='dunning')[2],'BASE_DONE');
 });
 
+test('旧收款链接缺少期次时打开原款项列表，明确期次保持原链接', () => {
+  const h = harness('collection'); h.page.refresh = () => {};
+  h.page.onLoad({id:'100',view:'collection'});
+  assert.equal(h.page.data.view,'payments'); assert.equal(h.page.stage,'');
+  h.page.onLoad({id:'100',view:'collection',stage:'CAP_DONE'});
+  assert.equal(h.page.data.view,'collection'); assert.equal(h.page.stage,'CAP_DONE');
+  h.page.onLoad({id:'100',view:'collection',stage:'STAGE_900719925474099992'});
+  assert.equal(h.page.stage,'STAGE_900719925474099992');
+});
+
+test('期次失效或缺失不能沿用旧表单首款，刷新后只允许原节点重选', () => {
+  const h = harness('collection');
+  h.bundle.collections.stages = [{stage:'SIGN_AFTER',expectedCents:100,confirmedCents:0,remainingCents:100}];
+  for (const stage of ['', 'STAGE_RETIRED']) {
+    const data = h.view('collection',{stage,initialized:true,form:{stage:'SIGN_AFTER',nodes:[]}});
+    assert.equal(data.form.stage,stage); assert.equal(data.actions.length,0); assert.equal(data.fields.length,0);
+    assert.match(data.partLabel,/不存在.*刷新/);
+  }
+});
+
 test('工程负责人按期申报部分到账，回执丢失时沿用同一原件、请求及业务键', async () => {
   let tries = 0;
   const h = harness('collection', { collect: async () => {
