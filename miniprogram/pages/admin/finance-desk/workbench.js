@@ -26,20 +26,53 @@ module.exports = function (page, api) {
     } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.returnCollectionDeclaration=function(e){
+    if(this.data.wbBusy||this.data.declarationPending)return;
     const id=String(e.currentTarget.dataset.id),alive=http.sessionGuard();
     wx.showModal({title:'退回补充到账资料',editable:true,placeholderText:'填写需补充或更正的内容',success:async result=>{
       if(!result.confirm||!alive()||this.__disposed)return;
       if(!(result.content||'').trim())return this.setData({workbenchError:'请填写退回原因'});
-      try{await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/return',{reason:result.content.trim()},{'Idempotency-Key':api.idemKey('collection-return')});if(alive()&&!this.__disposed){if(this.data.journeyEnabled&&this.closeFinanceEntry)this.closeFinanceEntry();this.loadWorkbench();if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已退回补充'});}}
+      try{await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/return',{reason:result.content.trim()},{'Idempotency-Key':api.idemKey('collection-return')});if(alive()&&!this.__disposed){if(String(this.data.journeyDeclaration?.id||'')===id&&this.closeFinanceEntry)this.closeFinanceEntry();this.loadWorkbench();if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已退回补充'});}}
       catch(error){if(alive()&&!this.__disposed)this.setData({workbenchError:error.message||'退回失败'});}
     }});
   };
+  page.declarationInput=function(e){
+    if(this.data.wbBusy||this.data.declarationPending||!this.__declarationFormAlive?.())return;
+    const field=e.currentTarget.dataset.field;if(!['accountName','method'].includes(field))return;
+    const value=field==='method'?['bank','cash','other'][Number(e.detail.value)]:e.detail.value;
+    this.setData({['declarationForm.'+field]:value,workbenchError:''});
+  };
   page.confirmCollectionDeclaration = async function(e){
-    const id=String(e.currentTarget.dataset.id);if(this.data.wbBusy)return;
-    this.declarationKeys=this.declarationKeys||{};if(!this.declarationKeys[id])this.declarationKeys[id]=api.idemKey('collect-confirm');
-    const alive=http.sessionGuard();this.setData({wbBusy:true,workbenchError:''});
-    try{const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/confirm',{}, {'Idempotency-Key':this.declarationKeys[id]});if(!alive()||this.__disposed)return;delete this.declarationKeys[id];if(this.financeEntrySaved&&this.data.journeyDeclaration){const d=this.data.journeyDeclaration;this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);}this.loadWorkbench();this.loadPlatformFinance(true);if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});}
-    catch(e){if(alive()&&!this.__disposed)this.setData({workbenchError:e.message||e.msg||'核实失败'});}finally{if(alive()&&!this.__disposed)this.setData({wbBusy:false});}
+    const id=String(e.currentTarget.dataset.id);if(this.data.wbBusy||this.__disposed)return;
+    if(!['finance','finance-lead'].includes(auth.currentApiPost()?.roleCode))return;
+    if(!this.data.journeyDeclaration||String(this.data.journeyDeclaration.id)!==id)return;
+    if(!this.__declarationFormAlive?.())return;
+    let command=this.__declarationPending;
+    if(command&&command.id!==id)return;
+    if(!command){
+      const form=this.data.declarationForm||{},accountName=String(form.accountName||'').trim(),method=form.method;
+      if(!accountName||accountName.length>100||!['bank','cash','other'].includes(method))return this.setData({workbenchError:'请填写实际收款账户并选择收款方式'});
+      command={id,body:Object.freeze({accountName,method}),key:api.idemKey('collect-confirm'),source:{...this.data.journeyDeclaration},alive:this.__declarationFormAlive};
+      this.__declarationPending=command;
+    }
+    const alive=()=>command.alive()&&!this.__disposed&&this.__declarationPending===command;
+    this.setData({wbBusy:true,declarationPending:true,declarationForm:{...command.body},workbenchError:''});
+    try{
+      const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(command.id)+'/confirm',command.body,{'Idempotency-Key':command.key});
+      if(!alive())return;
+      if(!Accounting.id(result?.receiptId))throw Error('核实结果尚未确认，请按原资料重试');
+      this.__declarationPending=null;
+      this.setData({wbBusy:false,declarationPending:false,declarationForm:null});
+      const d=command.source;
+      if(this.financeEntrySaved&&this.data.journeyEnabled)this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);
+      else this.setData({journeyDeclaration:null});
+      this.loadWorkbench();this.loadPlatformFinance(true);if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});
+    }catch(error){
+      if(!alive())return;
+      const code=Number(error?.code??error?.status??error?.statusCode),uncertain=!Number.isFinite(code)||code===-1||code>=500&&code<600;
+      if(!uncertain)this.__declarationPending=null;
+      const patch={wbBusy:false,declarationPending:uncertain,workbenchError:uncertain?'核实结果尚未确认，请按原资料重试。':error.message||error.msg||'核实失败'};
+      if(this.financeReadError)this.financeReadError(error,patch);else this.setData(patch);
+    }
   };
   page.loadFinanceProjects = async function () {
     const alive=this.financeReadGuard?this.financeReadGuard('finance-projects'):http.requestGuard('finance-projects');this.setData({financeProjectLoading:true,financeProjectError:''});
