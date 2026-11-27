@@ -584,6 +584,43 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         } finally { pool.shutdownNow(); currentPost.clear(); }
     }
 
+    @Test
+    void legacyCollectionTodosKeepTheirOriginalInstallment() {
+        jdbc.update("""
+                INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,milestone,status,end_date,completed_at)
+                VALUES (?,?,?,9,'原封顶节点','TOPPING','DONE',CURRENT_DATE,CURRENT_DATE)
+                """, IDS.incrementAndGet(), store.orgId(), projectId);
+        var todos = as(engineer, () -> todoProvider.list(engineer));
+        for (String stage : java.util.List.of("SIGN_AFTER", "BASE_DONE", "CAP_DONE")) {
+            var original = todos.stream().filter(t -> t.key().equals("eng-collect:" + projectId + ":" + stage)).findFirst().orElseThrow();
+            assertThat(original.appPath()).isEqualTo("/pages/build/record/index?id=" + projectId + "&view=collection&stage=" + stage);
+        }
+        assertThat(gateShortfallTodo(engineer).appPath()).isEqualTo("/pages/build/record/index?id=" + projectId + "&view=payments");
+    }
+
+    @Test
+    void customCollectionTodosKeepTheStableKeyAndAggregateGapOpensPayments() {
+        seedProjectWithSignedPlan(java.util.List.of(
+                installment("签约定金", 15_000_000L, "ON_SIGN"),
+                installment("开工材料款", 25_000_000L, "BEFORE_START"),
+                new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null,"原日期款",28_000_000L,null,LocalDate.now(),"DATE",null)));
+        long contractId = contractsActiveId();
+        var balances = as(engineer, () -> unifiedStages.stageBalances(engineer, contractId));
+        var todos = as(engineer, () -> todoProvider.list(engineer));
+        assertThat(balances).hasSize(3);
+        for (var balance : balances) {
+            var original = todos.stream().filter(t -> t.key().equals("eng-collect:" + projectId + ":" + balance.stage())).findFirst().orElseThrow();
+            assertThat(original.appPath()).isEqualTo("/pages/build/record/index?id=" + projectId + "&view=collection&stage=" + balance.stage());
+            assertThat(original.title()).startsWith(balance.label());
+            assertThat(original.amountCents()).isEqualTo(balance.expectedCents() - balance.collectedCents());
+        }
+        assertThat(gateShortfallTodo(engineer).amountCents()).isEqualTo(40_000_000L);
+        assertThat(gateShortfallTodo(engineer).appPath()).isEqualTo("/pages/build/record/index?id=" + projectId + "&view=payments");
+        PostSnapshot other = fixture.post(store.orgId(), "engineer", store.salesTeamB());
+        assertThat(as(other, () -> todoProvider.list(other)))
+                .noneMatch(t -> t.key().contains(":" + projectId));
+    }
+
     // ========== helpers ==========
 
     private static org.postgresql.util.PSQLException findPg(Throwable e) {
