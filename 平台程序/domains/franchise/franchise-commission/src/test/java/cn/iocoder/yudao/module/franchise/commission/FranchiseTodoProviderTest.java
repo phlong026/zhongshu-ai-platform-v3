@@ -7,7 +7,7 @@ import cn.iocoder.yudao.module.franchise.commission.CommissionService.SubmitComm
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.DecisionCommand;
 import cn.iocoder.yudao.module.franchise.commission.HandoverService.PacketCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand;
-import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeSaveCommand;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.TransferCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureOutcome;
@@ -94,7 +94,7 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 .contains("franchise:first-follow:" + customerId);
 
         // 设计岗位退役：保存参考预算不再催办「提交设计委托」（委托走八步 05/06 步的外部委托入口）
-        as(salesA1, () -> customers.saveScheme(salesA1, customerId, budget(), null));
+        as(salesA1, () -> customers.saveSchemeInternal(salesA1, customerId, budget()));
         assertThat(todos(salesA1)).extracting(TodoItem::key)
                 .doesNotContain("franchise:submit-commission:" + customerId);
 
@@ -263,7 +263,7 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
 
     private long customerWithBudget() {
         CaptureResult captured = capture(salesA1);
-        as(salesA1, () -> customers.saveScheme(salesA1, captured.customerId(), budget(), null));
+        as(salesA1, () -> customers.saveSchemeInternal(salesA1, captured.customerId(), budget()));
         return captured.customerId();
     }
 
@@ -273,9 +273,9 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 new CaptureCommand("陈先生", phone, "两层乡墅，按标准费用委托设计", "视频号咨询"), null));
     }
 
-    private static SchemeCommand budget() {
-        return new SchemeCommand("BUDGET", "参考预算", "{}", new BigDecimal("13"), new BigDecimal("16"),
-                2, new BigDecimal("400"), 68_000_000L);
+    private static SchemeSaveCommand budget() {
+        return new SchemeSaveCommand("BUDGET", "参考预算", "{}", new BigDecimal("13"), new BigDecimal("16"),
+                2, new BigDecimal("400"), 68_000_000L, null);
     }
 
     private static SubmitCommand submit() {

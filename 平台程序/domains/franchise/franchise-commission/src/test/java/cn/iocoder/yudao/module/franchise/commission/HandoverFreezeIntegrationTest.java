@@ -440,10 +440,10 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
             var result = leads.capture(salesA1, new cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand(
                     "陈先生", phone(), "两层乡墅标准委托", "视频号咨询"), null);
             assertThat(result.customerId()).isNotNull();
-            customers.saveScheme(salesA1, result.customerId(),
-                    new CustomerService.SchemeCommand("BUDGET", "参考预算", "{\"kind\":\"budget\"}",
+            customers.saveSchemeInternal(salesA1, result.customerId(),
+                    new CustomerService.SchemeSaveCommand("BUDGET", "参考预算", "{\"kind\":\"budget\"}",
                             new java.math.BigDecimal("13"), new java.math.BigDecimal("16"), 2,
-                            new java.math.BigDecimal("400"), 68_000_000L), null);
+                            new java.math.BigDecimal("400"), 68_000_000L, null));
             return result.customerId();
         });
         long commissionId = LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),

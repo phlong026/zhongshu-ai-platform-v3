@@ -476,35 +476,42 @@ public class CustomerService {
         return get(post, customerId);
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    /** Retired manual entry: only recover the original immutable version of a successful command. */
+    @Transactional(readOnly = true)
     public CustomerSchemeDO saveScheme(PostSnapshot post, long customerId, SchemeCommand command, String idempotencyKey) {
-        CustomerDO customer = requireWritable(post, customerId);
+        requireWritable(post, customerId);
+        var previous = commands.previous(post, idempotencyKey, "customer-scheme", customerId);
+        if (previous.isEmpty()) throw exception(SCHEME_WRITE_RETIRED);
         SchemeCommand input = normalize(command);
-        var replay = commands.replayed(post, idempotencyKey, input);
-        if (replay.isPresent()) {
-            return latestScheme(customerId, input.kind());
+        var event = previous.get();
+        JsonNode recorded = JsonUtils.parseObject(event.getPayload(), JsonNode.class);
+        if (!AGGREGATE.equals(event.getAggregateType()) || recorded == null
+                || !input.kind().equals(recorded.path("kind").asText()) || recorded.path("version").asInt() < 1) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
         }
-        CustomerSchemeDO latest = latestScheme(customerId, input.kind());
-        CustomerSchemeDO scheme = new CustomerSchemeDO().setCompanyId(post.orgId()).setCustomerId(customerId)
-                .setKind(input.kind()).setVersion(latest == null ? 1 : latest.getVersion() + 1)
-                .setTitle(input.title()).setPayload(input.payload())
-                .setWidth(input.width()).setDepth(input.depth()).setFloors(input.floors()).setArea(input.area())
-                .setTotalCents(input.totalCents()).setAuthorUserId(post.userId());
-        schemeMapper.insert(scheme);
-        long revision = customer.getRevision();
-        Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> {
-        }));
-        commands.record(post, AGGREGATE, customerId, revision + 1, "customer-scheme",
-                Map.of("kind", input.kind(), "version", scheme.getVersion()), idempotencyKey);
+        var scheme = schemeMapper.selectOne(CustomerSchemeDO::getCustomerId, customerId,
+                CustomerSchemeDO::getKind, input.kind(), CustomerSchemeDO::getVersion, recorded.path("version").asInt());
+        // Old events recorded only kind/version. Match all request fields against that saved version before accepting its key.
+        if (scheme == null || scheme.getCompanyId() != post.orgId()
+                || !Objects.equals(input.title(), scheme.getTitle()) || !Objects.equals(input.payload(), scheme.getPayload())
+                || !sameDecimal(input.width(), scheme.getWidth()) || !sameDecimal(input.depth(), scheme.getDepth())
+                || !Objects.equals(input.floors(), scheme.getFloors()) || !sameDecimal(input.area(), scheme.getArea())
+                || !Objects.equals(input.totalCents(), scheme.getTotalCents())) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        }
+        commands.replayed(post, idempotencyKey, recorded);
         return scheme;
+    }
+
+    private static boolean sameDecimal(BigDecimal left, BigDecimal right) {
+        return left == null ? right == null : right != null && left.compareTo(right) == 0;
     }
 
     /**
      * B 端 AI 结果回写（B2 板块 A / P-3+P-9，franchise-design 经 CustomerSchemePort 调用）：
      * 客户行锁内重读完整客户（含 revision）并复核权限 → 锁内读取 latest 分配版本 →
      * 以锁内 revision 完成方案插入+客户推进+命令事件（防不同键并发同版本号撞唯一约束/持旧 revision 回滚）。
-     * 幂等由调用方（advisory lock + replay/record）承担，本方法不走 FranchiseCommands 幂等分支
-     * （saveScheme 的重放按全量命令校验却只记录 {kind,version}，同键重试哈希不匹配——Codex R1 认定的缺陷）。
+     * 幂等由调用方（advisory lock + replay/record）承担；旧 HTTP 入口仅保留成功回执，不影响本内部预算写入。
      * 显式尺寸按 kind 保留（PLAN/FACADE 允许携带，旧 normalize 会清空）；范围校验与 BUDGET 同规。
      */
     @Transactional(rollbackFor = Exception.class)
@@ -512,7 +519,7 @@ public class CustomerService {
         return saveSchemeSnapshot(post,customerId,command,false);
     }
 
-    /** Internal-only verified itemized snapshot; public manual scheme validation is unchanged. */
+    /** Internal-only verified itemized budget snapshot. */
     @Transactional(rollbackFor=Exception.class)
     public CustomerSchemeDO saveItemizedBudgetSnapshot(PostSnapshot post,long customerId,SchemeSaveCommand command) {
         return saveSchemeSnapshot(post,customerId,command,true);

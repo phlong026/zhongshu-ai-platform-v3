@@ -164,7 +164,7 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
     void historicalAreaFeeKeepsFrozenPriceAndStillRequiresBothActualCashNets() {
         var store=fixture.store();var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
         var design=historicalDesigner(701L);long customer=createCustomer(sales);
-        var budget=as(sales,()->customers.saveScheme(sales,customer,new CustomerService.SchemeCommand("BUDGET","预算","{}",new BigDecimal("10"),new BigDecimal("10"),2,new BigDecimal("200.25"),10000L),null));
+        var budget=as(sales,()->customers.saveSchemeInternal(sales,customer,new CustomerService.SchemeSaveCommand("BUDGET","预算","{}",new BigDecimal("10"),new BigDecimal("10"),2,new BigDecimal("200.25"),10000L,null)));
         var policy=seedPricing(101);
         var input=new CommissionService.SubmitCommand("完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,"AREA_FULL",policy.version(),null);
         long id=LegacyCommissionFixtures.submission(jdbc,sales,customer,design.orgId(),input,"DESIGN_COMPLETED");
@@ -373,8 +373,8 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     private cn.iocoder.yudao.module.franchise.crm.dal.CustomerSchemeDO saveBudget(PostSnapshot sales,long customer) {
-        return as(sales,()->customers.saveScheme(sales,customer,new CustomerService.SchemeCommand(
-                "BUDGET","预算","{}",BigDecimal.TEN,BigDecimal.TEN,2,new BigDecimal("200"),123456L),null));
+        return as(sales,()->customers.saveSchemeInternal(sales,customer,new CustomerService.SchemeSaveCommand(
+                "BUDGET","预算","{}",BigDecimal.TEN,BigDecimal.TEN,2,new BigDecimal("200"),123456L,null)));
     }
 
     private static String key() { return UUID.randomUUID().toString(); }

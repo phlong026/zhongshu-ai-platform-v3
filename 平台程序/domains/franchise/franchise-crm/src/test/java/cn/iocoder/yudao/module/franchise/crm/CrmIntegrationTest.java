@@ -357,25 +357,75 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void schemesAreVersionedPerKindAndBudgetsNeedValidDimensions() {
+    void internalSchemesAreVersionedPerKindAndBudgetsNeedValidDimensions() {
         long id = capture(salesA1, phone()).customerId();
 
-        assertError(() -> as(salesA1, () -> customers.saveScheme(salesA1, id,
-                budget(BigDecimal.ZERO), null)), SCHEME_INVALID);
-        assertError(() -> as(salesA1, () -> customers.saveScheme(salesA1, id,
-                new SchemeCommand("QUOTE", "报价", null, null, null, null, null, null), null)), SCHEME_INVALID);
+        assertError(() -> as(salesA1, () -> customers.saveSchemeInternal(salesA1, id,
+                internal(budget(BigDecimal.ZERO)))), SCHEME_INVALID);
+        assertError(() -> as(salesA1, () -> customers.saveSchemeInternal(salesA1, id,
+                internal(new SchemeCommand("QUOTE", "报价", null, null, null, null, null, null)))), SCHEME_INVALID);
         assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).doesNotContain(id);
 
-        as(salesA1, () -> customers.saveScheme(salesA1, id, budget(new BigDecimal("12.5")), null));
-        CustomerSchemeDO second = as(salesA1, () -> customers.saveScheme(salesA1, id, budget(new BigDecimal("13")), null));
-        CustomerSchemeDO plan = as(salesA1, () -> customers.saveScheme(salesA1, id,
-                new SchemeCommand("PLAN", "AI 平面方案", "{\"image\":\"a.png\"}", null, null, null, null, null), null));
+        as(salesA1, () -> customers.saveSchemeInternal(salesA1, id, internal(budget(new BigDecimal("12.5")))));
+        CustomerSchemeDO second = as(salesA1, () -> customers.saveSchemeInternal(salesA1, id, internal(budget(new BigDecimal("13")))));
+        CustomerSchemeDO plan = as(salesA1, () -> customers.saveSchemeInternal(salesA1, id,
+                internal(new SchemeCommand("PLAN", "历史平面方案", "{\"image\":\"a.png\"}", null, null, null, null, null))));
 
         assertThat(second.getVersion()).isEqualTo(2);
         assertThat(plan.getVersion()).isEqualTo(1);
         assertThat(as(salesA1, () -> customers.latestScheme(id, CustomerSchemeDO.KIND_BUDGET)).getWidth()).isEqualByComparingTo("13");
         assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).contains(id);
         assertThat(as(salesA2, () -> customers.listWritableWithBudget(salesA2))).extracting(CustomerDO::getId).doesNotContain(id);
+    }
+
+    @Test
+    void retiredManualSchemeWritesCannotCreateVersionsOrAdvanceCustomerRevision() {
+        long id=capture(salesA1,phone()).customerId();
+        long revision=as(salesA1,()->customers.get(salesA1,id)).customer().getRevision();
+        long events=jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=?",Long.class,id);
+        for(var input:List.of(budget(new BigDecimal("12.5")),
+                new SchemeCommand("PLAN","旧平面写入","{}",null,null,null,null,null),
+                new SchemeCommand("FACADE","旧立面写入","{}",null,null,null,null,null))) {
+            assertError(()->as(salesA1,()->customers.saveScheme(salesA1,id,input,"new-"+input.kind())),SCHEME_WRITE_RETIRED);
+            assertError(()->as(salesA1,()->customers.saveScheme(salesA1,id,input,null)),SCHEME_WRITE_RETIRED);
+        }
+        var detail=as(salesA1,()->customers.get(salesA1,id));
+        assertThat(detail.schemes()).isEmpty();assertThat(detail.customer().getRevision()).isEqualTo(revision);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=?",Long.class,id)).isEqualTo(events);
+    }
+
+    @Test
+    void originalManualSchemeReceiptReplaysItsOwnVersionAndRejectsChangedBodyCustomerAndOperation() {
+        long id=capture(salesA1,phone()).customerId(),other=capture(salesA1,phone()).customerId();
+        var input=budget(new BigDecimal("12.5"));
+        var first=as(salesA1,()->customers.saveSchemeInternal(salesA1,id,internal(input)));
+        // Seed the historical public command in place of the internal fixture event, at its original revision.
+        String receipt=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                java.util.Map.of("kind",first.getKind(),"version",first.getVersion()));
+        assertThat(followJdbc.update("UPDATE pf_command_event SET command='customer-scheme',idempotency_key=?,payload=?,payload_hash=? WHERE aggregate_type=? AND aggregate_id=? AND command='customer-scheme-ai'",
+                "franchise:"+salesA1.userId()+":historical-scheme",receipt,cn.hutool.crypto.digest.DigestUtil.sha256Hex(receipt),CustomerService.AGGREGATE,id)).isEqualTo(1);
+        var latest=as(salesA1,()->customers.saveSchemeInternal(salesA1,id,internal(budget(new BigDecimal("13")))));
+        var before=as(salesA1,()->customers.get(salesA1,id));
+        long events=jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=?",Long.class,id);
+        for(int i=0;i<2;i++) {
+            var replay=as(salesA1,()->customers.saveScheme(salesA1,id,input,"historical-scheme"));
+            assertThat(replay.getId()).isEqualTo(first.getId());assertThat(replay.getVersion()).isEqualTo(1);
+        }
+        assertThat(latest.getVersion()).isEqualTo(2);
+        var changed=new SchemeCommand(input.kind(),"改后的名称",input.payload(),input.width(),input.depth(),input.floors(),input.area(),input.totalCents());
+        for(var invalid:List.of(changed,budget(new BigDecimal("13"))))
+            assertError(()->as(salesA1,()->customers.saveScheme(salesA1,id,invalid,"historical-scheme")),
+                    cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        assertError(()->as(salesA1,()->customers.saveScheme(salesA1,other,input,"historical-scheme")),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        assertError(()->as(salesA1,()->customers.follow(salesA1,id,follow("不同操作"),"historical-scheme")),
+                cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+        assertError(()->as(salesA2,()->customers.saveScheme(salesA2,id,input,"historical-scheme")),CUSTOMER_NOT_FOUND);
+        assertError(()->as(otherStoreSales,()->customers.saveScheme(otherStoreSales,id,input,"historical-scheme")),CUSTOMER_NOT_FOUND);
+        assertThat(as(boss,()->customers.get(boss,id)).schemes()).extracting(CustomerSchemeDO::getId).containsExactly(first.getId(),latest.getId());
+        assertThat(as(salesA1,()->customers.get(salesA1,other)).schemes()).isEmpty();
+        assertThat(as(salesA1,()->customers.get(salesA1,id)).customer().getRevision()).isEqualTo(before.customer().getRevision());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=?",Long.class,id)).isEqualTo(events);
     }
 
     @Test
@@ -679,6 +729,11 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
 
     private static SchemeCommand budget(BigDecimal width) {
         return new SchemeCommand("BUDGET", "参考预算", "{}", width, new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L);
+    }
+
+    private static CustomerService.SchemeSaveCommand internal(SchemeCommand input) {
+        return new CustomerService.SchemeSaveCommand(input.kind(),input.title(),input.payload(),input.width(),input.depth(),
+                input.floors(),input.area(),input.totalCents(),null);
     }
 
     private static PageParam page() {

@@ -4,7 +4,7 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.franchise.commission.dal.CommissionDO;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService;
 import cn.iocoder.yudao.module.franchise.crm.CustomerService.FollowCommand;
-import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeCommand;
+import cn.iocoder.yudao.module.franchise.crm.CustomerService.SchemeSaveCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand;
 import cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureResult;
@@ -185,9 +185,9 @@ class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
     /** 客户 + 1 方案 + 2 跟进 + 1 委托（费用待审批），全由 salesA1 经办 */
     private long customerWithCommission() {
         long customerId = as(salesA1, () -> capture(salesA1));
-        as(salesA1, () -> customers.saveScheme(salesA1, customerId,
-                new SchemeCommand("BUDGET", "参考预算", "{\"kind\":\"budget\"}", new BigDecimal("13"),
-                        new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L), null));
+        as(salesA1, () -> customers.saveSchemeInternal(salesA1, customerId,
+                new SchemeSaveCommand("BUDGET", "参考预算", "{\"kind\":\"budget\"}", new BigDecimal("13"),
+                        new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L, null)));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("首轮到店", null), null));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("方案讲解", null), null));
         LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),submit(TOTAL,FIRST),"FEE_PENDING");
