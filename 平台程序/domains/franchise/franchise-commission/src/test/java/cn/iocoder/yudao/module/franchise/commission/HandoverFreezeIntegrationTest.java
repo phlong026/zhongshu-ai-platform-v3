@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 覆盖：移交包冻结当时有效下发方案版本（frozen_scheme_version）；解析统一建房合同（活跃 SIGNED，
  * 经 SaleContractQueryAdapter 真实查 fr_sale_contract）；接收只建一档（幂等）且 sale_contract_id
  * 关联；退回→新下发→重提 version+1/冻结新版本/旧包保留；再接收刷新不改 contract 关联；
- * 无活跃合同客户移交档案关联为 NULL。
+ * 无有效已签正式合同不得新建不能收款、准备或开工的空档案。
  */
 @Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
         CommissionOrgScope.class, FranchiseCommands.class, CommandLogImpl.class,
@@ -232,7 +232,9 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
                 Long.class,commission,engineer.userId())).isEqualTo(1);
         var increment = new cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.CreateCommand(
                 "陈家增项","陈先生","武汉",phone,null,1,project);
-        assertThat(as(engineer, () -> engProjects.create(engineer,increment,idem())).get("parentProjectId")).isEqualTo(project);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> engProjects.create(engineer,increment,idem())))
+                .hasMessageContaining("原工程办理增项");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=?",Long.class,store.orgId())).isEqualTo(1);
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-manager' AND actor_user_id=(payload::jsonb->>'fromUserId')::bigint
                 AND (payload::jsonb->>'fromUserId')::bigint=? AND (payload::jsonb->>'toUserId')::bigint=?
@@ -284,6 +286,7 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     @Test
     void importedSecondDispatchKeepsOriginalVersionHistory() {
         long customerId = customerWithDispatchedDesign("P1/B1/F1");
+        insertSignedContract(customerId);
         long commissionId = commissionIdOf(customerId);
         // Import the already-dispatched historical second version; retired design writes stay closed.
         jdbc.update("UPDATE fr_commission SET submission_version=2,status = 'DISPATCHED', dispatch_seq = 2, dispatched_scheme_version = 'P2/B2/F2', "
@@ -318,6 +321,7 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
         // seq≠version 场景（费用退回重提至 V2 后首次下发：seq=1 但实际使用提交=V2）——
         // 冻结取参必须按 dispatched_submission_version 而非 dispatch_seq（R2 P1 回归锁）
         long customerId = customerWithDispatchedDesign("P1/B1/F1");
+        insertSignedContract(customerId);
         long commissionId = commissionIdOf(customerId);
         jdbc.update("UPDATE fr_commission SET submission_version=2,dispatch_seq = 1, dispatched_submission_version = 2 WHERE id = ?", commissionId);
         insertSubmission(commissionId, 2); // V2 提交（area=120/floors=2，与 V1 预算 400 不同）
@@ -381,9 +385,9 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
                 Long.class, store.orgId(), commissionId);
         // 回调一：不同合同+不同冻结版本——已有档案合同关联不得被改写（蓝本：施工合同由工程维护）
         long contractB = IDS.incrementAndGet();
-        as(engineer, () -> engProjects.receiveFromHandover(engineer, commissionId, customerId, "陈先生",
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> engProjects.receiveFromHandover(engineer, commissionId, customerId, "陈先生",
                 "武汉", "13800000000", new java.math.BigDecimal("120.00"), 2, managerUserId,
-                "P2/B2/F2", "oss://d2", docs, contractB, "P2/B2/F2"));
+                "P2/B2/F2", "oss://d2", docs, contractB, "P2/B2/F2"))).isInstanceOf(ServiceException.class);
         assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id = ?",
                 Long.class, projectId)).isEqualTo(contractA);
         // 回调二：原档案 NULL 时补全（回档删关联模拟）——本次带值则补
@@ -396,21 +400,18 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
         Integer refreshAudit = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM pf_command_event WHERE aggregate_id = ? AND command = 'eng-project-handover-refresh'",
                 Integer.class, projectId);
-        assertThat(refreshAudit).isEqualTo(2);
+        assertThat(refreshAudit).isEqualTo(1);
     }
 
     @Test
-    void customerWithoutActiveContractYieldsNullLink() {
+    void customerWithoutActiveContractCannotCreateAnUnfundedProject() {
         long customerId = customerWithDispatchedDesign("P1/B1/F1"); // 不插合同
         long commissionId = commissionIdOf(customerId);
         as(salesA1, () -> handovers.submit(salesA1, commissionId, packet(1, "P1/B1/F1", engineer.userId()), idem()));
-        as(engineer, () -> handovers.receive(engineer, commissionId,
-                new HandoverService.DecisionCommand("", true), idem()));
-        long projectId = jdbc.queryForObject(
-                "SELECT id FROM fr_eng_project WHERE company_id = ? AND source_commission_id = ?",
-                Long.class, store.orgId(), commissionId);
-        assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id = ?",
-                Long.class, projectId)).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> as(engineer, () -> handovers.receive(engineer, commissionId,
+                new HandoverService.DecisionCommand("", true), idem()))).isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND source_commission_id=?",
+                Long.class, store.orgId(), commissionId)).isZero();
     }
 
     @Test

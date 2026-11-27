@@ -34,9 +34,23 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
     @BeforeEach void setup(){
         var store=fixture.store();engineer=fixture.post(store.orgId(),"engineer",store.engineeringTeam());currentPost.use(engineer);
         EngMaterialAndPlanGuardIntegrationTest.Config.CONTRACT_STAGES=null;
+        EngMaterialAndPlanGuardIntegrationTest.Config.FORMAL_PLAN=null;
+        EngMaterialAndPlanGuardIntegrationTest.Config.ACTIVE_CONTRACT_ID.set(900);
         EngMaterialAndPlanGuardIntegrationTest.Config.STAGE_COLLECTED_MAP.clear();
-        projectId=((Number)projects.create(engineer,new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null,true),key()).get("id")).longValue();
+        projectId=signedProject("周建军庭院","周建军","13800138000",new BigDecimal("30"),1);
         jdbc.execute("CREATE TABLE IF NOT EXISTS eng_test_asset (id BIGINT PRIMARY KEY,asset_type VARCHAR(64),accepted BOOLEAN,org_id BIGINT)");
+    }
+    private long[] signedCustomer(String name,String phone) {
+        long customer=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),contract=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status) VALUES(?,?,?,?,?,'到店','FOLLOWING')",
+                customer,engineer.orgId(),engineer.userId(),name,phone);
+        jdbc.update("INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,signed_date,status,author_user_id) VALUES(?,?,?,100000,30000,?,'SIGNED',?)",
+                contract,engineer.orgId(),customer,today.minusDays(1),engineer.userId());
+        return new long[]{customer,contract};
+    }
+    private long signedProject(String name,String customer,String phone,BigDecimal area,int floors) {
+        signedCustomer(customer,phone);
+        return ((Number)projects.create(engineer,new EngProjectService.CreateCommand(name,customer,"武汉",phone,area,floors,null),key()).get("id")).longValue();
     }
     private EngRectificationService.Change issue(String action, Long id, Long owner, LocalDate due, String note) {
         var body = new LinkedHashMap<String,Object>();
@@ -127,8 +141,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThatThrownBy(()->issueDetail(other,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
         var foreign=fixture.post(fixture.store().orgId(),"engineer",null);
         assertThatThrownBy(()->issueDetail(foreign,id)).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
-        long anotherProject=((Number)projects.create(engineer,new EngProjectService.CreateCommand("第二项目","钱工","武汉",
-                "13800000065",new BigDecimal("20"),1,null,true),key()).get("id")).longValue();
+        long anotherProject=signedProject("第二项目","钱工","13800000065",new BigDecimal("20"),1);
         assertThatThrownBy(()->issues.detail(engineer,anotherProject,id)).hasMessageContaining("原整改单");
         assertThatThrownBy(()->issues.change(engineer,anotherProject,issue("assign",id,engineer.userId(),today,"跨项目"),key()))
                 .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
@@ -166,7 +179,7 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
                 """, customer, engineer.orgId(), engineer.userId());
         for (String phone : List.of("", "13900008157", "13900008158")) {
             var unsigned = new EngProjectService.CreateCommand("郭宁庭院", "郭宁", "武汉", phone, null, 2, null);
-            assertThatThrownBy(() -> projects.create(engineer, unsigned, key())).hasMessageContaining("独立建档");
+            assertThatThrownBy(() -> projects.create(engineer, unsigned, key())).hasMessageContaining("施工合同");
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND name='郭宁庭院'",
                 Long.class,engineer.orgId())).isZero();
@@ -181,15 +194,156 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         long id = ((Number)project.get("id")).longValue();
         assertThat(projects.create(engineer, cmd, createKey).get("id")).isEqualTo(id);
         assertThat(project).containsEntry("customerId",customer).containsEntry("saleContractId",contract);
-        var independent = projects.create(engineer, new EngProjectService.CreateCommand(
-                "郭宁独立工程","郭宁","武汉","13900008158",null,2,null,true),key());
-        assertThat(independent).containsEntry("saleContractId",null).containsEntry("customerId",null);
+        assertThatThrownBy(() -> projects.create(engineer, new EngProjectService.CreateCommand(
+                "郭宁独立工程","郭宁","武汉","13900008158",null,2,null,true),key())).hasMessageContaining("原工程办理增项");
+        assertThatThrownBy(() -> projects.create(engineer, new EngProjectService.CreateCommand(
+                "郭宁增项","郭宁","武汉","13900008158",null,2,id),key())).hasMessageContaining("原工程办理增项");
         var duplicate = new EngProjectService.CreateCommand("另一工程","郭宁","武汉","13900008158",null,1,null);
-        assertThatThrownBy(() -> projects.create(engineer, duplicate, key())).hasMessageContaining("已关联工程");
+        assertThat(projects.create(engineer, duplicate, key())).containsEntry("id",id).containsEntry("name","郭宁庭院").containsEntry("reused",true);
         long commission = com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        var nodes=jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",id);
+        var versions=jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",id);
         long reused = projects.receiveFromHandover(engineer, commission, customer, "郭宁", "武汉", "13900008158",
                 new BigDecimal("120"), 2, engineer.userId(), "V1", "", List.of(), contract, "V1");
         assertThat(reused).isEqualTo(id);
+        assertThat(projects.receiveFromHandover(engineer, commission, customer, "郭宁", "武汉", "13900008158",
+                new BigDecimal("120"), 2, engineer.userId(), "V1", "", List.of(), contract, "V1")).isEqualTo(id);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",id)).isEqualTo(nodes);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",id)).isEqualTo(versions);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND sale_contract_id=?",Long.class,engineer.orgId(),contract)).isEqualTo(1);
+        assertThat(projects.detail(engineer,id)).containsEntry("status","PENDING_START").containsEntry("actualStartAt",null);
+        var other=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
+        assertThatThrownBy(()->projects.create(other,duplicate,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(()->projects.receiveFromHandover(other,commission,customer,"郭宁","武汉","13900008158",
+                new BigDecimal("120"),2,other.userId(),"V1","",List.of(),contract,"V1")).hasMessageContaining("负责人变更");
+        assertThat(projects.detail(engineer,id)).containsEntry("managerUserId",engineer.userId());
+    }
+
+    @Test void originalEmptyManualArchiveCanBeLinkedWithoutResettingItsPlanOrDuplicatingReceivables() {
+        var before=projects.detail(engineer,projectId);
+        long customer=((Number)before.get("customerId")).longValue(),contract=((Number)before.get("saleContractId")).longValue();
+        long stage=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,stage,amount_cents,trigger_type,trigger_node_index) VALUES(?,?,?,?,'STAGE_1',100000,'NODE_COMPLETED',5)",stage,engineer.orgId(),customer,contract);
+        plans.savePlan(engineer,projectId,input(today.plusDays(2)),key());
+        var nodes=jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId);
+        var versions=jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId);
+        var stages=jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract);
+        var formal=jdbc.queryForMap("SELECT * FROM fr_sale_contract WHERE id=?",contract);
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL WHERE id=?",projectId);
+        assertThat(jdbc.queryForObject("SELECT contract_total_cents FROM fr_eng_project WHERE id=?",Long.class,projectId)).isZero();
+        var ledger=new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService(jdbc);
+        assertThat(ledger.page(engineer.orgId(),projectId,1,20).summary().receivableCents()).isZero();
+        var cmd=new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("99"),5,null);
+        String key=key();var linked=projects.create(engineer,cmd,key);
+        assertThat(linked).containsEntry("id",projectId).containsEntry("customerId",customer).containsEntry("saleContractId",contract).containsEntry("reused",true);
+        assertThat(projects.create(engineer,cmd,key)).containsEntry("id",projectId).containsEntry("reused",true);
+        assertThat(projects.create(engineer,cmd,key())).containsEntry("id",projectId).containsEntry("reused",true);
+        assertThat(linked.get("area")).isEqualTo(before.get("area"));assertThat(linked.get("floors")).isEqualTo(before.get("floors"));
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId)).isEqualTo(nodes);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId)).isEqualTo(versions);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract)).isEqualTo(stages);
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_sale_contract WHERE id=?",contract)).isEqualTo(formal);
+        assertThat(ledger.page(engineer.orgId(),projectId,1,20).summary().receivableCents()).isEqualTo(100000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=?",Long.class,engineer.orgId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-project-link-contract'",Long.class,projectId)).isEqualTo(1);
+    }
+
+    @Test void unsafeOrUnownedHistoricalArchiveCannotBeLinkedOrRecreated() {
+        var before=projects.detail(engineer,projectId);
+        long customer=((Number)before.get("customerId")).longValue(),contract=((Number)before.get("saleContractId")).longValue();
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL WHERE id=?",projectId);
+        var cmd=new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",null,1,null);
+        var assigned=fixture.post(engineer.orgId(),"engineer",engineer.teamId());
+        jdbc.update("UPDATE fr_eng_project SET assigned_engineer_user_id=? WHERE id=?",assigned.userId(),projectId);
+        currentPost.use(assigned);
+        assertThatThrownBy(()->projects.create(assigned,cmd,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        var foreign=fixture.post(fixture.store().orgId(),"engineer",null);currentPost.use(foreign);
+        assertThatThrownBy(()->projects.create(foreign,cmd,key())).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        currentPost.use(engineer);
+        jdbc.update("UPDATE fr_eng_project SET prepared_at=now() WHERE id=?",projectId);
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("待核对");
+        jdbc.update("UPDATE fr_eng_project SET prepared_at=NULL WHERE id=?",projectId);
+        long duplicate=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_eng_project(id,company_id,customer_name,phone,source_type,manager_user_id,name,author_user_id) VALUES(?,?,'周建军','13800138000','MANUAL',?,'另一个旧空档案',?)",duplicate,engineer.orgId(),engineer.userId(),engineer.userId());
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("待核对");
+        jdbc.update("DELETE FROM fr_eng_project WHERE id=?",duplicate);
+        long collection=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_eng_collection(id,company_id,project_id,stage,amount_cents,transaction_no,occurred_at,file_asset_id,purpose,registrar_user_id) VALUES(?,?,?,'SIGN_AFTER',100,'old-money',?,1,'工程预收款',?)",collection,engineer.orgId(),projectId,today,engineer.userId());
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("待核对");
+        assertThat(projects.detail(engineer,projectId)).containsEntry("customerId",null).containsEntry("saleContractId",null).containsEntry("managerUserId",engineer.userId());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_collection WHERE id=?",Long.class,collection)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=?",Long.class,engineer.orgId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT customer_id FROM fr_sale_contract WHERE id=?",Long.class,contract)).isEqualTo(customer);
+    }
+
+    @Test void preparedHistoricalArchiveRequiresTheExactOriginalPaymentTermsInBothDirections() {
+        var before=projects.detail(engineer,projectId);
+        long customer=((Number)before.get("customerId")).longValue(),contract=((Number)before.get("saleContractId")).longValue();
+        long stage=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),term=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,stage,amount_cents) VALUES(?,?,?,?,'SIGN_AFTER',100000)",stage,engineer.orgId(),customer,contract);
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL,prepared_at=now(),contract_date=?,contract_total_cents=100000,first_cents=30000 WHERE id=?",today.minusDays(1),projectId);
+        jdbc.update("INSERT INTO fr_eng_collection_term(id,company_id,project_id,stage,amount_cents) VALUES(?,?,?,'SIGN_AFTER',99999)",term,engineer.orgId(),projectId);
+        var cmd=new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",null,1,null);
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("待核对");
+        jdbc.update("UPDATE fr_eng_collection_term SET amount_cents=100000 WHERE id=?",term);
+        long extra=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_eng_collection_term(id,company_id,project_id,stage,amount_cents) VALUES(?,?,?,'BASE_DONE',1)",extra,engineer.orgId(),projectId);
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("待核对");
+        jdbc.update("DELETE FROM fr_eng_collection_term WHERE id=?",extra);
+        var terms=jdbc.queryForList("SELECT * FROM fr_eng_collection_term WHERE project_id=? ORDER BY id",projectId);
+        var stages=jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract);
+        var versions=jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId);
+        var preparation=jdbc.queryForMap("SELECT prepared_at,contract_date,contract_total_cents,first_cents FROM fr_eng_project WHERE id=?",projectId);
+        assertThat(projects.create(engineer,cmd,key())).containsEntry("id",projectId).containsEntry("customerId",customer).containsEntry("saleContractId",contract).containsEntry("reused",true);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_collection_term WHERE project_id=? ORDER BY id",projectId)).isEqualTo(terms);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract)).isEqualTo(stages);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId)).isEqualTo(versions);
+        assertThat(jdbc.queryForMap("SELECT prepared_at,contract_date,contract_total_cents,first_cents FROM fr_eng_project WHERE id=?",projectId)).isEqualTo(preparation);
+    }
+
+    @Test void completedLegacyIndependentCommandRemainsReplayableWithoutNewProjectOrPlan() {
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL WHERE id=?",projectId);
+        String oldKey=key();
+        var cmd=new EngProjectService.CreateCommand("周建军庭院","周建军","武汉","13800138000",new BigDecimal("30"),1,null,true);
+        var body=new LinkedHashMap<String,Object>();
+        body.put("name",cmd.name());body.put("customer",cmd.customer());body.put("city",cmd.city());body.put("phone",cmd.phone());
+        body.put("area","30");body.put("floors",1);body.put("parentProjectId",null);body.put("independent",true);
+        commands.record(engineer,EngProjectService.AGGREGATE,projectId,com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),"eng-project-create",body,oldKey);
+        var project=jdbc.queryForMap("SELECT * FROM fr_eng_project WHERE id=?",projectId);
+        var versions=jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId);
+        assertThat(projects.create(engineer,cmd,oldKey)).containsEntry("id",projectId).containsEntry("saleContractId",null);
+        assertThatThrownBy(()->projects.create(engineer,cmd,key())).hasMessageContaining("原工程办理增项");
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_eng_project WHERE id=?",projectId)).isEqualTo(project);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId)).isEqualTo(versions);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=?",Long.class,engineer.orgId())).isEqualTo(1);
+    }
+
+    @Test void signedContractNodeReferenceBeforeProjectCreationKeepsItsOriginalMeaning() {
+        var source=signedCustomer("邓先生","13900008159");
+        long stage=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("UPDATE fr_sale_contract SET payment_plan_mode='CUSTOM' WHERE id=?",source[1]);
+        jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,stage,amount_cents,trigger_type,trigger_node_index) VALUES(?,?,?,?,'STAGE_1',100000,'NODE_COMPLETED',5)",stage,engineer.orgId(),source[0],source[1]);
+        var stages=jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=?",source[1]);
+        long id=((Number)projects.create(engineer,new EngProjectService.CreateCommand("邓家乡墅","邓先生","武汉","13900008159",null,2,null),key()).get("id")).longValue();
+        assertThat(jdbc.queryForObject("SELECT name FROM fr_eng_plan_node WHERE project_id=? AND node_index=5",String.class,id))
+                .isEqualTo(EngTemplate.buildNodes(2).stream().filter(n->n.nodeIndex()==5).findFirst().orElseThrow().name());
+        assertThat(jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=?",source[1])).isEqualTo(stages);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_version WHERE project_id=?",Long.class,id)).isEqualTo(1);
+    }
+
+    @Test void handoverFillsOnlyMissingCustomerAndContractAndRejectsConflictingOrIncrementOrigins() {
+        var before=projects.detail(engineer,projectId);
+        long customer=((Number)before.get("customerId")).longValue(),contract=((Number)before.get("saleContractId")).longValue(),commission=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        var nodes=jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId);
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL,source_commission_id=? WHERE id=?",commission,projectId);
+        assertThat(projects.receiveFromHandover(engineer,commission,customer,"周建军","武汉","13800138000",new BigDecimal("30"),1,engineer.userId(),"V2","",List.of(),contract,"V2")).isEqualTo(projectId);
+        assertThat(projects.detail(engineer,projectId)).containsEntry("customerId",customer).containsEntry("saleContractId",contract);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId)).isEqualTo(nodes);
+        assertThatThrownBy(()->projects.receiveFromHandover(engineer,commission,customer+1,"周建军","武汉","13800138000",null,1,engineer.userId(),"V3","",List.of(),contract,"V3")).hasMessageContaining("不匹配");
+        assertThatThrownBy(()->projects.receiveFromHandover(engineer,commission+1,customer,"周建军","武汉","13800138000",null,1,engineer.userId(),"V3","",List.of(),null,"V3")).hasMessageContaining("已签正式施工合同");
+        jdbc.update("UPDATE fr_eng_project SET source_type='INCREMENT',parent_project_id=? WHERE id=?",projectId+1,projectId);
+        assertThatThrownBy(()->projects.receiveFromHandover(engineer,commission,customer,"周建军","武汉","13800138000",null,1,engineer.userId(),"V3","",List.of(),contract,"V3")).hasMessageContaining("主工程关系");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=?",Long.class,engineer.orgId())).isEqualTo(1);
     }
 
     List<EngPlanService.NodeInput> input(LocalDate first){
