@@ -22,9 +22,14 @@ public class FranchiseDirectoryService {
                        String originalRegionText,String matchStatus,List<String> regionCodes,String provinceCode,
                        String cityCode,String linkedOrgId,String sourceKey,Integer sourceRow,String sourceSheet,
                        String sourceCell,String brand,String province,String city,String area,String districtCode,long version,
-                       String publicName,String publicAddress,boolean publicAddressAuthorized) { }
+                       String publicName,String publicAddress,boolean publicAddressAuthorized,boolean wholeAreaCoverage) { }
     public record RecordRequest(String name,String brand,String recordType,String originalRegionText,List<String> regionCodes,
-                                String provinceCode,String cityCode,Long expectedVersion) { }
+                                String provinceCode,String cityCode,Long expectedVersion,Boolean wholeAreaCoverage) {
+        public RecordRequest(String name,String brand,String recordType,String originalRegionText,List<String> regionCodes,
+                             String provinceCode,String cityCode,Long expectedVersion) {
+            this(name,brand,recordType,originalRegionText,regionCodes,provinceCode,cityCode,expectedVersion,null);
+        }
+    }
     public record FromDirectoryRequest(String recordId,Long expectedVersion,String adminName,String adminMobile,
                                        String areaPinyin,String ownerPinyin,String remark,String districtCode) { }
     public record MapDisplayRequest(String publicName,String publicAddress,Boolean publicAddressAuthorized,Long expectedVersion,
@@ -74,7 +79,7 @@ public class FranchiseDirectoryService {
             r.getObject("source_row",Integer.class),text(r.getString("source_sheet")),text(r.getString("source_cell")),
             r.getString("brand_name"),province,city,district==null?r.getString("original_region_text"):district.name(),
             district==null?"":district.code(),r.getLong("version"),text(r.getString("public_name")),
-            text(r.getString("public_address")),r.getBoolean("public_address_authorized"));
+            text(r.getString("public_address")),r.getBoolean("public_address_authorized"),r.getBoolean("whole_area_coverage"));
     }
     public Item get(String id) {
         var rows=query(" AND d.id=?",id);if(rows.isEmpty())throw new ServiceException(404,"加盟商名录记录不存在");return rows.get(0);
@@ -165,7 +170,7 @@ public class FranchiseDirectoryService {
                 boolean carryAuthorization = keepsMapAddressAuthorization(before, row.recordType(), brand);
                 jdbc.update("""
                     UPDATE pf_franchise_directory SET brand_id=?,name=?,record_type=?,original_region_text=?,match_status=?,
-                      province_code=?,city_code=?,source_fingerprint=?,
+                      province_code=?,city_code=?,source_fingerprint=?,whole_area_coverage=false,
                       public_address=CASE WHEN ? THEN public_address ELSE NULL END,
                       public_address_authorized=CASE WHEN ? THEN public_address_authorized ELSE false END,
                       public_address_authorized_by=CASE WHEN ? THEN public_address_authorized_by ELSE NULL END,
@@ -210,7 +215,11 @@ public class FranchiseDirectoryService {
     @Transactional(rollbackFor=Exception.class)
     public Item create(RecordRequest input,long actor) {
         var row=requestRow(input,"manual:"+UUID.randomUUID());
-        ImportRow result=persist(prepare(row,regions.all()),actor,true);return get(result.recordId());
+        Prepared prepared=prepare(row,regions.all());
+        boolean wholeArea=wholeAreaCoverage(input,prepared,null);
+        ImportRow result=persist(prepared,actor,true);
+        if(wholeArea)jdbc.update("UPDATE pf_franchise_directory SET whole_area_coverage=true WHERE tenant_id=? AND id=?",tenant(),result.recordId());
+        return get(result.recordId());
     }
     @Transactional(rollbackFor=Exception.class)
     public Item updateMapDisplay(String id,MapDisplayRequest input,long actor) {
@@ -273,6 +282,7 @@ public class FranchiseDirectoryService {
         if(input==null||input.expectedVersion()==null||input.expectedVersion()!=before.version())throw new ServiceException(409,"名录资料已变化，请重新载入");
         Prepared after=prepare(requestRow(input,before.sourceKey()),regions.all());
         var row=after.row();
+        boolean wholeArea=wholeAreaCoverage(input,after,before);
         if(before.linkedOrgId()!=null) {
             if(!"FRANCHISE".equals(row.recordType())||!"RESOLVED".equals(after.resolution().status()))throw invalid("已开户加盟商须保留明确区县和加盟商档案类型");
             var accounts=jdbc.queryForList("""
@@ -296,17 +306,32 @@ public class FranchiseDirectoryService {
         long nextBrandId = brand(row.brand());
         boolean carryAuthorization = keepsMapAddressAuthorization(before, row.recordType(), nextBrandId);
         jdbc.update("""
-            UPDATE pf_franchise_directory SET name=?,brand_id=?,record_type=?,original_region_text=?,match_status=?,province_code=?,city_code=?,
+            UPDATE pf_franchise_directory SET name=?,brand_id=?,record_type=?,original_region_text=?,match_status=?,province_code=?,city_code=?,whole_area_coverage=?,
               public_address=CASE WHEN ? THEN public_address ELSE NULL END,
               public_address_authorized=CASE WHEN ? THEN public_address_authorized ELSE false END,
               public_address_authorized_by=CASE WHEN ? THEN public_address_authorized_by ELSE NULL END,
               public_address_authorized_at=CASE WHEN ? THEN public_address_authorized_at ELSE NULL END,
               version=version+1,updated_at=now() WHERE tenant_id=? AND id=?
             """,row.name(),nextBrandId,row.recordType(),row.originalRegionText(),after.resolution().status(),
-                emptyNull(after.resolution().provinceCode()),emptyNull(after.resolution().cityCode()),
+                emptyNull(after.resolution().provinceCode()),emptyNull(after.resolution().cityCode()),wholeArea,
                 carryAuthorization,carryAuthorization,carryAuthorization,carryAuthorization,tenant(),id);
         replaceRegions(id,after.resolution().codes());return get(id);
     }
+    private static boolean wholeAreaCoverage(RecordRequest input,Prepared prepared,Item before) {
+        var codes=prepared.resolution().codes();
+        boolean eligible="COVERAGE".equals(prepared.row().recordType())&&codes.size()==1
+                &&prepared.catalog().stream().anyMatch(r->r.code().equals(codes.get(0))
+                &&("city".equals(r.level())||"province".equals(r.level())));
+        if(Boolean.TRUE.equals(input.wholeAreaCoverage())) {
+            if(!eligible||input.regionCodes()==null||!input.regionCodes().equals(codes))
+                throw invalid("确认全域覆盖须明确选择一个省或市，不能选区县或从原文自动确认");
+            return true;
+        }
+        return input.wholeAreaCoverage()==null&&eligible&&before!=null&&before.wholeAreaCoverage()
+                &&before.brandName().equals(prepared.row().brand())&&before.regionCodes().equals(codes)
+                &&before.originalRegionText().equals(prepared.row().originalRegionText());
+    }
+
     private static boolean keepsMapAddressAuthorization(Item previous, String nextType, long nextBrandId) {
         // The existing permission applies to the brand to which the address was disclosed.
         return "FRANCHISE".equals(nextType) && Long.toString(nextBrandId).equals(previous.brandId());
@@ -335,7 +360,7 @@ public class FranchiseDirectoryService {
         // The legacy account trigger makes a transitional row; bind the selected source row instead.
         jdbc.update("DELETE FROM pf_franchise_directory WHERE tenant_id=? AND account_id=? AND id<>? AND source_key=?",tenant(),result.accountId(),entry.id(),"account:"+result.accountId());
         jdbc.update("""
-            UPDATE pf_franchise_directory SET account_id=?,org_id=?,record_type='FRANCHISE',name=?,version=version+1,updated_at=now()
+            UPDATE pf_franchise_directory SET account_id=?,org_id=?,record_type='FRANCHISE',whole_area_coverage=false,name=?,version=version+1,updated_at=now()
             WHERE tenant_id=? AND id=? AND org_id IS NULL
             """,result.accountId(),result.orgId(),result.orgName(),tenant(),entry.id());
         return result;
