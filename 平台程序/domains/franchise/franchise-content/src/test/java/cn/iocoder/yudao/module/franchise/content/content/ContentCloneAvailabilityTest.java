@@ -17,7 +17,7 @@ class ContentCloneAvailabilityTest {
         doThrow(new ServiceException(403,"该组织尚未开通此能力，请联系平台管理员"))
                 .when(points).assertSubjectAllowed(120,154,"avatar_clone");
         ContentCloneService service=new ContentCloneService(null,null,null,points,new ContentProviderProperties(),
-                new ContentProviderTransport.Scripted(),null,mock(PlatformTransactionManager.class));
+                new ContentProviderTransport.Scripted(),null,mock(PlatformTransactionManager.class),null);
         var result=service.quote(post,"AVATAR");
         assertThat(result.get("available")).isEqualTo(false);
         assertThat(result.get("message")).asString().contains("该组织尚未开通");

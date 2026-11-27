@@ -33,20 +33,22 @@ public interface CrmRespVos {
                     String city, String summary, String status, long ownerUserId, LocalDate nextVisitDate,
                     OffsetDateTime lastFollowAt, long revision, OffsetDateTime createTime,
                     String district, String town, String village, String regionCode, String addressDetail, String designStatus,
+                    String salesStage, boolean contractSigned,
                     cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary workflow) {
         public static Customer of(CustomerDO c) {
             return new Customer(c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(),
                     c.getProvince(), c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                     c.getNextVisitDate(), c.getLastFollowAt(), c.getRevision(), c.getCreateTime(),
-                    c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus(),c.getWorkflow());
+                    c.getDistrict(), c.getTown(), c.getVillage(), c.getRegionCode(), c.getAddressDetail(), c.getDesignStatus(),
+                    c.getSalesStage(), c.isContractSigned(), c.getWorkflow());
         }
     }
 
     record Follow(long id, long customerId, String note, LocalDate nextVisitDate, long authorUserId,
-                  OffsetDateTime createTime,String contactKind,LocalDate occurredOn) {
+                  OffsetDateTime createTime, String contactKind, LocalDate occurredOn, String outcome) {
         public static Follow of(CustomerFollowDO f) {
             return new Follow(f.getId(), f.getCustomerId(), f.getNote(), f.getNextVisitDate(),
-                    f.getAuthorUserId(), f.getCreateTime(),f.getContactKind(),f.getOccurredOn());
+                    f.getAuthorUserId(), f.getCreateTime(), f.getContactKind(), f.getOccurredOn(), f.getOutcome());
         }
     }
 

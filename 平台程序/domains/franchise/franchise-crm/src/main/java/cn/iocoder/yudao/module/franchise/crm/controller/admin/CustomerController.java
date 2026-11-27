@@ -51,6 +51,7 @@ public class CustomerController {
                               long ownerUserId, String ownerName, java.time.LocalDate nextVisitDate,
                               java.time.OffsetDateTime lastFollowAt, long revision,
                               java.time.OffsetDateTime createTime, String district, String town, String village, String regionCode, String addressDetail, String designStatus,
+                              String salesStage, Boolean visited, boolean contractSigned,
                               cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary workflow) {
     }
 
@@ -110,7 +111,9 @@ public class CustomerController {
                 c.getId(), c.getName(), c.getPhone(), c.getWechat(), c.getSource(), c.getProvince(),
                 c.getCity(), c.getSummary(), c.getStatus(), c.getOwnerUserId(),
                 ownerNames.getOrDefault(c.getOwnerUserId(), ""), c.getNextVisitDate(), c.getLastFollowAt(),
-                c.getRevision(), c.getCreateTime(),c.getDistrict(),c.getTown(),c.getVillage(),c.getRegionCode(),c.getAddressDetail(),c.getDesignStatus(),c.getWorkflow())).toList(), result.getTotal());
+                c.getRevision(), c.getCreateTime(), c.getDistrict(), c.getTown(), c.getVillage(), c.getRegionCode(),
+                c.getAddressDetail(), c.getDesignStatus(), c.getSalesStage(), c.getVisited(), c.isContractSigned(),
+                c.getWorkflow())).toList(), result.getTotal());
     }
 
     @GetMapping("/owner-options")

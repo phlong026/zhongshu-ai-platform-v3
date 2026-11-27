@@ -28,6 +28,22 @@ bash script/platform/build-platform.sh
 
 鉴权、组织范围、业务状态及文件可读性在服务端核验。前端提交的 ID 和展示文案不能代替这些约束；历史经办人和真实垫付人也不能随当前员工责任转移而改写。
 
+## 内容任务和作品标题
+
+`POST /admin-api/franchise/content/tasks`、`GET /admin-api/franchise/content/tasks` 和任务详情返回顶层 `title`。链接解析、语音转写和文案改写的创建响应也包含 `title`。标题采用 `类型｜输入主题`，整条最多 24 个 Unicode 码点。数字人口播从当次正文取首个可用行，AI 视频取描述，文案改写取来源文案。缺少安全的文本来源时显示 `类型｜未命名创作`。派生标题仅向任务作者返回，同组织其他查询者看到类型兜底。输入快照继续保留在服务端。
+
+`POST /admin-api/franchise/content/tasks/{id}/save-work` 优先使用显式作品标题。未填写时沿用任务命名规则。`GET /admin-api/franchise/content/drafts` 为标题为空的历史作品生成显示标题。与作品类型匹配的旧系统默认名在有可用任务主题时也会更新展示。列表回显不写入数据库，其余已保存的标题直接展示原名。
+
+## 人物分身和克隆声音
+
+`GET /admin-api/franchise/content/personas/{personaId}/clones` 和返回资源行的操作提供 `canRename`、`canDelete`、`canSetDefault`。个人维护权限仅适用于同组织、本人创建的人物和本人创建的资源。业务负责人和老板拥有完整维护权限时可管理本组织资源。已设为默认的资源不会再次提示设默认。
+
+- `PUT /admin-api/franchise/content/clones/{id}/title` 接受 `{ "title": "名称" }`，去除首尾空白后须为 1–20 个 UTF-16 代码单元，返回更新后的资源行。
+- `PUT /admin-api/franchise/content/clones/{id}/default` 接受启用人物下已就绪、已结算且可用的资源，同一人物每类资源保留一个默认。重复设同一资源返回当前行。
+- `DELETE /admin-api/franchise/content/clones/{id}` 成功返回 `true`。已就绪且结算完成、或已失败且积分释放的资源可归档，原默认同时清除。同一授权内重复删除返回成功。列表、常规刷新和新建生成任务不再使用归档资源。原制作的幂等回放保留任务标识和终态，标记 `archived` 并隐藏试听及操作。删除不会调用供应商或改写积分。
+
+升级先应用 `V20261123.1023__content_clone_archive.sql`，再启动带归档过滤的版本。尚无归档数据时可以回退应用，保留新增列。已有归档后，直接回到不读取 `archived_at` 的旧版本会让已删除资源重新可见及可选。需要回退时应使用保留归档过滤的兼容版本。逆向 SQL 在存在归档记录时拒绝删除列。
+
 ## 管理台与部署
 
 管理台源码在 [admin-ui](admin-ui/)，Node/pnpm 命令见仓库入口；环境样例及构建模式由该目录维护。
