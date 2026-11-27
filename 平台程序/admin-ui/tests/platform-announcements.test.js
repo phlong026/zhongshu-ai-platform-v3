@@ -78,7 +78,8 @@ function view(overrides = {}) {
   const state = { tenant: '1', actor: '101', post: '201', generation: 1, ...overrides.scope }
   const identity = vue.reactive({
     context: { post: { postId: '201' } },
-    currentPost: overrides.currentPost
+    currentPost: overrides.currentPost,
+    ...overrides.identity
   })
   const calls = []
   const confirmations = []
@@ -128,9 +129,11 @@ function view(overrides = {}) {
     },
     '@/utils/platformIdentity': {
       currentPostId: () => state.post,
+      isHeadquartersAnnouncementPost: platform.isHeadquartersAnnouncementPost,
       PENDING_ANNOUNCEMENT_CREATE_KEY: platform.PENDING_ANNOUNCEMENT_CREATE_KEY,
       postGeneration: () => state.generation
     },
+    '@/utils/platformRoles': load('utils/platformRoles.ts'),
     '@/store/modules/platformIdentity': { usePlatformIdentityStore: () => identity },
     '@/store/modules/user': {
       useUserStore: () => ({
@@ -188,6 +191,48 @@ test('announcement API uses B endpoints, preserves UUID and large brand IDs, and
   assert.equal(calls[5][1].data.createRequestId, id)
   assert.equal(calls[3][1].data.createRequestId, undefined)
   assert.ok(calls.every(([, request]) => request.preserveBusinessError && request.silentError))
+})
+
+test('an admin session without a current post can explicitly choose an eligible headquarters post', async () => {
+  let selected = null
+  const headquarters = {
+    postId: '202',
+    orgType: 'headquarters',
+    roleCode: 'finance',
+    orgName: '总部'
+  }
+  const store = { postId: '203', orgType: 'store', roleCode: 'finance', orgName: '门店' }
+  const fixture = view({
+    scope: { post: '' },
+    identity: {
+      context: null,
+      loadPosts: async () => [store, headquarters],
+      selectPost: async function (postId) {
+        selected = postId
+        fixture.state.post = String(postId)
+        this.context = { post: headquarters }
+        return this.context
+      }
+    },
+    api: {
+      announcementOptions: async () => {
+        if (!selected) throw Object.assign(new Error('请选择工作身份'), { code: 1103000001 })
+        return choices(false)
+      }
+    }
+  })
+  await fixture.hooks.mount()
+  assert.equal(fixture.page.needsPost.value, true)
+  assert.equal(fixture.page.canWrite.value, false)
+  await fixture.page.openPostPicker()
+  assert.deepEqual(plain(fixture.page.postChoices.value), [headquarters])
+  await fixture.page.choosePost(store)
+  assert.equal(selected, null)
+  await fixture.page.choosePost(headquarters)
+  await vue.nextTick()
+  assert.equal(selected, '202')
+  assert.equal(fixture.page.postPickerOpen.value, false)
+  assert.equal(fixture.page.canWrite.value, false)
 })
 
 test('headquarters announcement entry requires headquarters current post and query permission', () => {

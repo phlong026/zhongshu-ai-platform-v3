@@ -56,6 +56,8 @@
 
 总部身份必须同时满足 `orgType=headquarters`，不能只检查角色名。组织、用户、岗位和角色须有效且属于请求租户；门店品牌来自服务端 `pf_store_location`。缺少品牌或有多个品牌时只显示 `ALL`，不扩大到其他品牌。所有详情、编辑和发布操作再次以 `tenant_id` 限定。
 
+Web 公告页在缺少可用任职时提供工作身份选择。选择范围来自本人有效任职，管理台仍以公告接口返回的 `canWrite` 决定是否展示发布操作。`GET /platform/posts/current-context` 为已有查询授权的总部管理员和总部财务返回 `platform:announcement:query`。
+
 后台 `super_admin` 兼容仅在未解析出当前任职且租户等于配置 `zhongshu.org-point.headquarters-tenant-id` 时生效。有无效/歧义的任职头时直接拒绝；已选门店身份时不会借用超级管理员权限。
 
 业务错误码：401 未登录/登录租户不一致；403 权限或任职无效；404 对象不存在或不可见；400 参数/范围无效；409 旧版本、重复状态命令或直接编辑已发布公告。HTTP 外层沿用项目现有 `CommonResult` 错误处理，不另改全站状态码策略。

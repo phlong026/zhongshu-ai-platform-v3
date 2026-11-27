@@ -47,6 +47,9 @@ public class MyPostController {
         }
     }
 
+    private static final String ANNOUNCEMENT_QUERY = "platform:announcement:query";
+    private static final Set<String> HEADQUARTERS_ANNOUNCEMENT_ROLES = Set.of("hq-admin", "finance", "finance-lead");
+
     // 前端按岗位权限渲染 /fr 菜单与页面的能力清单（逐项经授权真源过滤，不暴露账号全部角色并集）。
     // 消费路由：org:query/manage→/fr/org/staff；franchise:fin:query→/fr/finance（P0 批4）；
     // franchise:performance:operate→/fr/dashboard（P1）；platform:wallet:read→/fr 钱包对账 tab（P1）。
@@ -56,7 +59,8 @@ public class MyPostController {
             "platform:org:manage",
             "franchise:fin:query",
             "franchise:performance:operate",
-            "platform:wallet:read");
+            "platform:wallet:read",
+            ANNOUNCEMENT_QUERY);
 
     public record PostContext(StaffPost post, List<String> permissions, Set<Long> managedTeamIds) {
     }
@@ -81,7 +85,11 @@ public class MyPostController {
     public CommonResult<PostContext> currentContext() {
         PostSnapshot post = currentPost.require();
         // 仅暴露本工作区需要的能力，授权真源与 @post.has 相同；不能使用账号的全部角色并集。
+        // 财务角色可分配给门店和总部，公告管理入口仅对总部开放。
+        boolean headquartersAnnouncementRole = "headquarters".equals(post.orgType())
+                && HEADQUARTERS_ANNOUNCEMENT_ROLES.contains(post.roleCode());
         List<String> permissions = WEB_CAPABILITIES.stream()
+                .filter(permission -> !ANNOUNCEMENT_QUERY.equals(permission) || headquartersAnnouncementRole)
                 .filter(permission -> systemDirectory.roleHasPermission(post.roleCode(), permission))
                 .toList();
         return success(new PostContext(StaffPost.of(post, orgName(post.orgId()),mapPermissions(post)), permissions,
