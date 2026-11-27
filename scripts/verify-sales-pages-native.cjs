@@ -162,20 +162,20 @@ const mobilePrefix = '137' + suffix.slice(-7); // 十位（dev-setup 追加 1 �
   await r.capture('15-contract');
   ok('AC15 合同链（创建/sign/006/作废/重建恢复）');
 
-  // AC16：交付创建+四节点推进（后端回读）
-  await r.open('/pages/workflow/index?view=delivery&id=' + encodeURIComponent(idA), '.page-actions');
-  await r.until(async () => (await r.data()).view === 'delivery', 'delivery 视图');
-  await r.until(async () => (await r.data()).noDelivery === true, '空态+创建按钮');
-  await r.event('.page-actions .outline', 'platformCreateDelivery');
-  await r.until(async () => !!((await r.data()).delivery), '交付渲染');
-  for (const node of ['design-delivered', 'design-confirmed', 'construction-delivered', 'construction-accepted']) {
-    await r.event('.page-actions .btn', 'platformAdvanceDelivery');
-    await r.until(async () => { const dd = await r.data(); const i = dd.delivery.nodes.findIndex(n => n.key === node); return dd.delivery.nodes[i].done; }, node + ' 完成');
-  }
-  const deliveryAfter = await call('GET', '/franchise/sales/deliveries?contractId=' + contractsVoided[0].contract.id, null, sales.token, sales.postId);
-  assert.ok(deliveryAfter.designDeliveredAt && deliveryAfter.designConfirmedAt && deliveryAfter.constructionDeliveredAt && deliveryAfter.constructionAcceptedAt, '后端四节点时间戳齐');
-  await r.capture('16-delivery');
-  ok('AC16 原生交付四节点推进（后端回读）');
+  // ENG-E06：旧交付深链只读，现行施工交付沿原工程办理。
+  await r.open('/pages/workflow/index?view=delivery&id=' + encodeURIComponent(idA), '.role-note');
+  await r.until(async () => (await r.data()).view === 'delivery', '历史交付视图');
+  const historical = await r.data();
+  assert.equal(historical.title, '历史交付记录');
+  const oldHandlers = await r.mp.evaluate(() => {
+    const page = getCurrentPages().at(-1);
+    return [typeof page.platformCreateDelivery, typeof page.platformAdvanceDelivery];
+  });
+  assert.deepEqual(oldHandlers, ['undefined', 'undefined'], '旧交付没有新增或推进处理器');
+  await call('POST', '/franchise/sales/deliveries', { contractId: contractsVoided[0].contract.id },
+    sales.token, sales.postId, 1113000012, { 'Idempotency-Key': 'retired-delivery-' + suffix });
+  await r.capture('16-delivery-history');
+  ok('ENG-E06 旧交付只读页面');
 
   // AC17：报价导出（canvas 产物）
   await r.open('/pages/workflow/quote-export/index?quote-id=' + encodeURIComponent(String(quotesAfter[0].id)), '.export-summary');
