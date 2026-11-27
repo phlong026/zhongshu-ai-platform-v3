@@ -153,12 +153,29 @@ Page({
    if(this.__unloaded||gen!==this.__candGen||sessionGen!==this.__http.sessionGeneration()||postKey!==this.__postKey)return;
    this.__transferStaff={postKey,rows:rows||[]};
    const targets=(rows||[]).filter(r=>['sales','sales-lead'].includes(r.roleCode)&&r.active===true);
-   // 姓名和部门仅用于展示；即使完全同名，选中值也始终绑定人员 ID。
-   const candidates=targets.map(r=>({userId:String(r.userId),label:r.name+' · '+(r.teamName||r.roleCode||'')}));
+   // 只在不同员工的姓名和部门相同时补尾号，不把完整号码写入候选或页面。
+   const labelOf=r=>r.name+' · '+(r.teamName||r.roleCode||'');
+   const remember=(groups,label,userId)=>{
+    if(!groups.has(label))groups.set(label,new Set());
+    groups.get(label).add(userId);
+   };
+   const byLabel=new Map(),byHint=new Map();
+   targets.forEach(r=>remember(byLabel,labelOf(r),String(r.userId)));
+   const withHint=targets.map(r=>{
+    const userId=String(r.userId),label=labelOf(r),same=byLabel.get(label).size>1;
+    const mobile=String(r.mobile||'').trim(),tail=/^1\d{10}$/.test(mobile)?mobile.slice(-4):'';
+    const shown=same&&tail?label+' · 手机尾号 '+tail:label;
+    remember(byHint,shown,userId);
+    return {userId,label:shown,missingHint:same&&!tail};
+   });
+   const candidates=withHint.map(({userId,label,missingHint})=>{
+    const ambiguous=missingHint||byHint.get(label).size>1;
+    return {userId,label:ambiguous?label+' · 需核对身份':label,ambiguous};
+   });
    this.__transferCandidates=candidates;
    this.setData({ownerOptions:candidates.map(c=>c.label)});
    if(!this.__customerWrite){
-    const index=candidates.findIndex(c=>c.userId===this.data.form.newOwnerUserId),chosen=candidates[index];
+    const index=candidates.findIndex(c=>!c.ambiguous&&c.userId===this.data.form.newOwnerUserId),chosen=candidates[index];
     this.setData({'form.newOwnerUserId':chosen?chosen.userId:'','form.newOwner':chosen?chosen.label:'','form.newOwnerIndex':index});
    }
    this.reconcileTransferOwner();
@@ -207,7 +224,7 @@ Page({
   if(this.__customerWrite)return this.runCustomerWrite(this.__customerWrite);
   const f=this.data.form,c=this.data.customer,fail=msg=>this.setData({error:msg,busy:false});
   const cands=this.__transferCandidates||[];
-  const chosen=cands.find(c=>String(c.userId)===f.newOwnerUserId);
+  const chosen=cands.find(c=>!c.ambiguous&&String(c.userId)===f.newOwnerUserId);
   const targetUserId=chosen?chosen.userId:null;
   if(!targetUserId)return fail('请选择接手人');
   const reason=String(f.transferReason||'').trim();
@@ -737,8 +754,10 @@ Page({
  input(e){if(this.__customerWrite)return;const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.detail.value,error:''});this.saveDraft();},
  pickTransferOwner(e){
   if(this.__customerWrite)return;
-  const index=Number(e.detail.value),chosen=Number.isInteger(index)&&(this.__transferCandidates||[])[index];
-  this.setData({'form.newOwnerUserId':chosen?String(chosen.userId):'','form.newOwner':chosen?chosen.label:'','form.newOwnerIndex':chosen?index:-1,error:''});
+  const index=Number(e.detail.value),candidate=Number.isInteger(index)&&(this.__transferCandidates||[])[index];
+  const chosen=candidate&&!candidate.ambiguous?candidate:null;
+  this.setData({'form.newOwnerUserId':chosen?String(chosen.userId):'','form.newOwner':chosen?chosen.label:'','form.newOwnerIndex':chosen?index:-1,
+   error:candidate&&candidate.ambiguous?'接手人姓名和部门相同，请核对员工资料后再选':''});
   this.saveDraft();
  },
  pick(e){if(this.__customerWrite)return;const {key,options}=e.currentTarget.dataset;const values=e.currentTarget.dataset.values||this.data[options];this.setData({['form.'+key]:values?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft();},
