@@ -25,6 +25,7 @@ public final class FranchiseRoles {
     public static final String BOSS = "boss";
     public static final String OWNER = "owner";
     public static final String HQ_ADMIN = "hq-admin";
+    // 设计岗位已于 2026-11-27 退役（V20261127.1201 删除模板与角色）；常量保留供 LEGACY 历史数据与死分支引用
     public static final String DESIGNER = "hq-designer";
     public static final String DESIGN_LEAD = "hq-design-lead";
     public static final String DESIGN_ADMIN = "hq-design-admin";
@@ -35,7 +36,6 @@ public final class FranchiseRoles {
     static final Map<String, String> INHERITS = Map.of(
             SALES_LEAD, SALES,
             PROJECT_MANAGER, ENGINEER,
-            DESIGN_LEAD, DESIGNER,
             FINANCE_LEAD, FINANCE,
             OPERATIONS_LEAD, OPERATIONS);
 

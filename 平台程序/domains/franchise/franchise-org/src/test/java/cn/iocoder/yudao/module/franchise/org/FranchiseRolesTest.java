@@ -27,7 +27,7 @@ class FranchiseRolesTest extends FranchisePgIntegrationTest {
                 });
         Integer templates = jdbc.queryForObject("SELECT count(*) FROM pf_post_template WHERE domain = 'franchise'", Integer.class);
 
-        assertThat(templates).isEqualTo(14);
+        assertThat(templates).isEqualTo(11);
         assertThat(inherits).isEqualTo(FranchiseRoles.INHERITS);
         assertThat(jdbc.queryForObject("SELECT org_types FROM pf_post_template WHERE role_code='hq-admin'", String.class))
                 .isEqualTo("headquarters");
@@ -37,14 +37,14 @@ class FranchiseRolesTest extends FranchisePgIntegrationTest {
     void storeAndHeadquartersPostsFollowTheTemplates() {
         var store = fixture.store();
         PostSnapshot lead = fixture.post(store.orgId(), FranchiseRoles.SALES_LEAD, store.salesTeamA());
-        PostSnapshot admin = fixture.post(fixture.headquarters(), FranchiseRoles.DESIGN_ADMIN, null);
+        PostSnapshot operations = fixture.post(fixture.headquarters(), FranchiseRoles.OPERATIONS, null);
 
         assertThat(FranchiseRoles.has(lead, FranchiseRoles.SALES)).isTrue();
         assertThat(FranchiseRoles.has(lead, FranchiseRoles.ENGINEER)).isFalse();
         assertThat(FranchiseRoles.atStore(lead)).isTrue();
         assertThat(lead.managedTeamIds()).containsExactly(store.salesTeamA());
-        assertThat(FranchiseRoles.atHeadquarters(admin)).isTrue();
-        assertThat(FranchiseRoles.isBoss(admin)).isFalse();
+        assertThat(FranchiseRoles.atHeadquarters(operations)).isTrue();
+        assertThat(FranchiseRoles.isBoss(operations)).isFalse();
     }
 
 }
