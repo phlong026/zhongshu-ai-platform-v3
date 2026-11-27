@@ -81,7 +81,6 @@
           </div>
         </div>
 
-        <!-- 图表区（2×2） -->
         <el-row :gutter="16">
           <el-col :xs="24" :md="12">
             <div class="chart-card">
@@ -123,18 +122,6 @@
               <el-empty v-else-if="!loading" description="暂无流水数据" :image-size="60" />
             </div>
           </el-col>
-          <el-col :xs="24" :md="12">
-            <div class="chart-card">
-              <div class="chart-card__title">生效设计定价点数（前10）</div>
-              <el-empty
-                v-if="sourceMessage('prices')"
-                :description="sourceMessage('prices')"
-                :image-size="60"
-              />
-              <Echart v-else-if="priceChartOptions" :options="priceChartOptions" :height="300" />
-              <el-empty v-else-if="!loading" description="暂无定价数据" :image-size="60" />
-            </div>
-          </el-col>
         </el-row>
       </el-collapse-item>
     </el-collapse>
@@ -165,8 +152,6 @@ import {
   Wallet,
   Document,
   Warning,
-  PriceTag,
-  DataLine,
   DocumentChecked,
   Plus
 } from '@element-plus/icons-vue'
@@ -177,13 +162,10 @@ import {
   getRechargePlans,
   getRechargeOrders,
   getAnomalies,
-  getActiveDesignPrices,
   getLedger,
-  getDesignCosts,
   getAudit,
   type WalletRow,
-  type LedgerRow,
-  type DesignPriceRow
+  type LedgerRow
 } from '@/api/platform/operations'
 
 defineOptions({ name: 'PlatformOperationsHome' })
@@ -209,23 +191,18 @@ onMounted(async () => {
 
 const wallets = ref<WalletRow[]>([])
 const ledger = ref<LedgerRow[]>([])
-const prices = ref<DesignPriceRow[]>([])
 const walletCount = ref(0)
 const totalAvailablePoints = ref(0)
 const orderTotal = ref(0)
 const planTotal = ref(0)
 const anomalyTotal = ref(0)
-const priceTotal = ref(0)
-const costTotal = ref(0)
 const auditTotal = ref(0)
 const permissions = {
   wallets: 'platform:wallet:query',
   ledger: 'platform:wallet:ledger:query',
-  prices: 'platform:design:price:query',
   orders: 'platform:wallet:order:query',
   plans: 'platform:wallet:plan:query',
   anomalies: 'platform:wallet:anomaly:query',
-  costs: 'platform:design:cost:query',
   audit: 'platform:ops:audit:query'
 } as const
 type Source = keyof typeof permissions
@@ -287,20 +264,6 @@ const statCards = computed(() =>
       to: '/platform-ops/anomalies'
     },
     {
-      label: '生效设计定价',
-      source: 'prices' as Source,
-      value: String(priceTotal.value),
-      icon: PriceTag,
-      to: '/platform-ops/design-prices'
-    },
-    {
-      label: '调用成本记录',
-      source: 'costs' as Source,
-      value: String(costTotal.value),
-      icon: DataLine,
-      to: '/platform-ops/design-costs'
-    },
-    {
       label: '配置审计条数',
       source: 'audit' as Source,
       value: String(auditTotal.value),
@@ -321,6 +284,7 @@ const statCards = computed(() =>
 
 const quickEntries = computed(() =>
   [
+    { path: '/platform-announcements', title: '公告管理', permission: 'platform:announcement:query' },
     { path: '/platform-pricing', title: '定价管理', permission: 'platform:org-point:price:query' },
     { path: '/platform-org/onboard', title: '组织开通', permission: 'platform:org:onboard' },
     {
@@ -333,8 +297,6 @@ const quickEntries = computed(() =>
     { path: '/platform-ops/orders', title: '历史充值订单', permission: permissions.orders },
     { path: '/platform-ops/ledger', title: '历史钱包流水', permission: permissions.ledger },
     { path: '/platform-ops/anomalies', title: '支付异常', permission: permissions.anomalies },
-    { path: '/platform-ops/design-prices', title: '历史设计定价', permission: permissions.prices },
-    { path: '/platform-ops/design-costs', title: '调用成本', permission: permissions.costs },
     { path: '/platform-ops/audit', title: '配置审计', permission: permissions.audit }
   ].filter((entry) => checkPermi([entry.permission]))
 )
@@ -434,39 +396,6 @@ const bizTypeChartOptions = computed<EChartsOption | null>(() => {
   }
 })
 
-// 定价点数对比（提示词点数）
-const priceChartOptions = computed<EChartsOption | null>(() => {
-  if (!prices.value.length) return null
-  const rows = prices.value.slice(0, 10)
-  return {
-    grid: { left: 8, right: 24, top: 12, bottom: 8, containLabel: true },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'value', splitLine: { lineStyle: { color: '#f0ece6' } } },
-    yAxis: {
-      type: 'category',
-      data: rows.map((p) => p.operation),
-      axisLine: { lineStyle: { color: '#e5e0d8' } }
-    },
-    series: [
-      {
-        type: 'bar',
-        name: '提示词点数',
-        data: rows.map((p) => Number(p.promptPoints) || 0),
-        barMaxWidth: 14,
-        itemStyle: { color: BRAND, borderRadius: [0, 3, 3, 0] },
-        label: { show: true, position: 'right', color: '#8a7d72' }
-      },
-      {
-        type: 'bar',
-        name: '图像点数',
-        data: rows.map((p) => Number(p.imagePoints) || 0),
-        barMaxWidth: 14,
-        itemStyle: { color: BRAND_LIGHT, borderRadius: [0, 3, 3, 0] }
-      }
-    ]
-  }
-})
-
 let loadGeneration = 0
 async function load() {
   const generation = ++loadGeneration
@@ -504,14 +433,6 @@ async function load() {
       }
     ),
     fetchSource(
-      'prices',
-      () => getActiveDesignPrices({ pageNo: 1, pageSize: 10 }),
-      (result) => {
-        prices.value = result.list
-        priceTotal.value = result.total
-      }
-    ),
-    fetchSource(
       'plans',
       () => getRechargePlans({ pageNo: 1, pageSize: 1 }),
       (result) => {
@@ -530,13 +451,6 @@ async function load() {
       () => getAnomalies({ pageNo: 1, pageSize: 1 }),
       (result) => {
         anomalyTotal.value = result.total
-      }
-    ),
-    fetchSource(
-      'costs',
-      () => getDesignCosts({ pageNo: 1, pageSize: 1 }),
-      (result) => {
-        costTotal.value = result.total
       }
     ),
     fetchSource(

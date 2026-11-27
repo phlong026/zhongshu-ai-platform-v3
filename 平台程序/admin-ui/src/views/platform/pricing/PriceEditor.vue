@@ -78,7 +78,7 @@ import {
 } from '../org-points/pricePending'
 import { runPersistedRequest } from '../org-points/persistedRequest'
 import { formatMicros, integerText } from '../org-points/int64'
-import { unitLabel, type PricingItem } from './catalog'
+import { isActivePricingSubject, unitLabel, type PricingItem } from './catalog'
 
 const emit = defineEmits<{ saved: [] }>()
 const user = useUserStore()
@@ -102,9 +102,9 @@ function open(item: PricingItem) {
     return
   }
   try {
-    if (!canWrite.value || !item.available) return
+    if (!canWrite.value || !item.available || !isActivePricingSubject(item.subject)) return
     const current = actor()
-    const pending = findPricePending(localStorage, current.tenantId, current.actorId)
+    const pending = findPricePending(localStorage, current.tenantId, current.actorId, isActivePricingSubject)
     if (pending && pending.frozen.subject !== item.subject)
       throw new Error('其他能力有待确认的调价，请先打开对应能力重试')
     row.value = item

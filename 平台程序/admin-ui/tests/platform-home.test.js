@@ -19,11 +19,9 @@ function home(overrides = {}, allowed = () => true) {
       topWallets: []
     }),
     getLedger: async () => ({ list: [], total: 2000 }),
-    getActiveDesignPrices: async () => ({ list: [], total: 3 }),
     getRechargePlans: async () => ({ list: [], total: 7 }),
     getRechargeOrders: async () => ({ list: [], total: 4 }),
     getAnomalies: async () => ({ list: [], total: 0 }),
-    getDesignCosts: async () => ({ list: [], total: 9 }),
     getAudit: async () => ({ list: [], total: 1 }),
     ...overrides
   }
@@ -36,8 +34,6 @@ function home(overrides = {}, allowed = () => true) {
         'Wallet',
         'Document',
         'Warning',
-        'PriceTag',
-        'DataLine',
         'DocumentChecked',
         'Plus'
       ].map((k) => [k, {}])
@@ -67,13 +63,15 @@ function home(overrides = {}, allowed = () => true) {
   return { state, card }
 }
 
-test('总部全量钱包200组织不截成100，套餐与生效价格读取真实总数', async () => {
+test('总部全量钱包200组织不截成100，套餐读取真实总数', async () => {
   const { state, card } = home()
   await state.load()
   assert.equal(card('历史组织钱包数').value, '200')
   assert.equal(card('历史钱包总可用点数').value, Number(200100).toLocaleString())
   assert.equal(card('充值套餐数').value, '7')
-  assert.equal(card('生效设计定价').value, '3')
+  assert.equal(card('生效设计定价'), undefined)
+  assert.equal(card('调用成本记录'), undefined)
+  assert.ok(state.quickEntries.value.some((entry) => entry.path === '/platform-announcements'))
 })
 
 test('单项失败不清空成功数据，失败/等待不显示业务零，允许重试', async () => {

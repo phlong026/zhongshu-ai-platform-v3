@@ -385,8 +385,8 @@ test('员工有候选岗位但尚未通过身份复验时，业务路由转到�
     '@/utils/platformIdentity': { portalMode: () => 'staff' },
     '@/store/modules/platformIdentity': { usePlatformIdentityStoreWithOut: () => identity }
   })
-  assert.equal((await guard({ path: '/fr/org/staff' }, {})).path, '/fr/identity')
-  assert.equal(await guard({ path: '/fr/identity' }, {}), true, '选岗页本身不能循环跳转')
+  assert.equal((await guard({ path: '/fr/org/staff', query: {} }, {})).path, '/fr/identity')
+  assert.equal(await guard({ path: '/fr/identity', query: {} }, {}), true, '选岗页本身不能循环跳转')
 })
 
 test('岗位列表网络失败保留已知身份并暴露可重试错误，不伪装成无任职', async () => {

@@ -28,6 +28,7 @@ function load(file) {
 }
 
 const identity = load('utils/platformIdentity.ts')
+const post = (roleCode, orgType = 'store') => ({ roleCode, orgType })
 
 const withPermissions =
   (...permissions) =>
@@ -35,30 +36,43 @@ const withPermissions =
     permissions.includes(permission)
 
 test('boss and owner land on dashboard by role', () => {
-  assert.equal(identity.resolveStaffLandingPath('boss', withPermissions()), '/fr/dashboard')
-  assert.equal(identity.resolveStaffLandingPath('owner', withPermissions()), '/fr/dashboard')
+  assert.equal(identity.resolveStaffLandingPath(post('boss'), withPermissions()), '/fr/dashboard')
+  assert.equal(identity.resolveStaffLandingPath(post('owner'), withPermissions()), '/fr/dashboard')
 })
 
 test('finance roles land on finance even when they also hold operate', () => {
   assert.equal(
     identity.resolveStaffLandingPath(
-      'finance',
+      post('finance'),
       withPermissions('franchise:performance:operate', 'franchise:fin:query')
     ),
     '/fr/finance'
   )
   assert.equal(
     identity.resolveStaffLandingPath(
-      'finance-lead',
+      post('finance-lead'),
       withPermissions('franchise:performance:operate', 'franchise:fin:query')
     ),
     '/fr/finance'
   )
 })
 
+test('总部管理员进入公告管理，只有获准总部岗位能恢复公告直达链接', () => {
+  const can = withPermissions('platform:announcement:query')
+  const path = identity.ANNOUNCEMENTS_PATH
+  assert.equal(identity.resolveStaffLandingPath(post('hq-admin', 'headquarters'), can), path)
+  assert.equal(identity.resolveStaffLandingPath(post('finance', 'headquarters'), can, path), path)
+  assert.equal(identity.resolveStaffLandingPath(post('finance', 'headquarters'), can), '/fr/finance')
+  assert.equal(identity.resolveStaffLandingPath(post('finance'), can, path), '/fr/finance')
+  assert.equal(
+    identity.resolveStaffLandingPath(post('hq-admin', 'headquarters'), withPermissions(), path),
+    '/fr/identity'
+  )
+})
+
 test('unmapped role with org query lands on staff page', () => {
   assert.equal(
-    identity.resolveStaffLandingPath('sales', withPermissions('platform:org:query')),
+    identity.resolveStaffLandingPath(post('sales'), withPermissions('platform:org:query')),
     '/fr/org/staff'
   )
   assert.equal(
@@ -70,21 +84,21 @@ test('unmapped role with org query lands on staff page', () => {
 test('unmapped role falls back in order: operate -> fin -> org -> identity', () => {
   assert.equal(
     identity.resolveStaffLandingPath(
-      'sales',
+      post('sales'),
       withPermissions('franchise:performance:operate', 'franchise:fin:query', 'platform:org:query')
     ),
     '/fr/dashboard'
   )
   assert.equal(
     identity.resolveStaffLandingPath(
-      'sales',
+      post('sales'),
       withPermissions('franchise:fin:query', 'platform:org:query')
     ),
     '/fr/finance'
   )
-  assert.equal(identity.resolveStaffLandingPath('sales', withPermissions()), '/fr/identity')
+  assert.equal(identity.resolveStaffLandingPath(post('sales'), withPermissions()), '/fr/identity')
 })
 
 test('unmapped role without permissions does not dead-end on a blank page', () => {
-  assert.equal(identity.resolveStaffLandingPath('engineer', withPermissions()), '/fr/identity')
+  assert.equal(identity.resolveStaffLandingPath(post('engineer'), withPermissions()), '/fr/identity')
 })

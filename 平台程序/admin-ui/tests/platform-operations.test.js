@@ -112,6 +112,8 @@ test('总部菜单按明确权限过滤，保留已有组织和员工支持，�
     {
       path: '/platform-ops',
       children: [
+        { path: 'design-costs', meta: { title: '调用成本' } },
+        { path: 'design-prices', meta: { title: '设计定价' } },
         { path: 'wallets', meta: { title: '组织钱包' } },
         { path: 'orders', meta: { title: '充值订单' } }
       ]
@@ -138,6 +140,11 @@ test('总部菜单按明确权限过滤，保留已有组织和员工支持，�
     ['user']
   )
   assert.equal(JSON.stringify(authorized), before)
+  const all = buildPlatformMenus(base, authorized, () => true)
+  assert.deepEqual(
+    Array.from(all.find((route) => route.path === '/platform-ops').children, (row) => row.path),
+    ['wallets', 'orders']
+  )
   const none = buildPlatformMenus(base, authorized, () => false)
   assert.equal(
     none.some((row) => row.path === '/platform-ops'),
@@ -280,18 +287,16 @@ test('重新打开同一异常时，旧核对保存响应不能清空新说明',
   assert.equal(state.reviewNote.value, '新的核对说明')
 })
 
-test('设计成本与配置审计菜单有真实查询，未取得成本不显示零', async () => {
+test('退役设计页面无运营查询，既有配置审计仍可查询', async () => {
   const { state, route } = walletView({
-    getDesignCosts: async () => ({
-      list: [{ id: '7', chargedCostMicros: null, costState: 'UNAVAILABLE' }],
-      total: 1
-    }),
     getAudit: async () => ({ list: [{ id: '8', reason: '实际审计' }], total: 1 })
   })
-  route.path = '/platform-ops/design-costs'
-  await state.load()
-  assert.equal(state.rows.value[0].chargedCostMicros, null)
-  assert.equal(state.displayValue('costState', 'UNAVAILABLE'), '未取得成本事实')
+  for (const resource of ['design-prices', 'design-costs']) {
+    route.path = `/platform-ops/${resource}`
+    await state.load()
+    assert.equal(state.section.value, undefined)
+    assert.equal(state.rows.value.length, 0)
+  }
   route.path = '/platform-ops/audit'
   await state.load()
   assert.equal(state.rows.value[0].reason, '实际审计')
@@ -303,7 +308,7 @@ test('运营时间戳的数字与字符串形式显示相同日期，不把毫�
   const millis = Date.parse('2026-11-16T03:04:05Z')
   const date = state.displayValue('createTime', millis)
   assert.equal(state.displayValue('createTime', String(millis)), date)
-  assert.equal(state.displayValue('effectiveAt', '2026-11-16T03:04:05Z'), date)
+  assert.equal(state.displayValue('createTime', '2026-11-16T03:04:05Z'), date)
   assert.notEqual(date, String(millis))
   assert.equal(state.displayValue('createTime', null), '—')
 })
