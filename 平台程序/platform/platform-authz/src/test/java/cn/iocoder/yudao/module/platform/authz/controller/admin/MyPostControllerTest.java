@@ -11,6 +11,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -110,6 +112,30 @@ class MyPostControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.post.permissions", containsInAnyOrder("franchise:store-map:read-all")))
                 .andExpect(jsonPath("$.data.permissions", not(hasItem("platform:org:onboard"))));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "headquarters, hq-admin, true, true",
+            "headquarters, finance, true, true",
+            "headquarters, finance-lead, true, true",
+            "headquarters, hq-admin, false, false",
+            "headquarters, sales, true, false",
+            "store, finance, true, false"
+    })
+    void currentContextExposesAnnouncementQueryOnlyForGrantedHeadquartersRoles(
+            String orgType, String role, boolean granted, boolean expected) throws Exception {
+        var post = new PostSnapshot(61L, 7L, 200L, orgType, role, null, false, Set.of());
+        String query = "platform:announcement:query";
+        String manage = "platform:announcement:manage";
+        when(currentPost.require()).thenReturn(post);
+        lenient().when(systemDirectory.roleHasPermission(role, query)).thenReturn(granted);
+        lenient().when(systemDirectory.roleHasPermission(role, manage)).thenReturn(true);
+
+        mvc.perform(get("/platform/posts/current-context").header("X-Post-Id", "61"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.permissions", expected ? hasItem(query) : not(hasItem(query))))
+                .andExpect(jsonPath("$.data.permissions", not(hasItem(manage))));
     }
 
     @Test
