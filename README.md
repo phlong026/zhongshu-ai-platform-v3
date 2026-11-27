@@ -10,6 +10,7 @@
 | 后端、总部管理台 | [backend-main](https://github.com/phlong026/zhongshu-ai-platform-v3/tree/backend-main) 的 `平台程序/` |
 | 接口和会话约定 | [数据访问层说明](miniprogram/api/README.md)、[http.js](miniprogram/api/http.js) |
 | 默认自动检查 | [package.json](package.json)、[Frontend CI](.github/workflows/frontend-ci.yml) |
+| 业务与工程本轮整改 | [问题现状、最小整改方案、完成标准及验收清单](docs/roadmap/V3-business-engineering-remediation-20261127.md) |
 | 部署和配对验收 | 后端分支的 [B 部署入口](https://github.com/phlong026/zhongshu-ai-platform-v3/tree/backend-main/平台程序/deploy/platform) 与 `平台程序/script/release-rehearsal/` |
 | 历次改版和验收记录 | [历史 README](README.history.md)、`docs/`、`qa/`；记录中的版本只代表当次状态 |
 
