@@ -563,7 +563,7 @@ function recordView(bundle, ctx) {
   const actor = key => d.timelineActors?.[key] || '经办人未留存';
   const view = opts.view || 'overview';
   // M07-T02 三期：base（基础完成后期款）随 BASE_DONE 收款入口进入
-  const stage = opts.stage || 'start';
+  const stage = opts.stage || '';
   const today = opts.today || '';
   const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
   const p = data.p;
@@ -632,7 +632,7 @@ function recordView(bundle, ctx) {
     }
   }
 
-  if (part) form.stage = part.key;
+  form.stage = part ? part.key : stage;
   let fields = [], actions = [];
   if (view === 'collection') {
     // M07-T04 批次#36/R1 P1-4：在线收款登记恢复（finance 系岗——856 collect 码；封顶门禁后端裁决）
