@@ -57,6 +57,12 @@ function homeStats(cards, available = true) {
 const NODE_VIEW = { PENDING: '待开工', IN_PROGRESS: '施工中', DONE: '已完成' };
 function nodeStatusView(s) { return NODE_VIEW[s] || s || ''; }
 
+/** Actual start needs its one planned date; later construction ranges may be filled when known. */
+function startPlanReady(nodes) {
+  const starts = (nodes || []).filter(node => node.milestone === 'start');
+  return starts.length === 1 && !!starts[0].start && starts[0].start === starts[0].end;
+}
+
 /** 节点视图（含 TOPPING 里程碑标记与日期归一；record 页 nodeRows 形状） */
 function nodeRows(nodes) {
   return (nodes || []).map(n => ({
@@ -149,7 +155,7 @@ function errorText(err) {
   const code = err && err.code;
   const map = {
     1115000000: '当前身份无权办理本工程操作',
-    1115000002: '施工计划日期缺失或重叠，请核对',
+    1115000002: '施工计划不合法，请核对原节点及起止日期',
     1115000003: '节点操作前置不满足（撤回/更正条件）',
     1115000004: '材料操作不合法（调整越界或已付款锁定）',
     1115000005: '收货流水号已登记',
@@ -207,7 +213,7 @@ function projectView(detail) {
 module.exports = {
   api, online, dateOf, timestampDate, centsText, statusView, statusMatches, homeStats, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
-  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError,
+  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError, startPlanReady,
   idemFingerprint
 };
 
@@ -662,7 +668,7 @@ function recordView(bundle, ctx) {
     else fields = [];
   } else if (view === 'start') {
     // R1 P1-4：实际开工记录恢复（own；开工后后端拒绝修改）
-    if (own && !archived && !p.actualStart && d.preparedAt && nodes.every(n=>n.start&&n.end) && data.installments.some(i=>i.stage==='start'&&i.settled)) {
+    if (own && !archived && !p.actualStart && d.preparedAt && startPlanReady(nodes) && data.installments.some(i=>i.stage==='start'&&i.settled)) {
       fields = [viewField('date', '实际开工日期', 'date'), viewField('note', '现场情况', 'textarea'),
         viewField('file', '开工凭据（jpg/png/pdf）', 'file')];
       actions = [{ action: 'start', label: '记录实际开工' }];
@@ -763,7 +769,7 @@ function recordView(bundle, ctx) {
     .map(([label, v]) => ({ label, url: base + v }));
   const next = archived ? null
     : !d.preparedAt ? { title: '填写开工准备与施工计划', url: base + 'prepare' }
-    : !p.actualStart && nodes.some(n=>!n.start || !n.end) ? {title:'补全施工计划日期',url:base+'project'}
+    : !p.actualStart && !startPlanReady(nodes) ? {title:'填写计划开工日期',url:base+'project'}
     : !p.actualStart && data.installments.some(i=>i.stage==='start'&&!i.settled) ? {title:'跟进签约后期款',url:base+'collection&stage=start'}
     : !p.actualStart ? {title:'记录实际开工',url:base+'start'}
     : !delivery && current ? { title: current.name + '待记录', url: base + 'node&nodeId=' + encodeURIComponent(current.id) }

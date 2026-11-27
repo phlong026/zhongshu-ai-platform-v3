@@ -113,6 +113,39 @@ test('按各个开工前节点净实收判断门槛，其他节点超收不能�
   data = h.view(); assert.equal(data.actions.length, 0); assert.match(data.startBlocked, /开工材料款/);
 });
 
+test('必要准备和开工计划就绪即可开工，远期日期可留空，旧 START 零号节点原样提交', async () => {
+  for (const startIndex of [0, 1]) {
+    const h = harness('prepare');
+    h.bundle.detail.nodes[0].nodeIndex = startIndex;
+    h.bundle.detail.nodes[1].startDate = null; h.bundle.detail.nodes[1].endDate = null;
+    h.bundle.collections.stages[1].confirmedCents = 3000;
+    await h.open();
+    await h.page.perform(tap('prepare'));
+    const saved = h.calls.find(c => c[0] === 'prepare');
+    assert.ok(saved, h.page.data.error);
+    assert.equal(saved[2].nodes[0].nodeIndex, startIndex);
+    assert.equal(saved[2].nodes[1].startDate, null); assert.equal(saved[2].nodes[1].endDate, null);
+    assert.deepEqual(clone(h.view('start').actions.map(row => row.action)), ['start']);
+    h.bundle.detail.nodes[0].startDate = null; h.bundle.detail.nodes[0].endDate = null;
+    const blocked = h.view('start');
+    assert.equal(blocked.actions.length, 0); assert.match(blocked.startBlocked, /计划开工/);
+  }
+});
+
+test('并行计划仍保留原节点编号，半对日期及倒置日期不得保存', async () => {
+  const h = harness('prepare');
+  h.bundle.detail.nodes[1].startDate = h.bundle.detail.nodes[0].startDate;
+  await h.open();
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1);
+  h.page.data.form.nodes[1].end = '';
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1); assert.match(h.page.data.error, /起止日期/);
+  h.page.data.form.nodes[1].end = '2026-11-20';
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1); assert.match(h.page.data.error, /起止日期/);
+});
+
 test('未约定开工前期款不强造首款门槛，付款计划变更必须重新准备，混合版本不能提交', () => {
   const h = harness('start'); h.payment.paymentPlan.stages.forEach(r => r.trigger = 'ON_FINISH');
   assert.equal(h.view().actions[0].action, 'start');
