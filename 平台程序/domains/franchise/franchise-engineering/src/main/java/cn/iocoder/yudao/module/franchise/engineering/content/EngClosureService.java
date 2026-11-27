@@ -269,6 +269,8 @@ public class EngClosureService {
                         .map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
         long materialsTotal = 0;
         long materialsPaid = 0;
+        long materialsRemaining = 0;
+        boolean materialOverpaid = false;
         boolean cancelledMaterialDebt = false;
         for (FrEngSupplyDO s : supplyRows) {
             var material = materials.selectById(s.getMaterialId());
@@ -288,6 +290,9 @@ public class EngClosureService {
             }
             materialsTotal += cost;
             materialsPaid += paid;
+            // Excess on one original payable cannot offset another supplier's debt.
+            materialsRemaining += Math.max(0, cost - paid);
+            materialOverpaid |= paid > cost;
             cancelledMaterialDebt |= cancelled && (cost > 0 || paid > 0);
         }
         List<Map<String, Object>> stages = new java.util.ArrayList<>();
@@ -325,8 +330,9 @@ public class EngClosureService {
         if (full) {
             view.put("materialsTotalCents", materialsTotal);
             view.put("materialsPaidCents", materialsPaid);
-            view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
-            view.put("materialsNote", cancelledMaterialDebt ? "已取消材料仍有原应付或实际付款，请财务核对原付款事项。" : "");
+            view.put("materialsRemainingCents", materialsRemaining);
+            view.put("materialsNote", materialOverpaid ? "有材料实际付款超过原应付，请财务核对原单及退款；其他待付按原单计算。"
+                    : cancelledMaterialDebt ? "已取消材料仍有原应付或实际付款，请财务核对原付款事项。" : "");
             // M09-T04：直接费用真实汇总——Σ已确认费用（成本口径）；已付=经应付清偿的现金（付款不重计成本）；
             // 退回减已付现金不改已确认费用；无公共费用分摊
             var financeCosts = new java.util.HashMap<>(ledger.projectCostAmounts(post, projectId));
