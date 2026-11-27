@@ -110,7 +110,7 @@ test('公告直达遇到门店身份，选岗后仍回到原公告，但无权�
   const router = { beforeEach: (fn) => { guard = fn }, afterEach() {} }
   const noop = () => {}
   const deps = {
-    './router': { default: router },
+    './router': { __esModule: true, default: router },
     '@/config/axios/service': {},
     '@/utils/auth': { getAccessToken: () => 'synthetic-session' },
     '@/hooks/web/useTitle': { useTitle: noop },

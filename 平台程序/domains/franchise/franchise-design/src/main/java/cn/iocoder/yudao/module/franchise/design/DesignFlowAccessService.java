@@ -30,7 +30,8 @@ public class DesignFlowAccessService {
         if(!Set.of("ai_flat","ai_elevation","budget_estimate").contains(subject)
                 ||(!Set.of(1,2,4).contains(quantity))||("budget_estimate".equals(subject)&&quantity!=1))throw new IllegalArgumentException("Invalid design price query");
         points.assertSubjectAllowed(post.orgId(),post.userId(),subject);
-        return points.quotePrice(subject,quantity);
+        // Legacy quote endpoint also advertises the free rollout without a price lookup.
+        return new OrgPointPort.PriceQuote(subject, quantity, 0, "budget-free-v1");
     }
     public Object job(PostSnapshot post,long id,boolean cancel,String key) {
         if(cancel)access.cancelAiJob(post,id,key);

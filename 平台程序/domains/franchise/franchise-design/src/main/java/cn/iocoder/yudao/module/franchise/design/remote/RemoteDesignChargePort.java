@@ -6,6 +6,9 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 /** B company-point charging. Provider costs are settlement facts, never retail prices. */
 public interface RemoteDesignChargePort {
     void requireReady();
+
+    /** Preserve the member's budget entitlement without quoting, reserving or charging points. */
+    void assertBudgetAllowed(PostSnapshot actor);
     PlatformPriceSnapshot quote(PostSnapshot actor, Operation operation, Object payload);
 
     /** Same local transaction as the durable command. Stable company-pool reference is commandId. */
