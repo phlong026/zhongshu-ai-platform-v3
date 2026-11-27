@@ -28,6 +28,14 @@ public final class EngGuard {
     private EngGuard() {
     }
 
+    /** 实际发生日期统一取上海业务日；历史补录保留输入日期。 */
+    static java.time.LocalDate actualDate(java.time.LocalDate supplied) {
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var date = supplied == null ? today : supplied;
+        if (date.isAfter(today)) throw exception(ENGINEERING_INPUT_INVALID, "实际日期不能晚于今天");
+        return date;
+    }
+
     /** write 码之上的服务层 owner 校验：负责人或指定工程师本人（000） */
     public static void requireOwner(FrEngProjectDO project, long userId) {
         boolean owner = userId == project.getManagerUserId()

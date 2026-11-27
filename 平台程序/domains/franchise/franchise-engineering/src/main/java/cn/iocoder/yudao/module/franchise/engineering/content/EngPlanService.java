@@ -601,10 +601,7 @@ public class EngPlanService {
         if (project.getActualStartAt() == null || current == null || node.getId() != current.getId()) {
             throw exception(ENGINEERING_INPUT_INVALID, "请从当前施工节点继续记录");
         }
-        LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
-        if (date.isAfter(LocalDate.now())) {
-            throw exception(ENGINEERING_INPUT_INVALID, "记录日期不能晚于今天");
-        }
+        LocalDate date = requireCompletionDate(post, project, nodes, node, cmd.date());
         if (StrUtil.isBlank(cmd.note())) {
             throw exception(ENGINEERING_INPUT_INVALID, "请记录现场情况");
         }
@@ -808,35 +805,7 @@ public class EngPlanService {
             requireValidAsset(post, cmd.fileAssetId(),
                     java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING"), "节点更正");
         }
-        LocalDate d = cmd.completedAt();
-        int index = nodes.indexOf(node);
-        if (project.getActualStartAt() != null && d.isBefore(project.getActualStartAt())) {
-            throw exception(NODE_ACTION_INVALID); // 完成日期不能早于实际开工日期
-        }
-        if (index > 0) {
-            FrEngPlanNodeDO prev = nodes.get(index - 1);
-            if (prev.getCompletedAt() != null && d.isBefore(prev.getCompletedAt())) {
-                throw exception(NODE_ACTION_INVALID); // 完成日期不能早于上一节点完成日期
-            }
-        }
-        if (index + 1 < nodes.size()) {
-            long nextId = nodes.get(index + 1).getId();
-            LocalDate nextFirst = siteRecords.selectByProject(post.orgId(), projectId).stream()
-                    .filter(r -> r.getNodeId() != null && r.getNodeId() == nextId)
-                    .map(FrEngSiteRecordDO::getOccurredAt).filter(java.util.Objects::nonNull)
-                    .min(LocalDate::compareTo).orElse(null);
-            if (nextFirst != null && d.isAfter(nextFirst)) {
-                throw exception(NODE_ACTION_INVALID); // 完成日期不能晚于下一节点的首条记录
-            }
-        }
-        if (FrEngPlanNodeDO.MILESTONE_TOPPING.equals(node.getMilestone())) {
-            LocalDate toppingPaid = collections.selectByProject(post.orgId(), projectId).stream()
-                    .filter(c -> FrEngCollectionDO.STAGE_CAP_DONE.equals(c.getStage()))
-                    .map(FrEngCollectionDO::getOccurredAt).min(LocalDate::compareTo).orElse(null);
-            if (toppingPaid != null && d.isAfter(toppingPaid)) {
-                throw exception(NODE_ACTION_INVALID); // 封顶完成日期不能晚于已登记的封顶款收款日期
-            }
-        }
+        LocalDate d = requireCompletionDate(post, project, nodes, node, cmd.completedAt());
         String corrections = JsonList.append(node.getCorrections(), Map.of(
                 "completedAt", node.getCompletedAt() == null ? "" : node.getCompletedAt().toString(),
                 "note", node.getName() + " 完成更正", "reason", StrUtil.trim(cmd.reason()),
@@ -863,6 +832,41 @@ public class EngPlanService {
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
                 "eng-node-correct", payload, idempotencyKey);
         return projectService.detail(post, projectId);
+    }
+
+    /** 当前顺序施工链的实际前后事实；不比较计划日期，允许计划并行及历史补录。 */
+    private LocalDate requireCompletionDate(PostSnapshot post, FrEngProjectDO project,
+                                             List<FrEngPlanNodeDO> nodes, FrEngPlanNodeDO node, LocalDate supplied) {
+        LocalDate d = EngGuard.actualDate(supplied);
+        int index = nodes.indexOf(node);
+        if (project.getActualStartAt() != null && d.isBefore(project.getActualStartAt())) {
+            throw exception(NODE_ACTION_INVALID); // 完成日期不能早于实际开工日期
+        }
+        if (index > 0) {
+            FrEngPlanNodeDO prev = nodes.get(index - 1);
+            if (prev.getCompletedAt() != null && d.isBefore(prev.getCompletedAt())) {
+                throw exception(NODE_ACTION_INVALID); // 完成日期不能早于上一节点完成日期
+            }
+        }
+        if (index + 1 < nodes.size()) {
+            long nextId = nodes.get(index + 1).getId();
+            LocalDate nextFirst = siteRecords.selectByProject(post.orgId(), project.getId()).stream()
+                    .filter(r -> r.getNodeId() != null && r.getNodeId() == nextId)
+                    .map(FrEngSiteRecordDO::getOccurredAt).filter(java.util.Objects::nonNull)
+                    .min(LocalDate::compareTo).orElse(null);
+            if (nextFirst != null && d.isAfter(nextFirst)) {
+                throw exception(NODE_ACTION_INVALID); // 完成日期不能晚于下一节点的首条记录
+            }
+        }
+        if (FrEngPlanNodeDO.MILESTONE_TOPPING.equals(node.getMilestone())) {
+            LocalDate toppingPaid = collections.selectByProject(post.orgId(), project.getId()).stream()
+                    .filter(c -> FrEngCollectionDO.STAGE_CAP_DONE.equals(c.getStage()))
+                    .map(FrEngCollectionDO::getOccurredAt).min(LocalDate::compareTo).orElse(null);
+            if (toppingPaid != null && d.isAfter(toppingPaid)) {
+                throw exception(NODE_ACTION_INVALID); // 封顶完成日期不能晚于已登记的封顶款收款日期
+            }
+        }
+        return d;
     }
 
     private void requireSavedLegacyCorrection(PostSnapshot post, long projectId, long nodeId, NodeCorrectCommand cmd) {
