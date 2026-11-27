@@ -258,12 +258,15 @@ test('transfer submits the selected user ID when names and departments are ident
 });
 
 test('refreshed transfer candidates keep the selected identity through reorder and clear revoked targets',async()=>{
-  const employee=id=>({userId:id,name:'张三',teamName:'一组',roleCode:'sales',active:true});
+  const employee=id=>({userId:id,name:'张三',teamName:'一组',roleCode:'sales',active:true,mobile:'13800000'+id});
   let rows=[employee('101'),employee('202')];
   const {page}=pageHarness({},[],async()=>rows);
   page.__post={orgId:'1'};page.__pf=CRM;
   await page.loadTransferTargets(1);
+  assert.deepEqual(copy(page.data.ownerOptions),['张三 · 一组 · 手机尾号 0101','张三 · 一组 · 手机尾号 0202']);
+  assert(!JSON.stringify(page.data).includes(employee('202').mobile));
   page.pickTransferOwner({detail:{value:'1'}});
+  assert.match(page.data.form.newOwner,/0202$/);
   rows=[employee('202'),employee('101')];
   await page.loadTransferTargets(1);
   assert.equal(page.data.form.newOwnerUserId,'202');
@@ -273,6 +276,28 @@ test('refreshed transfer candidates keep the selected identity through reorder a
   assert.equal(page.data.form.newOwnerUserId,'');
   assert.equal(page.data.form.newOwner,'');
   page.platformSubmitTransfer();assert.match(page.data.error,/请选择接手人/);
+});
+
+test('indistinguishable names with missing or matching phone hints cannot be submitted',async()=>{
+  const employee=(id,mobile,name='张三')=>({userId:id,name,teamName:'一组',roleCode:'sales',active:true,mobile});
+  const rows=[employee('101','13812341234'),employee('202','13945671234'),employee('303',''),employee('404','13800000404','李四')];
+  const {page}=pageHarness({},[],async()=>rows);
+  page.__post={orgId:'1'};page.__pf=CRM;
+  await page.loadTransferTargets(1);
+  assert.deepEqual(copy(page.data.ownerOptions), [
+    '张三 · 一组 · 手机尾号 1234 · 需核对身份',
+    '张三 · 一组 · 手机尾号 1234 · 需核对身份',
+    '张三 · 一组 · 需核对身份','李四 · 一组'
+  ]);
+  for(const value of ['0','1','2']){
+    page.pickTransferOwner({detail:{value}});
+    assert.equal(page.data.form.newOwnerUserId,'');
+    assert.match(page.data.error,/请核对员工资料/);
+  }
+  page.platformSubmitTransfer();
+  assert.match(page.data.error,/请选择接手人/);
+  page.pickTransferOwner({detail:{value:'3'}});
+  assert.equal(page.data.form.newOwnerUserId,'404');
 });
 
 test('transfer cannot use a display label or an invalid picker index as an identity',()=>{
