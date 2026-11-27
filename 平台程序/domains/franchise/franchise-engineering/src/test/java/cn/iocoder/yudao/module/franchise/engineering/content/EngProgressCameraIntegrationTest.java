@@ -219,6 +219,33 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(projects.detail(engineer,id)).containsEntry("managerUserId",engineer.userId());
     }
 
+    @Test void renamedCustomerKeepsTheSameLinkedProjectWithoutReassigningAnotherCustomer() {
+        var detail=projects.detail(engineer,projectId);
+        long customer=((Number)detail.get("customerId")).longValue(),contract=((Number)detail.get("saleContractId")).longValue();
+        long stage=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+        jdbc.update("INSERT INTO fr_sale_payment_stage(id,company_id,customer_id,contract_id,stage,amount_cents) VALUES(?,?,?,?,'SIGN_AFTER',30000)",
+                stage,engineer.orgId(),customer,contract);
+        var archive=jdbc.queryForMap("SELECT * FROM fr_eng_project WHERE id=?",projectId);
+        var nodes=jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId);
+        var versions=jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId);
+        var stages=jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract);
+        jdbc.update("UPDATE fr_customer SET name='周先生' WHERE id=?",customer);
+        for(String name:List.of("周建军庭院","按新姓名搜索原工程")) {
+            var cmd=new EngProjectService.CreateCommand(name,"周先生","武汉","13800138000",null,2,null);
+            assertThat(projects.create(engineer,cmd,key())).containsEntry("id",projectId)
+                    .containsEntry("customerId",customer).containsEntry("saleContractId",contract)
+                    .containsEntry("managerUserId",engineer.userId()).containsEntry("reused",true);
+        }
+        signedCustomer("周先生","13900008288");
+        var other=new EngProjectService.CreateCommand("周建军庭院","周先生","武汉","13900008288",null,2,null);
+        assertThatThrownBy(()->projects.create(engineer,other,key())).hasMessageContaining("客户关联不一致");
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_eng_project WHERE id=?",projectId)).isEqualTo(archive);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index",projectId)).isEqualTo(nodes);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version",projectId)).isEqualTo(versions);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY id",contract)).isEqualTo(stages);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE company_id=? AND sale_contract_id=?",Long.class,engineer.orgId(),contract)).isEqualTo(1);
+    }
+
     @Test void originalEmptyManualArchiveCanBeLinkedWithoutResettingItsPlanOrDuplicatingReceivables() {
         var before=projects.detail(engineer,projectId);
         long customer=((Number)before.get("customerId")).longValue(),contract=((Number)before.get("saleContractId")).longValue();
@@ -453,3 +480,4 @@ class EngProgressCameraIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT stream_url FROM fr_eng_camera WHERE id=?",String.class,camera)).isEqualTo(url);
     }
 }
+

@@ -159,13 +159,15 @@ public class EngProjectService {
             throw exception(ENGINEERING_INPUT_INVALID, "原工程不存在或已归档，请核对原档案，不能重复承接应收");
         }
         EngGuard.requireOwner(project, post.userId());
+        boolean backfill = project.getCustomerId() == null || project.getSaleContractId() == null;
+        // Existing links are checked against the current customer's signed contract below.
+        // Only unlinked historical records need their saved identity text as corroboration.
         if (FrEngProjectDO.SOURCE_INCREMENT.equals(project.getSourceType()) || project.getParentProjectId() != null
-                || !customer.equals(project.getCustomerName()) || !phone.equals(project.getPhone())) {
+                || (backfill && (!customer.equals(project.getCustomerName()) || !phone.equals(project.getPhone())))) {
             throw exception(ENGINEERING_INPUT_INVALID, "同名档案不是该客户的主工程，请从原工程核对，不新建增项收款项目");
         }
         var target = new FrEngProjectDO().setId(project.getId()).setCustomerId(project.getCustomerId()).setSaleContractId(project.getSaleContractId());
         linkSignedContract(post.orgId(), target, customer, phone);
-        boolean backfill = project.getCustomerId() == null || project.getSaleContractId() == null;
         if (backfill && project.getManagerUserId() != post.userId()) throw exception(ENGINEERING_FORBIDDEN);
         if (backfill && !verifiedHistoricalLink(post.orgId(), project.getId(), target.getCustomerId(), target.getSaleContractId())) {
             throw exception(ENGINEERING_INPUT_INVALID, "原工程存在待核对的来源、收款或付款约定，请先核对原档案；不会新建工程或修改已签合同");
@@ -730,3 +732,4 @@ public class EngProjectService {
         }
     }
 }
+
