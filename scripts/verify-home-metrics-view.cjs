@@ -102,10 +102,11 @@ test('logout during an overview request clears the old board without accepting t
  assert.equal(f.page.data.board.metrics.signed.known,false);assert.equal(f.page.data.loading,false);
 });
 
-test('overview status uses one permanent reserved slot instead of inserting a loading row',()=>{
+test('overview status collapses when idle and reserves height only while loading or errored',()=>{
  const wxml=fs.readFileSync('miniprogram/components/home-overview/index.wxml','utf8');
  const css=fs.readFileSync('miniprogram/components/home-overview/index.wxss','utf8');
- assert.match(wxml,/<view class="overview-status"[^>]*>/);
- assert.doesNotMatch(wxml,/<(?:view|text)[^>]*wx:(?:if|elif)="{{(?:error|loading)}}"[^>]*class="(?:state|loading)"/);
- assert.match(css,/\.overview-status\s*\{[^}]*\bheight:\s*56rpx/);
+ // 元素常驻（保住 aria-live 与固定文档位置），但空闲时高度收敛为 0，不再留常驻空白。
+ assert.match(wxml,/<view class="overview-status \{\{\(error\|\|loading\)\?'active':''\}\}"/);
+ assert.match(css,/\.overview-status\s*\{[^}]*\bheight:\s*0/);
+ assert.match(css,/\.overview-status\.active\s*\{[^}]*\bheight:\s*56rpx/);
 });
