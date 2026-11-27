@@ -17,7 +17,7 @@ function instance(definition) {
     if(done)done();
   }};
 }
-function pageHarness(http = {}, navigations = []) {
+function pageHarness(http = {}, navigations = [], orgStaff = async()=>[]) {
   let definition,windowHeight=800,listener,unsubscribed=false;
   vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/pages/workflow/index.js'),'utf8'),{
     Page(value){definition=value;},Date,Math,Promise,
@@ -27,6 +27,7 @@ function pageHarness(http = {}, navigations = []) {
       if(id.endsWith('/view-container'))return {routeValue:value=>value,fail(){}};
       if(id==='./views')return {titles:{}};
       if(id.endsWith('/http'))return http;
+      if(id.endsWith('/api/org'))return {orgStaff};
       if(id.endsWith('/organization'))return {roles:{sales:'销售'}};
       if(id.endsWith('/page-navigation'))return {open(url){navigations.push(url);}};
       if(id.endsWith('/api/franchise/content'))return {growth:{customerSources:()=>Promise.resolve([])}};
@@ -238,11 +239,54 @@ function customerWriteHarness(action) {
     page.setData({'form.name':'已修改'});
   }else{
     page.__transferCandidates=[{label:'同名 · 一组',userId:'101'},{label:'同名 · 二组',userId:'102'}];
-    page.setData({form:{newOwner:'同名 · 二组',transferReason:'调整分工'}});
+    page.setData({form:{transferReason:'调整分工'}});
+    page.pickTransferOwner({detail:{value:'1'}});
   }
   return {page,calls,reads,effects,loads:()=>loads,send:()=>action==='transfer'?page.submit():page.saveModal(),
     switchTo(next){generation++;post=next;}};
 }
+
+test('transfer submits the selected user ID when names and departments are identical',async()=>{
+  const h=customerWriteHarness('transfer'),{page,calls}=h;
+  page.__transferCandidates=[{label:'张三 · 一组',userId:'101'},{label:'张三 · 一组',userId:'202'}];
+  page.pickTransferOwner({detail:{value:'1'}});
+  const saving=h.send();
+  assert.equal(calls[0].payload.targetUserId,'202');
+  page.pickTransferOwner({detail:{value:'0'}});
+  assert.equal(page.data.form.newOwnerUserId,'202','an in-flight write keeps its original recipient');
+  calls[0].ack();await saving;
+});
+
+test('refreshed transfer candidates keep the selected identity through reorder and clear revoked targets',async()=>{
+  const employee=id=>({userId:id,name:'张三',teamName:'一组',roleCode:'sales',active:true});
+  let rows=[employee('101'),employee('202')];
+  const {page}=pageHarness({},[],async()=>rows);
+  page.__post={orgId:'1'};page.__pf=CRM;
+  await page.loadTransferTargets(1);
+  page.pickTransferOwner({detail:{value:'1'}});
+  rows=[employee('202'),employee('101')];
+  await page.loadTransferTargets(1);
+  assert.equal(page.data.form.newOwnerUserId,'202');
+  assert.equal(page.data.form.newOwnerIndex,0);
+  rows=[employee('101'),{...employee('202'),active:false}];
+  await page.loadTransferTargets(1);
+  assert.equal(page.data.form.newOwnerUserId,'');
+  assert.equal(page.data.form.newOwner,'');
+  page.platformSubmitTransfer();assert.match(page.data.error,/请选择接手人/);
+});
+
+test('transfer cannot use a display label or an invalid picker index as an identity',()=>{
+  const {page}=customerWriteHarness('transfer');
+  page.setData({form:{newOwner:'同名 · 二组',transferReason:'调整分工'}});
+  page.platformSubmitTransfer();assert.match(page.data.error,/请选择接手人/);
+  for(const value of ['-1','999','1.5','NaN']){
+    page.pickTransferOwner({detail:{value}});
+    assert.equal(page.data.form.newOwnerUserId,'');
+  }
+  page.data.sourceOptions=['朋友介绍','到店咨询'];
+  page.pick({currentTarget:{dataset:{key:'source',options:'sourceOptions'}},detail:{value:'1'}});
+  assert.equal(page.data.form.source,'到店咨询','unrelated pickers retain their original behavior');
+});
 
 for(const action of ['capture','update','transfer']){
   for(const commitBeforeTimeout of [false,true]){
