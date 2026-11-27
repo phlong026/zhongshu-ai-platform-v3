@@ -269,7 +269,10 @@ public class SalesController {
     public CommonResult<?> returnDeclaration(@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@RequestBody DeclarationReturn cmd){contracts.returnDeclaration(post(),id,cmd.reason(),key);return success(true);}
     @PostMapping("/collection-declarations/{id}/confirm")
     @PreAuthorize("@post.has('franchise:fin:register')")
-    public CommonResult<?> confirmDeclaration(@PathVariable long id,@RequestHeader("Idempotency-Key") String key){return success(contracts.confirmDeclaration(post(),id,key));}
+    public CommonResult<?> confirmDeclaration(@PathVariable long id,@RequestHeader("Idempotency-Key") String key,
+            @RequestBody(required=false) SaleContractService.DeclarationConfirmation confirmation){
+        return success(contracts.confirmDeclaration(post(),id,confirmation,key));
+    }
 
     // ========== 回款（R11，collect） ==========
 

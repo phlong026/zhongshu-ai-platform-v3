@@ -536,6 +536,10 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long declaration=Long.parseLong(checked.path("declaration").asText());
         assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,project)).isEqualTo(contract);
         assertThat(jdbc.queryForObject("SELECT receipt_id FROM fr_sale_collection_declaration WHERE id=? AND status='CONFIRMED' AND voucher_file_id=?",Long.class,declaration,corrected)).isEqualTo(receipt);
+        assertThat(jdbc.queryForMap("SELECT account_name,method FROM fr_sale_collection_declaration WHERE id=?",declaration))
+                .containsEntry("account_name","公司银行尾号2468").containsEntry("method","bank");
+        assertThat(jdbc.queryForMap("SELECT account_name,method FROM fr_fin_receipt WHERE id=?",receipt))
+                .containsEntry("account_name","公司银行尾号2468").containsEntry("method","bank");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE customer_id=?",Long.class,customer)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT sum(amount_cents) FROM fr_fin_receipt WHERE customer_id=?",Long.class,customer)).isEqualTo(25000);
         assertThat(count("fr_sale_stage_receipt","contract_id",contract)).isEqualTo(2);
@@ -599,8 +603,120 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
                 upload(engineer,"FIN_VOUCHER"),stage.getId(),stage.getPlanVersion().longValue());
         var submitted=as(engineer,()->collections.register(engineer,project,command,key()));
         long declaration=((Number)submitted.get("declarationId")).longValue();
-        var confirmed=as(finance,()->contracts.confirmDeclaration(finance,declaration,key()));
+        var confirmed=as(finance,()->contracts.confirmDeclaration(finance,declaration,
+                new SaleContractService.DeclarationConfirmation("公司银行尾号2468","bank"),key()));
         return ((Number)confirmed.get("receiptId")).longValue();
+    }
+
+    @Test void engineeringDeclarationConfirmationPreservesOneAccountReceiptAndAllRoleBalances() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        long project=Long.parseLong(receive(submit(ready(customer),upload(sales,"BUSINESS_DOCUMENT"),engineer),engineer,key()).projectId());
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        long proof=upload(engineer,"FIN_VOUCHER"); String transaction=key();
+        var declaration=as(engineer,()->collections.register(engineer,project,new EngCollectionService.CollectCommand(
+                stage.getStage(),new BigDecimal("350.00"),transaction,today(),proof,stage.getId(),stage.getPlanVersion().longValue()),key()));
+        long id=((Number)declaration.get("declarationId")).longValue();
+        assertThat(contracts.collectionDeclarations(finance)).anySatisfy(row->assertThat(row)
+                .containsEntry("id",Long.toString(id)).containsEntry("account_name",null).containsEntry("method","bank"));
+        assertThatThrownBy(()->as(finance,()->contracts.confirmDeclaration(finance,id,key()))).hasMessageContaining("实际收款账户");
+        var details=new SaleContractService.DeclarationConfirmation("公司银行尾号2468","bank");
+        for (var forbidden:List.of(engineer,boss,fixture.post(other.orgId(),"finance",null))) {
+            assertThatThrownBy(()->as(forbidden,()->contracts.confirmDeclaration(forbidden,id,details,key()))).isInstanceOf(ServiceException.class);
+        }
+        assertThat(as(finance,()->contracts.stageCollected(finance,stage.getId()))).isZero();
+        String confirmKey=key();
+        var results=concurrently(finance,()->contracts.confirmDeclaration(finance,id,details,confirmKey),
+                ()->contracts.confirmDeclaration(finance,id,details," "+confirmKey+" "));
+        long receipt=((Number)results.get(0).get("receiptId")).longValue();
+        assertThat(results.get(1).get("receiptId")).isEqualTo(receipt);
+        for(var changed:List.of(new SaleContractService.DeclarationConfirmation("另一个账户","bank"),
+                new SaleContractService.DeclarationConfirmation("公司银行尾号2468","cash"))) {
+            assertError(1099000000,()->as(finance,()->contracts.confirmDeclaration(finance,id,changed,confirmKey)));
+            assertError(1099000000,()->as(finance,()->contracts.confirmDeclaration(finance,id,changed,key())));
+        }
+        assertThat(jdbc.queryForMap("SELECT receipt_id,account_name,method,voucher_file_id,transaction_no FROM fr_sale_collection_declaration WHERE id=?",id))
+                .containsEntry("receipt_id",receipt).containsEntry("account_name",details.accountName()).containsEntry("method","bank")
+                .containsEntry("voucher_file_id",proof).containsEntry("transaction_no",transaction);
+        assertThat(jdbc.queryForMap("SELECT account_name,method,voucher_file_id,transaction_no,received_date,amount_cents FROM fr_fin_receipt WHERE id=?",receipt))
+                .containsEntry("account_name",details.accountName()).containsEntry("method","bank").containsEntry("voucher_file_id",proof)
+                .containsEntry("transaction_no",transaction).containsEntry("received_date",java.sql.Date.valueOf(today())).containsEntry("amount_cents",35000L);
+        for(var actor:List.of(engineer,finance,boss)) assertThat(as(actor,()->collections.summary(actor,project)).get(0))
+                .containsEntry("confirmedCents",35000L).containsEntry("remainingCents",5000L);
+        var ledger=new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService(jdbc,null,null,commands).ledger(finance.orgId(),"project:"+project);
+        assertThat(((Number)((Map<?,?>)ledger.get("summary")).get("received_cents")).longValue()).isEqualTo(35000L);
+        assertThat((List<Map<String,Object>>)ledger.get("entries")).singleElement().satisfies(row->assertThat(row)
+                .containsEntry("id",Long.toString(receipt)).containsEntry("account_name",details.accountName()).containsEntry("voucher_file_id",Long.toString(proof)));
+        assertThat(audit(receipt,"sale-stage-collect")).isOne();
+        assertThat(jdbc.queryForObject("SELECT payload::jsonb->>'declarationId' FROM pf_command_event WHERE aggregate_id=? AND command='sale-stage-collect'",String.class,receipt)).isEqualTo(Long.toString(id));
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isOne();
+        assertThat(count("fr_sale_stage_receipt","stage_id",stage.getId())).isOne();
+    }
+
+    @Test void cashConfirmationBindsTheOriginalDeclarationAndDoesNotInventBankTransactions() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        var claimed=new SaleContractService.CollectCommand(10000,"other",null,today(),null,null);
+        long first=((Number)as(sales,()->contracts.declareCollection(sales,stage.getId(),claimed,key())).get("declarationId")).longValue();
+        long second=((Number)as(sales,()->contracts.declareCollection(sales,stage.getId(),claimed,key())).get("declarationId")).longValue();
+        var cash=new SaleContractService.DeclarationConfirmation("门店现金","cash"); String confirmKey=key();
+        long receipt=((Number)as(finance,()->contracts.confirmDeclaration(finance,first,cash,confirmKey)).get("receiptId")).longValue();
+        assertError(1099000000,()->as(finance,()->contracts.confirmDeclaration(finance,second,cash,confirmKey)));
+        assertError(1099000000,()->as(finance,()->contracts.collect(finance,stage.getId(),
+                new SaleContractService.CollectCommand(10000,"cash",null,today(),null,"门店现金"),confirmKey)));
+        assertThat(jdbc.queryForMap("SELECT status,account_name,method FROM fr_sale_collection_declaration WHERE id=?",second))
+                .containsEntry("status","PENDING").containsEntry("account_name",null).containsEntry("method","other");
+        assertThat(jdbc.queryForMap("SELECT transaction_no,account_name,method FROM fr_fin_receipt WHERE id=?",receipt))
+                .containsEntry("transaction_no",null).containsEntry("account_name","门店现金").containsEntry("method","cash");
+        assertThat(count("fr_fin_txn_no","owner_id",receipt)).isZero();
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isOne();
+    }
+
+    @Test void legacyConfirmedDeclarationAllowsEmptyBodyReplayButNeverChangesHistoricAccount() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        var original=new SaleContractService.CollectCommand(10000,"bank",key(),today(),null,null);
+        long declaration=((Number)as(sales,()->contracts.declareCollection(sales,stage.getId(),original,key())).get("declarationId")).longValue();
+        String legacyKey=key(); long receipt=((Number)as(finance,()->contracts.collect(finance,stage.getId(),original,legacyKey)).get("receiptId")).longValue();
+        jdbc.update("UPDATE fr_sale_collection_declaration SET status='CONFIRMED',receipt_id=? WHERE id=?",receipt,declaration);
+        var controller=new cn.iocoder.yudao.module.franchise.sales.controller.admin.SalesController(null,null,contracts,null,salesAccess,null,currentPost,saleStages);
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+        currentPost.use(finance);
+        try {
+            for(var body:List.of("","{}")) {
+                var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/franchise/sales/collection-declarations/"+declaration+"/confirm")
+                        .header("Idempotency-Key",legacyKey);
+                if(!body.isEmpty())request.contentType("application/json").content(body);
+                var response=mvc.perform(request).andReturn().getResponse();
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(JsonUtils.parseTree(response.getContentAsString()).path("data").path("receiptId").asText()).isEqualTo(Long.toString(receipt));
+            }
+        } finally {currentPost.clear();}
+        assertError(1099000000,()->as(finance,()->contracts.confirmDeclaration(finance,declaration,
+                new SaleContractService.DeclarationConfirmation("不能补写历史","bank"),legacyKey)));
+        assertThat(jdbc.queryForObject("SELECT account_name FROM fr_sale_collection_declaration WHERE id=?",String.class,declaration)).isNull();
+        assertThat(jdbc.queryForObject("SELECT account_name FROM fr_fin_receipt WHERE id=?",String.class,receipt)).isNull();
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isOne();
+        assertThat(audit(receipt,"sale-stage-collect")).isOne();
+    }
+
+    @Test void invalidConfirmationDetailsOrEvidenceLeaveTheOriginalClaimPending() throws Exception {
+        long customer=customer(sales); var contract=signed(customer);
+        var stage=as(sales,()->saleStages.selectByContract(contract.getId())).get(0);
+        long evidence=upload(engineer,"FIN_VOUCHER");
+        var source=new SaleContractService.CollectCommand(10000,"bank",key(),today(),evidence,null);
+        long id=((Number)as(sales,()->contracts.declareCollection(sales,stage.getId(),source,key())).get("declarationId")).longValue();
+        for(var invalid:List.of(new SaleContractService.DeclarationConfirmation(" ","bank"),
+                new SaleContractService.DeclarationConfirmation("a".repeat(101),"bank"),new SaleContractService.DeclarationConfirmation("公司银行","invented"))) {
+            assertThatThrownBy(()->as(finance,()->contracts.confirmDeclaration(finance,id,invalid,key()))).hasMessageContaining("实际收款账户");
+        }
+        jdbc.update("UPDATE fr_sale_collection_declaration SET voucher_file_id=1 WHERE id=?",id);
+        assertThatThrownBy(()->as(finance,()->contracts.confirmDeclaration(finance,id,
+                new SaleContractService.DeclarationConfirmation("真实账户","bank"),key()))).isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForMap("SELECT status,receipt_id,account_name,method FROM fr_sale_collection_declaration WHERE id=?",id))
+                .containsEntry("status","PENDING").containsEntry("receipt_id",null).containsEntry("account_name",null).containsEntry("method","bank");
+        assertThat(count("fr_fin_receipt","customer_id",customer)).isZero();
+        assertThat(count("fr_sale_stage_receipt","stage_id",stage.getId())).isZero();
+        assertThat(as(finance,()->contracts.stageCollected(finance,stage.getId()))).isZero();
     }
 
     @Test void oneInstallmentRequiresAnAgreedDateOrEventAtSigningAndKeepsTheWholeContractTotal() throws Exception {

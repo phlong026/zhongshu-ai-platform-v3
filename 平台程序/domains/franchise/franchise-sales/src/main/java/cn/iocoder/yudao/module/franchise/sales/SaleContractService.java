@@ -81,6 +81,7 @@ public class SaleContractService {
     public record CollectCommand(long amountCents, String method, String transactionNo, LocalDate receivedDate,Long voucherFileId,String accountName) {
         public CollectCommand(long amountCents,String method,String transactionNo,LocalDate receivedDate){this(amountCents,method,transactionNo,receivedDate,null,null);}
     }
+    public record DeclarationConfirmation(String accountName, String method) { }
 
     private final SaleContractMapper contracts;
     private final SalePaymentStageMapper stages;
@@ -489,20 +490,15 @@ public class SaleContractService {
      * 存量整期核销经迁移落为 SETTLED+首笔关联行，由「收满拒绝」兜底。
      */
     public Map<String, Object> collect(PostSnapshot post, long stageId, CollectCommand cmd, String idempotencyKey) {
+        return collect(post, stageId, cmd, idempotencyKey, null);
+    }
+
+    private Map<String, Object> collect(PostSnapshot post, long stageId, CollectCommand cmd, String idempotencyKey, Long declarationId) {
         if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode())) return declareCollection(post,stageId,cmd,idempotencyKey);
-        String clientKey = FranchiseCommandKeys.normalize(idempotencyKey);
-        String token = "sale-collect:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(clientKey);
-        var scope = new FranchiseCommandKeys.PostKeyScope("franchise", post.userId());
+        String token = collectionToken(idempotencyKey);
         // R1 P1：replay 与 record 必须共用同一份规范化输入（含金额），否则同键同内容重试摘要不匹配被误判键复用；
         // R2：LinkedHashMap 固定键序——Map.of 无序，跨 JVM 序列化字段顺序漂移同样会破坏摘要
-        var canonical = new java.util.LinkedHashMap<String, Object>();
-        canonical.put("stageId", stageId);
-        canonical.put("amountCents", cmd.amountCents());
-        canonical.put("method", nullSafe(cmd.method()));
-        canonical.put("txn", nullSafe(cmd.transactionNo()));
-        canonical.put("date", cmd.receivedDate() == null ? "" : cmd.receivedDate().toString());
-        if(cmd.voucherFileId()!=null)canonical.put("voucherFileId",cmd.voucherFileId());if(cmd.accountName()!=null)canonical.put("accountName",cmd.accountName());
-        long fingerprint = canonical.hashCode();
+        var canonical = collectionPayload(stageId, cmd, declarationId);
         return txTemplate.execute(status -> {
             jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
                     FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise", post.userId()), token));
@@ -580,6 +576,23 @@ public class SaleContractService {
             return Map.of("receiptId", saved.receiptId(), "stageStatus", nextStatus,
                     "collectedCents", after, "replayed", false);
         });
+    }
+
+    private static String collectionToken(String key) {
+        return "sale-collect:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(FranchiseCommandKeys.normalize(key));
+    }
+
+    private static Map<String, Object> collectionPayload(long stageId, CollectCommand cmd, Long declarationId) {
+        var input = new java.util.LinkedHashMap<String, Object>();
+        input.put("stageId", stageId);
+        input.put("amountCents", cmd.amountCents());
+        input.put("method", nullSafe(cmd.method()));
+        input.put("txn", nullSafe(cmd.transactionNo()));
+        input.put("date", cmd.receivedDate() == null ? "" : cmd.receivedDate().toString());
+        if (cmd.voucherFileId() != null) input.put("voucherFileId", cmd.voucherFileId());
+        if (cmd.accountName() != null) input.put("accountName", cmd.accountName());
+        if (declarationId != null) input.put("declarationId", declarationId);
+        return input;
     }
 
     /**
@@ -712,7 +725,7 @@ public class SaleContractService {
     public java.util.List<Map<String,Object>> collectionDeclarations(PostSnapshot post) {
         return jdbcTemplate.queryForList("""
             SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.status,d.return_reason,
-              d.account_name,d.voucher_file_id::text,s.contract_id::text,s.stage,c.customer_id::text,customer.name AS customer_name
+              d.account_name,d.method,d.voucher_file_id::text,s.contract_id::text,s.stage,c.customer_id::text,customer.name AS customer_name
             FROM fr_sale_collection_declaration d
             JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
             JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id
@@ -729,14 +742,43 @@ public class SaleContractService {
         });
     }
     public Map<String,Object> confirmDeclaration(PostSnapshot post,long id,String key) {
+        return confirmDeclaration(post, id, null, key);
+    }
+
+    public Map<String,Object> confirmDeclaration(PostSnapshot post,long id,DeclarationConfirmation confirmation,String key) {
         if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode()))throw exception(REFERENCE_INVALID);
+        String token = collectionToken(key);
         return txTemplate.execute(status -> {
+            // Match collect's key lock before locking the declaration; one key cannot confirm two original claims.
+            jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
+                    FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),token));
             var rows=jdbcTemplate.queryForList("SELECT * FROM fr_sale_collection_declaration WHERE id=? AND company_id=? FOR UPDATE",id,post.orgId());
             if(rows.isEmpty())throw exception(REFERENCE_INVALID);var d=rows.get(0);
-            if("CONFIRMED".equals(d.get("status")))return Map.of("receiptId",d.get("receipt_id"),"replayed",true);
-            if(!"PENDING".equals(d.get("status")))throw exception(REFERENCE_INVALID);
-            var result=collect(post,((Number)d.get("stage_id")).longValue(),new CollectCommand(((Number)d.get("amount_cents")).longValue(),(String)d.get("method"),(String)d.get("transaction_no"),((java.sql.Date)d.get("received_date")).toLocalDate(),(Long)d.get("voucher_file_id"),(String)d.get("account_name")),key);
-            jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='CONFIRMED',receipt_id=? WHERE id=?",result.get("receiptId"),id);return result;
+            boolean confirmed = "CONFIRMED".equals(d.get("status"));
+            if(!confirmed && !"PENDING".equals(d.get("status")))throw exception(REFERENCE_INVALID);
+            String account = confirmation != null && confirmation.accountName() != null ? confirmation.accountName().trim() : (String)d.get("account_name");
+            String method = confirmation != null && confirmation.method() != null ? confirmation.method().trim() : (String)d.get("method");
+            long stageId = ((Number)d.get("stage_id")).longValue();
+            var input = new CollectCommand(((Number)d.get("amount_cents")).longValue(),method,(String)d.get("transaction_no"),
+                    ((java.sql.Date)d.get("received_date")).toLocalDate(),(Long)d.get("voucher_file_id"),account);
+            if (confirmed) {
+                // Upgrade compatibility is read-only and bound to this declaration's recorded receipt.
+                var prior = commands.replayed(post, token, collectionPayload(stageId,input,id), collectionPayload(stageId,input,null));
+                if (!java.util.Objects.equals(account,d.get("account_name")) || !java.util.Objects.equals(method,d.get("method"))
+                        || d.get("receipt_id") == null || prior.isPresent() && (!"sale-stage-collect".equals(prior.get().getCommand())
+                        || !"fr-sale-stage".equals(prior.get().getAggregateType()) || !java.util.Objects.equals(prior.get().getAggregateId(),d.get("receipt_id")))) {
+                    throw exception(IDEMPOTENCY_KEY_REUSED);
+                }
+                return Map.of("receiptId",d.get("receipt_id"),"replayed",true);
+            }
+            if (account == null || account.isBlank() || account.length() > 100
+                    || !java.util.Set.of("bank","cash","other").contains(nullSafe(method))) {
+                throw PaymentPlanRules.invalid("请填写实际收款账户并选择收款方式");
+            }
+            var result=collect(post,stageId,input,key,id);
+            jdbcTemplate.update("UPDATE fr_sale_collection_declaration SET status='CONFIRMED',receipt_id=?,account_name=?,method=? WHERE id=? AND company_id=?",
+                    result.get("receiptId"),account,method,id,post.orgId());
+            return result;
         });
     }
 
