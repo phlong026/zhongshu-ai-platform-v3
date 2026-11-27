@@ -250,13 +250,16 @@ test('employee balances fail closed when the backend omits complete scoped IDs',
  const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]);
  const renderBook=()=>flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
  const hasText=value=>renderBook().map(n=>n.text||'').join('').includes(value);
+ const findRetry=()=>renderBook().find(n=>n.tag==='button'&&n.attrs.bindtap==='loadBookLedger'&&n.children.some(child=>child.text==='重试'));
  await h.page.loadWorkbench();await h.page.loadBookLedger();
  assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[]);
  assert.equal(h.page.data.bookResult.employeeScopeIncomplete,true);
  assert(hasText('员工往来完整范围暂不可用，已隐藏不完整数据'),'old backend must never present a partial advance list as complete');
+ assert(!hasText('暂无可显示的近期员工往来')&&!hasText('暂无员工往来'),'an incomplete response must not look like a confirmed empty balance');
+ const retry=findRetry();assert(retry,'show a real retry button when the complete scope is unavailable');
  ledger=employeeLedger('project:11',[],[entry]);
- await h.page.loadBookLedger();assert.equal(h.page.data.bookEmployeeRows.length,0);
+ await h.page[retry.attrs.bindtap]();assert.equal(h.page.data.bookEmployeeRows.length,0);
  assert.equal(h.page.data.bookResult.employeeScopeIncomplete,false);
- assert(!hasText('较早记录可能未列出'));
+ assert(!hasText('员工往来完整范围暂不可用'));assert(!findRetry());
  assert(hasText('暂无员工往来'));
 });
