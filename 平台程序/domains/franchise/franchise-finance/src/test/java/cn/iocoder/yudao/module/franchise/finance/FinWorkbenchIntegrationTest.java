@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -59,6 +60,91 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   var newSummary=(Map<?,?>)workbench.ledger(post.orgId(),"project:"+project).get("summary");
   assertThat(((Number)newSummary.get("paid_cents")).longValue()).isEqualTo(86000);
   assertThat(new FinProjectLedgerService(jdbc).page(post.orgId(),project,1,20).summary().paidCents()).isEqualTo(86000);
+ }
+ @Test void employeeBalancesRemainInTheirBookAfter501And1001CashEntries(){
+  for(int count:List.of(501,1001)) {
+   long book=workbench.createBook(post,"large-book-"+count,new FinWorkbenchService.BookCommand("完整员工往来"+count));
+   String scope="book:"+book;
+   long advance=workbench.register(post,"old-advance-"+count,new FinWorkbenchService.EntryCommand(
+       scope,"expense","最早垫付","差旅",10000,LocalDate.now().minusDays(1),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"垫付员工"));
+   String debt=reimbursementId(advance);
+   var later=new ArrayList<Object[]>();
+   for(int i=1;i<count;i++) later.add(new Object[]{com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),book,post.userId(),LocalDate.now()});
+   jdbc.batchUpdate("""
+       INSERT INTO fr_fin_receipt(id,company_id,book_id,registrar_user_id,received_date,source_type,name,category,amount_cents,status)
+       VALUES(?,?,?,?,?,'manual','后续已登记流水','其他收款',1,'已登记')
+       """,later);
+   var ledger=workbench.ledger(post.orgId(),scope);
+   assertThat((List<?>)ledger.get("entries")).hasSize(500);
+   assertThat(ledger.get("truncated")).isEqualTo(true);
+   assertThat((List<Map<String,Object>>)ledger.get("entries")).noneMatch(r->String.valueOf(advance).equals(r.get("id")));
+   assertThat((List<String>)ledger.get("reimbursementIds")).containsExactly(debt);
+   assertThat(((Number)((Map<?,?>)ledger.get("summary")).get("outstanding_cents")).longValue()).isEqualTo(10000);
+   assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
+       .satisfies(r->assertThat(remaining(r)).isEqualTo(10000));
+   payments.register(post,"old-advance-reimburse-"+count,new FinPaymentService.PaymentCommand(Long.parseLong(debt),4000,LocalDate.now(),null,null));
+   assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
+       .satisfies(r->assertThat(remaining(r)).isEqualTo(6000));
+   assertThat((List<String>)workbench.ledger(post.orgId(),scope).get("reimbursementIds")).containsExactly(debt);
+   jdbc.update("UPDATE fr_fin_payment SET deleted=true WHERE id=?",advance);
+   assertThat((List<String>)workbench.ledger(post.orgId(),scope).get("reimbursementIds")).isEmpty();
+   jdbc.update("UPDATE fr_fin_payment SET deleted=false WHERE id=?",advance);
+   jdbc.update("UPDATE fr_fin_payable SET deleted=true WHERE id=?",Long.parseLong(debt));
+   assertThat((List<String>)workbench.ledger(post.orgId(),scope).get("reimbursementIds")).isEmpty();
+  }
+ }
+ @Test void employeeBalancesKeepOriginalScopeThroughPartialReimbursementRefundRecoveryAndProjectLink(){
+  long book=workbench.createBook(post,"employee-book",new FinWorkbenchService.BookCommand("前期员工往来"));
+  long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),otherProject=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,'工程A','ACTIVE'),(?,?,'工程B','ACTIVE')",project,post.orgId(),otherProject,post.orgId());
+  long advance=workbench.register(post,"book-advance",new FinWorkbenchService.EntryCommand(
+      "book:"+book,"expense","测量交通","差旅",10000,LocalDate.now(),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"员工甲"));
+  String debt=reimbursementId(advance);
+  long companyAdvance=workbench.register(post,"company-advance",new FinWorkbenchService.EntryCommand(
+      "company","expense","公司交通","差旅",3000,LocalDate.now(),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"员工甲"));
+  long otherAdvance=workbench.register(post,"other-project-advance",new FinWorkbenchService.EntryCommand(
+      "project:"+otherProject,"expense","工程B交通","差旅",5000,LocalDate.now(),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"员工甲"));
+  assertThat((List<String>)workbench.ledger(post.orgId(),"book:"+book).get("reimbursementIds")).containsExactly(debt);
+  assertThat((List<String>)workbench.ledger(post.orgId(),"project:"+project).get("reimbursementIds")).isEmpty();
+  payments.register(post,"partial-reimburse",new FinPaymentService.PaymentCommand(Long.parseLong(debt),4000,LocalDate.now(),null,null));
+  assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
+      .satisfies(r->assertThat(remaining(r)).isEqualTo(6000));
+  refunds.registerExpense(post,"return-to-employee",new FinRefundService.ExpenseRefundCommand(advance,8000,"交通款退回员工",LocalDate.now(),null,null,null,"EMPLOYEE"));
+  assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
+      .satisfies(r->assertThat(remaining(r)).isEqualTo(-2000));
+  workbench.linkProject(post,book,project,"link-employee-book");
+  workbench.linkProject(post,book,project,"link-employee-book");
+  for(String scope:List.of("book:"+book,"project:"+project)) {
+   assertThat((List<String>)workbench.ledger(post.orgId(),scope).get("reimbursementIds")).containsExactly(debt);
+  }
+  workbench.recoverEmployee(post,Long.parseLong(debt),"recover-extra",new FinWorkbenchService.Recovery(2000,LocalDate.now(),"公司银行",null,null));
+  assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
+      .satisfies(r->{assertThat(remaining(r)).isZero();assertThat(r.get("project_id")).isEqualTo(String.valueOf(project));assertThat(r.get("book_id")).isEqualTo(String.valueOf(book));});
+  assertThat((List<String>)workbench.ledger(post.orgId(),"project:"+project).get("reimbursementIds")).containsExactly(debt);
+  assertThat((List<String>)workbench.ledger(post.orgId(),"company").get("reimbursementIds")).containsExactly(reimbursementId(companyAdvance));
+  assertThat((List<String>)workbench.ledger(post.orgId(),"project:"+otherProject).get("reimbursementIds")).containsExactly(reimbursementId(otherAdvance));
+  var other=fixture.post(fixture.store().orgId(),FINANCE,null);
+  assertThat(workbench.reimbursements(other.orgId())).isEmpty();
+  assertThatThrownBy(()->workbench.ledger(other.orgId(),"project:"+project)).isInstanceOf(RuntimeException.class);
+  assertThatThrownBy(()->workbench.ledger(other.orgId(),"book:"+book)).isInstanceOf(RuntimeException.class);
+ }
+ @Test void originalDesignAdvanceFollowsTheCommissionProjectWithoutInventingBookOwnership(){
+  long commission=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  long payable=payments.registerPayable(post,"old-design-payable",new FinPaymentService.PayableCommand(post.orgId(),null,"FULL",12000,"设计方","原设计费用"));
+  jdbc.update("UPDATE fr_fin_payable SET source_type='design',source_ref=? WHERE id=?",commission+":1:FULL",payable);
+  long advance=payments.register(post,"old-design-advance",new FinPaymentService.PaymentCommand(payable,12000,LocalDate.now(),null,null,"EMPLOYEE",post.userId(),"原经办人",null));
+  String debt=reimbursementId(advance);
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status,source_commission_id) VALUES(?,?,'原委托工程','ACTIVE',?)",project,post.orgId(),commission);
+  assertThat((List<String>)workbench.ledger(post.orgId(),"project:"+project).get("reimbursementIds")).containsExactly(debt);
+  assertThat((List<String>)workbench.ledger(post.orgId(),"company").get("reimbursementIds")).isEmpty();
+  assertThat(workbench.reimbursements(post.orgId())).singleElement().satisfies(r->assertThat(r.get("project_id")).isNull());
+ }
+ private String reimbursementId(long advance) {
+  return workbench.reimbursements(post.orgId()).stream().filter(r->String.valueOf(advance).equals(r.get("origin_payment_id")))
+      .map(r->(String)r.get("payable_id")).findFirst().orElseThrow();
+ }
+ private long remaining(Map<String,Object> row) {
+  return ((Number)row.get("eligible_cents")).longValue()-((Number)row.get("reimbursed_cents")).longValue()+((Number)row.get("recovered_cents")).longValue();
  }
  @Test void refundOfUnallocatedOverpaymentDoesNotCreateSupplierDebt(){
   long q=payments.registerPayable(post,"overpay-q",new FinPaymentService.PayableCommand(post.orgId(),null,"材料",800000,"供应商","采购"));
