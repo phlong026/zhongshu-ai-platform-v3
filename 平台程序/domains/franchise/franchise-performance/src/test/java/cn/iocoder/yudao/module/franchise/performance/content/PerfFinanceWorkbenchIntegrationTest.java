@@ -491,6 +491,119 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat((List<?>)home.detail(boss,"owner","2026-11","materials",1).get("rows")).isEmpty();
  }
 
+ @Test @org.springframework.transaction.annotation.Transactional
+ void commissionMetricsCountFirstExternalRegistrationAndKeepLegacyConversionInItsOriginalShanghaiMonth() {
+  createHomeCommissionTables();
+  jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
+  var boss=fixture.post(fixture.store().orgId(),"boss",null); long org=boss.orgId();
+  var home=new HomeMetricsService(jdbc);
+  jdbc.update("INSERT INTO fr_customer(id,company_id,name,create_time) SELECT n,?,'客户'||n,'2026-10-01'::timestamptz FROM generate_series(1,6) n",org);
+  jdbc.update("""
+      INSERT INTO fr_commission(id,company_id,customer_id,status,workflow_mode,create_time)
+      SELECT 100+n,?,n,'EXTERNAL_PENDING','EXTERNAL','2026-11-10'::timestamptz FROM generate_series(1,6) n
+      """,org);
+  jdbc.update("UPDATE fr_commission SET workflow_mode='LEGACY',status='DESIGNING' WHERE id IN (102,103,106)");
+  jdbc.update("""
+      INSERT INTO fr_commission_submission VALUES
+      (102,?,1,'2026-10-31 15:59:59+00'),(103,?,1,'2026-11-30 15:59:59+00'),(106,?,1,'2026-11-15 12:00:00+08')
+      """,org,org,org);
+  jdbc.update("""
+      INSERT INTO fr_commission_external_version VALUES
+      (101,?,1,1,'REGISTER','2026-10-31 16:00:00+00'),(104,?,4,1,'REGISTER','2026-11-30 16:00:00+00'),
+      (105,?,5,1,'REGISTER','2026-10-01 00:00:00+08')
+      """,org,org,org);
+  for(String role:List.of("owner","business")) {
+   assertHomeIds(home,boss,role,"2026-11","commissions","101","103","106");
+   assertHomeIds(home,boss,role,"2026-10","commissions","102","105");
+   assertHomeIds(home,boss,role,"2026-12","commissions","104");
+  }
+  // The existing command replay keeps one first version; updates and conversion only append evidence.
+  jdbc.update("INSERT INTO fr_commission_external_version VALUES(101,?,1,1,'REGISTER','2026-12-01') ON CONFLICT DO NOTHING",org);
+  jdbc.update("""
+      INSERT INTO fr_commission_external_version VALUES
+      (101,?,1,2,'UPDATE','2026-11-20'),(101,?,1,3,'UPDATE','2026-12-02'),
+      (102,?,2,1,'CONVERT','2026-11-12'),(103,?,3,1,'CONVERT','2026-12-03'),(105,?,5,2,'UPDATE','2026-11-14')
+      """,org,org,org,org,org);
+  jdbc.update("UPDATE fr_commission SET workflow_mode='EXTERNAL',status='EXTERNAL_PENDING' WHERE id IN (102,103)");
+  jdbc.update("INSERT INTO fr_commission_submission VALUES(106,?,2,'2026-12-03')",org);
+  for(String role:List.of("owner","business")) {
+   assertHomeIds(home,boss,role,"2026-11","commissions","101","103","106");
+   assertHomeIds(home,boss,role,"2026-10","commissions","102","105");
+   assertHomeIds(home,boss,role,"2026-12","commissions","104");
+  }
+  var rows=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","commissions",1).get("rows");
+  assertThat(rows).extracting(r->r.get("id"),r->r.get("date")).containsExactlyInAnyOrder(
+      tuple("101","2026-11-01"),tuple("103","2026-11-30"),tuple("106","2026-11-15"));
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void handoverMetricsFollowCurrentExternalAndLegacyActionStatesRegardlessOfRegistrationMonth() {
+  createHomeCommissionTables();
+  var boss=fixture.post(fixture.store().orgId(),"boss",null); long org=boss.orgId();
+  var home=new HomeMetricsService(jdbc);
+  jdbc.update("INSERT INTO fr_customer(id,company_id,name) VALUES(1,?,'外部委托'),(2,?,'旧委托')",org,org);
+  jdbc.update("""
+      INSERT INTO fr_commission VALUES
+      (101,?,1,'EXTERNAL_PENDING','EXTERNAL','2026-01-01'),(102,?,2,'ACCEPTED','LEGACY','2026-01-01')
+      """,org,org);
+  for(String state:List.of("EXTERNAL_PENDING","EXTERNAL_READY","HANDOVER_SUBMITTED","HANDOVER_RETURNED","HANDOVER_SUBMITTED","ACCEPTED")) {
+   jdbc.update("UPDATE fr_commission SET status=? WHERE id=101",state);
+   String[] pending=Set.of("EXTERNAL_READY","HANDOVER_RETURNED").contains(state)?new String[]{"101"}:new String[0];
+   for(String role:List.of("business","owner")) assertHomeIds(home,boss,role,"2026-11","handover",pending);
+  }
+  for(String state:List.of("DESIGNING","DISPATCHED","HANDOVER_SUBMITTED","HANDOVER_RETURNED","HANDOVER_SUBMITTED","ACCEPTED")) {
+   jdbc.update("UPDATE fr_commission SET status=? WHERE id=102",state);
+   String[] pending=Set.of("DISPATCHED","HANDOVER_RETURNED").contains(state)?new String[]{"102"}:new String[0];
+   for(String role:List.of("business","owner")) assertHomeIds(home,boss,role,"2026-11","handover",pending);
+  }
+ }
+
+ @Test @org.springframework.transaction.annotation.Transactional
+ void commissionAndHandoverMetricsPreserveCompanyOwnerAndManagedTeamScope() {
+  createHomeCommissionTables();
+  var store=fixture.store(); var second=fixture.store();
+  var boss=fixture.post(store.orgId(),"boss",null);
+  var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
+  var colleague=fixture.post(store.orgId(),"sales",store.salesTeamA());
+  var lead=fixture.post(store.orgId(),"sales-lead",store.salesTeamA());
+  var foreignLead=fixture.post(store.orgId(),"sales-lead",store.salesTeamB());
+  var other=fixture.post(second.orgId(),"sales",second.salesTeamA());
+  jdbc.update("""
+      INSERT INTO fr_customer(id,company_id,owner_user_id,team_id,name) VALUES
+      (1,?,?,?,'本人'),(2,?,?,?,'同组同事'),(3,?,?,?,'其他团队'),(4,?,?,?,'负责人本人'),(5,?,?,?,'其他公司')
+      """,store.orgId(),sales.userId(),store.salesTeamA(),store.orgId(),colleague.userId(),store.salesTeamA(),
+      store.orgId(),foreignLead.userId(),store.salesTeamB(),store.orgId(),lead.userId(),store.salesTeamB(),
+      second.orgId(),other.userId(),second.salesTeamA());
+  jdbc.update("INSERT INTO fr_commission SELECT 100+id,company_id,id,'EXTERNAL_READY','EXTERNAL','2026-11-10'::timestamptz FROM fr_customer");
+  jdbc.update("INSERT INTO fr_commission_external_version SELECT id,company_id,customer_id,1,'REGISTER','2026-11-10'::timestamptz FROM fr_commission");
+  var home=new HomeMetricsService(jdbc);
+  for(String metric:List.of("commissions","handover")) {
+   for(String role:List.of("owner","business")) assertHomeIds(home,boss,role,"2026-11",metric,"101","102","103","104");
+   assertHomeIds(home,sales,"business","2026-11",metric,"101");
+   assertHomeIds(home,colleague,"business","2026-11",metric,"102");
+   assertHomeIds(home,lead,"business","2026-11",metric,"101","102","104");
+   assertHomeIds(home,foreignLead,"business","2026-11",metric,"103","104");
+   assertHomeIds(home,other,"business","2026-11",metric,"105");
+  }
+  var hq=new cn.iocoder.yudao.module.platform.org.PostSnapshot(1,1,store.orgId(),"headquarters","boss",null,true,Set.of());
+  assertThatThrownBy(()->home.detail(hq,"owner","2026-11","commissions",1)).isInstanceOf(ServiceException.class);
+ }
+
+ private void assertHomeIds(HomeMetricsService home,cn.iocoder.yudao.module.platform.org.PostSnapshot post,
+                            String role,String period,String metric,String... expected) {
+  var detail=home.detail(post,role,period,metric,1);
+  assertThat(((Number)detail.get("total")).longValue()).isEqualTo(expected.length);
+  assertThat((List<Map<String,Object>>)detail.get("rows")).extracting(r->r.get("id")).containsExactlyInAnyOrder((Object[])expected);
+ }
+
+ private void createHomeCommissionTables() {
+  createHomeTables();
+  jdbc.execute("ALTER TABLE fr_customer ADD owner_user_id bigint, ADD team_id bigint");
+  jdbc.execute("CREATE TEMP TABLE fr_commission(id bigint PRIMARY KEY,company_id bigint,customer_id bigint,status text,workflow_mode text,create_time timestamptz)");
+  jdbc.execute("CREATE TEMP TABLE fr_commission_submission(commission_id bigint,company_id bigint,version int,create_time timestamptz,PRIMARY KEY(commission_id,version))");
+  jdbc.execute("CREATE TEMP TABLE fr_commission_external_version(commission_id bigint,company_id bigint,customer_id bigint,version int,action text,created_at timestamptz,PRIMARY KEY(commission_id,version))");
+ }
+
  private void createHomeTables(){
   createTables();
   jdbc.execute("CREATE TEMP TABLE fr_customer(id bigint,company_id bigint,name text,summary text,create_time timestamptz)");

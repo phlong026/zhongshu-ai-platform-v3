@@ -40,6 +40,17 @@ public class HomeMetricsService {
     private static final String NODE="SELECT n.id::text id,p.name title,n.name subtitle,%s date,0::bigint amount,'node' source_type,n.milestone milestone,n.id::text source_id,p.customer_id::text customer_id,p.id::text project_id FROM fr_eng_plan_node n JOIN projects p ON p.id=n.project_id AND p.company_id=n.company_id WHERE p.status IN ('PENDING_START','IN_PROGRESS','READY_DELIVER') AND n.status<>'DONE' AND ";
     private static final String CONTRACT="SELECT s.id::text id,c.name title,'施工合同'::text subtitle,s.signed_date date,s.total_cents amount,'contract'::text source_type,s.id::text source_id,c.id::text customer_id,NULL::text project_id FROM fr_sale_contract s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id WHERE NOT s.deleted AND s.status='SIGNED' AND s.signed_date >= (SELECT begin_date FROM cfg) AND s.signed_date < (SELECT end_date FROM cfg)";
     private static final String COMMISSION="SELECT s.id::text id,c.name title,s.status subtitle,(s.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'commission' source_type,s.id::text source_id,c.id::text customer_id,NULL::text project_id FROM fr_commission s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id WHERE ";
+    // A converted legacy commission keeps its original first-submission month; later external versions are not new orders.
+    private static final String FIRST_COMMISSION="""
+            SELECT s.id::text id,c.name title,s.status subtitle,
+                   (COALESCE(v.create_time,e.created_at) AT TIME ZONE 'Asia/Shanghai')::date date,
+                   0::bigint amount,'commission' source_type,s.id::text source_id,c.id::text customer_id,NULL::text project_id
+            FROM fr_commission s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id
+            LEFT JOIN fr_commission_submission v ON v.commission_id=s.id AND v.company_id=s.company_id AND v.version=1
+            LEFT JOIN fr_commission_external_version e ON e.commission_id=s.id AND e.company_id=s.company_id
+                 AND e.customer_id=s.customer_id AND e.version=1 AND e.action='REGISTER'
+            WHERE
+            """;
     private static final String HANDOVER="SELECT h.id::text id,s.customer_name title,h.status subtitle,(h.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'handover' source_type,s.id::text source_id,s.customer_id::text customer_id,NULL::text project_id FROM fr_commission_handover h JOIN fr_commission s ON s.id=h.commission_id AND s.company_id=h.company_id WHERE h.company_id=(SELECT org FROM cfg) AND h.version=s.handover_version AND ";
     private static String month(String date) { if(date.endsWith("create_time")||date.endsWith("published_at"))date="("+date+" AT TIME ZONE 'Asia/Shanghai')"; return date+">=(SELECT begin_date FROM cfg) AND "+date+"<(SELECT end_date FROM cfg)"; }
     private static String cash(String kind,boolean customersOnly) {
@@ -59,9 +70,9 @@ public class HomeMetricsService {
             add(m,"opportunities","跟进商机","项",false,"有跟进记录、未流失且尚未签署施工合同的客户。",CUSTOMER+"c.last_follow_at IS NOT NULL AND NOT"+LOST+" AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.company_id=c.company_id AND s.customer_id=c.id AND s.status='SIGNED' AND NOT s.deleted)");
             add(m,"budgets","待确认预算","项",false,"每位客户最新的预算版本，尚未登记客户确认且未签施工合同。","SELECT b.id::text id,c.name title,b.title||' · V'||b.version subtitle,(b.create_time AT TIME ZONE 'Asia/Shanghai')::date date,COALESCE(b.total_cents,0) amount,'budget' source_type,b.id::text source_id,c.id::text customer_id,NULL::text project_id FROM customers c JOIN LATERAL (SELECT * FROM fr_customer_scheme b WHERE b.customer_id=c.id AND b.company_id=c.company_id AND b.kind='BUDGET' ORDER BY version DESC LIMIT 1) b ON true WHERE b.confirmed_at IS NULL AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.customer_id=c.id AND s.company_id=c.company_id AND s.status='SIGNED' AND NOT s.deleted)");
             add(m,"designs","设计办理中","单",false,"已提交、尚未完成工程接收的有效设计委托。",COMMISSION+"s.status NOT IN ('DRAFT','ACCEPTED','CANCELLED','VOID')");
-            add(m,"commissions","设计委托","单",true,"本月首次提交的设计委托，每单计一次。","SELECT s.id::text id,c.name title,s.status subtitle,(v.create_time AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'commission' source_type,s.id::text source_id,s.customer_id::text customer_id,NULL::text project_id FROM fr_commission s JOIN customers c ON c.id=s.customer_id AND c.company_id=s.company_id JOIN fr_commission_submission v ON v.commission_id=s.id AND v.company_id=s.company_id AND v.version=1 WHERE "+month("v.create_time"));
+            add(m,"commissions","设计委托","单",true,"外部委托按首次登记、旧委托按首次提交计入当月；变更、重试和旧单转换不重复计数。",FIRST_COMMISSION+month("(COALESCE(v.create_time,e.created_at) AT TIME ZONE 'Asia/Shanghai')"));
             add(m,"followups","待跟进","人",false,"尚未首次跟进，或约定的下次跟进日期已到（含今天）的客户；已流失不计入。",CUSTOMER.replace("(c.create_time AT TIME ZONE 'Asia/Shanghai')::date date","c.next_visit_date date")+"NOT"+LOST+" AND (c.last_follow_at IS NULL OR c.next_visit_date<=(SELECT today FROM cfg))");
-            add(m,"handover","待移交","项",false,"设计成果已下发、待业务提交或重新提交工程移交的委托。",COMMISSION+"s.status IN ('DISPATCHED','HANDOVER_RETURNED')");
+            add(m,"handover","待移交","项",false,"外部成果已登记或旧设计成果已下发，待业务提交或重新提交工程移交的委托。",COMMISSION+"s.status IN ('EXTERNAL_READY','DISPATCHED','HANDOVER_RETURNED')");
         }
         if(role.equals("engineering")||role.equals("owner")) {
             add(m,"building","在建项目","个",false,"当前处于施工中的工程。",PROJECT+"p.status='IN_PROGRESS'");
