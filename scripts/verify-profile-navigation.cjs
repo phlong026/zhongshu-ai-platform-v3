@@ -316,7 +316,7 @@ for (const [role, expected] of [
   ['owner', { kind: 'reLaunch', url: '/pages/admin/home/index' }],
   ['finance', { kind: 'reLaunch', url: '/pages/admin/finance-desk/index' }],
   ['engineer', { kind: 'reLaunch', url: '/pages/build/home/index' }],
-  ['hq-design-admin', { kind: 'reLaunch', url: '/pages/workflow/commission/index?view=admin' }],
+  ['hq-design-admin', { kind: 'switchTab', url: '/pages/business/index' }],
   ['sales', { kind: 'switchTab', url: '/pages/business/index' }],
 ]) {
   test(role + ': home() 直达岗位首页，不经中转 tab 二次导航', () => {
@@ -449,10 +449,10 @@ test('客户统计入口在首次请求前应用筛选，只导航一次、只�
 
 test('旧客户外部直链仍可兼容：参数在正常 onShow 前生效且不手动重复生命周期', () => {
   reset('sales');
-  show('/pages/customers/index?focus=appointments&intent=commission');
+  show('/pages/customers/index?focus=appointments&intent=entrust');
   const customers = settleNavigation();
   assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/management/index' }]);
-  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customers.data.intent, 'entrust');
   assert.equal(customers.data.tab, 'appointments');
   assert.equal(customerRequests().length, 1);
   assert.equal(customerRequests()[0].data.followFilter, 'APPOINTMENTS');
@@ -462,11 +462,11 @@ test('已激活客户 Tab 仍能消费一次新入口参数，无重新导航且
   reset('sales');
   const customers = show('/pages/management/index');
   requests = [];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   settleNavigation();
   assert.deepEqual(navigation, []);
   assert.equal(customers.data.tab, 'due');
-  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customers.data.intent, 'entrust');
   assert.equal(customerRequests().length, 1);
   requests = [];
   nav.open('/pages/customers/index?focus=all');
@@ -516,7 +516,7 @@ test('创作 editor 意图只消费一次，保留当前会话草稿且不通过
 test('待处理入口不能跨会话、跨岗位或失败导航泄漏', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ token: 'new-session', userId: 702, postId: '43' });
   const customers = settleNavigation();
@@ -526,7 +526,7 @@ test('待处理入口不能跨会话、跨岗位或失败导航泄漏', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
   failNavigation = true;
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   failNavigation = false;
   const retry = show('/pages/management/index');
   assert.equal(retry.data.tab, 'all');
@@ -540,13 +540,13 @@ test('已激活 Tab 换会话后重新初始化，再应用新会话意图', () 
   auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ token: 'replacement-session', userId: 702, postId: '43' });
   requests = [];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   const current = settleNavigation();
   assert.notEqual(current, old);
   assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/management/index' }]);
   assert.equal(current.data.keyword, '');
   assert.equal(current.data.tab, 'due');
-  assert.equal(current.data.intent, 'commission');
+  assert.equal(current.data.intent, 'entrust');
   assert.equal(customerRequests().length, 1);
   assert.equal(customerRequests()[0].header['X-Post-Id'], '43');
 });
@@ -622,7 +622,7 @@ test('创作首次授权503后，再次打开同Tab入口会重试并应用新�
 test('同岗位编号更新角色而会话代次未变时，不重放旧角色入口', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   const generation = http.sessionGeneration();
   auth.savePosts(auth.apiPosts().map(post => ({ ...post, roleCode: 'sales-lead' })));
   assert.equal(http.sessionGeneration(), generation);

@@ -16,7 +16,7 @@ function customerHome(isStale){
 const definition=createDashboard(1, {
 data: { panel: null, keyword: '', customers: [], filteredCustomers: [],
 platCustomers: [], platCommissions: [], platGrowth: null, platformStatus: '', platformError: '', platformTodos: null,
-salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '灵感检索', icon: 'home-design-icon', action: 'inspiration', url: '/design-migration/pages/library/index' }, { title: '快速预算', icon: 'plan-file', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }, { title: '提交委托', icon: 'contract', action: 'commission', url: '/pages/customers/index?intent=commission' }],
+salesShortcuts: [{ title: '登记客户', icon: 'person-filled', action: 'customer' }, { title: '灵感检索', icon: 'home-design-icon', action: 'inspiration', url: '/design-migration/pages/library/index' }, { title: '快速预算', icon: 'plan-file', action: 'quickBudget', url: '/pages/workflow/explore/index?view=budget' }, { title: '外部委托', icon: 'contract', action: 'commission', url: '/pages/customers/index?intent=entrust' }],
 creation: [{ title: '爆款二创', icon: 'fire', action: 'remix' }, { title: '数字人口播', icon: 'person-filled', action: 'digital' }, { title: 'AI视频', icon: 'video-filled', action: 'video' }]
 },
 onLoad() { PTPage.init(this); },
@@ -26,7 +26,7 @@ this.setData({keyword});this.filterCustomers();
 }
 });
 const dashboardShow=definition.onShow;
-definition.onShow=function(){const a=require('../../utils/access').context(),auth=require('../../api/auth'),post=(()=>{try{return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();if(post?post.roleCode==='hq-design-admin':a.role==='hq-design-admin'){wx.reLaunch({url:'/pages/workflow/commission/index?view=admin'});return;}dashboardShow.call(this);this.setData({active:a.active||!!post});this.loadPlatformHome();};
+definition.onShow=function(){const a=require('../../utils/access').context(),auth=require('../../api/auth'),post=(()=>{try{return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();dashboardShow.call(this);this.setData({active:a.active||!!post});this.loadPlatformHome();};
 // API 态工作台：客资/本月委托/获客漏斗并行拉取；平台待办走 PTPage。失败显示错误态，绝不回落本地演示数据。
 definition.loadPlatformHome=function(){
 const auth=require('../../api/auth');

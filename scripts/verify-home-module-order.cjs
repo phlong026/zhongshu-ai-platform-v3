@@ -25,7 +25,6 @@ test('门店首页保持问候概览待办，总部三岗位进入带品牌公�
     ['headquarters', 'hq-admin'],
     ['headquarters', 'finance', 'fin-home-intro', 'fin-home-metric', 'fin-home-list'],
     ['headquarters', 'finance-lead', 'fin-home-intro', 'fin-home-metric', 'fin-home-list'],
-    ['headquarters', 'hq-design-admin', 'admin-greeting', 'admin-metric', 'admin-section']
   ];
   let nickname;
   global.wx.request = options => {
@@ -75,7 +74,7 @@ test('门店首页保持问候概览待办，总部三岗位进入带品牌公�
       assert.equal(todo.attrs['owner-mode'],true);
     }
     let first,last;
-    if ((orgType==='headquarters' && roleCode.startsWith('finance')) || roleCode==='hq-design-admin') {
+    if (orgType==='headquarters' && roleCode.startsWith('finance')) {
       const cards=nodes.filter(n=>hasClass(n,metricClass));assert.equal(cards.length,4,nickname+' headquarters cards');
       first=cards[0];last=cards.at(-1);
       if(roleCode.startsWith('finance'))assert.ok(!text(last).includes('¥'),'task count is not money');

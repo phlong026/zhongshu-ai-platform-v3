@@ -124,7 +124,7 @@ ok('8');
 // ---- AC9 标签映射全前缀 + 未知前缀 ----
 const expectLabels = {
   'first-follow': '待首次跟进', 'visit': '约定跟进到期', 'reconsult': '流失客户再次咨询', 'stale': '超期未跟进',
-  'submit-commission': '预算待委托', 'lead-link': '客资待关联',
+  'lead-link': '客资待关联',
   'fee-approve': '委托费用待审批', 'fee-pending': '委托费用审批中', 'fee-returned': '委托费用已退回',
   'design-complete': '设计完成待下发', 'design-dispatch': '设计下发', 'tail-follow': '尾款跟进',
   'handover-prepare': '成果收图移交', 'handover-returned': '移交退回', 'handover-review': '移交核查', 'handover-waiting': '移交核查中'
