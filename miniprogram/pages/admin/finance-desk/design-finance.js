@@ -135,7 +135,7 @@ function attach(page, api) {
       if (!alive() || this.__disposed || String(this.id) !== id || (this.canLoadProjectLedger && !this.canLoadProjectLedger())) return;
       this.projectLedgerPage = pageNo;
       const s=result.summary;
-      const entries=result.entries.list.map(r=>({...r,key:r.type+':'+r.id,typeLabel:({RECEIVABLE:'合同应收',PAYABLE:'费用',PAYMENT:'付款',ADVANCE:'员工垫付',RECEIPT:'收款',REFUND:'退款',EXPENSE_REFUND:'支出退回'})[r.type]||'费用',amountText:BookView.money(r.amountCents),dateText:financeDay(r.occurredOn),tone:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'income':'expense',sign:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'+':['PAYMENT','REFUND','ADVANCE'].includes(r.type)?'−':''}));
+      const entries=result.entries.list.map(r=>({...r,key:r.type+':'+(r.type==='CONFIRMED_ENGINEERING_COST'&&r.originalExpenseId||r.id),originalExpenseId:r.type==='CONFIRMED_ENGINEERING_COST'&&/^\d+$/.test(String(r.originalExpenseId||''))?String(r.originalExpenseId):'',typeLabel:({RECEIVABLE:'合同应收',PAYABLE:'费用',CONFIRMED_ENGINEERING_COST:'已确认工程费用（未挂应付）',PAYMENT:'付款',ADVANCE:'员工垫付',RECEIPT:'收款',REFUND:'退款',EXPENSE_REFUND:'支出退回'})[r.type]||'费用',amountText:BookView.money(r.amountCents),dateText:financeDay(r.occurredOn),tone:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'income':'expense',sign:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'+':['PAYMENT','REFUND','ADVANCE'].includes(r.type)?'−':''}));
       const metrics = [
         {key:'received',label:'累计收款',value:BookView.money(s.receivedCents)},
         {key:'paid',label:'累计付款',value:BookView.money(s.paidCents)}

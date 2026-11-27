@@ -22,3 +22,13 @@ test('project write actions are guarded by the read-only parent, and no raw sour
  for(const view of ['collection','materials','expenses'])assert.ok(xml.includes('&view='+view));
  assert.ok(!xml.includes('item.sourceRef'));assert.ok(!xml.includes('item.source_ref'));
 });
+
+test('confirmed original engineering costs preserve distinct source numbers without changing cash',async()=>{
+ const h=harness(),numbers=['9007199254740993','9007199254740994'];h.api.projectLedger=async()=>({summary:{receivedCents:25000,paidCents:10000,refundedCents:0,expenseRefundedCents:0,payableCents:24000},entries:{list:numbers.map(originalId=>({id:Number('9007199254740992'),type:'CONFIRMED_ENGINEERING_COST',amountCents:12000,occurredOn:'2026-11-27',status:'已确认',originalExpenseId:originalId})),total:2}});
+ await h.show();const rows=h.page.data.projectLedgerEntries;
+ assert.equal(rows.map(row=>row.originalExpenseId).join(','),numbers.join(','));
+ assert.equal(rows.map(row=>row.key).join(','),numbers.map(n=>'CONFIRMED_ENGINEERING_COST:'+n).join(','));
+ for(const row of rows){assert.equal(row.typeLabel,'已确认工程费用（未挂应付）');assert.equal(row.sign,'');assert.equal(row.amountText,'120.00');}
+ assert.ok(fs.readFileSync(path.join(dir,'project-books.wxml'),'utf8').includes('原费用单'));
+ assert.equal(h.page.data.projectBookNet,'150.00');assert.equal(h.page.openRegister,undefined);
+});
