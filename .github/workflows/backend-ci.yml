@@ -97,6 +97,10 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: '平台程序/**/pom.xml'
+      - name: Check current migration inventory and ownership coverage
+        run: |
+          python3 -I 平台程序/script/platform-migration/ownership.py check --source-root 平台程序
+          python3 -m unittest discover -s 平台程序/script/platform-migration -p 'test_*.py'
       - name: Check migration rehearsal and recovery journal
         run: python3 -m unittest discover -s 平台程序/script/business-flow-migration -p 'test_*.py'
       - name: Validate delivered B Compose and reject unreviewed mounts
@@ -117,12 +121,18 @@ jobs:
           -Dplatform.test.jdbc.password=postgres
           -Dplatform.test.redis.address=redis://127.0.0.1:6379
           package
+      - name: Check packaged migrations against the source inventory
+        run: |
+          python3 -I 平台程序/script/platform-migration/ownership.py check --source-root 平台程序 --artifact 平台程序/yudao-platform-server/target/yudao-platform-server.jar > 平台程序/yudao-platform-server/target/migration-inventory.json
+          cat 平台程序/yudao-platform-server/target/migration-inventory.json
       - name: Upload release regression reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: backend-release-regression-reports
-          path: '平台程序/**/target/surefire-reports/'
+          path: |
+            平台程序/**/target/surefire-reports/
+            平台程序/yudao-platform-server/target/migration-inventory.json
           retention-days: 7
           if-no-files-found: warn
 

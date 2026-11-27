@@ -1,12 +1,14 @@
 """Offline P3 checks use synthetic records and never connect to a database."""
 import copy
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 DIRECTORY = Path(__file__).resolve().parent
 SPEC = importlib.util.spec_from_file_location("ownership", DIRECTORY / "ownership.py")
@@ -149,9 +151,83 @@ class OwnershipTest(unittest.TestCase):
             with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_HASH_CHANGED"):
                 ownership.validate_manifest(manifest, root)
             manifest["migrations"][0]["source_sha256"] = ownership.digest(sql)
-            sql.with_name("V2__unreviewed.sql").write_text("SELECT 1;\n")
+            added = sql.with_name("V2__unreviewed.sql")
+            added.write_text("SELECT 1;\n")
             with self.assertRaisesRegex(ownership.EvidenceError, "MIGRATION_SET_CHANGED"):
                 ownership.validate_manifest(manifest, root)
+            manifest["migrations"].append({"path": added.relative_to(root).as_posix(), "location": "pf",
+                                           "version": "2", "source_sha256": ownership.digest(added)})
+            ownership.validate_manifest(manifest, root)
+
+    def test_repository_manifest_matches_current_sources_and_registered_undo(self):
+        ownership.validate_manifest(ownership.read_json(DIRECTORY / "manifest.json"), DIRECTORY.parents[1])
+
+    def test_registered_undo_must_match_forward_location_version_and_hash(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            relative = "platform/platform-org/src/main/resources/db/migration/pf/V1__fixture.sql"
+            sql = root / relative
+            sql.parent.mkdir(parents=True)
+            sql.write_text("CREATE TABLE example (id BIGINT);\n")
+            undo = root / relative.replace("/migration/", "/migration-undo/")
+            undo.parent.mkdir(parents=True)
+            undo.write_text("DROP TABLE example;\n")
+            manifest = {"format": ownership.MANIFEST_FORMAT, "locations": list(ownership.LOCATIONS),
+                        "migrations": [{"path": relative, "location": "pf", "version": "1",
+                                        "source_sha256": ownership.digest(sql)}],
+                        "tables": [{"name": "example", "owner": "B", "strategy": "filtered-copy",
+                                    "source_migrations": [relative], "selector": "fixture"}], "sequences": [],
+                        "rollback_review": {"entries": [{"version": "1", "source_migration": relative,
+                            "undo_files": [{"path": undo.relative_to(root).as_posix(),
+                                            "source_sha256": ownership.digest(undo)}]}]}}
+            ownership.validate_manifest(manifest, root)
+            manifest["rollback_review"]["entries"][0]["version"] = "2"
+            with self.assertRaisesRegex(ownership.EvidenceError, "UNDO_SOURCE_MIGRATION_INVALID"):
+                ownership.validate_manifest(manifest, root)
+            manifest["rollback_review"]["entries"][0]["version"] = "1"
+            undo.write_text("DROP TABLE another;\n")
+            with self.assertRaisesRegex(ownership.EvidenceError, "UNDO_HASH_CHANGED"):
+                ownership.validate_manifest(manifest, root)
+
+    def test_packaged_migrations_match_classes_and_nested_jars_without_shadowing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sql = root / "V1__fixture.sql"
+            sql.write_text("SELECT 1;\n")
+            one = "db/migration/pf/V1__fixture.sql"
+            two = "db/migration/franchise/V2__fixture.sql"
+            extra = "db/migration/pf/V3__unregistered.sql"
+            manifest = {"migrations": [
+                {"path": "platform/platform-org/src/main/resources/" + one, "source_sha256": ownership.digest(sql)},
+                {"path": "domains/franchise/franchise-crm/src/main/resources/" + two, "source_sha256": ownership.digest(sql)}]}
+            artifact = root / "platform.jar"
+
+            def package(dependencies):
+                with zipfile.ZipFile(artifact, "w") as archive:
+                    archive.writestr("BOOT-INF/classes/" + one, sql.read_bytes())
+                    for number, entries in enumerate(dependencies):
+                        buffer = io.BytesIO()
+                        with zipfile.ZipFile(buffer, "w") as dependency:
+                            for name, data in entries.items():
+                                dependency.writestr(name, data)
+                        archive.writestr(f"BOOT-INF/lib/dependency-{number}.jar", buffer.getvalue())
+
+            package([{two: sql.read_bytes(), "db/migration/design/V99__a_only.sql": "SELECT 99;"}])
+            self.assertEqual(ownership.validate_artifact(manifest, artifact),
+                             {"sha256": ownership.digest(artifact), "migrations": 2})
+            for dependencies, code in [
+                ([], "ARTIFACT_MIGRATION_SET_CHANGED"),
+                ([{two: sql.read_bytes(), extra: sql.read_bytes()}], "ARTIFACT_MIGRATION_SET_CHANGED"),
+                ([{two: sql.read_bytes(), "db/migration/pf/nested/V3__unregistered.sql": sql.read_bytes()}],
+                 "ARTIFACT_MIGRATION_SET_CHANGED"),
+                ([{two: "SELECT 2;"}], "ARTIFACT_MIGRATION_HASH_CHANGED"),
+                ([{two: sql.read_bytes()}, {two: sql.read_bytes()}], "ARTIFACT_DUPLICATE_MIGRATION"),
+                ([{two: sql.read_bytes(), one: sql.read_bytes()}], "ARTIFACT_DUPLICATE_MIGRATION"),
+            ]:
+                with self.subTest(code=code):
+                    package(dependencies)
+                    with self.assertRaisesRegex(ownership.EvidenceError, code):
+                        ownership.validate_artifact(manifest, artifact)
 
     def test_operations_migrations_ship_with_b_and_legacy_server_migrations_do_not(self):
         with tempfile.TemporaryDirectory() as temporary:
