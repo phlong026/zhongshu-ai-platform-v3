@@ -36,7 +36,7 @@ function pageHarness(P) {
     for (const part of parts.slice(0, -1)) target = target[part] || (target[part] = {});
     target[parts.at(-1)] = value;
   } };
-  const native = {};
+  const native = { showToast() {} };
   vm.runInNewContext(fs.readFileSync('miniprogram/pages/build/record/index.js', 'utf8'), {
     Page: page => { definition = page; }, wx: native,
     require: name => name.endsWith('/platform-engineering') ? P
@@ -180,4 +180,50 @@ test('the correction entry follows write and lifecycle permissions while incompl
   assert.equal(completion.canCorrectNode, false); assert.equal(completion.canReopen, false);
   assert.ok(completion.fields.some(field => field.key === 'file'));
   assert.ok(completion.actions.some(action => action.action === 'node'));
+});
+
+test('node completion keeps photos and a chat PDF in either selection order and supports removing only one', async () => {
+  const flat = rows => rows.flatMap(row => [row, ...flat(row.children || [])]);
+  for (const order of [[0,1],[1,0]]) {
+    const { P, api, uploads } = harness(), { page, native } = pageHarness(P);
+    const b=bundle(); b.detail.nodes[0].status='IN_PROGRESS';
+    page.data={...page.data,...P.recordView(b,{view:'node',nodeId:'101',writeRole:true}),fileNames:{},form:{date:'2026-11-18',note:'验收通过'}};
+    let choice;
+    native.showActionSheet = options => options.success({ tapIndex: choice });
+    native.chooseMedia = options => options.success({tempFiles:[{tempFilePath:'a.jpg'},{tempFilePath:'b.jpg'}]});
+    native.chooseMessageFile = options => options.success({tempFiles:[{name:'验收单.pdf',path:'acceptance.pdf'}]});
+    native.saveFile = options => options.success({savedFilePath:'saved-'+options.tempFilePath});
+    for(const type of order){choice=type;page.upload({currentTarget:{dataset:{key:'file'}}});}
+    const selected=order[0]===0?['saved-a.jpg','saved-b.jpg','saved-acceptance.pdf']:['saved-acceptance.pdf','saved-a.jpg','saved-b.jpg'];
+    assert.deepEqual(bodyOf(page.data.form.files.map(f=>f.path)),selected);
+    const visible=flat(render(path.resolve('miniprogram/pages/build/record/index.wxml'), page.data));
+    assert.equal(visible.filter(row=>row.attrs?.bindtap==='removeNodeEvidence').length,3);
+    assert.equal(visible.filter(row=>row.attrs?.bindtap==='preview' && selected.includes(row.attrs?.['data-file']?.path)).length,3);
+    let submitted;
+    api.uploadVoucher=async file=>{uploads.push({file});return ids[uploads.length-1];};
+    api.plan.complete=async (_project,_node,body)=>{
+      submitted=bodyOf(body);
+      return {...b.detail,siteRecords:[{...b.detail.siteRecords[0],file_asset_ids:JSON.stringify(submitted.fileAssetIds)}]};
+    };
+    const detail=await P.perform('node','100',page.data.form,{id:'101'},'mixed-evidence');
+    assert.deepEqual(uploads.map(row=>row.file),selected);
+    assert.deepEqual(submitted.fileAssetIds,ids);
+    const readback=P.recordView({...b,detail},{view:'node',nodeId:'101',writeRole:true});
+    assert.deepEqual(bodyOf(readback.inspections[0].files.map(file=>file.assetId)),ids);
+    page.removeNodeEvidence({currentTarget:{dataset:{index:selected.indexOf('saved-b.jpg')}}});
+    assert.deepEqual(bodyOf(page.data.form.files.map(f=>f.path)),selected.filter(p=>p!=='saved-b.jpg'));
+    assert.equal(page.data.form.file.path,page.data.form.files[0].path);
+  }
+});
+
+test('node evidence selection never discards the existing nine files or changes a single-file correction', () => {
+  const {P}=harness(),{page}=pageHarness(P);
+  const photos=Array.from({length:9},(_,i)=>({name:i+'.jpg',path:i+'.jpg'}));
+  page.setPhotos('file',photos,true);
+  page.setFile('file',{name:'extra.pdf',path:'extra.pdf'});
+  assert.deepEqual(bodyOf(page.data.form.files),photos);
+  assert.match(page.data.error,/9/);
+  page.setFile('nodeFile',{name:'new.pdf',path:'new.pdf'});
+  assert.equal(page.data.form.nodeFile.path,'new.pdf');
+  assert.deepEqual(bodyOf(page.data.form.files),photos);
 });
