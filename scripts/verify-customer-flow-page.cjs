@@ -621,14 +621,14 @@ test('07/08只读真实事实且没有完成按钮；预算入口仍携带客户
   h.page.openSalesQuote(); assert.equal(h.navigations.at(-1).url, '/pages/workflow/index?view=budget&id=42');
 });
 
-test('第07步为施工签约，设计合同归档后待办，签署施工合同后回看原单', async () => {
+test('第07步为合同签约，设计合同归档后待办，签署施工合同后回看原单', async () => {
   const h = harness({ step: 'CONTRACT' });
   await h.open();
   const { render } = require('./role-page-runtime.cjs');
   const file = path.join(root, 'miniprogram/pages/customer-flow/index.wxml');
   const renderedText = node => node.text || (node.children || []).map(renderedText).join('');
   const visible = () => render(file, h.page.data).map(renderedText).join('');
-  assert.equal(h.page.data.step.name, '施工签约');
+  assert.equal(h.page.data.step.name, '合同签约');
   assert.match(visible(), /设计服务合同可归入设计委托档案/);
   Object.assign(h.state.steps[6], { status: 'COMPLETED', fields: { contractId: '8101', signedDate: '2026-11-25', totalCents: '100000' } });
   Object.assign(h.state, { completedCount: 1, progressPercent: 12.5 });

@@ -33,7 +33,7 @@ const STEPS = [
     field('versionLabel', '报价版本'), field('result', '沟通结果', 'textarea'), field('communicated', '已向客户说明报价', 'boolean'),
     field('designFileAssetId', '设计文件', 'hidden'), field('designFileName', '设计文件名称', 'hidden')
   ] },
-  { code: 'CONTRACT', name: '施工签约', fields: [] },
+  { code: 'CONTRACT', name: '合同签约', fields: [] },
   { code: 'START', name: '开工大吉', fields: [] }
 ];
 const STATUS = { TODO: '待办理', DRAFT: '已记录', COMPLETED: '已完成' };

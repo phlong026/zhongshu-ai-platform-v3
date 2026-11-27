@@ -1,5 +1,7 @@
 # 众墅之家 V3 V1.1 整改执行日志
 
+> 名称口径更新（2026-11-27）：现行第 7 步为“合同签约”（稳定代码 `CONTRACT`）。下文“施工签约”保留为当时版本的验收记录，不作为现行显示名；签署正式施工合同的业务判定不变。八步全名以 [统一整改方案](V3-business-engineering-remediation-20261127.md) 为准。
+
 > 执行依据：`docs/roadmap/V3-module-remediation-plan-20261125.md`
 > 执行仓库：`phlong026/zhongshu-ai-platform-v3`
 > 建立日期：2026-11-25（北京时间）
