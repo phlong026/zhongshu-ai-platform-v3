@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
 
-    /** M2 设计 §4.2 */
+    /** M2 设计 §4.2 + 设计岗位退役（2026-11-27：hq-design-admin 三条授权随角色删除） */
     private static final Set<String> EXPECTED = Set.of(
             "sales franchise:lead:capture", "sales-lead franchise:lead:capture",
             "sales franchise:lead:handle", "sales-lead franchise:lead:handle", "boss franchise:lead:handle", "owner franchise:lead:handle",
@@ -32,13 +32,12 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
             "sales-lead franchise:customer:transfer", "boss franchise:customer:transfer", "owner franchise:customer:transfer",
             "boss franchise:design-policy:manage",
             "sales franchise:commission:query", "sales-lead franchise:commission:query", "boss franchise:commission:query",
-            "owner franchise:commission:query", "hq-design-admin franchise:commission:query",
+            "owner franchise:commission:query",
             "engineer franchise:commission:query", "project-manager franchise:commission:query",
             "sales franchise:commission:submit", "sales-lead franchise:commission:submit",
             "boss franchise:commission:fee-decide",
-            "hq-design-admin franchise:commission:design",
             "engineer franchise:commission:receive", "project-manager franchise:commission:receive",
-            "sales franchise:design:use", "sales-lead franchise:design:use", "hq-design-admin franchise:design:use",
+            "sales franchise:design:use", "sales-lead franchise:design:use",
             "hq-admin platform:announcement:query", "hq-admin platform:announcement:manage",
             "finance platform:announcement:query", "finance-lead platform:announcement:query");
 
@@ -85,6 +84,9 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
                     "db/migration/franchise-system/V20261102.853__design_permissions.sql"));
             ScriptUtils.executeSqlScript(connection, new ClassPathResource(
                     "db/migration/franchise-system/V20261125.1033__announcement_permissions.sql"));
+            // V20261127.1201 设计岗位退役：撤销任职、删除模板与角色（EXPECTED 已按退役后矩阵更新）
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource(
+                    "db/migration/franchise-system/V20261127.1201__retire_design_posts.sql"));
         }
     }
 
@@ -107,6 +109,10 @@ class FranchiseSystemSeedTest extends FranchisePgIntegrationTest {
                   update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted int2 NOT NULL DEFAULT 0)""");
         jdbc.execute("""
                 CREATE TABLE seed_check.system_role_menu (id int8 PRIMARY KEY, role_id int8 NOT NULL, menu_id int8 NOT NULL,
+                  creator varchar(64) DEFAULT '', create_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, updater varchar(64) DEFAULT '',
+                  update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted int2 NOT NULL DEFAULT 0, tenant_id int8 NOT NULL DEFAULT 0)""");
+        jdbc.execute("""
+                CREATE TABLE seed_check.system_user_role (id int8 PRIMARY KEY, user_id int8 NOT NULL, role_id int8 NOT NULL,
                   creator varchar(64) DEFAULT '', create_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, updater varchar(64) DEFAULT '',
                   update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted int2 NOT NULL DEFAULT 0, tenant_id int8 NOT NULL DEFAULT 0)""");
     }
