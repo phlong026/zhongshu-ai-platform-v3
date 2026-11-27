@@ -592,6 +592,8 @@ function recordView(bundle, ctx) {
   const own = !!opts.writeRole && (!opts.userId || [String(d.managerUserId),String(d.assignedEngineerUserId)].includes(String(opts.userId)));
   const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
+  const expenseTermsAllowed = row => !!row && row.status === 'REGISTERED' && !row.payableId
+    && (!archived || row.canCompleteTerms === true);
   const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
   const part = data.installments.find(i => i.stage === stage || i.key === stage);
 
@@ -739,7 +741,8 @@ function recordView(bundle, ctx) {
     // 直接项目费用四动作（登记即计成本/挂应付/修订/取消）——费用清单由 record 页预拉（opts.expenses）
     form.purposeCode = form.purposeCode || 'LABOR';
     const mode = opts.expenseMode || 'register';
-    if (own && !archived) {
+    const target = (opts.expenses || []).find(row => String(row.expenseId) === String(form.expenseId || ''));
+    if (own && (mode === 'terms' ? expenseTermsAllowed(target) : !archived)) {
       if (mode === 'terms') {
         fields = [viewField('supplier', '收款方（供应商）'), viewField('basis', '费用凭据（名称或编号）')];
         actions = [{ action: 'expense-terms', label: '挂接应付' }];
@@ -792,7 +795,7 @@ function recordView(bundle, ctx) {
       purposeText:({LABOR:'劳务',TRAVEL:'差旅',OTHER:'其它'})[e.purpose]||e.purpose||'',
       amountText:e.amountCents==null?'—':(e.amountCents/100).toFixed(2),
       statusText:e.status==='CANCELLED'?'已取消':(e.payableId?'已挂应付':'已登记'),
-      canTerms:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId,
+      canTerms:own&&expenseTermsAllowed(e),
       canRevise:own&&!archived&&e.status!=='CANCELLED',
       canCancel:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId
     })),
