@@ -45,16 +45,15 @@ class SaleDeliveryFingerprintTest {
         SaleContractMapper contracts = mock(SaleContractMapper.class);
         SaleRequirementService requirements = mock(SaleRequirementService.class);
         FranchiseCommands commands = mock(FranchiseCommands.class);
-        SalesAccess access = mock(SalesAccess.class);
         SaleDeliveryService service = new SaleDeliveryService(
-                deliveries, contracts, requirements, commands, access);
+                deliveries, contracts, requirements, commands);
         PostSnapshot post = new PostSnapshot(1, 2, 300, "store", "sales", null, false, Set.of());
         SaleContractDO contract = new SaleContractDO().setId(9L).setCompanyId(post.orgId()).setCustomerId(7L);
         SaleDeliveryDO legacyDelivery = new SaleDeliveryDO()
                 .setId(11L).setContractId(9L).setRequirementId(1L).setCompanyId(post.orgId());
         when(contracts.selectById(9L)).thenReturn(contract);
         when(commands.replayed(eq(post), eq("legacy-key"), any(), any()))
-                .thenReturn(Optional.of(new CommandEventDO().setAggregateId(11L)));
+                .thenReturn(Optional.of(new CommandEventDO().setAggregateId(11L).setAggregateType("fr-sale-delivery").setCommand("sale-delivery-create")));
         when(deliveries.selectById(11L)).thenReturn(legacyDelivery);
 
         assertThat(service.create(post, new SaleDeliveryService.DeliveryCommand(9L, 1L), "legacy-key"))

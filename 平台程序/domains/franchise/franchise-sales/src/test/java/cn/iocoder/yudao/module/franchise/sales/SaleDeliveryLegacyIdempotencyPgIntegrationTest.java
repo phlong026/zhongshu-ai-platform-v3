@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SaleDeliveryLegacyIdempotencyPgIntegrationTest extends FranchisePgIntegrationTest {
 
     @Resource private SaleDeliveryService deliveries;
+    @Resource private FranchiseCommands commands;
     @Resource private JdbcTemplate jdbc;
     @Resource private PlatformTransactionManager transactions;
 
@@ -99,6 +100,78 @@ class SaleDeliveryLegacyIdempotencyPgIntegrationTest extends FranchisePgIntegrat
                 .isInstanceOf(RuntimeException.class);
         assertThat(count("fr_sale_delivery")).isEqualTo(deliveriesBefore);
         assertThat(count("pf_command_event")).isEqualTo(commandsBefore);
+    }
+
+    @Test
+    void retirementRejectsNewCreationAndEveryOldNodeWithoutChangingHistory() {
+        long commandCount = count("pf_command_event");
+        long deliveryCount = count("fr_sale_delivery");
+        assertThatThrownBy(() -> deliveries.create(sales,
+                new SaleDeliveryService.DeliveryCommand(contractId, requirementOne), "new-delivery"))
+                .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(
+                                cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_WRITE_RETIRED.getCode()));
+        assertThat(count("fr_sale_delivery")).isEqualTo(deliveryCount);
+        long deliveryId = id();
+        insertDelivery(deliveryId, requirementOne);
+        jdbc.update("UPDATE fr_sale_delivery SET design_delivered_at=now()-interval '3 days',design_confirmed_at=now()-interval '2 days' WHERE id=?", deliveryId);
+        var original = jdbc.queryForMap("SELECT * FROM fr_sale_delivery WHERE id=?", deliveryId);
+        var customer = jdbc.queryForMap("SELECT * FROM fr_customer WHERE id=?", customerId);
+        for (String node : SaleDeliveryService.NODES) {
+            assertThatThrownBy(() -> deliveries.advance(sales, deliveryId, node, "new-" + node))
+                    .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                            error -> assertThat(error.getCode()).isEqualTo(
+                                    cn.iocoder.yudao.module.franchise.sales.enums.FranchiseSalesErrorCodes.DELIVERY_WRITE_RETIRED.getCode()));
+        }
+        assertThat(deliveries.requireOfOrg(sales, contractId).getDesignConfirmedAt()).isNotNull();
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_sale_delivery WHERE id=?", deliveryId)).isEqualTo(original);
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_customer WHERE id=?", customerId)).isEqualTo(customer);
+        assertThat(count("pf_command_event")).isEqualTo(commandCount);
+    }
+
+    @Test
+    void successfulAdvanceReplaysOnlyItsOriginalActionAndRecordWithoutWriting() {
+        long deliveryId = id();
+        insertDelivery(deliveryId, requirementOne);
+        jdbc.update("UPDATE fr_sale_delivery SET design_delivered_at=now()-interval '3 days',design_confirmed_at=now()-interval '2 days',construction_delivered_at=now()-interval '1 day' WHERE id=?", deliveryId);
+        var input = Map.<String, Object>of("operation", "delivery-advance", "deliveryId", deliveryId, "node", "construction-delivered");
+        commands.record(sales, "fr-sale-delivery", deliveryId, 4, "sale-delivery-advance", input, "old-advance");
+        var original = jdbc.queryForMap("SELECT * FROM fr_sale_delivery WHERE id=?", deliveryId);
+        long before = count("pf_command_event");
+        var first = deliveries.advance(sales, deliveryId, "construction-delivered", "old-advance");
+        var retry = deliveries.advance(sales, deliveryId, "construction-delivered", "old-advance");
+        assertThat(retry).isEqualTo(first);
+        assertThat(retry.getConstructionDeliveredAt()).isNotNull();
+        assertThatThrownBy(() -> deliveries.advance(sales, deliveryId, "construction-accepted", "old-advance"))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        commands.record(sales, "other-aggregate", deliveryId, 5, "other-action", input, "wrong-action");
+        assertThatThrownBy(() -> deliveries.advance(sales, deliveryId, "construction-delivered", "wrong-action"))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_sale_delivery WHERE id=?", deliveryId)).isEqualTo(original);
+        assertThat(count("pf_command_event")).isEqualTo(before + 1);
+    }
+
+    @Test
+    void currentCreateReplayChecksOriginalAggregateAndCrossCompanyHistoryRemainsPrivate() {
+        long deliveryId = id();
+        insertDelivery(deliveryId, requirementOne);
+        var cmd = new SaleDeliveryService.DeliveryCommand(contractId, requirementOne);
+        commands.record(sales, "fr-sale-delivery", deliveryId, 1, "sale-delivery-create",
+                SaleDeliveryService.createFingerprint(cmd), "current-create");
+        long before = count("pf_command_event");
+        assertThat(deliveries.create(sales, cmd, "current-create").getId()).isEqualTo(deliveryId);
+        assertThat(count("pf_command_event")).isEqualTo(before);
+        commands.record(sales, "other-aggregate", deliveryId, 2, "sale-delivery-create",
+                SaleDeliveryService.createFingerprint(cmd), "wrong-create-type");
+        assertThatThrownBy(() -> deliveries.create(sales, cmd, "wrong-create-type"))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        var other = fixture.store();
+        var outsider = fixture.post(other.orgId(), SALES, other.salesTeamA());
+        assertThatThrownBy(() -> deliveries.requireOfOrg(outsider, contractId))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThatThrownBy(() -> deliveries.advance(outsider, deliveryId, "construction-delivered", "old-advance"))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_sale_delivery WHERE company_id=?", Long.class, sales.orgId())).isOne();
     }
 
     private void insertRequirement(long requirementId, int version) {
