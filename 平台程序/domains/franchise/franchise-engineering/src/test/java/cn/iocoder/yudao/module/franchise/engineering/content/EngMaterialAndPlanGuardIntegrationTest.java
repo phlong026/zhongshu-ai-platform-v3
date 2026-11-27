@@ -31,6 +31,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         EngExpenseService.class,
         cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,
         cn.iocoder.yudao.module.franchise.finance.FinRefundService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinProjectAccountingService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinProjectAccountingAccess.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
 class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest {
@@ -196,6 +199,8 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     private cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort saleContractsPort;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService workbenchCosts;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinProjectAccountingService accountingCosts;
 
     private Store store;
     private PostSnapshot engineer;
@@ -224,6 +229,61 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         materialId = insertMaterial();
         supplyId = jdbc.queryForObject(
                 "SELECT id FROM fr_eng_supply WHERE material_id = ?", Long.class, materialId);
+    }
+
+    @Test
+    void originalExpenseHasOneCostAcrossEngineeringFinanceAndAccountingThroughoutPayment() {
+        var finance=fixture.post(store.orgId(),"finance",null);
+        var boss=fixture.post(store.orgId(),"boss",null);
+        var expense=as(engineer,()->expensesService.register(engineer,projectId,
+                new EngExpenseService.RegisterCommand("现场劳务确认","LABOR",new BigDecimal("1000"),"原费用"),idem()));
+        long expenseId=Long.parseLong((String)expense.get("expenseId"));
+        assertExpenseCostViews(finance,boss,100000,0);
+        assertThat(ledgerPort.projectCostAmounts(engineer,projectId)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isZero();
+
+        as(engineer,()->expensesService.revise(engineer,expenseId,new BigDecimal("800"),"未付款前核减",idem()));
+        assertExpenseCostViews(finance,boss,80000,0);
+        var cancelled=as(engineer,()->expensesService.register(engineer,projectId,
+                new EngExpenseService.RegisterCommand("误录差旅","TRAVEL",new BigDecimal("200"),""),idem()));
+        assertExpenseCostViews(finance,boss,100000,0);
+        as(engineer,()->{expensesService.cancel(engineer,Long.parseLong((String)cancelled.get("expenseId")),"原单重复",idem());return true;});
+        assertExpenseCostViews(finance,boss,80000,0);
+
+        var terms=new EngExpenseService.TermsCommand("劳务队","原费用付款凭据");String termsKey=idem();
+        long payable=Long.parseLong((String)as(engineer,()->expensesService.terms(engineer,expenseId,terms,termsKey)).get("payableId"));
+        assertThat(as(engineer,()->expensesService.terms(engineer,expenseId,terms,termsKey)).get("payableId")).isEqualTo(Long.toString(payable));
+        assertExpenseCostViews(finance,boss,80000,0);
+        assertThat(ledgerPort.projectCostAmounts(engineer,projectId)).containsOnly(java.util.Map.entry(payable,80000L));
+        long payment=paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,30000,java.time.LocalDate.now(),null,null));
+        assertExpenseCostViews(finance,boss,80000,30000);
+        refundService.registerExpense(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(payment,5000,"原付款部分退回",java.time.LocalDate.now(),null,null,null));
+        assertExpenseCostViews(finance,boss,80000,25000);
+        long duplicate=paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(payable,20000,java.time.LocalDate.now(),null,null));
+        paymentService.void_(finance,duplicate,"实际未支出，作废原付款");
+        assertExpenseCostViews(finance,boss,80000,25000);
+
+        String sourceHash=(String)accountingCosts.readAuthorized(store.orgId(),projectId).get("sourceHash");
+        as(engineer,()->expensesService.revise(engineer,expenseId,new BigDecimal("700"),"已付款后待原应付核对",idem()));
+        assertExpenseCostViews(finance,boss,80000,25000);
+        assertThat(accountingCosts.readAuthorized(store.orgId(),projectId).get("sourceHash")).isNotEqualTo(sourceHash);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,projectId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT payable_id FROM fr_eng_expense WHERE id=?",Long.class,expenseId)).isEqualTo(payable);
+    }
+
+    private void assertExpenseCostViews(PostSnapshot finance,PostSnapshot boss,long cost,long netPaid) {
+        for(var post:java.util.List.of(engineer,finance,boss)) {
+            assertThat(as(post,()->closuresService.settleSummary(post,projectId)))
+                    .containsEntry("expensesTotalCents",cost).containsEntry("expensesPaidCents",netPaid);
+        }
+        var summary=(java.util.Map<?,?>)workbenchCosts.ledger(finance.orgId(),"project:"+projectId).get("summary");
+        assertThat(((Number)summary.get("committed_cents")).longValue()).isEqualTo(cost);
+        assertThat(((Number)summary.get("paid_cents")).longValue()-((Number)summary.get("expense_refunded_cents")).longValue()).isEqualTo(netPaid);
+        assertThat(accountingCosts.readAuthorized(boss.orgId(),projectId))
+                .containsEntry("confirmedCostCents",Long.toString(cost)).containsEntry("companyNetPaidCents",Long.toString(netPaid));
+        var old=new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService(jdbc).page(finance.orgId(),projectId,1,20).summary();
+        assertThat(old.payableCents()).isEqualTo(cost);
+        assertThat(old.paidCents()-old.expenseRefundedCents()).isEqualTo(netPaid);
     }
 
     @Test

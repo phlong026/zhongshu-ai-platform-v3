@@ -32,6 +32,7 @@ public class FinProjectLedgerService {
         payables AS (SELECT p.* FROM fr_fin_payable p JOIN project x ON p.company_id=x.company_id
           WHERE NOT p.deleted AND (p.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=x.company_id AND project_id=x.id) OR p.project_id=x.id OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='design' AND split_part(p.source_ref,':',1)=x.source_commission_id::text) OR (p.project_id IS NULL AND p.book_id IS NULL AND p.source_type='reimbursement' AND EXISTS(SELECT 1 FROM fr_fin_payment m JOIN fr_fin_payable b ON b.id=m.payable_id AND b.company_id=m.company_id WHERE m.id::text=p.source_ref AND m.company_id=x.company_id AND b.source_type='design' AND split_part(b.source_ref,':',1)=x.source_commission_id::text))))
         """;
+    /** 应付 ID → 有效成本；工程结算另计未挂应付的原费用，并按这些 ID 去重。 */
     public java.util.Map<Long,Long> costAmounts(long org, long projectId) {
         var costs = new java.util.LinkedHashMap<Long,Long>();
         jdbc.query(PROJECT + PAYABLES + " SELECT id,total_cents FROM payables WHERE source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废'",
@@ -44,7 +45,8 @@ public class FinProjectLedgerService {
           JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
           WHERE NOT s.deleted AND s.amount_cents>0),
         """ + PAYABLES + """
-        ,
+        , unlinked_expenses AS (SELECT e.amount_cents FROM fr_eng_expense e JOIN project p ON p.company_id=e.company_id AND p.id=e.project_id
+          WHERE e.status='REGISTERED' AND e.payable_id IS NULL),
         payments AS (SELECT m.*,p.source_ref ledger_source_ref FROM fr_fin_payment m JOIN project x ON m.company_id=x.company_id
           LEFT JOIN fr_fin_payable p ON p.id=m.payable_id AND p.company_id=x.company_id
           WHERE m.status='已核实' AND NOT m.deleted AND (m.project_id=x.id OR m.payable_id IN(SELECT id FROM payables))),
@@ -75,7 +77,8 @@ public class FinProjectLedgerService {
               COALESCE(sum(amount_cents) FILTER(WHERE type='REFUND'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='PAYMENT'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='EXPENSE_REFUND'),0),
-              COALESCE(sum(amount_cents) FILTER(WHERE type='PAYABLE' AND status<>'已作废' AND id NOT IN(SELECT id FROM payables WHERE source_type='reimbursement')),0) FROM ledger
+              COALESCE(sum(amount_cents) FILTER(WHERE type='PAYABLE' AND status<>'已作废' AND id NOT IN(SELECT id FROM payables WHERE source_type='reimbursement')),0)
+                + (SELECT COALESCE(sum(amount_cents),0) FROM unlinked_expenses) FROM ledger
             """,(rs,n)->new Summary(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),project,org,org);
         long total=jdbc.queryForObject(SCOPE+"SELECT count(*) FROM ledger",Long.class,project,org,org);
         var rows=jdbc.query(SCOPE+"SELECT * FROM ledger ORDER BY occurred_on DESC NULLS LAST,id DESC,type DESC LIMIT ? OFFSET ?",

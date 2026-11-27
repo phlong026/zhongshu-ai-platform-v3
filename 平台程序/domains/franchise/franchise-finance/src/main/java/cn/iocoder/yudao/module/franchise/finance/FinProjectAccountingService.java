@@ -45,7 +45,7 @@ public class FinProjectAccountingService {
           (SELECT id::text FROM project_contract WHERE status='SIGNED' AND NOT deleted) AS contract_id,
           (SELECT total_cents FROM project_contract WHERE status='SIGNED' AND NOT deleted) AS contract_revenue_cents,
           EXISTS(SELECT 1 FROM project_closure WHERE settled_at IS NOT NULL) AS engineering_settled,
-          (SELECT COALESCE(sum(total_cents),0) FROM qs WHERE NOT deleted AND source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废') AS confirmed_cost_cents,
+          (SELECT cents FROM confirmed_cost) AS confirmed_cost_cents,
           (SELECT cents FROM payable_balance) AS outstanding_cents,
           (SELECT COALESCE(sum(amount_cents),0) FROM rs) AS received_cents,
           (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='client') AS client_refunded_cents,
@@ -54,7 +54,7 @@ public class FinProjectAccountingService {
           (SELECT COALESCE(sum(GREATEST(0,s.amount_cents-COALESCE((SELECT sum(r.amount_cents-COALESCE((SELECT sum(f.amount_cents) FROM fs f WHERE f.receipt_id=r.id),0))
             FROM fr_sale_stage_receipt x JOIN rs r ON r.id=x.receipt_id AND r.company_id=x.company_id WHERE x.stage_id=s.id AND x.company_id=s.company_id),0))),0)
             FROM project_stages s) AS receivable_cents,
-          jsonb_build_object(
+          (jsonb_build_object(
             'basis','CONTRACT_CONFIRMED_COST_V1','project',to_jsonb(p),
             'contract',(SELECT to_jsonb(c) FROM project_contract c),
             'closure',(SELECT to_jsonb(c) FROM project_closure c),
@@ -65,7 +65,9 @@ public class FinProjectAccountingService {
             'receipts',(SELECT md5(COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.id)::text,'[]')) FROM rs r),
             'payments',(SELECT md5(COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.id)::text,'[]')) FROM ms m),
             'refunds',(SELECT md5(COALESCE(jsonb_agg(to_jsonb(f) ORDER BY f.id)::text,'[]')) FROM fs f)
-          )::text AS source_basis,
+          ) || CASE WHEN EXISTS(SELECT 1 FROM engineering_expenses)
+              THEN jsonb_build_object('engineeringExpenses',(SELECT md5(jsonb_agg(to_jsonb(e) ORDER BY e.id)::text) FROM engineering_expenses e))
+              ELSE '{}'::jsonb END)::text AS source_basis,
           (SELECT jsonb_build_object('id',a.id::text,'version',a.version,'sourceHash',a.source_hash,
             'snapshot',a.snapshot,'note',a.note,'confirmedBy',a.confirmed_by::text,'confirmedPostId',a.confirmed_post_id::text,
             'confirmedAt',a.confirmed_at)::text FROM latest a) AS latest_snapshot

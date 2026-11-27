@@ -45,6 +45,12 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_stage_receipt(id bigint,company_id bigint,contract_id bigint,receipt_id bigint,stage_id bigint)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_closure(id bigint primary key,company_id bigint,project_id bigint,settled_at date)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_collection(company_id bigint,project_id bigint,receipt_id bigint)");
+        jdbc.execute("""
+            CREATE TABLE IF NOT EXISTS fr_eng_expense(
+              id bigint PRIMARY KEY,company_id bigint NOT NULL,project_id bigint NOT NULL,name varchar(100) NOT NULL,
+              purpose varchar(32) NOT NULL,amount_cents bigint NOT NULL,payable_id bigint,status varchar(16) NOT NULL DEFAULT 'REGISTERED',
+              note varchar(500),author_user_id bigint NOT NULL,create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now())
+            """);
         project=IdWorker.getId();contract=IdWorker.getId();commission=IdWorker.getId();
         jdbc.update("INSERT INTO fr_sale_contract(id,company_id,status,signed_date,total_cents) VALUES(?,?,'SIGNED',?,100000)",contract,finance.orgId(),LocalDate.now());
         jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status,source_commission_id,sale_contract_id) VALUES(?,?,'项目核算','SETTLED',?,?)",project,finance.orgId(),commission,contract);
@@ -136,15 +142,44 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
             .isInstanceOf(RuntimeException.class);
     }
 
+    @Test void originalExpenseChangesInvalidateAccountingBeforeAndAfterItsPayableExists() {
+        long expense=IdWorker.getId();
+        jdbc.update("INSERT INTO fr_eng_expense(id,company_id,project_id,name,purpose,amount_cents,author_user_id) VALUES(?,?,?,'劳务确认','LABOR',10000,?)",expense,finance.orgId(),project,finance.userId());
+        var first=command(accounting.get(finance,project));
+        var confirmed=accounting.confirm(finance,project,"expense-v1",first);
+        assertThat(accounting.get(finance,project)).containsEntry("state","CURRENT").containsEntry("confirmedCostCents","10000").containsEntry("companyNetPaidCents","0");
+        jdbc.update("UPDATE fr_eng_expense SET amount_cents=8000 WHERE id=?",expense);
+        assertThat(accounting.get(finance,project)).containsEntry("state","STALE").containsEntry("confirmedCostCents","8000");
+        assertThatThrownBy(()->accounting.confirm(finance,project,"stale-expense",first)).hasMessageContaining("已有变化");
+        long payable=payments.registerPayable(finance,"expense-payable",new FinPaymentService.PayableCommand(finance.orgId(),project,"劳务确认",8000,"劳务方","原费用付款凭据"));
+        jdbc.update("UPDATE fr_eng_expense SET payable_id=? WHERE id=?",payable,expense);
+        payments.register(finance,"expense-payment",new FinPaymentService.PaymentCommand(payable,1000,LocalDate.now(),null,null));
+        assertThat(accounting.get(finance,project)).containsEntry("confirmedCostCents","8000").containsEntry("companyNetPaidCents","1000");
+        accounting.confirm(finance,project,"expense-v2",command(accounting.get(finance,project)));
+        jdbc.update("UPDATE fr_eng_expense SET amount_cents=7000,note='已付款后原费用核减，待原应付核对' WHERE id=?",expense);
+        assertThat(accounting.get(finance,project)).containsEntry("state","STALE").containsEntry("confirmedCostCents","8000");
+        assertThat(((Map<?,?>)confirmed.get("snapshot")).get("confirmedCostCents")).isEqualTo("10000");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?",Long.class,project)).isEqualTo(1);
+    }
+
     @Test void allRowsContributeToHashEvenOutsideTheFiveHundredRowLedgerWindow() {
         var args=new ArrayList<Object[]>();
         for(int i=0;i<510;i++)args.add(new Object[]{IdWorker.getId(),finance.orgId(),project});
         jdbc.batchUpdate("INSERT INTO fr_fin_payable(id,company_id,project_id,stage,total_cents,recipient,status,source_type) VALUES(?,?,?,'项目费用',100,'供应方','进行中','manual')",args);
+        var expenseArgs=new ArrayList<Object[]>();
+        for(int i=0;i<501;i++)expenseArgs.add(new Object[]{IdWorker.getId(),finance.orgId(),project,finance.userId()});
+        jdbc.batchUpdate("INSERT INTO fr_eng_expense(id,company_id,project_id,author_user_id,name,purpose,amount_cents) VALUES(?,?,?,?,'未挂应付原费用','OTHER',100)",expenseArgs);
         var original=accounting.get(finance,project);
-        assertThat(original).containsEntry("confirmedCostCents","51000");
+        assertThat(original).containsEntry("confirmedCostCents","101100");
         accounting.confirm(finance,project,"full-source",command(original));
         jdbc.update("UPDATE fr_fin_payable SET recipient='已核对的供应方' WHERE id=?",args.get(0)[0]);
-        assertThat(accounting.get(finance,project)).containsEntry("state","STALE").containsEntry("confirmedCostCents","51000");
+        assertThat(accounting.get(finance,project)).containsEntry("state","STALE").containsEntry("confirmedCostCents","101100");
+        accounting.confirm(finance,project,"full-expense-source",command(accounting.get(finance,project)));
+        jdbc.update("UPDATE fr_eng_expense SET note='核对最早的原费用凭据' WHERE id=?",expenseArgs.get(0)[0]);
+        assertThat(accounting.get(finance,project)).containsEntry("state","STALE").containsEntry("confirmedCostCents","101100");
+        var ledger=workbench.ledger(finance.orgId(),"project:"+project);
+        assertThat((List<?>)ledger.get("entries")).hasSize(500);
+        assertThat(((Number)((Map<?,?>)ledger.get("summary")).get("committed_cents")).longValue()).isEqualTo(101100);
     }
 
     @Test void storeScopeRolesAndSettlementPrerequisitesCannotBeBypassed() {
