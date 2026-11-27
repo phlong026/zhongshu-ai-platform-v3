@@ -253,7 +253,7 @@ test('employee balances fail closed when the backend omits complete scoped IDs',
  await h.page.loadWorkbench();await h.page.loadBookLedger();
  assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[]);
  assert.equal(h.page.data.bookResult.employeeScopeIncomplete,true);
- assert(hasText('较早记录可能未列出'),'old backend must never present a partial advance list as complete');
+ assert(hasText('员工往来完整范围暂不可用，已隐藏不完整数据'),'old backend must never present a partial advance list as complete');
  ledger=employeeLedger('project:11',[],[entry]);
  await h.page.loadBookLedger();assert.equal(h.page.data.bookEmployeeRows.length,0);
  assert.equal(h.page.data.bookResult.employeeScopeIncomplete,false);
