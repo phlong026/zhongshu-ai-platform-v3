@@ -233,7 +233,7 @@ public class EngPlanService {
         upsertTerm(post, projectId, FrEngCollectionTermDO.STAGE_BASE_DONE, baseDone);
         upsertTerm(post, projectId, FrEngCollectionTermDO.STAGE_CAP_DONE, capDone);
         }
-        // 携带节点（prepare 也是改期入口之一：日期齐全校验+整体重建）
+        // 准备时可一并保存已知日期；沿用原节点，远期日期可后补。
         if (cmd.nodes() != null && !cmd.nodes().isEmpty()) {
             saveNodeDates(post, project, cmd.nodes(), "prepare");
         }
@@ -310,10 +310,11 @@ public class EngPlanService {
         if (cmd.note()!=null && cmd.note().length()>1000 || cmd.fileAssetIds()!=null && !cmd.fileAssetIds().isEmpty())
             throw exception(ENGINEERING_INPUT_INVALID,"开工说明不超过1000字，请使用单份明确的开工凭据");
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
+        var starts = nodes.stream().filter(n -> "START".equals(n.getMilestone())).toList();
         if (project.getActualStartAt() != null || project.getPreparedAt() == null
-                || nodes.stream().filter(n -> "START".equals(n.getMilestone())).count()!=1
-                || nodes.stream().anyMatch(n -> n.getStartDate() == null || n.getEndDate() == null)) {
-            throw exception(ENGINEERING_INPUT_INVALID, "请先完成开工准备并填写全部节点计划日期");
+                || starts.size() != 1 || starts.get(0).getStartDate() == null
+                || !starts.get(0).getStartDate().equals(starts.get(0).getEndDate())) {
+            throw exception(ENGINEERING_INPUT_INVALID, "请先完成开工准备并填写计划开工日期");
         }
         requireStartGate(post, projectId);
         // M07-T03/I04：开工凭据资产域侧校验
@@ -451,7 +452,7 @@ public class EngPlanService {
 
     /**
      * 节点日期整体写入（prepare 携带节点与 PUT plan 共用）：
-     * 集合一致（nodeIndex 对齐现有行）+日期齐全+不重叠+须含 TOPPING；已完成节点跳过（改期入口，蓝本 :88）。
+     * 保留原节点及编号；日期可整对留空或并行，START 为单日；已完成记录不改。
      */
     private void saveNodeDates(PostSnapshot post, FrEngProjectDO project, List<NodeInput> inputs, String action) {
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), project.getId());
@@ -459,7 +460,6 @@ public class EngPlanService {
             throw exception(PLAN_INVALID); // 请保留原施工节点
         }
         boolean hasTopping = false;
-        LocalDate prevEnd = null;
         for (int i = 0; i < inputs.size(); i++) {
             NodeInput in = inputs.get(i);
             FrEngPlanNodeDO node = nodes.get(i);
@@ -470,18 +470,13 @@ public class EngPlanService {
                 hasTopping = true;
             }
             if (FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
-                prevEnd = node.getEndDate();
                 continue; // 已完成节点跳过
             }
+            if (in.startDate() == null && in.endDate() == null) continue;
             if (in.startDate() == null || in.endDate() == null || in.endDate().isBefore(in.startDate())) {
                 throw exception(PLAN_INVALID);
             }
-            boolean followsStart = i > 0 && "START".equals(nodes.get(i - 1).getMilestone());
             if ("START".equals(node.getMilestone()) && !in.startDate().equals(in.endDate())) throw exception(PLAN_INVALID);
-            if (prevEnd != null && (followsStart ? in.startDate().isBefore(prevEnd) : !in.startDate().isAfter(prevEnd))) {
-                throw exception(PLAN_INVALID); // 节点日期不可重叠
-            }
-            prevEnd = in.endDate();
         }
         if (!hasTopping) {
             throw exception(PLAN_INVALID); // 请保留封顶验收（主体封顶）节点
@@ -494,10 +489,10 @@ public class EngPlanService {
             if (FrEngPlanNodeDO.STATUS_DONE.equals(node.getStatus())) {
                 continue;
             }
-            planNodes.updateById(new FrEngPlanNodeDO().setId(node.getId())
-                    .setName("START".equals(node.getMilestone()) ? "正式开工" : StrUtil.blankToDefault(in.name(), node.getName()))
-                    .setStartDate(in.startDate()).setEndDate(in.endDate()));
-            jdbcTemplate.update("UPDATE fr_eng_plan_node SET baseline_end_date=COALESCE(baseline_end_date,?) WHERE id=? AND company_id=?",in.endDate(),node.getId(),post.orgId());
+            // Explicit nulls keep the current rows consistent with the saved snapshot when a future range is cleared.
+            jdbcTemplate.update("UPDATE fr_eng_plan_node SET name=?,start_date=?,end_date=?,baseline_end_date=COALESCE(baseline_end_date,?) WHERE id=? AND company_id=?",
+                    "START".equals(node.getMilestone()) ? "正式开工" : StrUtil.blankToDefault(in.name(), node.getName()),
+                    in.startDate(), in.endDate(), in.endDate(), node.getId(), post.orgId());
         }
     }
 
@@ -537,20 +532,10 @@ public class EngPlanService {
                 .filter(n -> n.getNodeIndex() == cmd.nodeIndex()).findFirst()
                 .orElseThrow(() -> exception(PLAN_INVALID));
         if (FrEngPlanNodeDO.STATUS_DONE.equals(target.getStatus()) || cmd.newStart() == null
-                || target.getStartDate() == null) {
+                || target.getStartDate() == null || target.getEndDate() == null) {
             throw exception(PLAN_INVALID); // 已完成节点不能改期
         }
         long delta = cmd.newStart().toEpochDay() - target.getStartDate().toEpochDay();
-        // 上一节点不得重叠（顺移仅向右或左移但不压前一节点）
-        int index = nodes.indexOf(target);
-        if (index > 0) {
-            FrEngPlanNodeDO prev = nodes.get(index - 1);
-            LocalDate prevEnd = FrEngPlanNodeDO.STATUS_DONE.equals(prev.getStatus())
-                    ? prev.getEndDate() : prev.getEndDate();
-            if (prevEnd != null && !cmd.newStart().isAfter(prevEnd)) {
-                throw exception(PLAN_INVALID); // 改期后与上一节点重叠
-            }
-        }
         int nextVersion = nextVersion(post, projectId);
         List<EngTemplate.PlanSnapshotRow> snapshotRows = new ArrayList<>();
         List<FrEngMaterialDO> allMaterials = materials.selectByProject(post.orgId(), projectId);

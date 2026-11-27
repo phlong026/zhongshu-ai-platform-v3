@@ -11,7 +11,7 @@ public interface FranchiseEngineeringErrorCodes {
     ErrorCode ENGINEERING_FORBIDDEN = new ErrorCode(1_115_000_000,
             "当前岗位无权办理本工程操作（非负责人本人或超出交付/归档后可办范围）");
     ErrorCode ENGINEERING_INPUT_INVALID = new ErrorCode(1_115_000_001, "提交内容不合法：{}");
-    ErrorCode PLAN_INVALID = new ErrorCode(1_115_000_002, "施工计划不合法（日期缺失/重叠/已完成节点不可改期）");
+    ErrorCode PLAN_INVALID = new ErrorCode(1_115_000_002, "施工计划不合法（原节点不一致、起止日期不完整或倒置、已完成节点不可改期）");
     ErrorCode NODE_ACTION_INVALID = new ErrorCode(1_115_000_003, "节点操作前置不满足（撤回/更正条件或封顶日期链）");
     ErrorCode MATERIAL_INVALID = new ErrorCode(1_115_000_004, "材料操作不合法（调整越界或已付款锁定）");
     ErrorCode RECEIPT_DUPLICATE = new ErrorCode(1_115_000_005, "收货流水号已登记，请查看原收货记录");

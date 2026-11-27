@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -171,6 +172,7 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
 
     @Resource
     private EngPlanService planService;
+    @Resource private EngProjectService projectService;
     @Resource
     private EngCollectionService collectionService;
     @Resource
@@ -233,6 +235,81 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test
+    void signedPlanWithoutNodeReferencesGetsEssentialTemplateAndReceiveKeepsItsExistingPlan() {
+        var received = receiveUnbuiltContract(java.util.List.of(
+                installment("开工款", 40_000_000L, "BEFORE_START"), installment("交付后款", 28_000_000L, "ON_FINISH")));
+        var original = jdbc.queryForList("SELECT id,node_index,name,milestone,status FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", received.project());
+        assertThat(original).hasSize(12).allMatch(row -> "PENDING".equals(row.get("status")));
+        assertThat(original.stream().map(row -> row.get("name")).toList()).doesNotContain("开工准备", "施工准备");
+        assertThat(original.stream().map(row -> ((Number)row.get("node_index")).intValue()).toList())
+                .containsExactly(1,4,5,6,7,8,9,10,11,12,13,14);
+        var inputs = original.stream().map(row -> new EngPlanService.NodeInput(((Number)row.get("node_index")).intValue(),
+                (String)row.get("name"), "START".equals(row.get("milestone")) ? LocalDate.now() : null,
+                "START".equals(row.get("milestone")) ? LocalDate.now() : null)).toList();
+        as(engineer, () -> planService.savePlan(engineer, received.project(), inputs, idem()));
+        var saved = as(engineer, () -> planService.planView(engineer, received.project()));
+        var history = as(engineer, () -> planService.history(engineer, received.project()));
+        long again = as(engineer, () -> projectService.receiveFromHandover(engineer, received.commission(), received.customer(),
+                received.name(), "武汉", "13900008158", new BigDecimal("100"), 2, engineer.userId(), "V1", "", java.util.List.of(),
+                received.contract(), "V1"));
+        assertThat(again).isEqualTo(received.project());
+        assertThat(as(engineer, () -> planService.planView(engineer, again))).isEqualTo(saved);
+        assertThat(as(engineer, () -> planService.history(engineer, again))).isEqualTo(history);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_node WHERE project_id=? AND status='DONE'", Integer.class, again)).isZero();
+        assertThat(jdbc.queryForObject("SELECT actual_start_at FROM fr_eng_project WHERE id=?", LocalDate.class, again)).isNull();
+    }
+
+    @Test
+    void alreadySignedUnbuiltContractWithNodePaymentsKeepsOriginalNodeMeanings() {
+        var received = receiveUnbuiltContract(java.util.List.of(
+                new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null,"准备完成款",20_000_000L,null,null,"NODE_COMPLETED",2),
+                new cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input(null,"封顶款",48_000_000L,null,null,"NODE_COMPLETED",8)));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_node WHERE project_id=?", Integer.class, received.project())).isEqualTo(14);
+        assertThat(jdbc.queryForObject("SELECT name FROM fr_eng_plan_node WHERE project_id=? AND node_index=2", String.class, received.project())).isEqualTo("开工准备");
+        assertThat(jdbc.queryForObject("SELECT name FROM fr_eng_plan_node WHERE project_id=? AND node_index=3", String.class, received.project())).isEqualTo("施工准备");
+        assertThat(jdbc.queryForObject("SELECT milestone FROM fr_eng_plan_node WHERE project_id=? AND node_index=8", String.class, received.project())).isEqualTo("TOPPING");
+        assertThat(jdbc.queryForList("SELECT trigger_node_index FROM fr_sale_payment_stage WHERE contract_id=? AND NOT deleted ORDER BY sequence", Integer.class, received.contract()))
+                .containsExactly(2, 8);
+    }
+
+    @Test
+    void legacyContractsAndExistingUnlinkedArchivesKeepTheOriginalTemplate() {
+        var legacy = receiveUnbuiltContract(null);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_node WHERE project_id=?", Integer.class, legacy.project())).isEqualTo(14);
+        var nodes = jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", legacy.project());
+        var versions = jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version", legacy.project());
+        // A historical unlinked archive already has its plan; it must not use the new-project entry to rebuild it.
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL,sale_contract_id=NULL WHERE id=?", legacy.project());
+        long unknown = as(engineer, () -> projectService.receiveFromHandover(engineer, legacy.commission(), null,
+                legacy.name(), "武汉", "13900008158", new BigDecimal("100"), 2, engineer.userId(), "V1", "", java.util.List.of(), null, "V1"));
+        assertThat(unknown).isEqualTo(legacy.project());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_node WHERE project_id=?", Integer.class, unknown)).isEqualTo(14);
+        assertThat(jdbc.queryForObject("SELECT name FROM fr_eng_plan_node WHERE project_id=? AND node_index=2", String.class, unknown)).isEqualTo("开工准备");
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", unknown)).isEqualTo(nodes);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version", unknown)).isEqualTo(versions);
+    }
+
+    private record ReceivedTemplate(long project, long customer, long contract, long commission, String name) { }
+
+    private ReceivedTemplate receiveUnbuiltContract(java.util.List<cn.iocoder.yudao.module.franchise.sales.PaymentPlanRules.Input> installments) {
+        long customer = IDS.incrementAndGet(), commission = IDS.incrementAndGet();
+        String name = "模板核对客户" + customer;
+        jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,name,phone,source,status,create_time,update_time) VALUES(?,?,?,?,?,'视频号咨询','REGISTERED',now(),now())",
+                customer, store.orgId(), engineer.userId(), name, String.valueOf(customer));
+        var contract = as(engineer, () -> contracts.create(engineer, new SaleContractService.ContractCommand(customer,
+                68_000_000L, 40_000_000L, 18_000_000L, 10_000_000L, null, null, null, installments), idem()));
+        as(engineer, () -> contracts.sign(engineer, contract.getId(), new SaleContractService.SignCommand(LocalDate.now(), 9001L),
+                revisionOf(contract.getId()), idem()));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE sale_contract_id=?", Integer.class, contract.getId())).isZero();
+        var payment = jdbc.queryForList("SELECT id,trigger_type,trigger_node_index,plan_version,amount_cents FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY sequence", contract.getId());
+        long project = as(engineer, () -> projectService.receiveFromHandover(engineer, commission, customer, name, "武汉",
+                "13900008158", new BigDecimal("100"), 2, engineer.userId(), "V1", "", java.util.List.of(), contract.getId(), "V1"));
+        assertThat(jdbc.queryForList("SELECT id,trigger_type,trigger_node_index,plan_version,amount_cents FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY sequence", contract.getId()))
+                .isEqualTo(payment);
+        return new ReceivedTemplate(project, customer, contract.getId(), commission, name);
+    }
 
     @Test
     void collectionRegistrationRejectsSameKeyWhenProjectDateOrEvidenceChanges() {

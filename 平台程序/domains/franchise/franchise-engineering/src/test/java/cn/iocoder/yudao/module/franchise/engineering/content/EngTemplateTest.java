@@ -41,6 +41,20 @@ class EngTemplateTest {
     }
 
     @Test
+    void essentialTemplateRemovesOnlyTheTwoPreparationRowsWithoutRenumbering() {
+        for (int floors = 1; floors <= 5; floors++) {
+            var legacy = EngTemplate.buildNodes(floors);
+            var essential = EngTemplate.buildEssentialNodes(floors);
+            assertThat(essential).hasSize(legacy.size() - 2).allMatch(legacy::contains);
+            assertThat(essential).noneMatch(node -> "开工准备".equals(node.name()) || "施工准备".equals(node.name()));
+            assertThat(essential.get(0)).isEqualTo(legacy.get(0));
+            assertThat(essential.get(1).nodeIndex()).isEqualTo(4);
+            assertThat(essential.stream().filter(node -> "TOPPING".equals(node.milestone())).toList())
+                    .isEqualTo(legacy.stream().filter(node -> "TOPPING".equals(node.milestone())).toList());
+        }
+    }
+
+    @Test
     void snapshotJsonKeepsDatesAndStatus() {
         List<EngTemplate.PlanSnapshotRow> rows = List.of(
                 new EngTemplate.PlanSnapshotRow(1, "开工准备", null,

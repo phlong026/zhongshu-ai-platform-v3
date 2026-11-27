@@ -9,7 +9,8 @@ import java.util.List;
 /**
  * 公司进度计划模板：正式开工里程碑 +《合家美宅进度计划表》一级计划（12 类施工节点）。
  * 主体层按项目层数展开（1-5 层钳制，缺省 2）后共 13-17 节点；模板只定节点结构与顺序，
- * 工期日期由工程人员逐项填写（或 Excel 导入走 v3 解析后 PUT plan）。
+ * 兼容模板保留原编号；无节点付款引用的新工程可去掉两条已由 prepare 办理的准备项。
+ * 工期日期由工程人员按实际安排填写，远期可留空。
  * 规则来源：engineering-records.js:16-28（recordFlow 唯一基准）。
  */
 public final class EngTemplate {
@@ -51,6 +52,12 @@ public final class EngTemplate {
             throw new IllegalStateException("模板缺少封顶验收节点");
         }
         return rows;
+    }
+
+    /** Only used after proving the signed payment plan has no legacy/node-index dependency. Never renumber. */
+    public static List<NodeDraft> buildEssentialNodes(Integer floors) {
+        return buildNodes(floors).stream().filter(node -> !"开工准备".equals(node.name())
+                && !"施工准备".equals(node.name())).toList();
     }
 
     public record NodeDraft(int nodeIndex, String name, String milestone) {
