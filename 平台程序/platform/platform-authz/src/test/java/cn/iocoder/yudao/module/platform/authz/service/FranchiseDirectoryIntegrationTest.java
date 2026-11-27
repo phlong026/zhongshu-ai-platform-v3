@@ -459,4 +459,22 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(directory.page("",null,null,2,20).getList()).isEmpty();
         assertThatThrownBy(()->directory.page("",null,null,1,101)).isInstanceOf(ServiceException.class);
     }
+
+    @Test
+    void citywideCoverageIsExplicitAndCannotBeSavedForADistrictOrFranchise() {
+        var coverage=directory.create(new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,null),7);
+        assertThat(coverage.wholeAreaCoverage()).isFalse();
+        var confirmed=directory.update(coverage.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,coverage.version(),true),7);
+        assertThat(confirmed.wholeAreaCoverage()).isTrue();
+        assertThat(confirmed.regionCodes()).containsExactly("420100");
+        assertThatThrownBy(()->directory.update(confirmed.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","江夏区",
+                List.of("420115"),null,null,confirmed.version(),true),7)).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->directory.create(new FranchiseDirectoryService.RecordRequest("测试店","测试甲","FRANCHISE","武汉大区",
+                List.of("420100"),null,null,null,true),7)).isInstanceOf(ServiceException.class);
+        var revoked=directory.update(confirmed.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,confirmed.version(),false),7);
+        assertThat(revoked.wholeAreaCoverage()).isFalse();
+    }
 }
