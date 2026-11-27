@@ -260,6 +260,12 @@
             >地区加载失败，点击重试</button
           >
         </el-form-item>
+        <el-form-item v-if="canConfirmWholeArea" label="覆盖范围">
+          <el-checkbox v-model="draft.wholeAreaCoverage" :disabled="saving">
+            已确认覆盖所选省或市的全域
+          </el-checkbox>
+          <span class="muted">不勾选则显示为区县待确认，不默认覆盖下辖区县。</span>
+        </el-form-item>
       </el-form>
       <el-alert v-if="editError" :title="editError" type="error" :closable="false" />
       <template #footer
@@ -324,7 +330,8 @@ const draft = reactive<DirectoryInput>({
   brand: '',
   recordType: 'COVERAGE',
   originalRegionText: '',
-  regionCodes: []
+  regionCodes: [],
+  wholeAreaCoverage: false
 })
 const importVisible = ref(false)
 const importFile = ref<File | null>(null)
@@ -351,6 +358,14 @@ let lifecycleGeneration = 0
 watch(busy, (value) => emit('busy', value), { flush: 'sync' })
 
 const byCode = computed(() => new Map(regions.value.map((r) => [r.code, r])))
+const canConfirmWholeArea = computed(() => {
+  if (draft.recordType !== 'COVERAGE' || draft.regionCodes.length !== 1) return false
+  const level = byCode.value.get(draft.regionCodes[0])?.level
+  return level === 'province' || level === 'city'
+})
+watch(() => [draft.brand,draft.recordType,draft.originalRegionText,...draft.regionCodes].join('|'), (codes, previous) => {
+  if (editVisible.value && codes !== previous) draft.wholeAreaCoverage = false
+}, { flush: 'sync' })
 const visibleRegions = computed(() => {
   const query = regionKeyword.value.trim()
   const selected = new Set(draft.regionCodes)
@@ -451,6 +466,7 @@ function openEditor(item?: DirectoryItem) {
     recordType: item?.recordType || 'COVERAGE',
     originalRegionText: item?.originalRegionText || '',
     regionCodes: [...(item?.regionCodes || [])],
+    wholeAreaCoverage: item?.wholeAreaCoverage === true,
     provinceCode: item?.provinceCode || undefined,
     cityCode: item?.cityCode || undefined,
     expectedVersion: item?.version
@@ -549,6 +565,7 @@ async function saveRecord() {
       recordType: draft.recordType,
       originalRegionText: draft.originalRegionText.trim(),
       regionCodes: [...draft.regionCodes],
+      wholeAreaCoverage: canConfirmWholeArea.value && draft.wholeAreaCoverage === true,
       expectedVersion: editing.value?.version
     }
     if (editing.value) await updateDirectoryRecord(editing.value.id, payload)
@@ -660,7 +677,7 @@ function dispose() {
   mapPublicAddress.value = ''
   mapPublicAddressAuthorized.value = false
   mapEditError.value = ''
-  Object.assign(draft, { name: '', brand: '', originalRegionText: '', regionCodes: [] })
+  Object.assign(draft, { name: '', brand: '', originalRegionText: '', regionCodes: [], wholeAreaCoverage: false })
   saving.value = false
   importing.value = false
   prechecking.value = false
