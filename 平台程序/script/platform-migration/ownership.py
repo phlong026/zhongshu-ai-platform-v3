@@ -2,11 +2,13 @@
 """Offline P3 inventory and synthetic evidence checks; no database or execution path."""
 import argparse
 import hashlib
+import io
 import json
 import logging
 from pathlib import Path
 import re
 import sys
+import zipfile
 
 DIRECTORY = Path(__file__).resolve().parent
 MANIFEST_FORMAT = "zhongshu-platform-ownership/v1"
@@ -124,6 +126,47 @@ def validate_manifest(manifest, source_root=None):
                     found_sequences.add(f"{match.group(1)}_{column}_seq".lower())
         demand(tables == found_tables, "TABLE_COVERAGE_CHANGED")
         demand(sequence_names == found_sequences, "SEQUENCE_COVERAGE_CHANGED")
+        for entry in manifest.get("rollback_review", {}).get("entries", []):
+            forward = entry["source_migration"]
+            demand(forward in expected and Path(forward).name.startswith(f"V{entry['version']}__"),
+                   "UNDO_SOURCE_MIGRATION_INVALID")
+            directory = (root / forward).parent
+            undo_directory = directory.parent.parent / "migration-undo" / directory.name
+            for undo in entry["undo_files"]:
+                path = root / undo["path"]
+                demand(path.parent == undo_directory and path.name.startswith(f"V{entry['version']}__")
+                       and path.suffix == ".sql" and path.resolve().is_relative_to(root),
+                       "UNDO_PATH_INVALID")
+                demand(digest(path) == undo["source_sha256"], "UNDO_HASH_CHANGED")
+
+
+def validate_artifact(manifest, artifact):
+    """Compare the current Spring Boot classpath, including nested dependency JARs."""
+    expected = {"db/migration/" + item["path"].split("/src/main/resources/db/migration/", 1)[1]:
+                item["source_sha256"] for item in manifest["migrations"]}
+    actual = {}
+
+    def resources(archive, prefix=""):
+        for info in archive.infolist():
+            if not info.filename.startswith(prefix + "db/migration/"):
+                continue
+            resource = info.filename[len(prefix):]
+            parts = resource.split("/")
+            if (len(parts) < 4 or parts[2] not in LOCATIONS
+                    or not parts[-1].startswith("V") or not parts[-1].endswith(".sql")):
+                continue
+            demand(resource not in actual, "ARTIFACT_DUPLICATE_MIGRATION")
+            actual[resource] = hashlib.sha256(archive.read(info)).hexdigest()
+
+    with zipfile.ZipFile(artifact) as archive:
+        resources(archive, "BOOT-INF/classes/")
+        for info in archive.infolist():
+            if info.filename.startswith("BOOT-INF/lib/") and info.filename.endswith(".jar"):
+                with zipfile.ZipFile(io.BytesIO(archive.read(info))) as dependency:
+                    resources(dependency)
+    demand(actual.keys() == expected.keys(), "ARTIFACT_MIGRATION_SET_CHANGED")
+    demand(actual == expected, "ARTIFACT_MIGRATION_HASH_CHANGED")
+    return {"sha256": digest(artifact), "migrations": len(actual)}
 
 
 def indexed(records, key, code):
@@ -228,26 +271,30 @@ def main(argv=None):
     parser.add_argument("action", nargs="?", choices=("plan", "check"), default="plan")
     parser.add_argument("--manifest", type=Path, default=DIRECTORY / "manifest.json")
     parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--artifact", type=Path, help="Current packaged Spring Boot JAR; requires --source-root")
     parser.add_argument("--fixture", type=Path)
     parser.add_argument("--coverage", type=Path, default=DIRECTORY / "writer-coverage.json")
     args = parser.parse_args(argv)
     try:
-        demand(args.action == "check" or (args.source_root is None and args.fixture is None),
+        demand(args.action == "check" or (args.source_root is None and args.fixture is None and args.artifact is None),
                "PLAN_ACCEPTS_MANIFEST_ONLY")
+        demand(args.artifact is None or args.source_root is not None, "ARTIFACT_REQUIRES_SOURCE_CHECK")
         manifest = read_json(args.manifest)
         validate_coverage(read_json(args.coverage), args.source_root if args.action == "check" else None)
         validate_manifest(manifest, args.source_root if args.action == "check" else None)
+        artifact = validate_artifact(manifest, args.artifact) if args.artifact is not None else None
         if args.fixture is not None:
             validate_fixture(read_json(args.fixture))
         result = {"status": "STATIC_INVENTORY_ONLY" if args.action == "plan" else "OFFLINE_CHECKS_PASSED",
                   "tables": len(manifest["tables"]), "migrations": len(manifest["migrations"]),
                   "sequences": len(manifest["sequences"]), "source_checked": args.source_root is not None,
+                  "artifact_checked": artifact is not None, "artifact": artifact,
                   "synthetic_fixture_checked": args.fixture is not None,
                   "writer_candidates": len(WRITERS), "freeze_ready": False,
                   "database_connected": False, "migration_ready": False, "production_verified": False}
         sys.stdout.write(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
         return 0
-    except (OSError, ValueError, KeyError, TypeError) as failure:
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as failure:
         code = str(failure) if isinstance(failure, EvidenceError) else type(failure).__name__
         logging.error("P3 offline check failed: %s", code)
         return 2

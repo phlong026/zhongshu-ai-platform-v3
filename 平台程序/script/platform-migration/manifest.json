@@ -1,6 +1,6 @@
 {
   "format": "zhongshu-platform-ownership/v1",
-  "evidence_level": "STATIC_SOURCE_AND_LOCAL_ARTIFACT_RESOURCES",
+  "evidence_level": "STATIC_SOURCE_WITH_HISTORICAL_ARTIFACT_EVIDENCE",
   "production_verified": false,
   "locations": [
     "platform-bootstrap",
@@ -2079,6 +2079,54 @@
         "source": "yudao-domain-franchise-asset-2026.08-SNAPSHOT.jar",
         "sha256": "093c6354637adedad9e4b47efcfdce0730c85a9b82dce3844f465d38c5e24256"
       }
+    },
+    {
+      "path": "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261123.1023__content_clone_archive.sql",
+      "location": "franchise",
+      "version": "20261123.1023",
+      "source_sha256": "c28a52be65ecdca5becc9037d22cebc2d7c958aae76318d172950250b083834f",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261119.981__customer_follow_progress.sql",
+      "location": "franchise",
+      "version": "20261119.981",
+      "source_sha256": "9fff81afa0d2e9274ac448f3011cc44ab1e891f4c2acb9eeca9220e5928cca0b",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1104__customer_followup_single_source.sql",
+      "location": "franchise",
+      "version": "20261126.1104",
+      "source_sha256": "b426dc6c62900d3aa6e9eb0707fa40e1d6086dd647970555f65466a0a0ccdcb4",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql",
+      "location": "franchise-system",
+      "version": "20261127.1201",
+      "source_sha256": "1850b5ed691ae78fd00f77b39ac15ab6229b466cd374a673857e6d9f4f943f18",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql",
+      "location": "franchise",
+      "version": "20261127.1200",
+      "source_sha256": "6eaebc30dfa600deee90fa31a24ff80d5b675346302c8eeca5db94994e56e430",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "platform/platform-org/src/main/resources/db/migration/pf/V20261127.1210__franchise_whole_area_coverage.sql",
+      "location": "pf",
+      "version": "20261127.1210",
+      "source_sha256": "ba2a76ba9d28323cffb5e2482598f9e1793770a8611fa931c9de841e594c46ec",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
     }
   ],
   "tables": [
@@ -2288,7 +2336,9 @@
       "strategy": "filtered-copy",
       "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
       "source_migrations": [
-        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261119.981__customer_follow_progress.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1104__customer_followup_single_source.sql"
       ],
       "runtime_verified": false
     },
@@ -2298,7 +2348,8 @@
       "strategy": "filtered-copy",
       "selector": "company_id IN B_ORG；保留业务父子及 author/operator/user/post 关系，跨组织委托边单列",
       "source_migrations": [
-        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql"
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261022.802__fr_crm.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261119.981__customer_follow_progress.sql"
       ],
       "runtime_verified": false
     },
@@ -3069,7 +3120,8 @@
       "strategy": "filtered-copy",
       "selector": "B 组织/岗位使用 code/role_code 与定义版本；合并 seed 内容一致才允许去重",
       "source_migrations": [
-        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql"
       ],
       "runtime_verified": false
     },
@@ -3119,7 +3171,8 @@
       "strategy": "filtered-copy",
       "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
       "source_migrations": [
-        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql"
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql"
       ],
       "runtime_verified": false
     },
@@ -3469,7 +3522,8 @@
       "strategy": "filtered-copy",
       "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
       "source_migrations": [
-        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql"
       ],
       "runtime_verified": false
     },
@@ -3479,7 +3533,8 @@
       "strategy": "filtered-copy",
       "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
       "source_migrations": [
-        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql"
       ],
       "runtime_verified": false
     },
@@ -3589,7 +3644,8 @@
       "strategy": "filtered-copy",
       "selector": "B_ADMIN/B_ORG 与岗位、角色、菜单父链闭包；bootstrap 同 ID 比内容，冲突阻断",
       "source_migrations": [
-        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql"
+        "yudao-platform-server/src/main/resources/db/migration/platform-bootstrap/V20260904.001__platform_system_infra.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql"
       ],
       "runtime_verified": false
     },
@@ -3789,7 +3845,8 @@
       "strategy": "filtered-copy",
       "selector": "按 tenant/company、customer_id 闭合八步流程；保留模板和修订。",
       "source_migrations": [
-        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1104__customer_followup_single_source.sql"
       ],
       "runtime_verified": false
     },
@@ -3799,7 +3856,8 @@
       "strategy": "filtered-copy",
       "selector": "同一 workflow/步骤及版本，保留操作者与更正前后历史附件。",
       "source_migrations": [
-        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1104__customer_followup_single_source.sql"
       ],
       "runtime_verified": false
     },
@@ -3809,7 +3867,8 @@
       "strategy": "filtered-copy",
       "selector": "同租户同公司 workflow_id/step_code，核字段和附件 JSON 对应已接收的资产。",
       "source_migrations": [
-        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql"
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261125.1040__customer_eight_step_workflow.sql",
+        "domains/franchise/franchise-crm/src/main/resources/db/migration/franchise/V20261126.1104__customer_followup_single_source.sql"
       ],
       "runtime_verified": false
     },
@@ -4108,6 +4167,318 @@
       "owner": "B",
       "strategy": "rebuild",
       "selector": "短期 token_hash 按到期和最新课程权限重新签发，保留原课件及持久学习进度。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "design_billing_binding",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 origin/org_id/ref_type/ref_id/subject 与 B 业务及原 operation 闭合；历史计费路由不得因 AI 设计入口退役而丢失或重绑。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.912__design_billing_binding.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "design_prompt_receipt",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "无直接 org_id；经已核准 B job_id/attempt_no 与 operation/billing binding 证明归属，保留 call_id/hash/outcome，无法证明的行保留源端待核。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.913__design_prompt_receipt.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_commission_simulated_order",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过 commission_id/submission_version 与 B 公司及设计组织闭合；仅模拟订单历史，不能映射为真实收款或应付款。",
+      "source_migrations": [
+        "domains/franchise/franchise-commission/src/main/resources/db/migration/franchise/V20261116.942__commission_simulated_payment.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_cover_request",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant/company/author/post 和原请求键闭合；保留不确定提交、归档令牌及 cover_asset 引用，不能重发生成请求来重建历史。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261124.1025__content_cover_requests.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_digital_clone",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "company_id IN B_ORG，并核 persona/author/post/source_asset 或 source_upload 及 operation_id；保留外部任务、授权、归档和计费在途事实，外部资源所有权另核。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261115.917__fr_content_digital_clones.sql",
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261123.1023__content_clone_archive.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_content_hifly_upload",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过 B company/persona/author 与引用它的数字分身闭合；provider_file_id、有效期和实际外部归属需逐项核实，客户端 UPLOADED 不等于供应商已接收。",
+      "source_migrations": [
+        "domains/franchise/franchise-content/src/main/resources/db/migration/franchise/V20261116.924__fr_content_hifly_direct_upload.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "fr_eng_camera",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 company_id 和同公司的 project_id 继承工程；保留摄像头归属，播放地址与外部访问授权另核，不跨公司复制。",
+      "source_migrations": [
+        "domains/franchise/franchise-engineering/src/main/resources/db/migration/franchise/V20261118.950__fr_eng_progress_camera.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_account",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过 org_id IN B_ORG 核准独立公司积分账户；非零余额和在途预留必须与 ledger/operation 对账，禁止按零余额路径初始化覆盖。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.911__org_point_pool.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_hq_adjustment",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "org_id 继承 B 积分账户；保留 maker/checker、原请求与执行结果，SUBMITTED 在途调整另核，不重放调点。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.917__org_point_headquarters_admin.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_hq_price_request",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "核总部 tenant_id/actor_id 与已核准 B price_id/subject；保留 request_key/hash 和首次价格版本，不重发价格发布。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.918__org_point_hq_price_idempotency.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_ledger",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "org_id 继承已核准 B 账户，完整保留 RESERVE/SETTLE/RELEASE、operation_id、biz_key 及价格快照；追加流水不删除、不改写。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.911__org_point_pool.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_price_audit",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过已核准的 B subject/price_id 继承；保留 actor、原因及追加审计，不以当前 ACTIVE 价格替换历史。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.917__org_point_headquarters_admin.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_simulated_purchase",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id/org_id 核准 B 模拟购买历史；test_points/receipt 不计入正式 org_point_account 余额。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261118.990__isolated_simulated_package.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_simulation_review",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过 source_ledger_id 继承已核准 B 流水；保留财务复核人、证据及 approved_transfer，未获复核不能转正式积分。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261118.990__isolated_simulated_package.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "org_point_subject_price",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "B 公司池全局科目价格，不能用 org_id 过滤；按总部确认的 subject/version 及历史账单引用核准完整版本链，保留退役价格。",
+      "source_migrations": [
+        "platform/platform-wallet/src/main/resources/db/migration/platform-wallet/V20261114.914__org_point_subject_price.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_announcement",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id 核准 B 公司公告；保留 ALL/BRANDS 可见范围、草稿/发布/撤回、revision 和品牌闭包，不使用 A 广播消息替代。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261125.1031__platform_announcements.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_business_message_activation",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "实例级单例，无 org_id；按 B 旧实例实际启用水位核准 activated_at，不重置为当前时间或重发历史通知。",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261116.941__business_message_delivery.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_franchise_directory",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id/brand_id 核准 B 名录，保留 source_key、FRANCHISE/COVERAGE、未开账号记录及覆盖区域；account_id/org_id 为空不能直接遗漏。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261124.991__franchise_directory.sql",
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261127.1210__franchise_whole_area_coverage.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_franchise_directory_region",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "由同 tenant_id 的已审定 record_id 继承；保留一条名录对应多个地区的覆盖事实，核 region_code。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261124.991__franchise_directory.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_map_brand",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id 与经审定的 B 品牌集合核准，保持品牌 ID 及目录/门店/公告引用；总部未关联门店的品牌单列核实。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261118.988__franchise_store_map.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_message_center_activation",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "实例级启用水位，无 tenant/org；需和 B 消息投递 checkpoint、在途事件一并核准，禁止自动按源表全选。",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261117.946__message_center_context.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_message_delivery_checkpoint",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "由已核准 B command/event 与消息 dedupe_key 证明 event_id 归属；保留已投递水位，不能全删后重建导致重复通知。",
+      "source_migrations": [
+        "platform/platform-workflow/src/main/resources/db/migration/pf/V20261117.946__message_center_context.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_staff_password_policy",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "通过 tenant_id/user_id 与 B 的既有账号闭合；保留 require_change，不能按 tenant=0 全选或复制明文密码。",
+      "source_migrations": [
+        "platform/platform-org/src/main/resources/db/migration/pf/V20261115.710__pf_franchise_account.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_task_reconciliation",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id/org_id 及原 task_key 核准 B 在途任务；保留核对版本、决定、证据和 operator，外部执行方另行确认。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.730__platform_operations.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_audit",
+      "owner": "B",
+      "strategy": "filtered-copy",
+      "selector": "按 tenant_id 和已核准课程/资料 object_id 继承；保留 actor、revision 与审计顺序，序列进度另核。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_course",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id 核准 B 总部课程；保留草稿、审核态、revision 及 active_release，与已发布 release 和课件版本闭合。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_material",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id 核准 B 总部资料范围；保留 material_id、分类及作者，与课程/版本和私有文件闭合，不按门店 org_id 遗漏总部内容。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_material_category",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "按 tenant_id 与 B 总部资料分类核准；保留自定义、system_default、revision 和已删除分类，不重跑 seed 覆盖用户修改。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.925__training_material_categories.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_material_version",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "由同租户已核准 material_id 继承；核原始、预览、媒体、封面私有对象、hash 和版本，UPLOADING/lease 在途另核。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_upload",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "由同租户已核准 version_id/actor_id 继承；保留 request_key/fingerprint 和分片进度，未完成上传需核私有卷及唯一恢复者。",
+      "source_migrations": [
+        "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "name": "pf_training_upload_part",
+      "owner": "B",
+      "strategy": "subset-review",
+      "selector": "通过已核准 upload_id 继承；分片 size/hash 必须与实际私有对象核对，不能仅复制元数据即声称可恢复。",
       "source_migrations": [
         "yudao-platform-operations/src/main/resources/db/migration/pf/V20261116.731__training_phase_one.sql"
       ],
@@ -4803,8 +5174,8 @@
     "热停写和A连续服务",
     "通知恢复及唯一owner",
     "隔离导出导入恢复演练",
-    "925命令迁移专用undo缺失及现有undo非空数据限制，需核准回滚/恢复策略",
-    "完整源码包含尚待核准选择器的总部价格、品牌目录、培训内容、资金、外部资源及在途任务表。完整检查按源码表集继续阻断。"
+    "925等专用undo仅适用经检查的空表/无依赖边界；非空命令、资金和在途仍需核准备份恢复策略",
+    "源码表集已补齐静态归属；subset-review 选择器仍须结合目标租户、原单/在途、私有文件和运行时数据核准，不因离线清单通过而解除迁移阻断。"
   ],
   "a_retained_locations": [
     "identity",
@@ -4822,26 +5193,9 @@
   "migration_ready": false,
   "freeze_ready": false,
   "artifact_evidence": {
-    "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
-    "source_commit": "9c25fdd46183ac335bfbb7372b9d3feeb2ae8839",
-    "sha256": "3819ee9c60ed657ecc1875aa0c33d2c733a0d04134b87357215ddce654c0c9e4",
-    "artifact_bytes": 190196326,
-    "resource_count": 159,
-    "location_counts": {
-      "franchise": 82,
-      "franchise-asset": 8,
-      "franchise-design-remote": 5,
-      "franchise-system": 10,
-      "pf": 30,
-      "platform": 5,
-      "platform-bootstrap": 2,
-      "platform-wallet": 17
-    },
-    "resource_index_sha256": "2b08fb6fec5591669617299f92c51f756e6eb7087b9f47d69756c03ee8c06cf1",
-    "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
-    "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+    "verification": "NOT_VERIFIED_CURRENT_SOURCE",
     "database_history_verified": false,
-    "note": "核对 B 启动 JAR 的 BOOT-INF/classes 和所有内嵌依赖 JAR 中八个 Flyway 位置的正向资源。包括实际打包的 yudao-platform-operations 模块，生产 Flyway 历史、行级归属和回滚演练另行验收。"
+    "note": "当前源码清单与历史制品证据分开；CI 在本次 package 后用 ownership.py check --source-root --artifact 输出当前 JAR 的资源数量与 SHA256。历史 JAR 快照保存在 artifact_evidence_history，不能作为本次制品通过证据。"
   },
   "prior_artifact_evidence": {
     "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
@@ -4867,7 +5221,7 @@
     "note": "绑定2026-11-11第八轮最终重建JAR；69项forward迁移源/清单/JAR三方逐字一致，源未变故本清单逐项hash不动，forward不改。包内核验含U904=705b1b8b…与U925=54a1c225…逐字匹配、CapabilityJson Long序列化、G2b负检查干净（见package_content_verification，overall=PASS）。上一轮制品e6b042a5…（182612166B）及其清单保存于.omc/artifacts/pre-rebuild-baseline-20261111/。路径相对工程根。ownership.py源码检查不重新扫描JAR。"
   },
   "rollback_review": {
-    "scope": "本次新增/改指纹迁移，以及用于核清925边界的945；不是所有迁移的回滚验收",
+    "scope": "已登记的专用 undo 资源静态核对；不代表所有迁移均可回滚，也不代表非空数据恢复已通过。",
     "entries": [
       {
         "version": "20261111.903",
@@ -4959,6 +5313,32 @@
         ],
         "limitations": "非空映射表拒绝undo，必须保留映射、远端孤儿资产及项目引用，禁止直接删表后重建引用。",
         "execution_verified": false
+      },
+      {
+        "version": "20261127.1200",
+        "source_migration": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise/V20261127.1200__undo_retire_design_posts.sql",
+            "source_sha256": "fffd4226147ca24c2972d3e77a53fd8dfac9b0229134361b1200337b2d5e8898"
+          }
+        ],
+        "limitations": "仅恢复三岗模板，不复活 INACTIVE 任职；真实任职历史继续保留。目标环境执行与备份恢复由 BIZ-T12 验收。",
+        "execution_verified": false
+      },
+      {
+        "version": "20261127.1201",
+        "source_migration": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql",
+        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "undo_files": [
+          {
+            "path": "domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise-system/V20261127.1201__undo_retire_design_posts.sql",
+            "source_sha256": "b86f6dc5c702162ecfe62829359255f163d0a3c5b776bfefa7625ae42fef2114"
+          }
+        ],
+        "limitations": "现有脚本按固定种子 ID 重建且未写 tenant_id，无法证明多租户角色及原绑定可恢复；BIZ-T12 必须基于部署前真实备份修复并演练，登记资源不代表恢复通过。",
+        "execution_verified": false
       }
     ]
   },
@@ -5002,6 +5382,28 @@
         "platform-wallet": 17
       },
       "resource_index_sha256": "3ff95b8e1c59f3a4dba135367184f9e5cdf132990fc6476e47d70f68b507c6a7",
+      "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
+      "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
+      "database_history_verified": false,
+      "note": "核对 B 启动 JAR 的 BOOT-INF/classes 和所有内嵌依赖 JAR 中八个 Flyway 位置的正向资源。包括实际打包的 yudao-platform-operations 模块，生产 Flyway 历史、行级归属和回滚演练另行验收。"
+    },
+    {
+      "artifact": "yudao-platform-server/target/yudao-platform-server.jar",
+      "source_commit": "9c25fdd46183ac335bfbb7372b9d3feeb2ae8839",
+      "sha256": "3819ee9c60ed657ecc1875aa0c33d2c733a0d04134b87357215ddce654c0c9e4",
+      "artifact_bytes": 190196326,
+      "resource_count": 159,
+      "location_counts": {
+        "franchise": 82,
+        "franchise-asset": 8,
+        "franchise-design-remote": 5,
+        "franchise-system": 10,
+        "pf": 30,
+        "platform": 5,
+        "platform-bootstrap": 2,
+        "platform-wallet": 17
+      },
+      "resource_index_sha256": "2b08fb6fec5591669617299f92c51f756e6eb7087b9f47d69756c03ee8c06cf1",
       "resource_index_format": "UTF-8，按 resource 排序，每行 resource、source、sha256 以制表符分隔并以 LF 结束。",
       "verification": "BYTE_IDENTICAL_SOURCE_AND_JAR_RESOURCES",
       "database_history_verified": false,
