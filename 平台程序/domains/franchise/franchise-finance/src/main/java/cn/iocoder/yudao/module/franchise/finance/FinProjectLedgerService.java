@@ -13,7 +13,7 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
 public class FinProjectLedgerService {
     private final JdbcTemplate jdbc;
     public FinProjectLedgerService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
-    public record Row(long id,String type,LocalDate occurredOn,long amountCents,String sourceRef,String status) {}
+    public record Row(long id,String type,LocalDate occurredOn,long amountCents,String sourceRef,String status,String originalExpenseId) {}
     public record Summary(long receivableCents,long receivedCents,long refundedCents,long paidCents,long expenseRefundedCents,long payableCents) {}
     public record Ledger(Summary summary,PageResult<Row> entries,String projectName) {}
     public record Project(long projectId,String name,String status,Long sourceCommissionId) {}
@@ -45,7 +45,7 @@ public class FinProjectLedgerService {
           JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
           WHERE NOT s.deleted AND s.amount_cents>0),
         """ + PAYABLES + """
-        , unlinked_expenses AS (SELECT e.amount_cents FROM fr_eng_expense e JOIN project p ON p.company_id=e.company_id AND p.id=e.project_id
+        , unlinked_expenses AS (SELECT e.id,e.amount_cents,e.create_time FROM fr_eng_expense e JOIN project p ON p.company_id=e.company_id AND p.id=e.project_id
           WHERE e.status='REGISTERED' AND e.payable_id IS NULL),
         payments AS (SELECT m.*,p.source_ref ledger_source_ref FROM fr_fin_payment m JOIN project x ON m.company_id=x.company_id
           LEFT JOIN fr_fin_payable p ON p.id=m.payable_id AND p.company_id=x.company_id
@@ -56,6 +56,7 @@ public class FinProjectLedgerService {
             OR EXISTS(SELECT 1 FROM fr_eng_collection c WHERE c.company_id=x.company_id AND c.project_id=x.id AND c.receipt_id=r.id))),
         ledger AS (
           SELECT id,'PAYABLE'::text type,create_time::date occurred_on,total_cents amount_cents,source_ref,status FROM payables
+          UNION ALL SELECT id,'CONFIRMED_ENGINEERING_COST',(create_time AT TIME ZONE 'Asia/Shanghai')::date,amount_cents,NULL,'已确认' FROM unlinked_expenses
           UNION ALL SELECT id,CASE WHEN funding_type='EMPLOYEE' THEN 'ADVANCE' ELSE 'PAYMENT' END,pay_date,amount_cents,ledger_source_ref,status FROM payments
           UNION ALL SELECT id,'RECEIVABLE',signed_date,amount_cents,'contract:'||contract_id||':'||stage,status FROM expected_stages
           UNION ALL SELECT r.id,CASE WHEN r.status='待登记' THEN 'PENDING_RECEIPT' ELSE 'RECEIPT' END,r.received_date,r.amount_cents,r.source_ref,r.status FROM receipts r
@@ -78,11 +79,11 @@ public class FinProjectLedgerService {
               COALESCE(sum(amount_cents) FILTER(WHERE type='PAYMENT'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='EXPENSE_REFUND'),0),
               COALESCE(sum(amount_cents) FILTER(WHERE type='PAYABLE' AND status<>'已作废' AND id NOT IN(SELECT id FROM payables WHERE source_type='reimbursement')),0)
-                + (SELECT COALESCE(sum(amount_cents),0) FROM unlinked_expenses) FROM ledger
+                + COALESCE(sum(amount_cents) FILTER(WHERE type='CONFIRMED_ENGINEERING_COST'),0) FROM ledger
             """,(rs,n)->new Summary(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),project,org,org);
         long total=jdbc.queryForObject(SCOPE+"SELECT count(*) FROM ledger",Long.class,project,org,org);
         var rows=jdbc.query(SCOPE+"SELECT * FROM ledger ORDER BY occurred_on DESC NULLS LAST,id DESC,type DESC LIMIT ? OFFSET ?",
-                (rs,n)->new Row(rs.getLong("id"),rs.getString("type"),rs.getObject("occurred_on",LocalDate.class),rs.getLong("amount_cents"),rs.getString("source_ref"),rs.getString("status")),project,org,org,pageSize,(long)(pageNo-1)*pageSize);
+                (rs,n)->new Row(rs.getLong("id"),rs.getString("type"),rs.getObject("occurred_on",LocalDate.class),rs.getLong("amount_cents"),rs.getString("source_ref"),rs.getString("status"),"CONFIRMED_ENGINEERING_COST".equals(rs.getString("type")) ? rs.getString("id") : null),project,org,org,pageSize,(long)(pageNo-1)*pageSize);
         return new Ledger(summary,new PageResult<>(rows,total),projectNames.get(0));
     }
 }

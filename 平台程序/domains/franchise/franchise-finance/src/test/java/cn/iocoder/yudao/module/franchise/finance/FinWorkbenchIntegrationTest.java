@@ -91,8 +91,10 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),otherProject=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,'费用工程','ACTIVE'),(?,?,'另一工程','ACTIVE')",project,post.orgId(),otherProject,post.orgId());
   long payable=payments.registerPayable(post,"original-labor",new FinPaymentService.PayableCommand(post.orgId(),project,"劳务",16000,"劳务方","原付款凭据"));
+  long originalA=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),originalB=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   for(Object[] row:List.of(
-      new Object[]{com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),project,12000L,null,"REGISTERED"},
+      new Object[]{originalA,post.orgId(),project,12000L,null,"REGISTERED"},
+      new Object[]{originalB,post.orgId(),project,12000L,null,"REGISTERED"},
       new Object[]{com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),project,15000L,payable,"REGISTERED"},
       new Object[]{com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),project,90000L,null,"CANCELLED"},
       new Object[]{com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),otherProject,8000L,null,"REGISTERED"},
@@ -106,13 +108,26 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   workbench.linkProject(post,book,project,"cost-book-link");
   for(String scope:List.of("project:"+project,"book:"+book)) {
    var ledger=workbench.ledger(post.orgId(),scope);var summary=(Map<?,?>)ledger.get("summary");
-   assertThat(((Number)summary.get("committed_cents")).longValue()).isEqualTo(31000);
+   assertThat(((Number)summary.get("committed_cents")).longValue()).isEqualTo(43000);
    assertThat(((Number)summary.get("paid_cents")).longValue()).isZero();
    assertThat(((Number)summary.get("outstanding_cents")).longValue()).isEqualTo(19000);
    assertThat((List<?>)ledger.get("entries")).hasSize(2);
   }
   var originalLedger=new FinProjectLedgerService(jdbc);
-  assertThat(originalLedger.page(post.orgId(),project,1,20).summary().payableCents()).isEqualTo(31000);
+  var projectLedger=originalLedger.page(post.orgId(),project,1,20);
+  assertThat(projectLedger.summary().payableCents()).isEqualTo(43000);
+  assertThat(projectLedger.summary().paidCents()).isZero();
+  assertThat(projectLedger.entries().getTotal()).isEqualTo(4);
+  var originalRows=projectLedger.entries().getList().stream()
+      .filter(r->"CONFIRMED_ENGINEERING_COST".equals(r.type())).toList();
+  assertThat(originalRows).extracting(FinProjectLedgerService.Row::originalExpenseId)
+      .containsExactlyInAnyOrder(Long.toString(originalA),Long.toString(originalB));
+  assertThat(originalRows).allSatisfy(r->{
+       assertThat(r.amountCents()).isEqualTo(12000);
+       assertThat(r.sourceRef()).isNull();
+       assertThat(r.status()).isEqualTo("已确认");
+      });
+  assertThatThrownBy(()->originalLedger.page(post.orgId()+10000,project,1,20)).isInstanceOf(RuntimeException.class);
   assertThat(originalLedger.costAmounts(post.orgId(),project)).containsOnly(Map.entry(payable,16000L),Map.entry(manual,3000L));
   assertThat(((Number)((Map<?,?>)workbench.ledger(post.orgId(),"company").get("summary")).get("committed_cents")).longValue()).isEqualTo(7000);
   assertThat(((Number)((Map<?,?>)workbench.ledger(post.orgId(),"project:"+otherProject).get("summary")).get("committed_cents")).longValue()).isEqualTo(8000);
