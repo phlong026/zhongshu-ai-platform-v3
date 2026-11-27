@@ -158,11 +158,12 @@ function workflowProgress(flow) {
   const f = start?.fields || {};
   let hint = '';
   if (start?.status === 'COMPLETED') hint = '已实际开工';
+  // 当前移交的待办优先于已建档；只有已确认开工可覆盖它。
+  else if (f.commissionStatus === 'HANDOVER_SUBMITTED') hint = f.handoverStatus === 'PENDING' ? '已移交，待指定工程人员接收' : '移交资料待核对';
+  else if (f.commissionStatus === 'HANDOVER_RETURNED') hint = f.handoverStatus === 'RETURNED' ? '移交已退回，待补齐重提' : '移交资料待核对';
   else if (f.projectId) hint = f.actualStartAt ? '已登记开工日期，开工凭据待核对'
     : f.commissionStatus === 'ACCEPTED' ? '工程已接收，待实际开工' : '主工程已建档，待实际开工';
   else if (f.commissionStatus === 'ACCEPTED') hint = '工程已接收，但缺少关联主工程';
-  else if (f.commissionStatus === 'HANDOVER_SUBMITTED') hint = f.handoverStatus === 'PENDING' ? '已移交，待指定工程人员接收' : '移交资料待核对';
-  else if (f.commissionStatus === 'HANDOVER_RETURNED') hint = f.handoverStatus === 'RETURNED' ? '移交已退回，待补齐重提' : '移交资料待核对';
   else if (f.commissionStatus === 'EXTERNAL_PENDING') hint = '待登记外部成果';
   else if (['EXTERNAL_READY', 'DISPATCHED'].includes(f.commissionStatus)) hint = f.contractSigned === false ? '待提交工程移交，缺正式施工合同' : '待提交工程移交';
   else if (f.commissionId) hint = '历史委托待核对';
