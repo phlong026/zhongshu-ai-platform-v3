@@ -362,7 +362,7 @@ async function perform(action, id, form, node, key, batchExpected) {
       const assetIds = [];
       for (const file of files) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO', { nodeEvidence: true }));
       return api.plan.complete(id, node.id, {
-        date: dateStr, note: f.note, fileAssetIds: assetIds, noMaterials: !!f.noMaterials
+        date: dateStr, note: f.note, fileAssetIds: assetIds
       }, key);
     }
     case 'node-reopen':
@@ -616,7 +616,7 @@ function recordView(bundle, ctx) {
       nodeId: (view==='materials'&&node?.milestone==='start'?nodes.find(n=>n.milestone!=='start'):node)?.id, nodes: nodes.map(n => ({ ...n })),
       lines: [{ name: '', spec: '', quantity: '', unit: '包' }], due: form.due || today,
       stage, transaction: '', amount: '', total: '', first: '', receiver: '', recipient: '',
-      noMaterials: false, adjustReason: '', correctId: '', correctActual: '', correctReason: '',
+      adjustReason: '', correctId: '', correctActual: '', correctReason: '',
       siteId: '', siteNote: '', siteFile: null, siteReason: '',
       nodeDate: (node && node.completedAt) || today, nodeNote: '', nodeFile: null, nodeReason: '', nodeRecordId: '', nodeReplaceAssetId: '',
       delayReason:node?.delayReason||'',delayOwnerUserId:node?.delayOwnerUserId||'',delayOwnerName:node?.delayOwnerName||'',recoveryDate:node?.recoveryDate||'',recoveryAction:node?.recoveryAction||'',
@@ -676,7 +676,7 @@ function recordView(bundle, ctx) {
     // R1 P1-4：节点完成/更正/重开恢复（own；完成态切换表单）
     if (own && !archived && !delivery && p.actualStart && node.status !== '已完成' && nodes.find(n=>n.status!=='已完成')?.id===node.id) {
       fields = [viewField('date', '节点完成日期', 'date'), viewField('note', '节点完成情况', 'textarea'),
-        viewField('file', '节点完成凭据（jpg/png/pdf）', 'file'), viewField('noMaterials', '本节点材料无需到场', 'check')];
+        viewField('file', '节点完成凭据（jpg/png/pdf）', 'file')];
       // R2 P1-4：现场记录创建恢复（多张照片，perform site→api.site.create）
       actions = [{ action: 'node', label: '标记节点完成' }, { action: 'site', label: '留存现场照片' }];
     } else if (own && !archived && !delivery && node.status === '已完成') {
