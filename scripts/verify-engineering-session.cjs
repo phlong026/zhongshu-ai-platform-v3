@@ -196,3 +196,45 @@ test('settlement names the revised expense and displays the difference without c
  assert.ok(!after.includes('净已付比修订金额多'));
  assert.equal(settleView({expensesTotalCents:100000}).expensesTotalText,'¥ 1,000');
 });
+
+test('archived projects expose only original expense terms, with no construction-cost editing buttons',()=>{
+ const P=require('../miniprogram/utils/platform-engineering'),{render}=require('./role-page-runtime.cjs');
+ const expenseId='9007199254740993';
+ const bundle={detail:{id:'original-project',name:'原工程',managerUserId:'engineer',status:'ARCHIVED',nodes:[],
+  closure:{deliveredAt:'2026-11-20',settledAt:'2026-11-21',archivedAt:'2026-11-22T10:00:00+08:00'}},collections:{stages:[]},materials:{plans:[]},settle:{},followups:[]};
+ const expenses=[{expenseId,name:'原劳务',purpose:'LABOR',amountCents:100000,status:'REGISTERED',payableId:'',canCompleteTerms:true},
+  {expenseId:'cancelled',name:'已取消',status:'CANCELLED',payableId:'',canCompleteTerms:false},
+  {expenseId:'late',name:'异常晚建',status:'REGISTERED',payableId:'',canCompleteTerms:false},
+  {expenseId:'linked',name:'原应付已存在',status:'REGISTERED',payableId:'old-payable',canCompleteTerms:false}];
+ const opts={view:'expenses',userId:'engineer',writeRole:true,expenses,initialized:true,form:{expenseId},expenseMode:'register'};
+ const view=options=>P.recordView(bundle,{...opts,...options});
+ const data=view();
+ assert.equal(data.actions.length,0);
+ assert.deepEqual(data.expenseRows.filter(row=>row.canTerms).map(row=>row.id),[expenseId]);
+ assert(data.expenseRows.every(row=>!row.canRevise&&!row.canCancel));
+ const tree=render(path.join(__dirname,'../miniprogram/pages/build/record/index.wxml'),{...data,view:'expenses',expanded:{expenses:true},expenseSaveState:''});
+ const flatten=n=>[n,...(n.children||[]).flatMap(flatten)];
+ const buttons=(Array.isArray(tree)?tree.flatMap(flatten):flatten(tree)).filter(n=>n.tag==='button'&&n.attrs.bindtap==='expenseMode');
+ assert.deepEqual(buttons.map(n=>n.attrs['data-mode']),['terms']);
+ const selected=view({expenseMode:'terms'});
+ assert.deepEqual(selected.actions.map(row=>row.action),['expense-terms']);
+ assert.deepEqual(selected.fields.map(row=>row.key),['supplier','basis']);
+ for(const id of ['cancelled','late','linked','missing']) assert.equal(view({expenseMode:'terms',form:{expenseId:id}}).actions.length,0);
+ for(const mode of ['register','revise','cancel']) assert.equal(view({expenseMode:mode}).actions.length,0);
+ assert.equal(view({writeRole:false,expenseMode:'terms'}).actions.length,0);
+ assert.equal(view({userId:'other-engineer',expenseMode:'terms'}).actions.length,0);
+ assert.equal(view({expenses:expenses.map(row=>({...row,canCompleteTerms:undefined})),expenseMode:'terms'}).actions.length,0,'an older backend must not advertise the new archived operation');
+});
+
+test('original expense terms use the existing exact expense and preserve active-project cost actions',async()=>{
+ const P=require('../miniprogram/utils/platform-engineering'),calls=[];
+ const original=P.api.materials.expenseTerms;
+ P.api.materials.expenseTerms=async(...args)=>{calls.push(args);return{expenseId:args[0],payableId:'existing-payable'};};
+ try{
+  await P.perform('expense-terms','original-project',{expenseId:'9007199254740993',supplier:' 原收款方 ',basis:' 原凭据 ',expenseAmount:'99999'},null,'same-key');
+  assert.deepEqual(calls,[['9007199254740993',{supplier:'原收款方',basis:'原凭据'},'same-key']]);
+ }finally{P.api.materials.expenseTerms=original;}
+ const bundle={detail:{id:'original-project',managerUserId:'engineer',status:'IN_PROGRESS',nodes:[],closure:{}},collections:{stages:[]},materials:{plans:[]},settle:{},followups:[]};
+ const options={view:'expenses',userId:'engineer',writeRole:true,initialized:true,form:{expenseId:'old'},expenses:[{expenseId:'old',status:'REGISTERED',payableId:''}]};
+ for(const mode of ['register','terms','revise','cancel'])assert.deepEqual(P.recordView(bundle,{...options,expenseMode:mode}).actions.map(row=>row.action),['expense-'+mode]);
+});
