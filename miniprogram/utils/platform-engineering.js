@@ -133,7 +133,7 @@ function settleView(view) {
       paid: centsText(r.netPaidCents), above: r.netAboveRevisedCents > 0 ? centsText(r.netAboveRevisedCents) : ''
     })),
     materialsTotal: view.materialsTotalCents || 0, materialsPaid: view.materialsPaidCents || 0,
-    materialsRemaining: view.materialsRemainingCents || 0,
+    materialsRemaining: view.materialsRemainingCents || 0, materialsNote: view.materialsNote || '',
     expensesTotal: view.expensesTotalCents || 0, expensesPaid: view.expensesPaidCents || 0,
     expensesRemaining: view.expensesRemainingCents || 0,
     materialsTotalText: centsText(view.materialsTotalCents), materialsPaidText: centsText(view.materialsPaidCents),

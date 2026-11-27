@@ -196,3 +196,20 @@ test('settlement names the revised expense and displays the difference without c
  assert.ok(!after.includes('净已付比修订金额多'));
  assert.equal(settleView({expensesTotalCents:100000}).expensesTotalText,'¥ 1,000');
 });
+
+
+test('cancelled-material settlement keeps original debt and only adds the server review note',()=>{
+ const {render}=require('./role-page-runtime.cjs'), {settleView}=require('../miniprogram/utils/platform-engineering');
+ const file=path.join(__dirname,'../miniprogram/pages/build/record/index.wxml');
+ const show=facts=>JSON.stringify(render(file,{view:'settlement',p:{id:'original-project'},expanded:{},actions:[],settle:settleView(facts)}),(key,value)=>key==='parent'?undefined:value);
+ const facts={materialsTotalCents:10000,materialsPaidCents:4000,materialsRemainingCents:6000,materialsNote:'已取消材料仍有原应付或实际付款，请财务核对原付款事项。'};
+ const view=settleView(facts);
+ assert.equal(view.materialsTotalText,'¥ 100');
+ assert.equal(view.materialsPaidText,'¥ 40');
+ assert.equal(view.materialsRemainingText,'¥ 60');
+ const rendered=show(facts);
+ for(const text of ['已取消材料','请财务核对原付款事项','¥ 100','¥ 40','¥ 60'])assert.ok(rendered.includes(text),text);
+ assert.ok(!rendered.includes('data-action'),'review note cannot add a payable or payment action');
+ assert.ok(!show({materialsTotalCents:0,materialsPaidCents:0,materialsRemainingCents:0,materialsNote:''}).includes('已取消材料'));
+ assert.ok(!show({}).includes('已取消材料'),'older or redacted response does not invent a review state');
+});
