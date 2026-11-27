@@ -34,7 +34,7 @@ const event=(type,extra={})=>({currentTarget:{dataset:{type,...extra}}});
 function openDeclaration(h, overrides={}) {
  const row={id:'9007199254741999',contract_id:'c',stage_id:'s',stage:'SIGN_AFTER',customer_name:'张先生',
   amount_cents:15000,received_date:'2026-11-17',transaction_no:'actual-bank-reference',voucher_file_id:'9007199254742000',
-  method:'bank',account_name:null,status:'PENDING',...overrides};
+  method:'bank',account_name:null,status:'PENDING',requires_method_confirmation:false,...overrides};
  h.page.data.collectionDeclarations=[row];h.page.refreshJourney();
  const click=event('',{id:row.id});h.page.openJourneyDeclaration(click);return click;
 }
@@ -371,3 +371,15 @@ test('only unassigned manual expenses expose book assignment and the original ha
  page.data.wbForm=null;originals[0].projectId='91';page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm,null);
 });
 
+
+test('工程申报和旧后台都不把占位银行当成财务选择',async()=>{
+ for(const marker of [true,undefined]){
+  const h=harness(),click=openDeclaration(h,{account_name:'门店现金',requires_method_confirmation:marker}),writes=[];
+  h.http.post=async(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));return {receiptId:'9007199254742999'};};
+  assert.equal(h.page.data.declarationForm.method,'');
+  await h.page.confirmCollectionDeclaration(click);assert.equal(writes.length,0);
+  h.page.declarationInput({currentTarget:{dataset:{field:'method'}},detail:{value:'1'}});
+  await h.page.confirmCollectionDeclaration(click);
+  assert.equal(writes.length,1);assert.deepEqual(writes[0][1],{accountName:'门店现金',method:'cash'});
+ }
+});
