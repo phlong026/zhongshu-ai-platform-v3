@@ -88,6 +88,32 @@ class RemoteDesignCommandStoreTest {
     }
 
     @Test
+    void newBudgetsCheckEntitlementWithoutReservingPointsAndReplayTheOriginalReceipt() {
+        var actor = new DesignServicePort.Actor(post.userId(), post.postId(), post.roleCode());
+        for (String path : List.of("/budget-drafts/7/estimates", "/design-projects/9/budget-estimates/itemized")) {
+            var body = path.contains("/budget-drafts") ? Map.<String,Object>of("expectedVersion", 2) :
+                    Map.<String,Object>of("companyPrice", Map.of("subject", "budget_estimate", "quantity", 1, "credits", 7, "priceVersion", "old"));
+            String key = path.contains("/budget-drafts") ? "free-independent" : "free-project-legacy-client";
+            var call = new cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall("POST", path, Map.of(), body, key);
+            var request = new Request<>("b-test", post.orgId(), actor, call.operation(), key, "nonce", call);
+            var command = store.prepare(post, request);
+            assertThat(command.price()).isNull();
+            var expected = Map.of("budgetId", "701");
+            var receipt = new Receipt("budget-receipt", call.operation(), key, command.fingerprint(), ReceiptStatus.SUCCEEDED, expected, null, null, null);
+            assertThat(store.complete(store.claim(command), receipt)).isEqualTo(expected);
+            var replay = store.prepare(post, request);
+            assertThat(replay.commandId()).isEqualTo(command.commandId());
+            assertThat(replay.result()).isEqualTo(expected);
+            assertThat(replay.price()).isNull();
+        }
+        org.mockito.Mockito.verify(charges, org.mockito.Mockito.times(2)).assertBudgetAllowed(post);
+        org.mockito.Mockito.verifyNoMoreInteractions(charges);
+        assertThat(Operation.CREATE_BUDGET_ESTIMATE.freeBudget()).isTrue();
+        assertThat(Operation.CREATE_BUDGET_ESTIMATE.paid()).isTrue(); // provider cost and receipt semantics
+        assertThat(Operation.NOTE_POLISH.paid()).isTrue();
+    }
+
+    @Test
     void projectHistoryUsesActualCompanyNetAcrossJobsAndRefundsWithoutCrossingScope() throws Exception {
         jdbc.execute("CREATE TABLE org_point_ledger(org_id bigint,operation_id bigint,ref_type text,ref_id bigint,type text,available_delta bigint)");
         projectCharge("b-test",1,10,Operation.FLOW_FLAT_JOB,Map.of("path","/design-projects/100/flat-jobs"),4,0L);
@@ -323,8 +349,6 @@ class RemoteDesignCommandStoreTest {
         var mapper = new ObjectMapper();
         var transport = org.mockito.Mockito.mock(cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransport.class);
         var gateway = new RemoteDesignGateway("platform", transport, store, mapper);
-        org.mockito.Mockito.when(charges.quote(org.mockito.ArgumentMatchers.eq(post), org.mockito.ArgumentMatchers.eq(Operation.CREATE_BUDGET_ESTIMATE), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new PlatformPriceSnapshot("budget-price", 1, 0, 0, 10, 10, 0, 0, 1));
         org.mockito.Mockito.when(transport.exchange(org.mockito.ArgumentMatchers.eq(Operation.CREATE_BUDGET_ESTIMATE), org.mockito.ArgumentMatchers.any(byte[].class)))
                 .thenReturn(new cn.iocoder.yudao.module.franchise.design.remote.transport.DesignCapabilityTransport.Response(
                         422, mapper.writeValueAsBytes(new Reply<>(1_071_000_002, "该地区/结构/材料等级暂无生效预算规则", null, null, false))));
@@ -337,10 +361,20 @@ class RemoteDesignCommandStoreTest {
         assertThat(jdbc.queryForObject("SELECT state FROM fr_design_remote_command WHERE request_key='budget-rejected'", String.class)).isEqualTo("REJECTED");
         org.mockito.Mockito.verify(transport, org.mockito.Mockito.times(1)).exchange(
                 org.mockito.ArgumentMatchers.eq(Operation.CREATE_BUDGET_ESTIMATE), org.mockito.ArgumentMatchers.any(byte[].class));
+        // Seed the same frozen state a pre-cutover request left behind; free rollout must not
+        // discard the old reservation or allocate another one when retrying that command.
+        var legacy = new Budget(1, new DesignServicePort.BudgetEstimateCreate("missing", "FRAME", "STANDARD", 100, null, "budget-unresolved"));
+        var request = new Request<>("platform", post.orgId(),
+                new DesignServicePort.Actor(post.userId(), post.postId(), post.roleCode()),
+                Operation.CREATE_BUDGET_ESTIMATE, "budget-unresolved", "nonce", legacy);
+        var prepared = store.prepare(post, request);
+        jdbc.update("UPDATE fr_design_remote_command SET price_snapshot=CAST(? AS jsonb) WHERE command_id=?",
+                new ObjectMapper().writeValueAsString(new PlatformPriceSnapshot("budget_estimate", 1, 0, 0, 0, 10, 0, 0, 1)),
+                prepared.commandId());
         // The same upstream business code must remain UNKNOWN if local wallet release cannot commit.
         org.mockito.Mockito.doThrow(new IllegalStateException("simulated wallet release failure")).when(charges).reject(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
-        assertThatThrownBy(() -> gateway.call(post, Operation.CREATE_BUDGET_ESTIMATE, "budget-unresolved", payload))
+        assertThatThrownBy(() -> gateway.call(post, Operation.CREATE_BUDGET_ESTIMATE, "budget-unresolved", legacy))
                 .isInstanceOfSatisfying(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                         failure -> assertThat(failure.getCode()).isEqualTo(RemoteDesignGateway.OUTCOME_UNKNOWN));
         assertThat(jdbc.queryForObject("SELECT state FROM fr_design_remote_command WHERE request_key='budget-unresolved'", String.class)).isEqualTo("UNKNOWN");

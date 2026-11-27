@@ -93,7 +93,12 @@ public class RemoteDesignCommandStore {
             var row = jdbc.queryForMap("SELECT * FROM fr_design_remote_command WHERE caller_app_id=? AND tenant_id=? AND org_id=? AND operation=? AND request_key=? FOR UPDATE",
                     request.callerAppId(), tenant, request.orgId(), request.operation().name(), request.requestKey());
             if (!fingerprint.equals(row.get("fingerprint"))) throw new ServiceException(409, "同一业务键不能用于不同内容或操作者");
-            if (inserted == 1 && request.operation().paid()) {
+            // A previously persisted paid command still uses its frozen snapshot and receipt.
+            // Only new budget commands no longer create a price snapshot or company-point operation.
+            if (inserted == 1 && request.operation().freeBudget()) {
+                if (charges == null) throw new IllegalStateException("Platform budget access check is required");
+                charges.assertBudgetAllowed(post);
+            } else if (inserted == 1 && request.operation().paid()) {
                 if (charges == null) throw new IllegalStateException("Platform design wallet charging is required");
                 var quote = charges.quote(post, request.operation(), request.payload());
                 charges.reserve(((Number) row.get("command_id")).longValue(), post, quote);

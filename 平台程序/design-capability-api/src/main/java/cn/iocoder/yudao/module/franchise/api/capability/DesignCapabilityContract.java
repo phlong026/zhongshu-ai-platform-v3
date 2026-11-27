@@ -65,6 +65,8 @@ public final class DesignCapabilityContract {
             return write && (this != GET_PROJECT || ((Project) payload).jobId() != null);
         }
         public boolean paid() { return paid; }
+        /** Provider cost tracking stays enabled; these operations are free to the company pool. */
+        public boolean freeBudget() { return this == FLOW_BUDGET || this == CREATE_BUDGET_ESTIMATE; }
         public boolean listResult() { return this == LIST_RESULT_VERSIONS || this == LIST_CASE_STYLES; }
         public String action() { return name().toLowerCase(Locale.ROOT).replace('_', '-'); }
         public String path() { return "/internal-api/design/v1/platform/" + action(); }
