@@ -20,6 +20,8 @@ import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyReceiptDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngSupplyReceiptMapper;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
+import cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys;
+import cn.iocoder.yudao.module.platform.command.dal.CommandEventDO;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -396,15 +398,42 @@ public class EngPlanService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> savePlan(PostSnapshot post, long projectId,
                                         List<NodeInput> inputs, String idempotencyKey) {
+        lockPlanCommandKey(post, idempotencyKey);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "plan");
-        var replayed = commands.replayed(post, idempotencyKey, planPayload(inputs));
+        var legacy = planPayload(inputs);
+        var payload = planCommandPayload(projectId, "eng-plan-save", legacy);
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            requirePlanEvent(replayed.get(), projectId, "eng-plan-save");
             return planView(post, projectId);
         }
         saveNodeDates(post, project, inputs, "plan");
         commands.record(post, AGGREGATE, projectId, projectService.bumpRevision(post, project),
-                "eng-plan-save", planPayload(inputs), idempotencyKey);
+                "eng-plan-save", payload, idempotencyKey);
         return planView(post, projectId);
+    }
+
+    private void lockPlanCommandKey(PostSnapshot post, String key) {
+        if (StrUtil.isBlank(key)) return;
+        // Match FranchiseCommands' historical scoped key, including trimming and its length limit.
+        // Serialize retries without changing the existing project/node lock order of other commands.
+        long lock = FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise", post.userId()),
+                StrUtil.maxLength(key.trim(), 80));
+        jdbcTemplate.queryForObject("SELECT 1 FROM (SELECT pg_advisory_xact_lock(?)) s", Integer.class, lock);
+    }
+
+    private static Map<String, Object> planCommandPayload(long projectId, String operation, Object input) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("operation", operation);
+        payload.put("projectId", projectId);
+        payload.put("input", input);
+        return payload;
+    }
+
+    private static void requirePlanEvent(CommandEventDO event, long projectId, String command) {
+        // Legacy fingerprints lack project/operation; their recorded aggregate must supply both.
+        if (!AGGREGATE.equals(event.getAggregateType()) || event.getAggregateId() != projectId
+                || !command.equals(event.getCommand())) throw exception(IDEMPOTENCY_KEY_REUSED);
     }
 
     private static List<Map<String, Object>> planPayload(List<NodeInput> inputs) {
@@ -491,13 +520,16 @@ public class EngPlanService {
 
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> reschedule(PostSnapshot post, long projectId, RescheduleCommand cmd, String idempotencyKey) {
+        lockPlanCommandKey(post, idempotencyKey);
         FrEngProjectDO project = projectService.requireOwned(post, projectId, "reschedule");
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("nodeIndex", cmd.nodeIndex());
-        payload.put("newStart", cmd.newStart() == null ? null : cmd.newStart().toString());
-        payload.put("note", StrUtil.nullToEmpty(cmd.note()));
-        var replayed = commands.replayed(post, idempotencyKey, payload);
+        Map<String, Object> legacy = new LinkedHashMap<>();
+        legacy.put("nodeIndex", cmd.nodeIndex());
+        legacy.put("newStart", cmd.newStart() == null ? null : cmd.newStart().toString());
+        legacy.put("note", StrUtil.nullToEmpty(cmd.note()));
+        var payload = planCommandPayload(projectId, "eng-plan-reschedule", legacy);
+        var replayed = commands.replayed(post, idempotencyKey, payload, legacy);
         if (replayed.isPresent()) {
+            requirePlanEvent(replayed.get(), projectId, "eng-plan-reschedule");
             return planView(post, projectId);
         }
         List<FrEngPlanNodeDO> nodes = planNodes.selectByProject(post.orgId(), projectId);
