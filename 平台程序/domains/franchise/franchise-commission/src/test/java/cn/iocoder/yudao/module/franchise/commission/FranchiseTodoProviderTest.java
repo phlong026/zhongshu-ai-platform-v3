@@ -100,7 +100,8 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
 
         as(boss, () -> policies.save(boss,
                 new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), commandKey()));
+        long legacyId=LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),submit(),"DESIGNING");
+        var detail=as(salesA1,()->commissions.get(salesA1,legacyId));
 
         // 标准费用路径直接进入设计；设计 §10：DESIGNING 对业务侧无待办（办理中）。
         // 客户仍是 REGISTERED，首次跟进待办保留（跟进与委托互不阻塞）
@@ -201,28 +202,40 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     }
 
     @Test
-    void legacyCommissionNoLongerProducesAnyCommissionTodos() {
-        long customerId = customerWithBudget();
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
-                new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
-                        new BigDecimal("400000"), "总部财务", 1, null, null, true), commandKey()));
-        long id = detail.commission().getId();
-
-        // 设计岗位退役：LEGACY 委托的推进服务保留（存量数据只读），但不再产生任何委托待办触达岗位
-        for (PostSnapshot viewer : List.of(salesA1, boss, finance)) {
+    void legacyCommissionOnlyRemindsTheCurrentSellerToConvertExistingWork() {
+        long customerId=customerWithBudget();
+        long id=LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),submit(),"FEE_PENDING");
+        for(PostSnapshot viewer:List.of(salesA1,boss,finance)) {
             assertThat(todos(viewer)).extracting(TodoItem::key).doesNotContain(
-                    "franchise:fee-approve:" + id, "franchise:fee-pending:" + id,
-                    "franchise:design-complete:" + id, "franchise:design-dispatch:" + id,
-                    "franchise:tail-follow:" + id, "franchise:handover-prepare:" + id);
+                    "franchise:fee-approve:"+id,"franchise:fee-pending:"+id,"franchise:design-complete:"+id,
+                    "franchise:design-dispatch:"+id,"franchise:tail-follow:"+id,"franchise:handover-prepare:"+id);
         }
+        assertThat(todos(salesA1)).filteredOn(t->t.key().startsWith("franchise:legacy-convert:"+id+":"))
+                .singleElement().satisfies(t->{assertThat(t.actionable()).isTrue();assertThat(t.appPath()).isEqualTo("/pages/external-entrust/index?customerId="+customerId);});
+        assertThat(todos(salesB)).noneMatch(t->t.key().startsWith("franchise:legacy-convert:"+id+":"));
     }
 
-    /** 模板与角色已随退役删除，测试内以直接构造的身份代表已退役的设计行政（仅走 service 层） */
-    private PostSnapshot designAdminDirect() {
-        return new PostSnapshot(fixture.headquarters(), 701L, 7L, "headquarters", DESIGN_ADMIN, null, false, java.util.Set.of());
+    @Test
+    void historicalReviewIsOnlyOfferedToTheStoreFinanceLeadAndHandsOffToOriginalPayable() {
+        long customer=customerWithBudget(),id=LegacyCommissionFixtures.submission(jdbc,salesA1,customer,fixture.headquarters(),submit(),"DESIGNING");
+        jdbc.update("INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,order_number,amount_cents,status,channel,paid_by_user_id,paid_at) VALUES(?,1,?,?,?,68000000,'PAID','WECHAT',1,now())",
+                id,store.orgId(),fixture.headquarters(),"OLD-"+id);
+        var lead=fixture.post(store.orgId(),FINANCE_LEAD,null);
+        var outsider=fixture.post(fixture.store().orgId(),FINANCE_LEAD,null);
+        var key="franchise:historical-settlement:"+id+":1";
+        assertThat(todos(lead)).filteredOn(t->t.key().equals(key)).singleElement()
+                .satisfies(t->assertThat(t.appPath()).isEqualTo("/pages/workflow/commission/index?view=receipt&commissionId="+id));
+        for(var other:List.of(finance,salesA1,boss,outsider)) assertThat(todos(other)).noneMatch(t->t.key().equals(key));
+        assertThat(as(lead,()->commissions.paymentReceipt(lead,id)).canPrepareHistoricalSettlement()).isTrue();
+        assertThat(as(finance,()->commissions.paymentReceipt(finance,id)).canPrepareHistoricalSettlement()).isFalse();
+        String reviewKey=commandKey();var review=new CommissionService.HistoricalSettlementCommand(1,"核对原记录及真实费用依据");
+        for(int i=0;i<2;i++)as(lead,()->{commissions.prepareHistoricalSettlement(lead,id,review,reviewKey);return true;});
+        var receipt=as(lead,()->commissions.paymentReceipt(lead,id));
+        assertThat(receipt.historicalSettlementPrepared()).isTrue();assertThat(receipt.canPrepareHistoricalSettlement()).isFalse();
+        assertThat(todos(lead)).noneMatch(t->t.key().equals(key));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE source_type='design' AND source_ref=?",Long.class,id+":1:FIRST")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,store.orgId())).isZero();
     }
-
-
 
     @Test
     void pendingLeadsShowAsActionableOnlyForManagersAndBoss() {

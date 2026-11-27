@@ -32,4 +32,5 @@ public interface FranchiseCommissionErrorCodes {
 
     ErrorCode SIMULATION_FORBIDDEN = new ErrorCode(1_111_000_022, "实体费用支付入口已取消，请在外部付款后登记实际流水和凭证");
     ErrorCode HISTORICAL_SETTLEMENT_REQUIRED = new ErrorCode(1_111_000_023, "历史模拟委托须由财务完成正式付款及核收后才能办理");
+    ErrorCode LEGACY_COMMISSION_RETIRED = new ErrorCode(1_111_000_024, "内部设计委托已停用，请从客户外部委托入口办理；已有移交和历史结算继续沿原单处理");
 }

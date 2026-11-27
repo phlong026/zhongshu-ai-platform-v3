@@ -16,9 +16,14 @@ public class CommissionSimulatedPayments {
     static final String HISTORICAL_REVIEW_COMMAND = "commission-historical-settlement-prepare";
 
     public record Order(String number,long commissionId,int submissionVersion,String customerName,
-                        Long amountCents,String status,String channel,OffsetDateTime paidAt,boolean simulated,boolean storeFinanceConfigured,boolean headquartersFinanceConfigured) {
+                        Long amountCents,String status,String channel,OffsetDateTime paidAt,boolean simulated,boolean storeFinanceConfigured,boolean headquartersFinanceConfigured,
+                        boolean historicalSettlementPrepared,boolean canPrepareHistoricalSettlement) {
         public boolean paid(){return "PAID".equals(status);}
-        public Order designView(){return new Order(number,commissionId,submissionVersion,customerName,null,status,null,null,true,storeFinanceConfigured,headquartersFinanceConfigured);}
+        public Order withSettlementReview(boolean reviewed,boolean canReview) {
+            return new Order(number,commissionId,submissionVersion,customerName,amountCents,status,channel,paidAt,
+                    simulated,storeFinanceConfigured,headquartersFinanceConfigured,reviewed,canReview);
+        }
+        public Order designView(){return new Order(number,commissionId,submissionVersion,customerName,null,status,null,null,true,storeFinanceConfigured,headquartersFinanceConfigured,false,false);}
     }
     private final JdbcTemplate jdbc;
     public CommissionSimulatedPayments(JdbcTemplate jdbc){this.jdbc=jdbc;}
@@ -51,7 +56,7 @@ public class CommissionSimulatedPayments {
 
     public Order read(CommissionDO c){
         return jdbc.query("SELECT o.*,EXISTS(SELECT 1 FROM pf_staff_post p WHERE p.org_id=o.company_id AND p.status='ACTIVE' AND p.role_code IN('finance','finance-lead')) AS store_finance,EXISTS(SELECT 1 FROM pf_staff_post p WHERE p.org_id=o.design_org_id AND p.status='ACTIVE' AND p.role_code IN('finance','finance-lead')) AS headquarters_finance FROM fr_commission_simulated_order o WHERE commission_id=? AND submission_version=?",
-            (r,n)->new Order(r.getString("order_number"),c.getId(),c.getSubmissionVersion(),c.getCustomerName(),r.getLong("amount_cents"),r.getString("status"),r.getString("channel"),r.getObject("paid_at",OffsetDateTime.class),true,r.getBoolean("store_finance"),r.getBoolean("headquarters_finance")),c.getId(),c.getSubmissionVersion()).stream().findFirst().orElse(null);
+            (r,n)->new Order(r.getString("order_number"),c.getId(),c.getSubmissionVersion(),c.getCustomerName(),r.getLong("amount_cents"),r.getString("status"),r.getString("channel"),r.getObject("paid_at",OffsetDateTime.class),true,r.getBoolean("store_finance"),r.getBoolean("headquarters_finance"),false,false),c.getId(),c.getSubmissionVersion()).stream().findFirst().orElse(null);
     }
     public void create(CommissionDO c,long total){ throw exception(SIMULATION_FORBIDDEN); }
     public void pay(CommissionDO c,String channel,PostSnapshot actor){ throw exception(SIMULATION_FORBIDDEN); }

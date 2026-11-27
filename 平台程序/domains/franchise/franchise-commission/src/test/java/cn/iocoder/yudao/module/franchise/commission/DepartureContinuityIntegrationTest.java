@@ -145,7 +145,7 @@ class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
 
         // 接收人接续办理：对同一客户重复提交委托 → 拒绝（不双入口重复计收入）
         assertError(() -> as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), commandKey())),
-                COMMISSION_ALREADY_EXISTS);
+                cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommissionErrorCodes.LEGACY_COMMISSION_RETIRED);
         assertThat(commissionCountOf(customerId)).isEqualTo(1);
     }
 
@@ -167,30 +167,16 @@ class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
     }
 
     @Test
-    void feeReturnedResubmissionAfterHandoverKeepsSameCommission() {
-        long customerId = customerWithCommission(); // FEE_PENDING
-        long commissionId = commissionIdOf(customerId);
-        // 老板费用退回 → 交接 → 接手人沿原委托重提（合法路径，不是重复提交）
-        as(boss, () -> commissions.feeDecide(boss, commissionId,
-                new CommissionService.FeeDecisionCommand(false, "费用与方案不符，退回修改"), commandKey()));
-        assertThat(jdbc.queryForObject("SELECT status FROM fr_commission WHERE id = ?", String.class, commissionId))
-                .isEqualTo(CommissionDO.STATUS_FEE_RETURNED);
-
-        as(boss, () -> handoverService.handover(store.orgId(), salesA1.userId(), salesB.userId(), boss.userId()));
-        var resubmitted = as(salesB, () -> commissions.submit(salesB, customerId, submit(TOTAL, FIRST), commandKey()));
-        // 原委托编号不变：不是第二条委托；版本推进；旧提交完整保留
-        assertThat(resubmitted.commission().getId()).isEqualTo(commissionId);
-        assertThat(resubmitted.commission().getStatus()).isEqualTo(CommissionDO.STATUS_FEE_PENDING);
-        // Detail.submissions 无固定排序：按 version 升序核对（首次=A 离职人保留，重提=接手人 B）
-        var subs = resubmitted.submissions().stream()
-                .sorted(java.util.Comparator.comparing(
-                        cn.iocoder.yudao.module.franchise.commission.dal.CommissionSubmissionDO::getVersion))
-                .toList();
-        assertThat(subs).hasSize(2);
-        assertThat(subs.get(0).getVersion()).isEqualTo(1);
-        assertThat(subs.get(0).getSubmittedByUserId()).isEqualTo(salesA1.userId());
-        assertThat(subs.get(1).getVersion()).isEqualTo(2);
-        assertThat(subs.get(1).getSubmittedByUserId()).isEqualTo(salesB.userId());
+    void feeReturnedHistoryAfterHandoverCannotCreateAnotherLegacyVersion() {
+        long customerId=customerWithCommission(),commissionId=commissionIdOf(customerId);
+        jdbc.update("UPDATE fr_commission SET status='FEE_RETURNED' WHERE id=?",commissionId);
+        as(boss,()->handoverService.handover(store.orgId(),salesA1.userId(),salesB.userId(),boss.userId()));
+        assertError(()->as(salesB,()->commissions.submit(salesB,customerId,submit(TOTAL,FIRST),commandKey())),
+                cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommissionErrorCodes.LEGACY_COMMISSION_RETIRED);
+        var original=as(salesB,()->commissions.get(salesB,commissionId));
+        assertThat(original.submissions()).hasSize(1);
+        assertThat(original.submissions().get(0).getSubmittedByUserId()).isEqualTo(salesA1.userId());
+        assertThat(original.allowedActions()).contains("external-entrust-convert");
         assertThat(commissionCountOf(customerId)).isEqualTo(1);
     }
 
@@ -204,7 +190,7 @@ class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
                         new BigDecimal("16"), 2, new BigDecimal("400"), 68_000_000L), null));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("首轮到店", null), null));
         as(salesA1, () -> customers.follow(salesA1, customerId, new FollowCommand("方案讲解", null), null));
-        as(salesA1, () -> commissions.submit(salesA1, customerId, submit(TOTAL, FIRST), commandKey()));
+        LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),submit(TOTAL,FIRST),"FEE_PENDING");
         return customerId;
     }
 
