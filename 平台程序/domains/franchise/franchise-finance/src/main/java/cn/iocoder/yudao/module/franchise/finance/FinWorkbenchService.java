@@ -209,6 +209,13 @@ public class FinWorkbenchService {
         summary.put("receivable_cents",receivable);
         var result=new LinkedHashMap<String,Object>();
         result.put("summary",summary);result.put("entries",entries);result.put("scope",value);result.put("truncated",entries.size()==500);
+        // Employee balances use the complete scoped obligations, independently of the recent cash-entry window.
+        result.put("reimbursementIds",jdbc.queryForList(cte()+"""
+            SELECT q.id::text FROM qs q JOIN fr_fin_payment m ON m.company_id=q.company_id AND m.id::text=q.source_ref
+            WHERE q.source_type='reimbursement' AND NOT q.deleted AND q.status<>'已作废'
+              AND NOT m.deleted AND m.status='已核实' AND m.funding_type='EMPLOYEE'
+            ORDER BY m.pay_date,q.id
+            """,String.class,args));
         if(s.projectId()!=null && accounting!=null)result.put("accounting",accounting.readAuthorized(org,s.projectId()));
         return result;
     }
