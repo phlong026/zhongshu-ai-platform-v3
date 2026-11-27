@@ -98,7 +98,7 @@
       <button wx:for="{{rows}}" wx:key="id" class="store" data-id="{{item.id}}" bindtap="toggleRecord">
         <view class="record-icon"><image src="{{item.recordType==='FRANCHISE'?'/assets/account-shop.jpg':'/assets/icons/map-pin.svg'}}" mode="aspectFit"/></view>
         <view class="record-content">
-          <view class="record-heading"><text class="name">{{item.name}}</text><text wx:if="{{item.pending}}" class="record-status">{{item.upperCoverageLabel?item.upperCoverageLabel+' · 区县待确认':'待确认'}}</text></view>
+          <view class="record-heading"><text class="name">{{item.name}}</text><text wx:if="{{item.pending}}" class="record-status">{{item.upperCoverageLabel?item.upperCoverageLabel+' · 区县待确认':'待确认'}}</text><text wx:if="{{item.wholeAreaCoverage}}" class="record-status">{{item.upperCoverageLabel}} · 全域覆盖</text></view>
           <view wx:if="{{admin||item.recordType==='COVERAGE'}}" class="record-brand"><text class="dot" style="background:{{item.color}}"/><text>{{item.brandName}} · {{item.typeLabel}}</text></view>
           <view class="record-address"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>{{item.publicAddress||item.regionText}}</text></view>
           <text wx:if="{{item.districtCount>1}}" class="record-coverage">已确认覆盖 {{item.districtCount}} 个区县</text>
