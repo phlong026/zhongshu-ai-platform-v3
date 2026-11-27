@@ -17,16 +17,16 @@ const bundle = () => ({
   collections: { stages: [] }, materials: { plans: [] }, settle: {}, followups: []
 });
 function harness() {
-  const calls = [], uploads = [], module = { exports: {} };
+  const calls = [], uploads = [], uploadOptions = [], module = { exports: {} };
   const api = {
     plan: { correct: async (id, nodeId, body, key) => { calls.push({ id, nodeId, body: bodyOf(body), key }); return bundle().detail; } },
-    uploadVoucher: async (file, type) => { uploads.push({ file, type }); if (!file) throw Error('凭据未选择'); return '9007199254740999'; }
+    uploadVoucher: async (file, type, options) => { uploads.push({ file, type }); uploadOptions.push(options); if (!file) throw Error('凭据未选择'); return '9007199254740999'; }
   };
   vm.runInNewContext(fs.readFileSync('miniprogram/utils/platform-engineering.js', 'utf8'), {
     module, require: name => name === '../api/franchise/engineering' ? api : name === './epoch-ms'
       ? require('../miniprogram/utils/epoch-ms') : {},
   });
-  return { P: module.exports, calls, uploads, api };
+  return { P: module.exports, calls, uploads, uploadOptions, api };
 }
 function pageHarness(P) {
   let definition;
@@ -66,6 +66,20 @@ test('replacing one selected photo sends exact long identifiers and leaves the s
   assert.deepEqual(uploads, [{ file: 'replacement.jpg', type: 'ENG_SITE_PHOTO' }]);
   assert.deepEqual(calls[0].body, { completedAt: '2026-11-19', reason: '第二张选错', note: '更正后的说明',
     replacementRecordId: recordId, replaceFileAssetId: ids[1], fileAssetId: '9007199254740999' });
+});
+
+test('node completion and selected evidence replacement enable PDF detection without changing ordinary site uploads', async () => {
+  const {P,api,uploadOptions}=harness();
+  api.plan.complete=async (_id,_node,body)=>({...bundle().detail,siteRecords:[{...bundle().detail.siteRecords[0],file_asset_ids:JSON.stringify(body.fileAssetIds)}]});
+  api.site={create:async()=>({})};
+  const detail=await P.perform('node','100',{date:'2026-11-18',note:'原验收',files:[{path:'acceptance.pdf'},{path:'photo.jpg'}]},{id:'101'},'node-evidence');
+  await P.perform('node-correct','100',{nodeDate:'2026-11-18',nodeReason:'原凭据更正',nodeRecordId:recordId,nodeReplaceAssetId:ids[1],nodeFile:{path:'replacement.pdf'}},{id:'101'},'replace-pdf');
+  await P.perform('site','100',{date:'2026-11-18',note:'普通现场',file:{path:'site.jpg'}},{id:'101'},'site-photo');
+  assert.deepEqual(bodyOf(uploadOptions.slice(0,3)),[{nodeEvidence:true},{nodeEvidence:true},{nodeEvidence:true}]);
+  assert.equal(uploadOptions[3],undefined);
+  const saved=P.recordView({...bundle(),detail},{view:'node',nodeId:'101',writeRole:true});
+  assert.equal(saved.inspections[0].files.length,2);
+  assert.ok(saved.inspections[0].files.every(file=>file.assetId==='9007199254740999'));
 });
 
 test('partial replacement selection and missing required correction inputs never upload or submit', async () => {

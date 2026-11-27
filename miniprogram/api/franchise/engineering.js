@@ -197,7 +197,7 @@ function voucherIdentity() {
   } catch (e) {}
   return '';
 }
-async function uploadVoucher(filePath, assetType) {
+async function uploadVoucher(filePath, assetType, { nodeEvidence = false } = {}) {
   if (!filePath) throw { code: 0, msg: '请选择凭据文件' };
   const alive = http.sessionGuard();
   const requireAlive = () => { if (!alive()) throw { code: 0, msg: '身份已切换，请重新选择文件' }; };
@@ -205,6 +205,10 @@ async function uploadVoucher(filePath, assetType) {
   const fsData = await financeApi.readFileBase64(filePath);
   requireAlive();
   const binary = base64ToBinary(fsData);
+  // Only node acceptance may choose the existing PDF evidence type; site photos remain image-only.
+  const mimeType = financeApi.voucherMime(filePath, binary, { allowPdf: nodeEvidence || assetType !== 'ENG_SITE_PHOTO' });
+  if (nodeEvidence) assetType = mimeType === 'application/pdf' ? 'ENG_DRAWING' : 'ENG_SITE_PHOTO';
+  if (assetType === 'ENG_SITE_PHOTO' && mimeType === 'application/pdf') throw { code: 0, msg: '现场照片请上传 JPG 或 PNG 图片' };
   const sha = financeApi.sha256Hex(binary); // 原始字节摘要
   const identity = voucherIdentity();
   const cacheKey = identity ? JSON.stringify([identity, assetType, filePath, sha]) : '';
@@ -217,7 +221,6 @@ async function uploadVoucher(filePath, assetType) {
   const sizeBytes = stat.size || binary.length;
   // MIME 以字节魔数为准；识别不出的格式（HEIC/WebP/GIF…）在本地直接拒绝，不浪费一次票据上传。
   // 现场照片只收 JPG/PNG，图纸/合同/财务凭据额外允许 PDF。
-  const mimeType = financeApi.voucherMime(filePath, binary, { allowPdf: assetType !== 'ENG_SITE_PHOTO' });
   const ticket = await assets.uploadTicket(assetType, mimeType, sizeBytes, sha);
   requireAlive();
   const assetId = ticket.assetId;
