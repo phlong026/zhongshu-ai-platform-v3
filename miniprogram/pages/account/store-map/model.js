@@ -201,8 +201,7 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
     label.count++;
     areaLabels.set(upper.code,label);
   }
-  const focusedArea = target && (areaLabels.get(target.code) || areaLabels.get(target.cityCode)
-    || areaLabels.get(target.provinceCode));
+  const focusedArea = target && areaLabels.size === 1 ? [...areaLabels.values()][0] : null;
   const pendingCoverageLabel = focusedArea ? focusedArea.name + ' · 区县待确认 ' + focusedArea.count + ' 条'
     : areaLabels.size ? '另有 ' + [...areaLabels.values()].reduce((sum,row) => sum+row.count,0) + ' 条省市覆盖资料待确认区县' : '';
   const wholeAreas = unique(whole.map(row => upperById.get(row.id).name));
