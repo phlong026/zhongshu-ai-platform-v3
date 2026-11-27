@@ -61,7 +61,7 @@ public class HomeMetricsService {
     private Map<String,Metric> definitions(String role,PostSnapshot post) {
         var m=new LinkedHashMap<String,Metric>();
         if(role.equals("business")||role.equals("owner")) {
-            add(m,"signed","本月施工签约","元",true,"已签署且未作废的施工合同，按签署日期统计。",CONTRACT);
+            add(m,"signed","本月合同签约","元",true,"已签署且未作废的施工合同，按签署日期统计。",CONTRACT);
             add(m,"customerNet","本月净回款","元",true,"财务已登记客户收款减当月有效客户退款；退款按实际发生月扣减。",cash("RECEIPT",true)+" UNION ALL "+cash("REFUND",true));
             add(m,"newCustomers","本月新增","人",true,"本月登记的客户，每位客户只计一次。",CUSTOMER+month("c.create_time"));
             add(m,"visits","实际接待","人",true,"本月到店（店面讲解有记录）的客户去重；电话、预约和普通跟进不计入。",VISITS);

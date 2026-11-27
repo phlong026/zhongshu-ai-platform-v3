@@ -14,7 +14,7 @@ public final class CustomerWorkflowModel {
     public enum Step {
         INVITATION("邀约进店"), INTRODUCTION("店面讲解"), HOUSE_SELECTION("户型选择"),
         SITE_VISIT("带看工地"), MEASUREMENT("现场测量"), QUOTATION("别墅报价"),
-        CONTRACT("施工签约"), START("开工大吉");
+        CONTRACT("合同签约"), START("开工大吉");
         public final String label;
         Step(String label) { this.label = label; }
         public boolean manual() { return ordinal() < 6; }
