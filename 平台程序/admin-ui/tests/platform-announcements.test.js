@@ -76,7 +76,10 @@ const tabStorage = () => {
 }
 function view(overrides = {}) {
   const state = { tenant: '1', actor: '101', post: '201', generation: 1, ...overrides.scope }
-  const identity = vue.reactive({ context: { post: { postId: '201' } } })
+  const identity = vue.reactive({
+    context: { post: { postId: '201' } },
+    currentPost: overrides.currentPost
+  })
   const calls = []
   const confirmations = []
   const notices = []
@@ -224,6 +227,9 @@ test('headquarters announcement entry requires headquarters current post and que
       .searchProjectMenus(helpers.groupPlatformNavigation(entries), '公告')
       .some((row) => row.value === '/platform-announcements')
   )
+  const grouped = helpers.groupPlatformNavigation(entries)
+  assert.equal(grouped[1].path, '/platform-announcements')
+  assert.equal(grouped[1].meta.title, '公告管理')
   assert.equal(helpers.buildStaffMenus([], can, false).length, 0)
   assert.equal(helpers.buildStaffMenus([], can, true)[0].path, '/platform-announcements')
 })
@@ -253,22 +259,31 @@ test('staff router permits the same announcement path only for an authorized hea
     '@/hooks/web/usePageLoading': { usePageLoading: () => ({ loadStart() {}, loadDone() {} }) },
     '@/store/modules/dict': {},
     '@/store/modules/user': {},
-    '@/store/modules/permission': { usePermissionStoreWithOut: () => ({ getRouters: [1] }) },
+    '@/store/modules/permission': {
+      usePermissionStoreWithOut: () => ({ getRouters: [1], generateRoutes: async () => {} })
+    },
     '@/utils/routeParams': {},
     '@/utils/platformIdentity': {
       portalMode: () => 'staff',
+      ANNOUNCEMENTS_PATH: platform.ANNOUNCEMENTS_PATH,
       canReadHeadquartersAnnouncements: platform.canReadHeadquartersAnnouncements
     },
     '@/store/modules/platformIdentity': { usePlatformIdentityStoreWithOut: () => identity }
   })
-  assert.equal(await guard({ path: '/platform-announcements' }, {}), true)
+  assert.equal(await guard({ path: '/platform-announcements', query: {} }, {}), true)
   identity.currentPost.orgType = 'store'
-  assert.deepEqual(plain(await guard({ path: '/platform-announcements' }, {})), {
+  assert.deepEqual(plain(await guard({ path: '/platform-announcements', query: {} }, {})), {
     path: '/fr/identity',
     replace: true
   })
-  assert.deepEqual(plain(await guard({ path: '/platform-pricing' }, {})), {
+  assert.deepEqual(plain(await guard({ path: '/platform-pricing', query: {} }, {})), {
     path: '/fr/identity',
+    replace: true
+  })
+  identity.context = null
+  assert.deepEqual(plain(await guard({ path: '/platform-announcements', query: {} }, {})), {
+    path: '/fr/identity',
+    query: { redirect: '/platform-announcements' },
     replace: true
   })
 })
@@ -561,7 +576,7 @@ test('request IDs use secure random bytes if randomUUID is unavailable (intranet
   assert.throws(() => unsupported.createRequestId(), /安全生成/)
 })
 
-test('reloading in the same tab and revalidating the same post resumes the exact pending create', async () => {
+test('总部员工仅靠已确认岗位身份也能在刷新后恢复同一草稿请求', async () => {
   const storage = tabStorage()
   const attempts = []
   const api = {
@@ -571,20 +586,22 @@ test('reloading in the same tab and revalidating the same post resumes the exact
       return record(input)
     }
   }
-  const before = view({ storage, api })
+  const currentPost = { userId: '101', postId: '201' }
+  const staff = { storage, api, currentPost }
+  const before = view({ ...staff, scope: { actor: 0 } })
   await before.page.load()
   before.page.createDraft()
   Object.assign(before.page.form, { title: '待确认草稿', content: '只保存一次的测试正文' })
   await before.page.save()
   before.hooks.unmount()
-  const after = view({ storage, api, scope: { generation: 2 } })
+  const after = view({ ...staff, scope: { actor: 0, generation: 2 } })
   await after.page.load()
   assert.equal(attempts.length, 1, '重新打开页面不会自动提交')
   after.page.createDraft()
   assert.equal(after.page.form.title, '待确认草稿')
   await after.page.save()
   assert.deepEqual(attempts[1], attempts[0])
-  const again = view({ storage, api, scope: { generation: 3 } })
+  const again = view({ ...staff, scope: { actor: 0, generation: 3 } })
   await again.page.load()
   again.page.createDraft()
   assert.equal(again.page.form.title, '', '确认后清理，不恢复历史正文')

@@ -36,6 +36,20 @@ test('缺少克隆能力的旧服务保留入口但不伪造可发布价格', ()
     assert.equal(pricing.estimateCredits(row, '1'), '—')
   }
 })
+test('旧服务仍返回设计与预算科目时，管理台价格列表跳过退役科目', () => {
+  const rows = pricing.buildCatalog(
+    ['ai_flat', 'ai_elevation', 'budget_estimate', 'ai_prompt', 'note_polish', 'digital'].map(
+      (subject) => base(subject)
+    )
+  )
+  assert.deepEqual(Array.from(rows, (row) => row.subject), [
+    'note_polish',
+    'digital',
+    'avatar_clone',
+    'voice_clone'
+  ])
+})
+
 test('服务返回的形象与语音科目直接接入，未定价不显示免费', () => {
   const rows = pricing.buildCatalog([
     base('avatar_clone', '0', 'CALL'),
@@ -150,6 +164,26 @@ test('价格发布丢失响应后保持原价格、原因和请求键，重试�
   assert.equal(requests[1].priceMicros, 2000000)
   assert.equal(values.size, 0)
   assert.equal(state.visible.value, false)
+})
+
+test('旧设计待确认回执保留且不阻挡在用能力发布', async () => {
+  let written
+  const { state, values } = editorHarness(async (payload) => {
+    written = payload
+    return 'price-id'
+  })
+  const storage = { setItem: (key, value) => values.set(key, value), getItem: (key) => values.get(key) }
+  load('views/platform/org-points/pricePending.ts').savePricePending(
+    storage,
+    { tenantId: '1', actorId: '88' },
+    { subject: 'ai_flat', priceMicros: 1, minCharge: 1, reason: '旧变更', requestKey: 'old' }
+  )
+  state.open(pricing.buildCatalog([base('copy', '2000000', 'CALL')])[0])
+  state.draft.value.reason = '在用能力调价'
+  await state.save()
+  assert.equal(written.subject, 'copy')
+  assert.equal(values.size, 1)
+  assert.ok([...values.keys()][0].endsWith(':ai_flat'))
 })
 
 test('无法持久保存或没有调价权限时不发起价格写入', async () => {

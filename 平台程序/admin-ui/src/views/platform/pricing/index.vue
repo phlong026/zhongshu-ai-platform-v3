@@ -176,7 +176,7 @@
           <el-table-column prop="reason" label="变更原因" min-width="260" show-overflow-tooltip />
         </el-table>
       </el-tab-pane>
-      <el-tab-pane label="其他价格与成本" name="other">
+      <el-tab-pane label="充值套餐与审计" name="other">
         <div class="price-links"
           ><article v-for="link in allowedLinks" :key="link.path"
             ><h2>{{ link.title }}</h2
@@ -185,10 +185,6 @@
           ></div
         >
         <el-empty v-if="!allowedLinks.length" description="暂无可访问的其他价格配置" />
-        <p class="pricing-note"
-          >设计委托服务费由总部设计岗位维护；预算材料与施工单价属于设计服务报价，区别于本页的 AI
-          调用积分。</p
-        >
       </el-tab-pane>
     </el-tabs>
     <PriceEditor ref="editor" @saved="onSaved" />
@@ -235,6 +231,7 @@ import {
   buildCatalog,
   categories,
   estimateCredits,
+  isActivePricingSubject,
   priceLinks,
   priceState,
   priceVersionLabel,
@@ -301,7 +298,8 @@ async function loadHistory() {
   historyLoading.value = true
   historyError.value = ''
   try {
-    history.value = await getPriceHistory(historySubject.value || undefined)
+    const rows = await getPriceHistory(historySubject.value || undefined)
+    history.value = rows.filter((row) => isActivePricingSubject(row.subject))
   } catch (failure) {
     history.value = []
     historyError.value = failureText(failure, '调价记录加载失败，请重试')

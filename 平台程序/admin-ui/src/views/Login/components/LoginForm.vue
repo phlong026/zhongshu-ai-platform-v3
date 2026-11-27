@@ -64,6 +64,13 @@
         @success="handleLogin"
       />
 
+      <RouterLink
+        v-if="redirect === ANNOUNCEMENTS_PATH"
+        class="zs-announcement-login"
+        :to="{ path: '/platform-login', query: { redirect } }"
+      >
+        使用总部工作身份登录
+      </RouterLink>
     </el-form>
 
     <!-- 忘记密码弹层（保留底座能力，视觉沿用设计语言） -->
@@ -77,6 +84,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useIcon } from '@/hooks/web/useIcon'
 
 import * as authUtil from '@/utils/auth'
+import { ANNOUNCEMENTS_PATH } from '@/utils/platformIdentity'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as LoginApi from '@/api/login'
 import { LoginStateEnum, useFormValid, useLoginState } from './useLogin'
@@ -301,6 +309,15 @@ onMounted(() => {
       color: #8a5a34;
     }
   }
+}
+
+.zs-announcement-login {
+  display: block;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #714320;
+  text-align: center;
+  text-decoration: underline;
 }
 
 .zs-login-btn {

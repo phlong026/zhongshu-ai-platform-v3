@@ -9,7 +9,11 @@ import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { parseRouteLocation } from '@/utils/routeParams'
-import { canReadHeadquartersAnnouncements, portalMode } from '@/utils/platformIdentity'
+import {
+  ANNOUNCEMENTS_PATH,
+  canReadHeadquartersAnnouncements,
+  portalMode
+} from '@/utils/platformIdentity'
 import { usePlatformIdentityStoreWithOut } from '@/store/modules/platformIdentity'
 
 const { start, done } = useNProgress()
@@ -38,15 +42,20 @@ router.beforeEach(async (to, from) => {
       if (!permissionStore.getRouters.length || !identity.context) {
         await permissionStore.generateRoutes()
       }
+      const announcementRedirect =
+        to.path === ANNOUNCEMENTS_PATH || to.query.redirect === ANNOUNCEMENTS_PATH
+          ? { query: { redirect: ANNOUNCEMENTS_PATH } }
+          : {}
       if (!identity.posts.length && !identity.error) {
-        return to.path === '/platform-login' ? true : { path: '/platform-login', replace: true }
+        return to.path === '/platform-login'
+          ? true
+          : { path: '/platform-login', replace: true, ...announcementRedirect }
       }
-      if (!identity.context && to.path !== '/fr/identity') {
-        return { path: '/fr/identity', replace: true }
+      if ((!identity.context && to.path !== '/fr/identity') || to.path === '/platform-login') {
+        return { path: '/fr/identity', replace: true, ...announcementRedirect }
       }
-      if (to.path === '/platform-login') return { path: '/fr/identity', replace: true }
-      if (to.path === '/platform-announcements') {
-        return canReadHeadquartersAnnouncements(identity.currentPost, (permission) => identity.can(permission))
+      if (to.path === ANNOUNCEMENTS_PATH) {
+        return canReadHeadquartersAnnouncements(identity.currentPost, identity.can)
           ? true
           : { path: '/fr/identity', replace: true }
       }

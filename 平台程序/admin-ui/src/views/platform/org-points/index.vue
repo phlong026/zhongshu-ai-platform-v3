@@ -377,6 +377,7 @@ import {
   type PoolSummary,
   type SubjectPrice
 } from '@/api/platform/orgPoints'
+import { isActivePricingSubject } from '../pricing/catalog'
 
 defineOptions({ name: 'PlatformOrgPoints' })
 const props = withDefaults(defineProps<{ orgId?: string; embedded?: boolean }>(), {
@@ -401,6 +402,8 @@ const summary = ref<PoolSummary>()
 const ledger = ref<PoolLedgerEntry[]>([])
 const adjustments = ref<Adjustment[]>([])
 const prices = ref<SubjectPrice[]>([])
+const loadPrices = async () =>
+  (await getSubjectPrices()).filter((row) => isActivePricingSubject(row.subject))
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -471,7 +474,7 @@ async function loadCompany(orgId: string, current: number) {
   ]
   if (canQueryPrices.value) {
     tasks.push(
-      getSubjectPrices().then((value) => {
+      loadPrices().then((value) => {
         if (current === generation) prices.value = value
       })
     )
@@ -504,7 +507,12 @@ async function loadAll() {
     if (current !== generation) return
     companies.value = result
     const pendingAdjustment = findPending(localStorage, actorScope.tenantId, actorScope.actorId)
-    const pendingPrice = findPricePending(localStorage, actorScope.tenantId, actorScope.actorId)
+    const pendingPrice = findPricePending(
+      localStorage,
+      actorScope.tenantId,
+      actorScope.actorId,
+      isActivePricingSubject
+    )
     if (props.orgId && pendingAdjustment && pendingAdjustment.scope.orgId !== props.orgId) {
       throw new Error('其他组织有待确认的积分申请，请先在公司积分池核对')
     }
@@ -730,7 +738,7 @@ const closePrice = (done: () => void) => {
   done()
 }
 const reconcilePrice = async () => {
-  prices.value = await getSubjectPrices()
+  prices.value = await loadPrices()
   message.info('已刷新价格版本；未确认发布仍需使用原幂等键重试确认')
 }
 const savePrice = async () => {
@@ -772,7 +780,7 @@ const savePrice = async () => {
     pricePendingScope.value = undefined
     resetPriceDraft(priceForm.value, requestKey())
     message.success('新价格版本已发布')
-    prices.value = await getSubjectPrices()
+    prices.value = await loadPrices()
   } catch (failure) {
     if (!requestStarted && !wasAttempted) {
       priceForm.value.attempted = false

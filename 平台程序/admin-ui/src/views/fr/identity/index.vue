@@ -59,7 +59,7 @@ const error = ref('')
  * 角色优先 + 权限兜底，避免两处各自硬编码漂移。
  */
 const defaultLandingPath = (): string =>
-  resolveStaffLandingPath(identity.currentPost?.roleCode, (permission) => identity.can(permission))
+  resolveStaffLandingPath(identity.currentPost, identity.can, router.currentRoute.value.query.redirect)
 const switchPost = async (postId: PlatformId) => {
   error.value = ''
   try {
