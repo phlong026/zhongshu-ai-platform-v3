@@ -304,7 +304,7 @@ function formInit(c, view) {
   if (view === 'receive') return { note: '', checked: false };
   return {};
 }
-function fieldsFor(c, view, can) {
+function fieldsFor(c, view, can, canReturn = can) {
   const fields = [];
   const add = (key, label, kind = 'input', locked = false) => fields.push({ key, label, kind, locked });
   const hasSplit = !!(c.fee && c.fee.mode === 'LEGACY_SPLIT');
@@ -343,7 +343,10 @@ function fieldsFor(c, view, can) {
     add('received', '正式文件已收齐且可读取', 'check');
     add('confirmed', '客户已确认本次采用的成果版本', 'check');
   }
-  if (view === 'receive' && can) { add('note', '退回原因（退回时必填）', 'textarea'); add('checked', '本版图纸、客户确认、审核依据及交底已核对', 'check'); }
+  if (view === 'receive') {
+    if (canReturn) add('note', '退回原因（退回时必填）', 'textarea');
+    if (can) add('checked', '本版图纸、客户确认、审核依据及交底已核对', 'check');
+  }
   return fields;
 }
 
