@@ -99,7 +99,7 @@ class RemoteDesignCommandStoreTest {
             var command = store.prepare(post, request);
             assertThat(command.price()).isNull();
             var expected = Map.of("budgetId", "701");
-            var receipt = new Receipt("budget-receipt", call.operation(), key, command.fingerprint(), ReceiptStatus.SUCCEEDED, expected, null, null, null);
+            var receipt = new Receipt("budget-receipt", call.operation(), command.request().requestKey(), command.fingerprint(), ReceiptStatus.SUCCEEDED, expected, null, null, null);
             assertThat(store.complete(store.claim(command), receipt)).isEqualTo(expected);
             var replay = store.prepare(post, request);
             assertThat(replay.commandId()).isEqualTo(command.commandId());
