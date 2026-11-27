@@ -23,7 +23,7 @@ public class FranchiseMapService {
                         String cityCode,String cityName,String districtCode,String districtName,Double longitude,Double latitude,String locationPrecision,String publicAddress) { }
     public record Brand(String id,String name,String color) { }
     public record MapRecord(String id,String name,String brandId,String brandName,String brandColor,String recordType,
-                            String matchStatus,List<String> regionCodes,String provinceCode,String cityCode,String publicAddress) { }
+                            String matchStatus,List<String> regionCodes,String provinceCode,String cityCode,String publicAddress,boolean wholeAreaCoverage) { }
     public record Point(String id,String recordId,String regionCode,double longitude,double latitude,String locationPrecision) { }
 
     public static String brandColor(long id) {
@@ -72,7 +72,7 @@ public class FranchiseMapService {
             String publicAddress="FRANCHISE".equals(item.recordType())&&item.publicAddressAuthorized()
                     ?item.publicAddress():"";
             records.add(new MapRecord(item.id(),publicName,item.brandId(),item.brandName(),item.brandColor(),item.recordType(),
-                    item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),publicAddress));
+                    item.matchStatus(),item.regionCodes(),item.provinceCode(),item.cityCode(),publicAddress,item.wholeAreaCoverage()));
             FranchiseRegionCatalog.Region firstDistrict=null;
             for(String code:item.regionCodes()) {
                 var region=catalog.get(code);
