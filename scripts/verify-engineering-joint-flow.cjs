@@ -74,15 +74,27 @@ test('handover next step progresses through preparation, schedule, collection, s
   const { P } = harness(),
     b = bundle(),
     next = () => P.recordView(b, {}).next;
+  // Real templates retain one START node; preparation does not complete it.
+  const start = { id: '103', nodeIndex: 1, name: '正式开工', milestone: 'START', status: 'PENDING' };
+  b.detail.nodes = [start, ...b.detail.nodes.map((n, i) => ({ ...n, nodeIndex: i === 0 ? 5 : 8 }))];
+  const base = '/pages/build/record/index?id=100&view=';
   assert.match(next().url, /prepare$/);
   b.detail.preparedAt = '2026-11-17';
-  assert.match(next().url, /project$/);
-  b.detail.nodes.forEach((n) => Object.assign(n, { startDate: '2026-11-17', endDate: '2026-11-17' }));
-  assert.match(next().url, /collection/);
+  assert.equal(next().url, base + 'project');
+  // Only the planned start date is needed; later construction dates stay unknown.
+  Object.assign(start, { startDate: '2026-11-17', endDate: '2026-11-17' });
+  assert.equal(next().url, base + 'collection&stage=start');
+  const collection = P.recordView(b, { view: 'collection', stage: 'start', financeRole: true });
+  assert.equal(collection.form.stage, 'SIGN_AFTER');
+  assert.equal(collection.actions[0].action, 'collect');
+  assert.equal(P.recordView(b, { view: 'start', writeRole: true }).actions.length, 0);
   Object.assign(b.collections.stages[0], { confirmedCents: 100000, remainingCents: 0 });
-  assert.match(next().url, /start$/);
+  assert.equal(next().url, base + 'start');
+  assert.equal(P.recordView(b, { view: 'start', writeRole: true }).actions[0].action, 'start');
   b.detail.actualStartAt = '2026-11-17';
-  assert.match(next().url, /node&nodeId=101/);
+  Object.assign(start, { status: 'DONE', completedAt: '2026-11-17' });
+  b.detail.nodes[1].status = 'IN_PROGRESS';
+  assert.equal(next().url, base + 'node&nodeId=101');
   b.detail.nodes.forEach((n) => (n.status = 'DONE'));
   assert.match(next().url, /delivery$/);
   b.detail.closure = { deliveredAt: '2026-11-17' };
