@@ -589,6 +589,48 @@ class PerfFinanceWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThatThrownBy(()->home.detail(hq,"owner","2026-11","commissions",1)).isInstanceOf(ServiceException.class);
  }
 
+ @Test @org.springframework.transaction.annotation.Transactional
+ void actualVisitsUseDatedCurrentStepsAndHistoricalVisitsInTheirOwnMonthWithoutDuplicates() {
+  createHomeTables();
+  var boss=fixture.post(fixture.store().orgId(),"boss",null);long org=boss.orgId();
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow(id bigint,company_id bigint,customer_id bigint,status text)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_workflow_step(workflow_id bigint,company_id bigint,step_code text,status text,occurred_on date)");
+  jdbc.execute("CREATE TEMP TABLE fr_customer_follow(customer_id bigint,company_id bigint,contact_kind text,occurred_on date)");
+  jdbc.update("INSERT INTO fr_customer(id,company_id,name) SELECT n,?,'接待客户'||n FROM generate_series(1,10) n",org);
+  jdbc.update("UPDATE fr_customer SET company_id=company_id+1 WHERE id=10");
+  jdbc.update("INSERT INTO fr_customer_workflow SELECT id+100,company_id,id,'ACTIVE' FROM fr_customer");
+  jdbc.update("""
+      INSERT INTO fr_customer_workflow_step VALUES
+      (101,?,'INTRODUCTION','DRAFT',NULL),(102,?,'INTRODUCTION','DRAFT','2026-11-01'),
+      (103,?,'INTRODUCTION','COMPLETED','2026-11-30'),(104,?,'INTRODUCTION','COMPLETED','2026-11-15'),
+      (105,?,'INTRODUCTION','DRAFT',NULL),(106,?,'INTRODUCTION','DRAFT','2026-11-10'),
+      (107,?,'INTRODUCTION','COMPLETED','2026-10-31'),(110,?,'INTRODUCTION','DRAFT','2026-11-15')
+      """,org,org,org,org,org,org,org,org+1);
+  jdbc.update("""
+      INSERT INTO fr_customer_follow VALUES
+      (5,?,'VISIT','2026-11-16'),(6,?,'VISIT','2026-11-20'),(6,?,'VISIT','2026-11-25'),
+      (8,?,'FOLLOW','2026-11-06'),(9,?,'VISIT',NULL),(10,?,'VISIT','2026-11-18')
+      """,org,org,org,org,org,org+1);
+  var home=new HomeMetricsService(jdbc);
+  for(String role:List.of("owner","business")) {
+   assertHomeIds(home,boss,role,"2026-11","visits","2","3","4","5","6");
+   assertHomeIds(home,boss,role,"2026-10","visits","7");
+   assertHomeIds(home,boss,role,"2026-12","visits");
+  }
+  jdbc.update("UPDATE fr_customer_workflow_step SET status='DRAFT' WHERE workflow_id=104");
+  assertHomeIds(home,boss,"owner","2026-11","visits","2","3","4","5","6");
+  jdbc.update("UPDATE fr_customer_workflow_step SET occurred_on='2026-10-15' WHERE workflow_id=104");
+  for(String role:List.of("owner","business")) {
+   assertHomeIds(home,boss,role,"2026-11","visits","2","3","5","6");
+   assertHomeIds(home,boss,role,"2026-10","visits","4","7");
+  }
+  jdbc.update("UPDATE fr_customer_workflow_step SET occurred_on=NULL WHERE workflow_id=104");
+  assertHomeIds(home,boss,"owner","2026-10","visits","7");
+  var rows=(List<Map<String,Object>>)home.detail(boss,"owner","2026-11","visits",1).get("rows");
+  assertThat(rows).filteredOn(r->r.get("id").equals("6")).singleElement()
+      .satisfies(row->assertThat(row.get("date")).isEqualTo("2026-11-25"));
+ }
+
  private void assertHomeIds(HomeMetricsService home,cn.iocoder.yudao.module.platform.org.PostSnapshot post,
                             String role,String period,String metric,String... expected) {
   var detail=home.detail(post,role,period,metric,1);

@@ -739,6 +739,51 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
                 .extracting(CustomerDO::getId).containsExactly(visited);
     }
 
+    @Test
+    void visitedListRequiresTheCurrentActualDateAndKeepsDatedDraftsCompletedAndReopenedRecords() {
+        long id=customer();
+        var blank=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(0,null,"",Map.of(),List.of()),"empty-introduction"));
+        assertThat(blank.steps().get(1).status()).isEqualTo("DRAFT");
+        assertThat(visitedIds(sales)).isEmpty();
+        var dated=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(blank.revision(),today(),"已实际到店，资料待补",Map.of(),List.of()),"dated-introduction"));
+        assertThat(dated.steps().get(1).status()).isEqualTo("DRAFT");
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var fields=Map.<String,Object>of("receptionist","经办业务","requirements","两层住宅","feedback","已讲解建房流程");
+        var completeDraft=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(dated.revision(),today(),"",fields,List.of()),"complete-introduction-draft"));
+        var completed=as(sales,()->workflow.complete(sales,id,"INTRODUCTION",completeDraft.revision(),"complete-introduction"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var reopened=as(sales,()->workflow.reopen(sales,id,"INTRODUCTION",new ReopenCommand(completed.revision(),"核对实际到店日期"),"reopen-introduction"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var previousMonth=today().withDayOfMonth(1).minusDays(1);
+        var corrected=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(reopened.revision(),previousMonth,"更正实际日期",fields,List.of()),"correct-introduction-date"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        assertThat(corrected.steps().get(1).occurredOn()).isEqualTo(previousMonth);
+        assertThat(corrected.events()).extracting(RecordView::occurredOn).contains(today(),previousMonth);
+        as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(corrected.revision(),null,"原日期误填，待核对",fields,List.of()),"clear-invalid-date"));
+        assertThat(visitedIds(sales)).isEmpty();
+        assertThat(as(sales,()->workflow.timeline(sales,id,1,50)).getList()).extracting(RecordView::occurredOn).contains(today(),previousMonth);
+    }
+
+    @Test
+    void visitedListKeepsHistoricalVisitsWithoutCountingOrdinaryFollowupsOrMissingDatesTwice() {
+        long legacy=customer(),both=customer(),lastMonth=customer(),ordinary=customer(),undated=customer();
+        for(long id:List.of(legacy,both))
+            as(sales,()->customers.follow(sales,id,new CustomerService.FollowCommand("实际到店接待",null,"VISIT",today()),"legacy-visit-"+id));
+        as(sales,()->workflow.save(sales,both,"INTRODUCTION",new SaveCommand(0,today(),"同一次接待补资料",Map.of(),List.of()),"both-visit-sources"));
+        as(sales,()->workflow.save(sales,lastMonth,"INTRODUCTION",new SaveCommand(0,today().withDayOfMonth(1).minusDays(1),"上月实际到店",Map.of(),List.of()),"previous-month-visit"));
+        as(sales,()->customers.follow(sales,ordinary,new CustomerService.FollowCommand("电话沟通",null,"FOLLOW",today()),"ordinary-follow"));
+        jdbc.update("INSERT INTO fr_customer_follow(id,company_id,customer_id,contact_kind,note,author_user_id,author_post_id) VALUES(?,?,?,'VISIT','旧记录日期待核对',?,?)",
+                com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),store.orgId(),undated,sales.userId(),sales.postId());
+        assertThat(visitedIds(sales)).containsExactlyInAnyOrder(legacy,both,lastMonth);
+        assertThat(visitedIds(colleague)).isEmpty();
+    }
+
+    private List<Long> visitedIds(PostSnapshot actor) {
+        var page=new PageParam();page.setPageNo(1);page.setPageSize(50);
+        return as(actor,()->customers.page(actor,page,null,null,null,CustomerMapper.FollowFilter.VISITED).getList())
+                .stream().map(CustomerDO::getId).toList();
+    }
+
     private long customer() { return as(sales, () -> capture(sales)); }
     private long capture(PostSnapshot post) {
         return leads.capture(post, new LeadService.CaptureCommand("陈先生", Long.toString(PHONES.incrementAndGet()), "建房咨询", "到店"), null).customerId();
