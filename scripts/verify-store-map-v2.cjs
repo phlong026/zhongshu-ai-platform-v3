@@ -449,3 +449,20 @@ test('经明确确认的全市覆盖可查到下辖县，一条统计且不产�
   assert.equal(mapView(snapshot,county,catalog,'viewport',bounds).summary.coverageRecordCount,1);
   assert.equal(mapView(snapshot,{},catalog).summary.coverageRecordCount,2);
 });
+
+test('同一筛选内省级和市级待确认资料都计入提示，仍各自标明原地区',()=>{
+  const province={...record('province-draft','a',['420000'],'COVERAGE'),cityCode:'',matchStatus:'PARTIAL'};
+  const city={...record('city-draft','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL'};
+  const whole={...record('confirmed-area','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL',wholeAreaCoverage:true};
+  const snapshot=readSnapshot(fixture([province,city,city,whole]),hq),catalog=readRegions(regions);
+  for(const filters of [{province:county.province},{province:county.province,city:county.city},county]){
+    const view=mapView(snapshot,filters,catalog);
+    assert.equal(view.summary.pendingCount,2);
+    assert.match(view.upperCoverageLabel,/已确认全域覆盖 1 条；另有 2 条省市覆盖资料待确认区县/);
+    assert.deepEqual(view.rows.filter(row=>row.pending).map(row=>row.upperCoverageLabel).sort(),['武汉市','湖北省']);
+    assert.equal(view.summary.franchiseCount,2);
+    assert(!view.markers.flatMap(marker=>marker.storeIds).some(id=>['province-draft','city-draft','confirmed-area'].includes(id)));
+  }
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:32}};
+  assert.equal(mapView(snapshot,county,catalog,'viewport',bounds).upperCoverageLabel,'');
+});
