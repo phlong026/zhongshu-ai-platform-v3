@@ -125,8 +125,16 @@ public class FinWorkbenchService {
         var input=Map.of("payableId",id,"assignment",cmd);
         if(commands.replayed(post,key,input).isPresent())return;
         Scope s=scope(post.orgId(),cmd.scope());
-        var rows=jdbc.queryForList("SELECT id FROM fr_fin_payable WHERE id=? AND company_id=? FOR UPDATE",id,post.orgId());
+        var rows=jdbc.queryForList("SELECT * FROM fr_fin_payable WHERE id=? AND company_id=? AND NOT deleted FOR UPDATE",id,post.orgId());
         if(rows.isEmpty() || cmd.reason()==null || cmd.reason().isBlank())throw exception(REFERENCE_INVALID_FIN);
+        var source=rows.get(0);
+        // Original engineering obligations stay with their source, including rows predating source_type.
+        boolean engineering=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_eng_supply WHERE company_id=? AND payable_id=?)
+                OR EXISTS(SELECT 1 FROM fr_eng_expense WHERE company_id=? AND payable_id=?)
+            """,Boolean.class,post.orgId(),id,post.orgId(),id));
+        if(engineering || !"manual".equals(source.get("source_type")) || source.get("project_id")!=null
+                || source.get("book_id")!=null || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
         jdbc.update("UPDATE fr_fin_payable SET book_id=?,project_id=? WHERE company_id=? AND (id=? OR (source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.bookId(),s.projectId(),post.orgId(),id,id,post.orgId());
         jdbc.update("UPDATE fr_fin_payment SET project_id=? WHERE company_id=? AND payable_id IN(SELECT id FROM fr_fin_payable WHERE id=? OR (company_id=? AND source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.projectId(),post.orgId(),id,post.orgId(),id,post.orgId());
         long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,id);

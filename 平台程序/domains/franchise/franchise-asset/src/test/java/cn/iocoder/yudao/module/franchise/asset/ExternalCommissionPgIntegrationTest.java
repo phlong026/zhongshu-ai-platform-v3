@@ -267,54 +267,54 @@ class ExternalCommissionPgIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_type='fr-external-commission' AND aggregate_id=?",Long.class,commission)).isZero();
     }
 
-    @Test void concurrentRealFeeApprovalAndConversionShareTheCommissionLockAndDoNotLoseApprovedFees() throws Exception {
+    @Test void retiredFeeApprovalCannotRaceConversionIntoANewPayable() throws Exception {
         long customer=customer(sales),commission=legacy(customer,"FEE_PENDING"),approval=pendingApproval(commission);
-        var before=as(sales,()->service.get(sales,customer)); var input=request(before,"并发转换应核对最新审批",List.of());
-        var held=new CountDownLatch(1);var release=new CountDownLatch(1);var conversionStarted=new CountDownLatch(1);
-        var pool=Executors.newFixedThreadPool(2); currentPost.use(sales);
-        doAnswer(call->{held.countDown();if(!release.await(10,TimeUnit.SECONDS))throw new IllegalStateException("test timeout");return null;})
-                .when(settlement).ensureInitialPayable(eq(commission),eq(1),any());
+        var before=as(sales,()->service.get(sales,customer));var input=request(before,"原记录转外部流程",List.of());
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);currentPost.use(sales);
         try {
-            var approved=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{
-                return legacyService.feeDecide(boss,commission,new CommissionService.FeeDecisionCommand(true,"实际审核通过"),key());
-            }finally{TenantContextHolder.clear();}});
-            assertThat(held.await(10,TimeUnit.SECONDS)).isTrue();
-            var conversion=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{conversionStarted.countDown();return service.convertLegacy(sales,customer,input,key());}finally{TenantContextHolder.clear();}});
-            assertThat(conversionStarted.await(5,TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(()->conversion.get(250,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
-            release.countDown();approved.get(10,TimeUnit.SECONDS);
-            assertThatThrownBy(()->conversion.get(10,TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class)
-                    .satisfies(error->assertThat(((ServiceException)error.getCause()).getCode()).isEqualTo(1099000001));
-            assertThat(jdbc.queryForObject("SELECT status FROM pf_approval WHERE id=?",String.class,approval)).isEqualTo("APPROVED");
-            verify(settlement,times(1)).ensureInitialPayable(eq(commission),eq(1),eq(boss));
-            assertThat(count("fr_commission_external_version","commission_id",commission)).isZero();
-            var fresh=service.get(sales,customer);
-            service.convertLegacy(sales,customer,request(fresh,"确认已批准费用保留后继续转换",List.of()),key());
-            assertThat(jdbc.queryForObject("SELECT status FROM pf_approval WHERE id=?",String.class,approval)).isEqualTo("APPROVED");
-        } finally {release.countDown();pool.shutdownNow();currentPost.clear();}
+            var old=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{start.await();return legacyService.feeDecide(boss,commission,new CommissionService.FeeDecisionCommand(true,"迟到旧审批"),key());}finally{TenantContextHolder.clear();}});
+            var conversion=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{start.await();return service.convertLegacy(sales,customer,input,key());}finally{TenantContextHolder.clear();}});
+            start.countDown();
+            assertThat(conversion.get(10,TimeUnit.SECONDS).commissionId()).isEqualTo(Long.toString(commission));
+            assertThatThrownBy(()->old.get(10,TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class)
+                    .satisfies(e->assertThat(((ServiceException)e.getCause()).getCode()).isEqualTo(1111000024));
+            assertThat(jdbc.queryForObject("SELECT status FROM pf_approval WHERE id=?",String.class,approval)).isEqualTo("SUPERSEDED");
+            assertThat(count("fr_commission_external_version","commission_id",commission)).isEqualTo(1);
+            verify(settlement,never()).ensureInitialPayable(anyLong(),anyInt(),any());
+        } finally {start.countDown();pool.shutdownNow();currentPost.clear();}
     }
 
-    @Test void conversionWinningTheRaceMakesOldFeeDecisionFailWithoutCreatingAPayable() throws Exception {
-        long customer=customer(sales),commission=legacy(customer,"FEE_PENDING"),approval=pendingApproval(commission);
-        var before=as(sales,()->service.get(sales,customer)); var input=request(before,"先完成转换",List.of());
-        var held=new CountDownLatch(1);var release=new CountDownLatch(1);var started=new CountDownLatch(1);
-        var pool=Executors.newFixedThreadPool(2);currentPost.use(sales);
+    @Test void retiredSubmissionAndExternalRegistrationOnlyCreateOneExternalAggregate() throws Exception {
+        long customer=customer(sales);var before=as(sales,()->service.get(sales,customer));
+        var input=request(before,"实际外部委托",List.of());
+        var legacyInput=new CommissionService.SubmitCommand("旧客户端完整请求","方案图纸",null,new BigDecimal("100"),new BigDecimal("50"),"旧收款方",1,null,null,true);
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);currentPost.use(sales);
         try {
-            var conversion=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{return new TransactionTemplate(transactions).execute(tx->{
-                var view=service.convertLegacy(sales,customer,input,key());held.countDown();
-                try{if(!release.await(10,TimeUnit.SECONDS))throw new IllegalStateException("test timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return view;
-            });}finally{TenantContextHolder.clear();}});
-            assertThat(held.await(10,TimeUnit.SECONDS)).isTrue();
-            var approved=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{
-                started.countDown();return legacyService.feeDecide(boss,commission,new CommissionService.FeeDecisionCommand(true,"迟到的审批"),key());
-            }finally{TenantContextHolder.clear();}});
-            assertThat(started.await(5,TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(()->approved.get(250,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
-            release.countDown();conversion.get(10,TimeUnit.SECONDS);
-            assertThatThrownBy(()->approved.get(10,TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class).hasCauseInstanceOf(ServiceException.class);
-            assertThat(jdbc.queryForObject("SELECT status FROM pf_approval WHERE id=?",String.class,approval)).isEqualTo("SUPERSEDED");
-            verify(settlement,never()).ensureInitialPayable(eq(commission),eq(1),any());
-        }finally{release.countDown();pool.shutdownNow();currentPost.clear();}
+            var old=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{start.await();return legacyService.submit(sales,customer,legacyInput,key());}finally{TenantContextHolder.clear();}});
+            var external=pool.submit(()->{TenantContextHolder.setTenantId(tenant);try{start.await();return service.register(sales,customer,input,key());}finally{TenantContextHolder.clear();}});
+            start.countDown();var registered=external.get(10,TimeUnit.SECONDS);
+            assertThatThrownBy(()->old.get(10,TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class)
+                    .satisfies(e->assertThat(((ServiceException)e.getCause()).getCode()).isEqualTo(1111000024));
+            long id=Long.parseLong(registered.commissionId());
+            assertThat(registered.mode()).isEqualTo("EXTERNAL");
+            assertThat(count("fr_commission","customer_id",customer)).isEqualTo(1);
+            assertThat(count("fr_commission_submission","commission_id",id)).isZero();
+            assertThat(count("fr_commission_external_version","commission_id",id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_approval WHERE subject_type='commission-fee' AND subject_id=?",Long.class,id)).isZero();
+            verify(settlement,never()).ensureInitialPayable(anyLong(),anyInt(),any());
+        } finally {start.countDown();pool.shutdownNow();currentPost.clear();}
+    }
+
+    @Test void alreadyApprovedHistoricalFeeAndItsSourceRemainWhenConverted() {
+        long customer=customer(sales),commission=legacy(customer,"DESIGNING"),approval=pendingApproval(commission);
+        jdbc.update("UPDATE pf_approval SET status='APPROVED',decided_at=now(),approver_user_id=?,approver_post_id=? WHERE id=?",boss.userId(),boss.postId(),approval);
+        var before=as(sales,()->service.get(sales,customer));
+        var converted=as(sales,()->service.convertLegacy(sales,customer,request(before,"保留真实历史费用",List.of()),key()));
+        assertThat(converted.commissionId()).isEqualTo(Long.toString(commission));
+        assertThat(converted.currentRequest().supersededApprovalIds()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT status FROM pf_approval WHERE id=?",String.class,approval)).isEqualTo("APPROVED");
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_commission_submission WHERE commission_id=?",Long.class,commission)).isEqualTo(10000);
+        verify(settlement,never()).ensureInitialPayable(anyLong(),anyInt(),any());
     }
 
     private long customer(PostSnapshot post) { long id=IdWorker.getId();jdbc.update("INSERT INTO fr_customer(id,company_id,owner_user_id,team_id,name,phone,source,status) VALUES(?,?,?,?,'外部委托客户',?,'到店','REGISTERED')",id,post.orgId(),post.userId(),post.teamId(),Long.toString(10000000000L+Math.floorMod(id,10000000000L)));return id; }

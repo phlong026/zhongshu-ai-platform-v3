@@ -143,6 +143,32 @@ const entry = {
   version: 7
 }
 
+test('saving a name while the region catalog loads cannot clear confirmed city coverage', async () => {
+  const catalog = deferred()
+  const writes = []
+  const city = { ...region, code: '420100', level: 'city', name: '武汉市' }
+  const existing = { ...entry, originalRegionText: '武汉市', regionCodes: [city.code], wholeAreaCoverage: true }
+  const { state, hooks } = loadView('FranchiseDirectoryPanel.vue', {
+    getDirectoryRegions: () => catalog.promise,
+    updateDirectoryRecord: async (id, payload) => { writes.push({ id, payload }) }
+  })
+  hooks.mounted()
+  state.openEditor(existing)
+  state.draft.name = '测试修改名称'
+  await state.saveRecord()
+  assert.equal(writes.length, 0)
+  catalog.resolve([city])
+  await catalog.promise
+  await vue.nextTick()
+  await state.saveRecord()
+  assert.equal(writes.length, 1)
+  assert.equal(writes[0].payload.wholeAreaCoverage, true)
+  state.openEditor(existing)
+  state.draft.wholeAreaCoverage = false
+  await state.saveRecord()
+  assert.equal(writes[1].payload.wholeAreaCoverage, false)
+})
+
 test('public map display saves an independently authorized address without sending internal account fields', async () => {
   const writes = []
   const item = { ...entry, recordType: 'FRANCHISE', linkedOrgId: '998', publicName: '原公开店名',

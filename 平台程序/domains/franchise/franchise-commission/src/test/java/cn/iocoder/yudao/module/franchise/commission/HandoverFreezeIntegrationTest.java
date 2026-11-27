@@ -152,6 +152,38 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     }
 
     @Test
+    void unsettledLegacyPacketKeepsItsReturnTodoOnlyForTheCurrentPendingVersion() {
+        long customerId = customerWithDispatchedDesign("P1/B1/F1");
+        long commissionId = commissionIdOf(customerId);
+        as(salesA1, () -> handovers.submit(salesA1, commissionId,
+                packet(1, "P1/B1/F1", engineer.userId()), idem()));
+        // Import a pre-retirement simulated payment behind the already submitted packet.
+        jdbc.update("INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,order_number,amount_cents,status,channel,paid_by_user_id,paid_at) VALUES(?,1,?,?,?,68000000,'PAID','WECHAT',?,now())",
+                commissionId,store.orgId(),fixture.headquarters(),"OLD-"+commissionId,salesA1.userId());
+        String key = "franchise:handover-review:" + commissionId + ":1";
+        assertThat(as(engineer, () -> commissions.get(engineer, commissionId)).allowedActions()).containsExactly("packet-return");
+        assertThat(as(engineer, () -> todoProvider.list(engineer)))
+                .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).contains(key);
+        jdbc.update("UPDATE fr_commission SET handover_version=2 WHERE id=?", commissionId);
+        assertThat(as(engineer, () -> todoProvider.list(engineer)))
+                .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).doesNotContain(key);
+        jdbc.update("UPDATE fr_commission SET handover_version=1 WHERE id=?", commissionId);
+        jdbc.update("UPDATE fr_commission_handover SET status='ACCEPTED' WHERE commission_id=?", commissionId);
+        assertThat(as(engineer, () -> todoProvider.list(engineer)))
+                .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).doesNotContain(key);
+        jdbc.update("UPDATE fr_commission_handover SET status='PENDING' WHERE commission_id=?", commissionId);
+        cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
+                () -> as(engineer, () -> handovers.receive(engineer, commissionId,
+                        new HandoverService.DecisionCommand(null, true), idem())),
+                FranchiseCommissionErrorCodes.HISTORICAL_SETTLEMENT_REQUIRED);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE source_commission_id=?",Long.class,commissionId)).isZero();
+        as(engineer, () -> handovers.returnPacket(engineer, commissionId,
+                new HandoverService.DecisionCommand("核对历史费用及原资料", false), idem()));
+        assertThat(as(engineer, () -> todoProvider.list(engineer)))
+                .extracting(cn.iocoder.yudao.module.platform.workflow.TodoItem::key).doesNotContain(key);
+    }
+
+    @Test
     @org.junit.jupiter.api.Timeout(90)
     void receivingAnotherEngineersManualProjectRequiresExplicitTransfer() throws Exception {
         var original = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
@@ -250,14 +282,10 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
     }
 
     @Test
-    void feedbackThenNewDispatchResubmitKeepsVersionHistory() {
+    void importedSecondDispatchKeepsOriginalVersionHistory() {
         long customerId = customerWithDispatchedDesign("P1/B1/F1");
         long commissionId = commissionIdOf(customerId);
-        // 正规未接收版本变更路径：DISPATCHED 态登记修改意见 → 设计行政重新下发（seq+1/新版本）→ 提交新包
-        // （finance 尾款就绪的完整重发链由 finance 域测试覆盖，此处以推进 dispatch_seq 表达重发事实）
-        as(salesA1, () -> commissions.feedback(salesA1, commissionId,
-                new CommissionService.FeedbackCommand("客户要求调整立面配色，需重新下发"), idem()));
-        // feedback 置 DESIGNING+清 seq（修改意见→重新设计）；此处模拟设计行政重发完成态：DISPATCHED+seq2+新冻结版本
+        // Import the already-dispatched historical second version; retired design writes stay closed.
         jdbc.update("UPDATE fr_commission SET submission_version=2,status = 'DISPATCHED', dispatch_seq = 2, dispatched_scheme_version = 'P2/B2/F2', "
                 + "dispatched_submission_version = 2 WHERE id = ?", commissionId);
         // 重发对应新提交（version=2，面积 120/2 层——与 V1 提交参数不同，验证按冻结版本取参）
@@ -405,7 +433,7 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
 
     // ===== 辅助 =====
 
-    /** 客户+方案+委托（真实提交至 FEE_PENDING），jdbc 预置 DISPATCHED 态与冻结方案版本（移交冻结点上游，M05-T04 已覆盖） */
+    /** 客户+方案+历史委托，jdbc 预置 DISPATCHED 态与冻结方案版本（移交冻结点上游，M05-T04 已覆盖） */
     private long customerWithDispatchedDesign(String schemeVersion) {
         long customerId = as(salesA1, () -> {
             var result = leads.capture(salesA1, new cn.iocoder.yudao.module.franchise.crm.LeadService.CaptureCommand(
@@ -417,11 +445,10 @@ class HandoverFreezeIntegrationTest extends CommissionPgIntegrationTest {
                             new java.math.BigDecimal("400"), 68_000_000L), null);
             return result.customerId();
         });
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
+        long commissionId = LegacyCommissionFixtures.submission(jdbc,salesA1,customerId,fixture.headquarters(),
                 new CommissionService.SubmitCommand("两层乡墅，面宽13m进深16m", "方案、施工图与交底", null,
                         new java.math.BigDecimal("680000"), new java.math.BigDecimal("408000"), "总部财务",
-                        1, null, null, true), idem()));
-        long commissionId = detail.commission().getId();
+                        1, null, null, true), "DISPATCHED");
         jdbc.update("UPDATE fr_commission SET status = 'DISPATCHED', dispatch_seq = 1, dispatched_scheme_version = ?, "
                 + "dispatched_submission_version = 1 WHERE id = ?", schemeVersion, commissionId);
         seedManifest(commissionId,1,schemeVersion);

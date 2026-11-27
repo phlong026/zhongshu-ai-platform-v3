@@ -113,7 +113,7 @@ public class CommissionController {
     }
 
     @PostMapping("/customers/{customerId}/commission")
-    @Operation(summary = "提交 / 重提设计委托：费用与当前有效标准一致直接进入设计，否则发起老板审批")
+    @Operation(summary = "旧设计委托提交回执兼容；新委托请使用外部登记")
     @PreAuthorize("@post.has('franchise:commission:submit')")
     public CommonResult<CommissionDetail> submit(@PathVariable long customerId, @Valid @RequestBody SubmitReq req,
                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
@@ -160,7 +160,7 @@ public class CommissionController {
     }
 
     @PostMapping("/commissions/{id}/fee-decision")
-    @Operation(summary = "老板审批委托费用（批准进入设计，退回待修改重提）")
+    @Operation(summary = "旧费用审批回执兼容；不再发起内部设计费用")
     @PreAuthorize("@post.has('franchise:commission:fee-decide')")
     public CommonResult<CommissionDetail> feeDecide(@PathVariable long id, @Valid @RequestBody FeeDecisionReq req,
                                           @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
@@ -169,7 +169,7 @@ public class CommissionController {
     }
 
     @PostMapping("/commissions/{id}/commands/{action}")
-    @Operation(summary = "办理委托与设计交付", description = "design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
+    @Operation(summary = "办理原移交及读取旧命令回执", description = "原移交：packet-submit / packet-return / packet-receive；设计命令仅保留已成功回执")
     @PreAuthorize("@post.has('franchise:commission:submit') or @post.has('franchise:commission:design') "
             + "or @post.has('franchise:commission:receive')")
     public CommonResult<CommissionDetail> command(@PathVariable long id, @PathVariable String action,

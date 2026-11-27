@@ -28,6 +28,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -121,6 +122,93 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
             assertThat(row.getWorkflow().progressPercent()).isEqualByComparingTo("0");
             assertThat(row.getWorkflow().currentStepCode()).isEqualTo("INVITATION");
         });
+        assertThat(count("fr_customer_workflow", id)).isZero();
+    }
+
+    @Test
+    void referenceBudgetConfirmationPreservesOriginalVersionsAndDoesNotCompleteFormalQuotation() {
+        long id = customer();
+        var original = as(sales, () -> customers.saveSchemeInternal(sales, id,
+                new CustomerService.SchemeSaveCommand("BUDGET", "旧版参考预算", "{}",
+                        new BigDecimal("10"), new BigDecimal("12"), 2, new BigDecimal("240"), 1_234_567L, null)));
+        var legacyConfirmed = as(sales, () -> customers.confirmBudget(sales, id,
+                new CustomerService.BudgetConfirmation(original.getId(), "旧版到店确认"), "legacy-budget-confirm"));
+        var originalConfirmation = legacyConfirmed.schemes().get(0).getConfirmedAt();
+        assertThat(originalConfirmation).isNotNull();
+        assertThat(as(sales, () -> workflow.get(sales, id)).steps().get(5).status()).isEqualTo("TODO");
+        assertThat(count("fr_customer_workflow", id)).isZero();
+
+        String payload = "{\"itemizedBudget\":{\"model\":\"ITEMIZED_V1\",\"completeness\":\"COMPLETE\",\"totalCents\":2222200}}";
+        var current = as(sales, () -> customers.saveItemizedBudgetSnapshot(sales, id,
+                new CustomerService.SchemeSaveCommand("BUDGET", "新版分项参考预算", payload,
+                        new BigDecimal("11"), new BigDecimal("12"), 2, new BigDecimal("264"), 2_222_200L, null)));
+        var confirmation = new CustomerService.BudgetConfirmation(current.getId(), "电话核对新版参考范围");
+        var confirmed = as(sales, () -> customers.confirmBudget(sales, id, confirmation, "current-budget-confirm"));
+        assertThat(confirmed.customer().getSalesStage()).isEqualTo(legacyConfirmed.customer().getSalesStage());
+        assertThat(as(sales, () -> customers.confirmBudget(sales, id, confirmation, "current-budget-confirm")).customer().getRevision())
+                .isEqualTo(confirmed.customer().getRevision());
+        assertThat(count("fr_customer_scheme", id)).isEqualTo(2);
+        assertThat(count("fr_customer_workflow", id)).isZero();
+        View beforeQuote = as(sales, () -> workflow.get(sales, id));
+        assertThat(beforeQuote.completedCount()).isZero();
+        assertThat(beforeQuote.steps().get(5).status()).isEqualTo("TODO");
+        assertThat(beforeQuote.steps().get(5).fields()).isEmpty();
+        assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getTotal()).isZero();
+
+        // Formal quotation still follows its own source/evidence and explicit completion command.
+        View quoted = as(sales, () -> workflow.save(sales, id, "QUOTATION",
+                new SaveCommand(0, today(), "已说明正式报价",
+                        Map.of("quoteId", "1234567890123456789", "communicated", true, "result", "客户已收到正式报价"), List.of()), "formal-quote"));
+        assertThat(quoted.steps().get(5).status()).isNotEqualTo("COMPLETED");
+        assertThat(quoted.steps().get(5).fields()).containsEntry("quoteId", "1234567890123456789");
+        View completed = as(sales, () -> workflow.complete(sales, id, "QUOTATION", quoted.revision(), "formal-quote-complete"));
+        assertThat(completed.steps().get(5).status()).isEqualTo("COMPLETED");
+        assertThat(completed.completedCount()).isEqualTo(1);
+
+        jdbc.update("UPDATE fr_customer SET sales_stage='SIGNED' WHERE id=?", id);
+        var archived = as(boss, () -> customers.get(boss, id));
+        assertThat(archived.schemes()).hasSize(2);
+        assertThat(archived.schemes().get(0).getId()).isEqualTo(original.getId());
+        assertThat(archived.schemes().get(0).getVersion()).isEqualTo(1);
+        assertThat(archived.schemes().get(0).getTotalCents()).isEqualTo(1_234_567L);
+        assertThat(archived.schemes().get(0).getConfirmedAt()).isEqualTo(originalConfirmation);
+        assertThat(archived.schemes().get(0).getConfirmationNote()).isEqualTo("旧版到店确认");
+        assertThat(archived.schemes().get(1).getPayload()).isEqualTo(payload);
+        assertThat(archived.schemes().get(1).getVersion()).isEqualTo(2);
+        assertThat(archived.schemes().get(1).getConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    void budgetArchiveReadsAndConfirmationRespectCustomerVersionAndPostBoundaries() {
+        long id = customer(), another = customer(), foreign = as(otherSales, () -> capture(otherSales));
+        var input = new CustomerService.SchemeSaveCommand("BUDGET", "原版参考预算", "{}",
+                new BigDecimal("10"), new BigDecimal("12"), 2, new BigDecimal("240"), 1_234_567L, null);
+        var old = as(sales, () -> customers.saveSchemeInternal(sales, id, input));
+        var current = as(sales, () -> customers.saveSchemeInternal(sales, id, input));
+        var unrelated = as(sales, () -> customers.saveSchemeInternal(sales, another, input));
+        var foreignScheme = as(otherSales, () -> customers.saveSchemeInternal(otherSales, foreign, input));
+
+        assertThat(as(boss, () -> customers.get(boss, id)).schemes()).hasSize(2);
+        failure(1_110_000_000, () -> as(colleague, () -> customers.get(colleague, id)));
+        failure(1_110_000_000, () -> as(otherSales, () -> customers.get(otherSales, id)));
+        failure(1_110_000_000, () -> as(sales, () -> customers.get(sales, foreign)));
+        for (PostSnapshot restricted : List.of(boss, colleague, otherSales)) {
+            failure(1_110_000_001, () -> as(restricted, () -> customers.confirmBudget(restricted, id,
+                    new CustomerService.BudgetConfirmation(current.getId(), "越权确认"), "forbidden-budget-confirm")));
+        }
+        for (long invalidSource : List.of(old.getId(), unrelated.getId(), foreignScheme.getId())) {
+            failure(1_110_000_011, () -> as(sales, () -> customers.confirmBudget(sales, id,
+                    new CustomerService.BudgetConfirmation(invalidSource, "错误来源确认"), "invalid-budget-" + invalidSource)));
+        }
+        assertThat(as(sales, () -> customers.get(sales, id)).schemes()).allSatisfy(scheme -> assertThat(scheme.getConfirmedAt()).isNull());
+        assertThat(as(sales, () -> customers.get(sales, another)).schemes()).singleElement().satisfies(scheme -> assertThat(scheme.getConfirmedAt()).isNull());
+        assertThat(as(otherSales, () -> customers.get(otherSales, foreign)).schemes()).singleElement().satisfies(scheme -> assertThat(scheme.getConfirmedAt()).isNull());
+
+        var authorized = as(teamLead, () -> customers.confirmBudget(teamLead, id,
+                new CustomerService.BudgetConfirmation(current.getId(), "负责人确认最新参考范围"), "lead-budget-confirm"));
+        assertThat(authorized.schemes().get(0).getConfirmedAt()).isNull();
+        assertThat(authorized.schemes().get(1).getConfirmedByUserId()).isEqualTo(teamLead.userId());
+        assertThat(as(teamLead, () -> workflow.get(teamLead, id)).steps().get(5).status()).isEqualTo("TODO");
         assertThat(count("fr_customer_workflow", id)).isZero();
     }
 
@@ -737,6 +825,51 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
                 .extracting(CustomerDO::getId).containsExactly(abroad);
         assertThat(as(boss, () -> customers.page(boss, page, null, null, null, CustomerMapper.FollowFilter.VISITED).getList()))
                 .extracting(CustomerDO::getId).containsExactly(visited);
+    }
+
+    @Test
+    void visitedListRequiresTheCurrentActualDateAndKeepsDatedDraftsCompletedAndReopenedRecords() {
+        long id=customer();
+        var blank=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(0,null,"",Map.of(),List.of()),"empty-introduction"));
+        assertThat(blank.steps().get(1).status()).isEqualTo("DRAFT");
+        assertThat(visitedIds(sales)).isEmpty();
+        var dated=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(blank.revision(),today(),"已实际到店，资料待补",Map.of(),List.of()),"dated-introduction"));
+        assertThat(dated.steps().get(1).status()).isEqualTo("DRAFT");
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var fields=Map.<String,Object>of("receptionist","经办业务","requirements","两层住宅","feedback","已讲解建房流程");
+        var completeDraft=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(dated.revision(),today(),"",fields,List.of()),"complete-introduction-draft"));
+        var completed=as(sales,()->workflow.complete(sales,id,"INTRODUCTION",completeDraft.revision(),"complete-introduction"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var reopened=as(sales,()->workflow.reopen(sales,id,"INTRODUCTION",new ReopenCommand(completed.revision(),"核对实际到店日期"),"reopen-introduction"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        var previousMonth=today().withDayOfMonth(1).minusDays(1);
+        var corrected=as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(reopened.revision(),previousMonth,"更正实际日期",fields,List.of()),"correct-introduction-date"));
+        assertThat(visitedIds(sales)).containsExactly(id);
+        assertThat(corrected.steps().get(1).occurredOn()).isEqualTo(previousMonth);
+        assertThat(corrected.events()).extracting(RecordView::occurredOn).contains(today(),previousMonth);
+        as(sales,()->workflow.save(sales,id,"INTRODUCTION",new SaveCommand(corrected.revision(),null,"原日期误填，待核对",fields,List.of()),"clear-invalid-date"));
+        assertThat(visitedIds(sales)).isEmpty();
+        assertThat(as(sales,()->workflow.timeline(sales,id,1,50)).getList()).extracting(RecordView::occurredOn).contains(today(),previousMonth);
+    }
+
+    @Test
+    void visitedListKeepsHistoricalVisitsWithoutCountingOrdinaryFollowupsOrMissingDatesTwice() {
+        long legacy=customer(),both=customer(),lastMonth=customer(),ordinary=customer(),undated=customer();
+        for(long id:List.of(legacy,both))
+            as(sales,()->customers.follow(sales,id,new CustomerService.FollowCommand("实际到店接待",null,"VISIT",today()),"legacy-visit-"+id));
+        as(sales,()->workflow.save(sales,both,"INTRODUCTION",new SaveCommand(0,today(),"同一次接待补资料",Map.of(),List.of()),"both-visit-sources"));
+        as(sales,()->workflow.save(sales,lastMonth,"INTRODUCTION",new SaveCommand(0,today().withDayOfMonth(1).minusDays(1),"上月实际到店",Map.of(),List.of()),"previous-month-visit"));
+        as(sales,()->customers.follow(sales,ordinary,new CustomerService.FollowCommand("电话沟通",null,"FOLLOW",today()),"ordinary-follow"));
+        jdbc.update("INSERT INTO fr_customer_follow(id,company_id,customer_id,contact_kind,note,author_user_id,author_post_id) VALUES(?,?,?,'VISIT','旧记录日期待核对',?,?)",
+                com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),store.orgId(),undated,sales.userId(),sales.postId());
+        assertThat(visitedIds(sales)).containsExactlyInAnyOrder(legacy,both,lastMonth);
+        assertThat(visitedIds(colleague)).isEmpty();
+    }
+
+    private List<Long> visitedIds(PostSnapshot actor) {
+        var page=new PageParam();page.setPageNo(1);page.setPageSize(50);
+        return as(actor,()->customers.page(actor,page,null,null,null,CustomerMapper.FollowFilter.VISITED).getList())
+                .stream().map(CustomerDO::getId).toList();
     }
 
     private long customer() { return as(sales, () -> capture(sales)); }

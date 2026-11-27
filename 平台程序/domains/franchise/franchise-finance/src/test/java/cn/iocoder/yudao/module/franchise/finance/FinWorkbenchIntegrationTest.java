@@ -38,6 +38,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_contract(id bigint primary key,company_id bigint,status text,deleted boolean default false,signed_date date)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_payment_stage(id bigint primary key,company_id bigint,contract_id bigint,stage text,amount_cents bigint,status text,deleted boolean default false)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_collection(company_id bigint,project_id bigint,receipt_id bigint)");
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_supply(id bigint primary key,company_id bigint,project_id bigint,payable_id bigint,material_id bigint)");
   jdbc.execute("""
       CREATE TABLE IF NOT EXISTS fr_eng_expense(
         id bigint PRIMARY KEY,company_id bigint NOT NULL,project_id bigint NOT NULL,name varchar(100) NOT NULL,
@@ -45,6 +46,46 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
         note varchar(500),author_user_id bigint NOT NULL,create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now())
       """);
 
+ }
+ @Test void originalEngineeringPayablesAndTheirPaymentsCannotMoveToAnotherProject(){
+  long original=assignmentProject("原工程"),target=assignmentProject("另一工程");
+  for(String stage:List.of("engineering","engineering_expense")){
+   long q=payments.registerPayable(post,"original-"+stage,new FinPaymentService.PayableCommand(post.orgId(),original,stage,10000,"原收款方","原依据"));
+   String table=stage.equals("engineering")?"fr_eng_supply":"fr_eng_expense";
+   if(table.equals("fr_eng_expense"))jdbc.update("INSERT INTO fr_eng_expense(id,company_id,project_id,payable_id,name,purpose,amount_cents,author_user_id) VALUES(?,?,?,?,'原工程费用','OTHER',10000,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),original,q,post.userId());
+   else jdbc.update("INSERT INTO fr_eng_supply(id,company_id,project_id,payable_id) VALUES(?,?,?,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),original,q);
+   long paid=payments.register(post,"paid-"+stage,new FinPaymentService.PaymentCommand(q,2000,LocalDate.now(),null,null));
+   assertThat(jdbc.queryForObject("SELECT source_type FROM fr_fin_payable WHERE id=?",String.class,q)).isNull();
+   assertError(()->workbench.assignPayable(post,q,"move-"+stage,new FinWorkbenchService.Assignment("project:"+target,"仅财务改归属")),FIN_SOURCE_FORBIDDEN);
+   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,q)).isEqualTo(original);
+   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,paid)).isEqualTo(original);
+  }
+ }
+ @Test void actualEngineeringLinkRejectsEvenAnIncorrectManualUnassignedLabel(){
+  long original=assignmentProject("原费用工程"),target=assignmentProject("错误目标");
+  for(String table:List.of("fr_eng_expense","fr_eng_supply")){
+   long q=workbench.register(post,"old-manual-"+table,new FinWorkbenchService.EntryCommand("company","payable","原工程费用","其他",10000,LocalDate.now(),"原方",null,null,null));
+   if(table.equals("fr_eng_expense"))jdbc.update("INSERT INTO fr_eng_expense(id,company_id,project_id,payable_id,name,purpose,amount_cents,author_user_id) VALUES(?,?,?,?,'原工程费用','OTHER',10000,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),original,q,post.userId());
+   else jdbc.update("INSERT INTO fr_eng_supply(id,company_id,project_id,payable_id) VALUES(?,?,?,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),original,q);
+   assertError(()->workbench.assignPayable(post,q,"wrong-source-"+table,new FinWorkbenchService.Assignment("project:"+target,"标签不足以证明手工来源")),FIN_SOURCE_FORBIDDEN);
+   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,q)).isNull();
+  }
+ }
+ @Test void onlyUnassignedManualExpenseCanBeAssignedOnceWithItsOriginalEmployeeBalance(){
+  long target=assignmentProject("补归属工程"),other=assignmentProject("不可再移动");
+  long payment=workbench.register(post,"unassigned-advance",new FinWorkbenchService.EntryCommand("company","expense","原垫付费用","差旅",10000,LocalDate.now(),"交通方","员工账户",null,null,"EMPLOYEE",post.userId(),"经办人"));
+  long payable=jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,payment);
+  var command=new FinWorkbenchService.Assignment("project:"+target,"补齐原费用的项目");
+  workbench.assignPayable(post,payable,"assign-original",command);
+  workbench.assignPayable(post,payable,"assign-original",command);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(target);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(target);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE company_id=? AND source_type='reimbursement' AND source_ref=?",Long.class,post.orgId(),Long.toString(payment))).isEqualTo(target);
+  assertError(()->workbench.assignPayable(post,payable,"move-assigned",new FinWorkbenchService.Assignment("project:"+other,"重新搬账")),FIN_SOURCE_FORBIDDEN);
+ }
+ private long assignmentProject(String name){
+  long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",id,post.orgId(),name);return id;
  }
  @Test void confirmedEngineeringCostsKeepTheirProjectAndDoNotInventPayablesOrCash(){
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),otherProject=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
@@ -243,7 +284,6 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(rows.stream().filter(row->"PAYMENT".equals(row.get("type"))).count()).isEqualTo(1);
  }
  @Test void historicalEngineeringExpenseKeepsItsNameWithoutChangingCashOrCrossingOrganizations(){
-  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_supply(company_id bigint,payable_id bigint,material_id bigint)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_material(id bigint,company_id bigint,name text)");
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",project,post.orgId(),"周建军乡墅");

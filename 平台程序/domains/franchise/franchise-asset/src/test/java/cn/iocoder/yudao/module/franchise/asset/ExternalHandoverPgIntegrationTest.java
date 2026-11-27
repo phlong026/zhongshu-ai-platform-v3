@@ -152,7 +152,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         var beforeSigning = as(sales, () -> workflow.get(sales, id));
         var pending = beforeSigning.steps().get(6);
         assertThat(pending.code()).isEqualTo("CONTRACT");
-        assertThat(pending.name()).isEqualTo("施工签约");
+        assertThat(pending.name()).isEqualTo("合同签约");
         assertThat(pending.status()).isEqualTo("TODO");
         assertThat(pending.fields()).doesNotContainKey("contractId");
         assertThat(beforeSigning.completedCount()).isZero();

@@ -99,7 +99,7 @@ public class EngTodoProvider implements TodoProvider {
                         .mapToLong(b->Math.max(0,b.expectedCents()-b.collectedCents())).sum();
                 if(shortfall>0) todos.add(new TodoItem(domain(),"fr-eng:gate-shortfall:"+project.getId(),
                         "开工资金门槛不足待补收 · "+project.getName(),"shortfall",shortfall,true,null,
-                        "/pages/build/record/index?id="+project.getId()+"&view=collection",project.getCreateTime()));
+                        "/pages/build/record/index?id="+project.getId()+"&view=payments",project.getCreateTime()));
             }
             var contactHistory=followups.selectByProject(post.orgId(),project.getId());
             for(var balance:current) {
@@ -112,7 +112,8 @@ public class EngTodoProvider implements TodoProvider {
                 String label=balance.label()==null?stageTitle(balance.stage()):balance.label();
                 todos.add(new TodoItem(domain(),"eng-collect:"+project.getId()+":"+balance.stage(),
                         label+(overdue?"已逾期待催收":"待登记收款")+" · "+project.getName(),overdue?"overdue":"pending",remaining,false,null,
-                        "/pages/build/record/index?id="+project.getId()+"&view=collection",last==null?null:last.getCreateTime()));
+                        "/pages/build/record/index?id="+project.getId()+"&view=collection&stage="
+                                +java.net.URLEncoder.encode(balance.stage(),java.nio.charset.StandardCharsets.UTF_8),last==null?null:last.getCreateTime()));
             }
         }
         return todos;

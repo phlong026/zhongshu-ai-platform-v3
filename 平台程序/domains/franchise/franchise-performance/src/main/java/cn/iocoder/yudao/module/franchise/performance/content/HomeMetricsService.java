@@ -26,7 +26,7 @@ public class HomeMetricsService {
     private static final String BASELINE_END="COALESCE(n.baseline_end_date,n.end_date)";
     /** 八步流程已标记流失的客户：不再计入待跟进与跟进商机。 */
     private static final String LOST=" EXISTS(SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id=c.id AND w.company_id=c.company_id AND w.status='LOST')";
-    /** 实际接待：第 2 步“店面讲解”的记录日期；升级前明确登记为“实际接待”的普通跟进同样计入。 */
+    /** 实际接待：与客户已到店列表一样要求发生日期；月窗自然排除空日期，不以步骤完成或附件齐备为前置。旧 VISIT 同口径计入。 */
     private static final String VISITS="""
             SELECT c.id::text id,c.name title,COALESCE(c.summary,'') subtitle,max(v.visited_on) date,0::bigint amount,'customer' source_type,c.id::text source_id,c.id::text customer_id,NULL::text project_id
             FROM customers c JOIN (
@@ -61,10 +61,10 @@ public class HomeMetricsService {
     private Map<String,Metric> definitions(String role,PostSnapshot post) {
         var m=new LinkedHashMap<String,Metric>();
         if(role.equals("business")||role.equals("owner")) {
-            add(m,"signed","本月施工签约","元",true,"已签署且未作废的施工合同，按签署日期统计。",CONTRACT);
+            add(m,"signed","本月合同签约","元",true,"已签署且未作废的施工合同，按签署日期统计。",CONTRACT);
             add(m,"customerNet","本月净回款","元",true,"财务已登记客户收款减当月有效客户退款；退款按实际发生月扣减。",cash("RECEIPT",true)+" UNION ALL "+cash("REFUND",true));
             add(m,"newCustomers","本月新增","人",true,"本月登记的客户，每位客户只计一次。",CUSTOMER+month("c.create_time"));
-            add(m,"visits","实际接待","人",true,"本月到店（店面讲解有记录）的客户去重；电话、预约和普通跟进不计入。",VISITS);
+            add(m,"visits","实际接待","人",true,"按实际发生日期统计本月到店客户并去重；店面讲解待补资料仍计入，空草稿、电话、预约和普通跟进不计入。",VISITS);
             String author=post.roleCode().equals("sales")?" AND author_user_id="+post.userId():post.roleCode().equals("sales-lead")&&post.teamId()!=null?" AND author_user_id IN (SELECT owner_user_id FROM customers)":"";
             add(m,"publications","发布内容","条",true,"已登记发布成功的内容，按实际发布时间统计。","SELECT id::text,title,platform subtitle,(published_at AT TIME ZONE 'Asia/Shanghai')::date date,0::bigint amount,'publication' source_type,work_id::text source_id,NULL::text customer_id,NULL::text project_id FROM fr_content_publication WHERE company_id=(SELECT org FROM cfg) AND status='published' AND "+month("published_at")+author);
             add(m,"opportunities","跟进商机","项",false,"有跟进记录、未流失且尚未签署施工合同的客户。",CUSTOMER+"c.last_follow_at IS NOT NULL AND NOT"+LOST+" AND NOT EXISTS(SELECT 1 FROM fr_sale_contract s WHERE s.company_id=c.company_id AND s.customer_id=c.id AND s.status='SIGNED' AND NOT s.deleted)");

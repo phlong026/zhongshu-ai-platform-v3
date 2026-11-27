@@ -69,11 +69,11 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
                 case DUE -> query.apply("NOT " + LOST).and(q -> q.isNull(CustomerDO::getLastFollowAt)
                         .or().le(CustomerDO::getNextVisitDate, today)).orderByAsc(CustomerDO::getNextVisitDate);
                 case APPOINTMENTS -> query.apply("NOT " + LOST).gt(CustomerDO::getNextVisitDate, today).orderByAsc(CustomerDO::getNextVisitDate);
-                // 已到店：第 2 步“店面讲解”有记录；升级前明确登记为“实际接待”的普通跟进同样算到店。
+                // 已到店：店面讲解或旧实际接待具有发生日期；空草稿不代表实际到店，资料是否补齐不改变已记录的事实。
                 // 两个“到过店”的条件必须括在一起，否则 OR 后半段会绕过可见范围和“未流失”。
                 case VISITED -> query.apply("NOT " + LOST).and(q -> q
                         .exists("SELECT 1 FROM fr_customer_follow f WHERE f.customer_id = fr_customer.id"
-                                + " AND f.company_id = fr_customer.company_id AND f.contact_kind = 'VISIT'")
+                                + " AND f.company_id = fr_customer.company_id AND f.contact_kind = 'VISIT' AND f.occurred_on IS NOT NULL")
                         .or().apply(VISITED_STEP));
             }
         }
@@ -84,10 +84,10 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
     /** 客户已标记流失（八步流程状态）。 */
     String LOST = "EXISTS (SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id = fr_customer.id"
             + " AND w.company_id = fr_customer.company_id AND w.status = 'LOST')";
-    /** 第 2 步“店面讲解”已有记录，即客户到过店。 */
+    /** 与首页实际接待采用同一事实条件；列表看全部历史，首页另按发生日期取月窗。 */
     String VISITED_STEP = "EXISTS (SELECT 1 FROM fr_customer_workflow_step s JOIN fr_customer_workflow w ON w.id = s.workflow_id"
             + " AND w.company_id = s.company_id WHERE w.customer_id = fr_customer.id AND w.company_id = fr_customer.company_id"
-            + " AND s.step_code = 'INTRODUCTION')";
+            + " AND s.step_code = 'INTRODUCTION' AND s.occurred_on IS NOT NULL)";
     /** 流程已暂停（暂缓）：到再联系日期才回到待跟进。 */
     String PAUSED = "EXISTS (SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id = fr_customer.id"
             + " AND w.company_id = fr_customer.company_id AND w.status = 'PAUSED')";

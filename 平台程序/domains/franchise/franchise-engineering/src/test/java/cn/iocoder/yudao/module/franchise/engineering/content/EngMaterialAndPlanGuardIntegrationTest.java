@@ -15,10 +15,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED;
+import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
 
 /**
  * M07-T01 材料幂等（I02）+ M07-T03 资产端口引用校验（I04）：
@@ -343,6 +349,194 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
         cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError(
                 () -> as(engineer, () -> materialsService.submitPlan(engineer, projectId, command, key)),
                 cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.IDEMPOTENCY_KEY_REUSED);
+    }
+
+    @Test
+    void constructionPlanKeyRejectsAnotherProjectOperationOrInputWithoutWriting() {
+        var inputs = constructionPlanInputs();
+        String key = idem();
+        var saved = as(engineer, () -> planService.savePlan(engineer, projectId, inputs, key));
+        var before = constructionPlanState(projectId);
+        long other = insertProject("计划键不能串到此工程");
+        var otherBefore = constructionPlanState(other);
+        assertThat(as(engineer, () -> planService.savePlan(engineer, projectId, inputs, " " + key + " "))).isEqualTo(saved);
+        assertError(() -> as(engineer, () -> planService.savePlan(engineer, other, inputs, key)), IDEMPOTENCY_KEY_REUSED);
+        var changed = List.of(inputs.get(0), new EngPlanService.NodeInput(1, "另一施工说明",
+                inputs.get(1).startDate(), inputs.get(1).endDate()));
+        assertError(() -> as(engineer, () -> planService.savePlan(engineer, projectId, changed, key)), IDEMPOTENCY_KEY_REUSED);
+        var reschedule = new EngPlanService.RescheduleCommand(1, inputs.get(1).startDate().plusDays(2), "顺延");
+        assertError(() -> as(engineer, () -> planService.reschedule(engineer, projectId, reschedule, key)), IDEMPOTENCY_KEY_REUSED);
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+        assertThat(constructionPlanState(other)).isEqualTo(otherBefore);
+        assertConstructionCommandCount("eng-plan-save", 1, 2);
+    }
+
+    @Test
+    void constructionRescheduleKeyRejectsAnotherProjectOperationOrInputWithoutShiftingAgain() {
+        var inputs = constructionPlanInputs();
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, idem()));
+        LocalDate originalDue = inputs.get(1).endDate();
+        jdbc.update("UPDATE fr_eng_material SET required_date=? WHERE id=?", originalDue, materialId);
+        var command = new EngPlanService.RescheduleCommand(1, inputs.get(1).startDate().plusDays(2), "顺延两天");
+        String key = idem();
+        var saved = as(engineer, () -> planService.reschedule(engineer, projectId, command, key));
+        var before = constructionPlanState(projectId);
+        long other = insertProject("改期键不能串到此工程");
+        var otherBefore = constructionPlanState(other);
+        assertThat(as(engineer, () -> planService.reschedule(engineer, projectId, command, key))).isEqualTo(saved);
+        assertError(() -> as(engineer, () -> planService.reschedule(engineer, other, command, key)), IDEMPOTENCY_KEY_REUSED);
+        for (var changed : List.of(new EngPlanService.RescheduleCommand(0, command.newStart(), command.note()),
+                new EngPlanService.RescheduleCommand(1, command.newStart().plusDays(1), command.note()),
+                new EngPlanService.RescheduleCommand(1, command.newStart(), "另一原因"))) {
+            assertError(() -> as(engineer, () -> planService.reschedule(engineer, projectId, changed, key)), IDEMPOTENCY_KEY_REUSED);
+        }
+        assertError(() -> as(engineer, () -> planService.savePlan(engineer, projectId, inputs, key)), IDEMPOTENCY_KEY_REUSED);
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+        assertThat(constructionPlanState(other)).isEqualTo(otherBefore);
+        assertThat(jdbc.queryForObject("SELECT required_date FROM fr_eng_material WHERE id=?", LocalDate.class, materialId))
+                .isEqualTo(originalDue.plusDays(2));
+        assertConstructionCommandCount("eng-plan-reschedule", 1, 3);
+    }
+
+    @Test
+    void legacyConstructionPlanRetryChecksOriginalProjectAggregateCommandAndFullInput() {
+        var inputs = constructionPlanInputs();
+        String key = idem();
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, key));
+        var legacy = inputs.stream().map(input -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("nodeIndex", input.nodeIndex()); row.put("name", input.name());
+            row.put("startDate", input.startDate().toString()); row.put("endDate", input.endDate().toString());
+            return row;
+        }).toList();
+        useLegacyConstructionEvent("eng-plan-save", key, legacy);
+        var changed = List.of(inputs.get(0), new EngPlanService.NodeInput(1, "后来保存的施工说明",
+                inputs.get(1).startDate(), inputs.get(1).endDate().plusDays(1)));
+        var current = as(engineer, () -> planService.savePlan(engineer, projectId, changed, idem()));
+        var before = constructionPlanState(projectId);
+        assertThat(as(engineer, () -> planService.savePlan(engineer, projectId, inputs, key))).isEqualTo(current);
+        assertError(() -> as(engineer, () -> planService.savePlan(engineer, projectId, changed, key)), IDEMPOTENCY_KEY_REUSED);
+        long other = insertProject("历史计划键不能串到此工程");
+        var otherBefore = constructionPlanState(other);
+        assertError(() -> as(engineer, () -> planService.savePlan(engineer, other, inputs, key)), IDEMPOTENCY_KEY_REUSED);
+        assertLegacyConstructionMetadata(key, "eng-plan-save", () -> planService.savePlan(engineer, projectId, inputs, key));
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+        assertThat(constructionPlanState(other)).isEqualTo(otherBefore);
+        assertConstructionCommandCount("eng-plan-save", 2, 3);
+    }
+
+    @Test
+    void legacyConstructionRescheduleRetryChecksOriginalProjectAggregateCommandAndFullInput() {
+        var inputs = constructionPlanInputs();
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, idem()));
+        var command = new EngPlanService.RescheduleCommand(1, inputs.get(1).startDate().plusDays(2), "原改期说明");
+        String key = idem();
+        as(engineer, () -> planService.reschedule(engineer, projectId, command, key));
+        Map<String, Object> legacy = new LinkedHashMap<>();
+        legacy.put("nodeIndex", command.nodeIndex()); legacy.put("newStart", command.newStart().toString());
+        legacy.put("note", command.note());
+        useLegacyConstructionEvent("eng-plan-reschedule", key, legacy);
+        var changed = new EngPlanService.RescheduleCommand(1, command.newStart().plusDays(3), "后一次改期");
+        var current = as(engineer, () -> planService.reschedule(engineer, projectId, changed, idem()));
+        var before = constructionPlanState(projectId);
+        assertThat(as(engineer, () -> planService.reschedule(engineer, projectId, command, key))).isEqualTo(current);
+        assertError(() -> as(engineer, () -> planService.reschedule(engineer, projectId, changed, key)), IDEMPOTENCY_KEY_REUSED);
+        long other = insertProject("历史改期键不能串到此工程");
+        var otherBefore = constructionPlanState(other);
+        assertError(() -> as(engineer, () -> planService.reschedule(engineer, other, command, key)), IDEMPOTENCY_KEY_REUSED);
+        assertLegacyConstructionMetadata(key, "eng-plan-reschedule", () -> planService.reschedule(engineer, projectId, command, key));
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+        assertThat(constructionPlanState(other)).isEqualTo(otherBefore);
+        assertConstructionCommandCount("eng-plan-reschedule", 2, 4);
+    }
+
+    @Test
+    void constructionPlanRetriesStillRequireCurrentProjectOwnership() {
+        var inputs = constructionPlanInputs();
+        String saveKey = idem(), rescheduleKey = idem();
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, saveKey));
+        var command = new EngPlanService.RescheduleCommand(1, inputs.get(1).startDate().plusDays(2), "顺延");
+        as(engineer, () -> planService.reschedule(engineer, projectId, command, rescheduleKey));
+        var successor = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        jdbc.update("UPDATE fr_eng_project SET manager_user_id=?,assigned_engineer_user_id=? WHERE id=?",
+                successor.userId(), successor.userId(), projectId);
+        var before = constructionPlanState(projectId);
+        assertThatThrownBy(() -> as(engineer, () -> planService.savePlan(engineer, projectId, inputs, saveKey))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(engineer, () -> planService.reschedule(engineer, projectId, command, rescheduleKey))).isInstanceOf(ServiceException.class);
+        var otherStore = fixture.store();
+        var foreign = fixture.post(otherStore.orgId(), "engineer", otherStore.engineeringTeam());
+        assertThatThrownBy(() -> as(foreign, () -> planService.savePlan(foreign, projectId, inputs, saveKey))).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(foreign, () -> planService.reschedule(foreign, projectId, command, rescheduleKey))).isInstanceOf(ServiceException.class);
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+    }
+
+    @Test
+    void simultaneousConstructionPlanAndRescheduleRetriesWriteOneVersionEach() throws Exception {
+        var inputs = constructionPlanInputs();
+        String saveKey = idem(), rescheduleKey = idem();
+        assertConcurrentConstructionRetry(() -> planService.savePlan(engineer, projectId, inputs, saveKey));
+        assertConstructionCommandCount("eng-plan-save", 1, 2);
+        var command = new EngPlanService.RescheduleCommand(1, inputs.get(1).startDate().plusDays(2), "只顺延一次");
+        assertConcurrentConstructionRetry(() -> planService.reschedule(engineer, projectId, command, rescheduleKey));
+        assertConstructionCommandCount("eng-plan-reschedule", 1, 3);
+    }
+
+    private List<EngPlanService.NodeInput> constructionPlanInputs() {
+        jdbc.update("UPDATE fr_eng_plan_node SET milestone='TOPPING' WHERE id=?", nodeId);
+        LocalDate date = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        return List.of(new EngPlanService.NodeInput(0, "正式开工", date, date),
+                new EngPlanService.NodeInput(1, "主体施工", date.plusDays(1), date.plusDays(10)));
+    }
+
+    private Map<String, Object> constructionPlanState(long id) {
+        return Map.of("revision", jdbc.queryForObject("SELECT revision FROM fr_eng_project WHERE id=?", Long.class, id),
+                "nodes", jdbc.queryForList("SELECT id,node_index,name,start_date,end_date,baseline_end_date,status FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", id),
+                "versions", jdbc.queryForList("SELECT version,nodes::text,source FROM fr_eng_plan_version WHERE project_id=? ORDER BY version", id),
+                "materials", jdbc.queryForList("SELECT id,node_id,required_date FROM fr_eng_material WHERE project_id=? ORDER BY id", id),
+                "events", jdbc.queryForList("SELECT aggregate_type,command,revision,payload,payload_hash FROM pf_command_event WHERE aggregate_id=? ORDER BY revision", id));
+    }
+
+    private void assertConstructionCommandCount(String command, int events, int versions) {
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command=?", Integer.class, projectId, command)).isEqualTo(events);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_plan_version WHERE project_id=?", Integer.class, projectId)).isEqualTo(versions);
+    }
+
+    private void useLegacyConstructionEvent(String command, String key, Object legacy) {
+        String json = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(legacy);
+        assertThat(jdbc.update("UPDATE pf_command_event SET payload=?,payload_hash=? WHERE aggregate_id=? AND command=? AND idempotency_key=?",
+                json, cn.hutool.crypto.digest.DigestUtil.sha256Hex(json), projectId, command, "franchise:" + engineer.userId() + ":" + key)).isOne();
+    }
+
+    private void assertLegacyConstructionMetadata(String key, String command, java.util.function.Supplier<?> retry) {
+        String scoped = "franchise:" + engineer.userId() + ":" + key;
+        jdbc.update("UPDATE pf_command_event SET aggregate_type='fr-eng-material' WHERE idempotency_key=?", scoped);
+        assertError(() -> as(engineer, retry), IDEMPOTENCY_KEY_REUSED);
+        jdbc.update("UPDATE pf_command_event SET aggregate_type='fr-eng-project',command='eng-prepare' WHERE idempotency_key=?", scoped);
+        assertError(() -> as(engineer, retry), IDEMPOTENCY_KEY_REUSED);
+        jdbc.update("UPDATE pf_command_event SET command=? WHERE idempotency_key=?", command, scoped);
+    }
+
+    private void assertConcurrentConstructionRetry(java.util.function.Supplier<Map<String, Object>> command) throws Exception {
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var waiting = new java.util.concurrent.atomic.AtomicInteger();
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        try {
+            var second = tx.execute(status -> {
+                int firstPid = jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                var first = as(engineer, command);
+                var replay = pool.submit(() -> tx.execute(other -> {
+                    waiting.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                    return as(engineer, command);
+                }));
+                org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(() ->
+                        waiting.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                                "SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class, firstPid, waiting.get())));
+                return Map.entry(first, replay);
+            });
+            assertThat(second.getValue().get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(second.getKey());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

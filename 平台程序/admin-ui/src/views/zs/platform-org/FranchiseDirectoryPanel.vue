@@ -266,11 +266,12 @@
           </el-checkbox>
           <span class="muted">不勾选则显示为区县待确认，不默认覆盖下辖区县。</span>
         </el-form-item>
+        <span v-if="regionsLoading" class="muted">正在加载行政区域，加载完成后可保存。</span>
       </el-form>
       <el-alert v-if="editError" :title="editError" type="error" :closable="false" />
       <template #footer
         ><el-button :disabled="saving" @click="editVisible = false">取消</el-button
-        ><el-button type="primary" :loading="saving" @click="saveRecord"
+        ><el-button type="primary" :loading="saving" :disabled="!regionsReady" @click="saveRecord"
           >保存记录</el-button
         ></template
       >
@@ -314,6 +315,8 @@ const loading = ref(false)
 const listError = ref('')
 const regions = ref<MapRegion[]>([])
 const regionError = ref(false)
+const regionsLoading = ref(true)
+const regionsReady = computed(() => !regionsLoading.value && !regionError.value && regions.value.length > 0)
 const regionKeyword = ref('')
 const editVisible = ref(false)
 const editing = ref<DirectoryItem | null>(null)
@@ -448,12 +451,18 @@ function search() {
 
 async function loadRegions() {
   const generation = lifecycleGeneration
+  regionsLoading.value = true
   regionError.value = false
   try {
     const result = await getDirectoryRegions()
-    if (active && generation === lifecycleGeneration) regions.value = result
+    if (active && generation === lifecycleGeneration) {
+      regions.value = result
+      regionError.value = result.length === 0
+    }
   } catch {
     if (active && generation === lifecycleGeneration) regionError.value = true
+  } finally {
+    if (active && generation === lifecycleGeneration) regionsLoading.value = false
   }
 }
 
@@ -551,8 +560,8 @@ async function saveRecord() {
     editError.value = '请填写品牌、地区原文；加盟商档案还需填写真实名称。'
     return
   }
-  if (regionError.value) {
-    editError.value = '请先重新加载行政区域后再保存。'
+  if (!regionsReady.value) {
+    editError.value = regionsLoading.value ? '正在加载行政区域，加载完成后可保存。' : '请先重新加载行政区域后再保存。'
     return
   }
   saving.value = true

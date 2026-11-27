@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 import same_host_storage as same_host
+from franchise_coverage_seed import seed_sql
 
 DIRECTORY = Path(__file__).resolve().parent
 REPOSITORY = next((parent for parent in DIRECTORY.parents if (parent / ".git").exists()), DIRECTORY.parents[1])
@@ -413,7 +414,16 @@ def main():
     parser.add_argument("--image")
     parser.add_argument("--previous-api-image", help="Immutable digest of the frozen pre-spool API")
     parser.add_argument("--schema-compatible", action="store_true")
+    parser.add_argument("--coverage-seed-file", type=Path)
+    parser.add_argument("--coverage-seed-sha256")
+    parser.add_argument("--coverage-seed-tenant", type=int)
     args = parser.parse_args()
+    coverage_sql = None
+    if any(value is not None for value in (args.coverage_seed_file, args.coverage_seed_sha256, args.coverage_seed_tenant)):
+        demand(args.action == "migrate" and args.coverage_seed_file is not None
+               and args.coverage_seed_sha256 is not None and args.coverage_seed_tenant is not None,
+               "Coverage seed is only allowed with migrate and requires file, SHA-256 and tenant ID")
+        coverage_sql = seed_sql(args.coverage_seed_file, args.coverage_seed_sha256, args.coverage_seed_tenant, REPOSITORY)
     require_confirmation(args.action, execute=args.execute, target=args.confirm_target, frozen=args.writes_frozen)
     demand(args.env_file.is_absolute() and args.env_file.is_file(), "Use an absolute external env file")
     demand(not args.env_file.resolve().is_relative_to(REPOSITORY), "env file must be external")
@@ -453,6 +463,10 @@ def main():
     elif args.action == "migrate":
         migration_command(base, model)
         enforce_database_policy(base)
+        if coverage_sql is not None:
+            result = next((line for line in psql(base, coverage_sql).decode().splitlines() if line.startswith("{")), None)
+            demand(result is not None, "Coverage seed returned no receipt; verify target before relaunch")
+            logging.warning("Coverage seed tenant %s: %s", args.coverage_seed_tenant, result)
     elif args.action == "start":
         run(base + ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "api"],
             context="Start upgraded B API", timeout=210)
