@@ -319,6 +319,7 @@ test('staff router permits the same announcement path only for an authorized hea
   identity.currentPost.orgType = 'store'
   assert.deepEqual(plain(await guard({ path: '/platform-announcements', query: {} }, {})), {
     path: '/fr/identity',
+    query: { redirect: '/platform-announcements' },
     replace: true
   })
   assert.deepEqual(plain(await guard({ path: '/platform-pricing', query: {} }, {})), {
