@@ -2127,6 +2127,14 @@
       "source_sha256": "ba2a76ba9d28323cffb5e2482598f9e1793770a8611fa931c9de841e594c46ec",
       "flyway_checksum": null,
       "applied_in_source": "NOT_VERIFIED"
+    },
+    {
+      "path": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1211__design_post_history.sql",
+      "location": "franchise",
+      "version": "20261127.1211",
+      "source_sha256": "f220f3b999d84aff7fddd1780400edfe691550850363aa4c602e12096360d739",
+      "flyway_checksum": null,
+      "applied_in_source": "NOT_VERIFIED"
     }
   ],
   "tables": [
@@ -3121,7 +3129,8 @@
       "selector": "B 组织/岗位使用 code/role_code 与定义版本；合并 seed 内容一致才允许去重",
       "source_migrations": [
         "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql",
-        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql"
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1211__design_post_history.sql"
       ],
       "runtime_verified": false
     },
@@ -3172,7 +3181,8 @@
       "selector": "org_id IN B_ORG；保留 actor/user/post 与业务聚合引用",
       "source_migrations": [
         "platform/platform-org/src/main/resources/db/migration/pf/V20261022.702__pf_org.sql",
-        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql"
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql",
+        "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1211__design_post_history.sql"
       ],
       "runtime_verified": false
     },
@@ -5221,7 +5231,7 @@
     "note": "绑定2026-11-11第八轮最终重建JAR；69项forward迁移源/清单/JAR三方逐字一致，源未变故本清单逐项hash不动，forward不改。包内核验含U904=705b1b8b…与U925=54a1c225…逐字匹配、CapabilityJson Long序列化、G2b负检查干净（见package_content_verification，overall=PASS）。上一轮制品e6b042a5…（182612166B）及其清单保存于.omc/artifacts/pre-rebuild-baseline-20261111/。路径相对工程根。ownership.py源码检查不重新扫描JAR。"
   },
   "rollback_review": {
-    "scope": "已登记的专用 undo 资源静态核对；不代表所有迁移均可回滚，也不代表非空数据恢复已通过。",
+    "scope": "已登记的专用 undo 资源；各项区分静态核对与隔离测试，不代表所有迁移均可回滚，也不代表目标环境恢复已通过。",
     "entries": [
       {
         "version": "20261111.903",
@@ -5317,27 +5327,27 @@
       {
         "version": "20261127.1200",
         "source_migration": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise/V20261127.1200__retire_design_posts.sql",
-        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "status": "ISOLATED_PG_TESTED_TARGET_NOT_VERIFIED",
         "undo_files": [
           {
             "path": "domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise/V20261127.1200__undo_retire_design_posts.sql",
-            "source_sha256": "fffd4226147ca24c2972d3e77a53fd8dfac9b0229134361b1200337b2d5e8898"
+            "source_sha256": "d92ca92875e3f9e2c567d6e7d3ad2a8c2399286a9b5074563fd4e454904bd456"
           }
         ],
-        "limitations": "仅恢复三岗模板，不复活 INACTIVE 任职；真实任职历史继续保留。目标环境执行与备份恢复由 BIZ-T12 验收。",
+        "limitations": "仅接受已核验退役前备份中的真实原行临时快照；缺备份或现有身份/绑定冲突拒绝，同快照重复执行无新写。恢复原模板/角色及原绑定，不更新任职或自动复活 REVOKED 历史。DesignPostRetirementPgIntegrationTest 已覆盖隔离 PostgreSQL 恢复；execution_verified 仍为 false，目标环境备份、缓存及在途承接待核验。",
         "execution_verified": false
       },
       {
         "version": "20261127.1201",
         "source_migration": "domains/franchise/franchise-org/src/main/resources/db/migration/franchise-system/V20261127.1201__retire_design_posts.sql",
-        "status": "STATIC_FILE_READ_NOT_EXECUTED",
+        "status": "ISOLATED_PG_TESTED_TARGET_NOT_VERIFIED",
         "undo_files": [
           {
             "path": "domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise-system/V20261127.1201__undo_retire_design_posts.sql",
-            "source_sha256": "b86f6dc5c702162ecfe62829359255f163d0a3c5b776bfefa7625ae42fef2114"
+            "source_sha256": "ba05b9bb5d88d012a349273a9256f80b98b3701d05c7fde3919458162e6af3c6"
           }
         ],
-        "limitations": "现有脚本按固定种子 ID 重建且未写 tenant_id，无法证明多租户角色及原绑定可恢复；BIZ-T12 必须基于部署前真实备份修复并演练，登记资源不代表恢复通过。",
+        "limitations": "仅接受已核验退役前备份中的真实原行临时快照；缺备份或现有身份/绑定冲突拒绝，同快照重复执行无新写。恢复原模板/角色及原绑定，不更新任职或自动复活 REVOKED 历史。DesignPostRetirementPgIntegrationTest 已覆盖隔离 PostgreSQL 恢复；execution_verified 仍为 false，目标环境备份、缓存及在途承接待核验。",
         "execution_verified": false
       }
     ]
