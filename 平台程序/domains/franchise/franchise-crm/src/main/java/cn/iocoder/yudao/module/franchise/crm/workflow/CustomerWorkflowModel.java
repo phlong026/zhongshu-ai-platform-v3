@@ -59,10 +59,12 @@ public final class CustomerWorkflowModel {
                              Map<String, Object> fields, List<Attachment> attachments, LocalDate nextFollowOn) { }
 
     /** nextFollowOn 是客户当前的下次跟进日期（客户表投影），不是某一步的字段。 */
+    public record StartSummary(String status, Map<String, Object> fields) { }
+
     public record Summary(String workflowId, int completedCount, int totalSteps, BigDecimal progressPercent,
                           String currentStepCode, String currentStepName, String nextStepCode,
                           String status, OffsetDateTime updatedAt, String nextContactOn, LocalDate nextFollowOn,
-                          String statusReasonCode, String statusReason, boolean reconsulted) { }
+                          String statusReasonCode, String statusReason, boolean reconsulted, StartSummary start) { }
 
     /** canChangeStatus 与流程是否进行中无关：流失、暂缓的客户仍由可办理人恢复。 */
     public record View(String workflowId, String customerId, String customerName, String companyId,

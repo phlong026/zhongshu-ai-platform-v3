@@ -342,15 +342,28 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         saveDraft(customer,0,100000);
         var ready=ready(customer);
         assertThat(ready.currentRequest().paymentPlan().source()).isEqualTo("DRAFT");
+        assertHandoverProjection(customer,"EXTERNAL_READY",null,null);
+        assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).steps().get(7).fields()).containsEntry("contractSigned",false);
         assertThat(count("fr_sale_contract","customer_id",customer)).isZero();
         var contract=signed(customer);
         assertProgress(customer,7);
         long confirmation=upload(sales,"BUSINESS_DOCUMENT");
         var pending=submit(ready,confirmation,engineer);
         assertThat(pending.projectId()).isNull(); assertThat(pending.currentPacket().paymentPlan().source()).isEqualTo("CONTRACT");
+        assertThat(assertHandoverProjection(customer,"HANDOVER_SUBMITTED","PENDING",1).status()).isEqualTo("TODO");
+        var lastPending=reads.readAuthorized(tenant,sales.orgId(),customer);
+        assertThat(lastPending.currentStepCode()).isEqualTo("START"); assertThat(lastPending.nextStepCode()).isNull();
         assertProgress(customer,7);
         var accepted=receive(pending,engineer,key()); long project=Long.parseLong(accepted.projectId());
         assertThat(accepted.status()).isEqualTo("ACCEPTED"); assertProgress(customer,7);
+        assertThat(assertHandoverProjection(customer,"ACCEPTED","ACCEPTED",1).status()).isEqualTo("DRAFT");
+        jdbc.update("UPDATE fr_eng_project SET customer_id=NULL WHERE id=?",project);
+        var missingMain=assertHandoverProjection(customer,"ACCEPTED","ACCEPTED",1);
+        assertThat(missingMain.fields()).doesNotContainKey("projectId");
+        assertThat(missingMain.completionErrors()).containsExactly("工程已接收，但缺少关联主工程，请核对原移交单");
+        assertProgress(customer,7);
+        assertThat(count("fr_eng_project","source_commission_id",Long.parseLong(ready.commissionId()))).isEqualTo(1);
+        jdbc.update("UPDATE fr_eng_project SET customer_id=? WHERE id=?",customer,project);
         assertThat(jdbc.queryForObject("SELECT actual_start_at FROM fr_eng_project WHERE id=?",LocalDate.class,project)).isNull();
         assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?",Long.class,project)).isEqualTo(contract.getId());
         var detail=as(engineer,()->projects.detail(engineer,project));
@@ -370,6 +383,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         as(engineer,()->plans.start(engineer,project,start," "+startKey+" "));
         var completed=reads.readAuthorized(tenant,sales.orgId(),customer);
         assertThat(completed.completedCount()).isEqualTo(8); assertThat(completed.progressPercent()).isEqualByComparingTo("100");
+        assertThat(assertHandoverProjection(customer,"ACCEPTED","ACCEPTED",1).status()).isEqualTo("COMPLETED");
         assertThat(completed.steps().get(6).canComplete()).isFalse(); assertThat(completed.steps().get(7).canComplete()).isFalse();
         assertThat(completed.steps().get(7).fields()).containsEntry("projectId",Long.toString(project)).containsEntry("actualStartAt",today().toString());
         assertThat(growth.customerSources(sales, customer)).containsExactlyInAnyOrderElementsOf(publishedSources);
@@ -875,11 +889,13 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         long firstAsset=Long.parseLong(first.currentPacket().files().get(0).assetId());
         var oldTicket=as(engineer,()->handover.download(engineer,commission,1,"RESULT"));
         as(engineer,()->handover.returnPacket(engineer,commission,new Decision(first.revision(),1,"施工图缺少说明",false),key()));
+        assertHandoverProjection(customer,"HANDOVER_RETURNED","RETURNED",1);
         saveDraft(customer,1,125000);
         var latest=as(sales,()->external.get(sales,customer));
         var revised=as(sales,()->external.register(sales,customer,request(latest,"客户更新委托"),key()));
         var newResult=deliver(customer,revised); var second=submit(newResult,upload(sales,"BUSINESS_DOCUMENT"),secondEngineer);
         assertThat(second.currentPacket().version()).isEqualTo(2); assertThat(second.currentPacket().resultVersion()).isEqualTo(2);
+        assertHandoverProjection(customer,"HANDOVER_SUBMITTED","PENDING",2);
         assertThat(second.currentPacket().paymentPlan().totalCents()).isEqualTo(125000);
         assertThat(second.packets().get(1).paymentPlan().totalCents()).isEqualTo(100000);
         assertThat(second.packets().get(1).status()).isEqualTo("RETURNED");
@@ -1264,6 +1280,19 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
             revision=as(sales,()->workflow.complete(sales,customer,code,saved.revision(),key())).revision();
         }
     }
+    private CustomerWorkflowModel.StepView assertHandoverProjection(long customer,String status,String packetStatus,Integer version) {
+        var view=reads.readAuthorized(tenant,sales.orgId(),customer);
+        var summary=reads.summariesAuthorized(tenant,sales.orgId(),List.of(customer)).get(customer);
+        var start=view.steps().get(7);
+        assertThat(start.fields()).containsEntry("commissionStatus",status).containsEntry("handoverStatus",packetStatus)
+                .containsEntry("handoverVersion",version);
+        assertThat(summary.start().fields()).isEqualTo(start.fields());
+        assertThat(summary.start().status()).isEqualTo(start.status());
+        assertThat(summary.completedCount()).isEqualTo(view.completedCount());
+        assertThat(summary.currentStepCode()).isEqualTo(view.currentStepCode());
+        return start;
+    }
+
     private void assertProgress(long customer,int completed) { assertThat(reads.readAuthorized(tenant,sales.orgId(),customer).completedCount()).isEqualTo(completed); }
     private long upload(PostSnapshot post,String type) throws Exception {
         var image=new java.io.ByteArrayOutputStream();

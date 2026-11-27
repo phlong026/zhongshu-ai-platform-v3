@@ -166,7 +166,7 @@ class CustomerPageTransferHttpContractTest {
         customer.setContractSigned(true);
         customer.setWorkflow(new cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary(
                 "10", 2, 8, java.math.BigDecimal.valueOf(25), "HOUSE_SELECTION", "选房",
-                "SITE_VISIT", "ACTIVE", null, null, null, null, null, false));
+                "SITE_VISIT", "ACTIVE", null, null, null, null, null, false, null));
         when(service.page(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(customer), 1L));
         context.run(ctx -> mvc(ctx).perform(get("/franchise/customers"))
