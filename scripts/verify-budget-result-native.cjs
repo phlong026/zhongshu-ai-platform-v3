@@ -31,7 +31,7 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   else if(route==='/franchise/design/cases/styles')data=[{code:'NEW_CHINESE',label:'新中式'},{code:'MODERN',label:'现代'},{code:'CHINESE',label:'中式'},{code:'EUROPEAN',label:'欧式'},{code:'RURAL',label:'田园'},{code:'CUSTOM_STYLE',label:'后台新增风格'}];
   else if(route==='/franchise/design/cases')data={list:[summary(501),summary(502)],nextCursor:null};
   else if(route==='/franchise/company-points/summary')data={balance:1000,inFlight:0,status:'ACTIVE'};
-  else if(route==='/franchise/design/flow-price')data={subject:q.subject,quantity:Number(q.quantity),credits:q.subject==='budget_estimate'?7:Number(q.quantity)*6,priceVersion:'native-price-v1'};
+  else if(route==='/franchise/design/flow-price')data={subject:q.subject,quantity:Number(q.quantity),credits:q.subject==='budget_estimate'?0:Number(q.quantity)*6,priceVersion:q.subject==='budget_estimate'?'budget-free-v1':'native-price-v1'};
   else if(route==='/franchise/design/flow-upload-ticket')data={assetId:input.assetType==='USER_SKETCH'?'710':'711',uploadUrl:'https://upload.example.test/parity.jpg',method:'PUT'};
   else if(/^\/franchise\/design\/assets\/\d+\/complete$/.test(route))data={uploadStatus:'ACCEPTED'};
   else if(route.includes('/download-tickets'))data={downloadUrl:'https://images.example.test/fixture.jpg'};
