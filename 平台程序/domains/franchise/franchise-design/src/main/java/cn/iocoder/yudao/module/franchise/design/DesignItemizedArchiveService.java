@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.franchise.api.CustomerSchemePort;
 import cn.iocoder.yudao.module.franchise.api.capability.DesignFlowCall;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,12 @@ import java.util.*;
 /** Imports the owned immutable provider snapshot. The browser cannot supply amounts or dimensions. */
 @Service
 public class DesignItemizedArchiveService {
-    public record Input(long customerId,long budgetId,Long revisionId) { }
+    public record Input(long customerId, long budgetId, Long revisionId,
+                        @JsonInclude(JsonInclude.Include.NON_NULL) Long quoteId) {
+        public Input(long customerId, long budgetId, Long revisionId) {
+            this(customerId, budgetId, revisionId, null);
+        }
+    }
     private final CustomerSchemePort customers;private final FranchiseCommands commands;private final DesignFlowAccessService flow;
     private final JdbcTemplate jdbc;private final TransactionTemplate tx;private final ObjectMapper json;
     public DesignItemizedArchiveService(CustomerSchemePort customers,FranchiseCommands commands,DesignFlowAccessService flow,DataSource source,PlatformTransactionManager manager,ObjectMapper json){
@@ -36,6 +42,24 @@ public class DesignItemizedArchiveService {
         Long total=budget.hasNonNull("totalCents")?new BigDecimal(budget.path("totalCents").asText()).longValueExact():null;
         if(("COMPLETE".equals(completeness)!=(total!=null))||(total!=null&&total<0))throw new IllegalStateException("Invalid budget amount");
         var values=budget.path("inputSummary");var payload=new LinkedHashMap<String,Object>();payload.putAll(fingerprint);payload.put("kind","BUDGET");payload.put("itemizedBudget",budget);
+        if (input.quoteId() != null) {
+            if (input.quoteId() < 1 || total == null) {
+                throw new IllegalArgumentException("正式报价编号或预算无效");
+            }
+            String quotePath = "/budget-estimates/" + input.budgetId() + "/quotes/" + input.quoteId();
+            JsonNode quote = json.valueToTree(flow.invoke(post, new DesignFlowCall("GET", quotePath, Map.of(), Map.of(), null)));
+            if (!"PUBLISHED".equals(quote.path("status").asText()) || !quote.path("current").asBoolean()
+                    || !budget.path("budgetId").asText().equals(quote.path("budgetId").asText())
+                    || !budget.path("revisionId").asText().equals(quote.path("revisionId").asText())
+                    || !input.quoteId().toString().equals(quote.path("quoteId").asText())
+                    || !quote.hasNonNull("finalPriceCents")) {
+                throw new IllegalStateException("正式报价已变化，请刷新后重新发送");
+            }
+            payload.put("sentQuote", Map.of("quoteId", input.quoteId().toString(),
+                    "revisionId", quote.path("revisionId").asText(),
+                    "quoteVersion", quote.path("quoteVersion").asInt(),
+                    "finalPriceCents", quote.path("finalPriceCents").asLong()));
+        }
         var save=new CustomerSchemePort.SchemeSave("BUDGET","AI设计·分项预算",cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload),decimal(values,"faceWidth"),decimal(values,"depth"),values.hasNonNull("floorCount")?values.path("floorCount").asInt():null,decimal(values,"buildingArea"),total,budget.hasNonNull("projectId")?Long.valueOf(budget.path("projectId").asText()):null);
         return tx.execute(status->{
             jdbc.queryForObject("SELECT pg_advisory_xact_lock(?,?)",Object.class,Long.hashCode(post.orgId()),Objects.hash(post.userId(),key));

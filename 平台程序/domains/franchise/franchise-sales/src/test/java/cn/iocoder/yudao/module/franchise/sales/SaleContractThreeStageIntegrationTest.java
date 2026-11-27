@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.franchise.sales;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.BusinessReceiptPort;
+import cn.iocoder.yudao.module.franchise.api.SignedCustomerQuery;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.franchise.sales.controller.admin.SalesController;
 import cn.iocoder.yudao.module.franchise.sales.dal.SaleContractDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.command.CommandLogImpl;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import jakarta.annotation.Resource;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -125,6 +127,8 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     @Resource
     private SaleContractService contracts;
     @Resource
+    private SignedCustomerQuery signedCustomers;
+    @Resource
     private JdbcTemplate jdbc;
 
     private Store store;
@@ -143,6 +147,26 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test
+    void findsOnlyRequestedSignedCustomersInTheCompany() {
+        long signed = newCustomer();
+        long draft = newCustomer();
+        var signedContract = as(salesA1, () -> contracts.create(salesA1, contract(signed, 100000, 100000, 0, 0), idem()));
+        as(salesA1, () -> contracts.sign(salesA1, signedContract.getId(),
+                new SaleContractService.SignCommand(java.time.LocalDate.now(), 9001L), revisionOf(signedContract.getId()), idem()));
+        as(salesA1, () -> contracts.create(salesA1, contract(draft, 100000, 100000, 0, 0), idem()));
+
+        assertThat(as(salesA1, () -> signedCustomers.signedCustomers(store.orgId(), List.of(signed, draft))))
+                .containsExactly(signed);
+        assertThat(as(salesA1, () -> signedCustomers.signedCustomers(store.orgId(), List.of()))).isEmpty();
+        assertThat(as(salesA1, () -> signedCustomers.signedCustomers(store.orgId(), List.of(draft)))).isEmpty();
+        long otherCompany = fixture.store().orgId();
+        assertThat(as(salesA1, () -> signedCustomers.signedCustomers(otherCompany, List.of(signed)))).isEmpty();
+
+        jdbc.update("UPDATE fr_sale_contract SET deleted = true WHERE id = ?", signedContract.getId());
+        assertThat(as(salesA1, () -> signedCustomers.signedCustomers(store.orgId(), List.of(signed)))).isEmpty();
+    }
 
     @Test
     void depositAllocationUsesTheExistingReceiptOnly(){

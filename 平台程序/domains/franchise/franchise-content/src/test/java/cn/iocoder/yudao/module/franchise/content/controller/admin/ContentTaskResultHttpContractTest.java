@@ -1,20 +1,24 @@
 package cn.iocoder.yudao.module.franchise.content.controller.admin;
 
+import cn.iocoder.yudao.module.franchise.content.content.ContentScriptService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentTaskService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
+import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskMapper;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.List;
 import java.util.Set;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class ContentTaskResultHttpContractTest {
@@ -23,9 +27,13 @@ class ContentTaskResultHttpContractTest {
         when(current.require()).thenReturn(new PostSnapshot(77L,77L,33L,"FRANCHISE","boss",null,false,Set.of()));
         var tasks=mock(ContentTaskService.class);
         when(tasks.requireOwned(33L,123L)).thenReturn(task);
+        when(tasks.createFromPost(any(), anyMap(), anyString())).thenReturn(task);
+        var taskMapper = mock(FrContentTaskMapper.class);
+        when(taskMapper.selectList(any())).thenReturn(List.of(task));
         var controller=new ContentTaskController();
         ReflectionTestUtils.setField(controller,"currentPost",current);
         ReflectionTestUtils.setField(controller,"tasks",tasks);
+        ReflectionTestUtils.setField(controller, "taskMapper", taskMapper);
         ReflectionTestUtils.setField(controller,"drafts",new ContentDraftService(null,null,null,tasks,null));
         return MockMvcBuilders.standaloneSetup(controller).build();
     }
@@ -53,6 +61,73 @@ class ContentTaskResultHttpContractTest {
         task.setResultState("READY");
         org.assertj.core.api.Assertions.assertThat(controller.dismiss(123L).getData()).isTrue();
         verify(jdbc).update(startsWith("INSERT INTO fr_content_task_hidden"),eq(33L),eq(77L),eq(123L),eq(77L));
+    }
+
+    @Test void createListAndDetailUseTheCurrentDigitalTextRatherThanAnOldDraftTitle() throws Exception {
+        var task = new FrContentTaskDO().setId(123L).setCompanyId(33L).setAuthorUserId(77L)
+                .setKind("digital").setStatus("QUEUED")
+                .setInputSnapshot("""
+                        {"title":"上一稿标题","text":"  数字人口播任务 | 数字人口播：今天聊庭院采光\\n后续正文",
+                         "avatar":"raw-avatar-id","voice":"raw-voice-id"}
+                        """);
+        MockMvc mvc = endpoint(task);
+        mvc.perform(post("/franchise/content/tasks").header("Idempotency-Key", "task-title-check")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"kind\":\"digital\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.title").value("数字人口播｜今天聊庭院采光"));
+        mvc.perform(get("/franchise/content/tasks"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].title").value("数字人口播｜今天聊庭院采光"));
+        mvc.perform(get("/franchise/content/tasks/123"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.title").value("数字人口播｜今天聊庭院采光"))
+                .andExpect(jsonPath("$.data.inputSnapshot").doesNotExist())
+                .andExpect(jsonPath("$.data.text").doesNotExist());
+    }
+
+    @Test void scriptCreationUsesTheSameTitleContractAsTaskDetails() throws Exception {
+        var task = new FrContentTaskDO().setId(124L).setCompanyId(33L).setAuthorUserId(77L)
+                .setKind("copy").setStatus("QUEUED").setInputSnapshot("{\"sourceText\":\"怎样收纳庭院工具\"}");
+        var post = mock(CurrentPost.class);
+        when(post.require()).thenReturn(new PostSnapshot(77L, 77L, 33L, "FRANCHISE", "boss", null, false, Set.of()));
+        var scripts = mock(ContentScriptService.class);
+        when(scripts.optimize(any(), anyMap(), anyString())).thenReturn(task);
+        var controller = new ContentScriptController();
+        ReflectionTestUtils.setField(controller, "currentPost", post);
+        ReflectionTestUtils.setField(controller, "scripts", scripts);
+        MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(post("/franchise/content/scripts/optimize").header("Idempotency-Key", "script-title-check")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"sourceText\":\"怎样收纳庭院工具\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.taskId").value(124))
+                .andExpect(jsonPath("$.data.title").value("文案改写｜怎样收纳庭院工具"));
+    }
+
+    @Test void sameOrganizationDetailDoesNotExposeAnotherAuthorsInputTheme() throws Exception {
+        var task = new FrContentTaskDO().setId(123L).setCompanyId(33L).setAuthorUserId(78L)
+                .setKind("digital").setStatus("SUCCEEDED")
+                .setInputSnapshot("{\"text\":\"同组织其他员工正文\"}");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("数字人口播｜未命名创作"))
+                .andExpect(jsonPath("$.data.inputSnapshot").doesNotExist())
+                .andExpect(jsonPath("$.data.text").doesNotExist());
+    }
+
+    @Test void historicalTitlesUseKnownTextFieldsAndClipWholeUnicodeCharacters() throws Exception {
+        var task = new FrContentTaskDO().setId(123L).setCompanyId(33L).setAuthorUserId(77L)
+                .setKind("ai_video").setStatus("FAILED")
+                .setInputSnapshot("{\"description\":\"AI视频｜" + "🏠".repeat(25) + "\"}");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(jsonPath("$.data.title").value("AI视频｜" + "🏠".repeat(19)));
+        task.setKind("copy").setInputSnapshot("{\"sourceText\":\"一楼客厅怎么布置\",\"requirement\":\"改写要求\"}");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(jsonPath("$.data.title").value("文案改写｜一楼客厅怎么布置"));
+        task.setKind("link_parse").setInputSnapshot("{\"url\":\"https://example.invalid/private?token=fixture\"}");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(jsonPath("$.data.title").value("链接解析｜未命名创作"));
+        task.setKind("asr").setInputSnapshot("{\"sourceUrl\":\"https://example.invalid/private\"}");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(jsonPath("$.data.title").value("语音转写｜未命名创作"));
+        task.setKind("digital").setInputSnapshot("[]");
+        endpoint(task).perform(get("/franchise/content/tasks/123"))
+                .andExpect(jsonPath("$.data.title").value("数字人口播｜未命名创作"));
     }
 
     @Test void mediaParsingSuccessDoesNotWaitForOptionalCaptionPersistence() throws Exception {

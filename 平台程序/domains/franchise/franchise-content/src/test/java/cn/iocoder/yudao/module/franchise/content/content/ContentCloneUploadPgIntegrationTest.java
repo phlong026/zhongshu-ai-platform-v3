@@ -1,10 +1,12 @@
 package cn.iocoder.yudao.module.franchise.content.content;
 
+import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentPersonaDO;
 import cn.iocoder.yudao.module.franchise.api.AssetAccessPort;
 import cn.iocoder.yudao.module.franchise.content.provider.*;
 import cn.iocoder.yudao.module.franchise.test.FranchisePgIntegrationTest;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
+import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.authz.CurrentPost;
 import cn.iocoder.yudao.module.franchise.content.controller.admin.ContentCloneController;
 import cn.iocoder.yudao.module.franchise.api.OrgPointPort;
@@ -171,7 +173,9 @@ class ContentCloneUploadPgIntegrationTest extends FranchisePgIntegrationTest {
         long chosen=Long.parseLong(uploads.importAsset(post,21,"VOICE",701).get("uploadId").toString());
         var points=mock(OrgPointPort.class);
         var config=new ContentProviderProperties(); config.getHifly().setApiKey("server-only-key");
-        var clones=new ContentCloneService(jdbc,personas,uploads,points,config,transport,null,transactionManager);
+        var directory = mock(SystemDirectory.class);
+        when(directory.roleHasPermission(post.roleCode(), ContentPermissions.PERSONA)).thenReturn(true);
+        var clones=new ContentCloneService(jdbc,personas,uploads,points,config,transport,null,transactionManager,directory);
         assertThatThrownBy(()->clones.create(post,21,"VOICE","样本",chosen,null,"original-request",5))
                 .hasMessageContaining("授权");
         assertThat(transport.calls).isEmpty();

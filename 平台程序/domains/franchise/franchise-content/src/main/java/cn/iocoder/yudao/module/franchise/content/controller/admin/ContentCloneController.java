@@ -18,6 +18,7 @@ public class ContentCloneController {
     private final ContentCloneUploadService uploads;
     public ContentCloneController(ContentCloneService clones,CurrentPost posts,ContentCloneUploadService uploads) {this.clones=clones;this.posts=posts;this.uploads=uploads;}
     public record Create(String kind,String title,long sourceUploadId,String consentVersion,long confirmedCredits,Long sourceAssetId) { }
+    public record Rename(String title) { }
     public record Upload(String kind,String mimeType,long sizeBytes,String sha256,String consentVersion) { }
     @PostMapping("/personas/{personaId}/clone-upload-tickets")
     @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
@@ -72,7 +73,18 @@ public class ContentCloneController {
     @PostMapping("/clones/{id}/refresh")
     @PreAuthorize("@post.has('"+ContentPermissions.QUERY+"')")
     public CommonResult<Map<String,Object>> refresh(@PathVariable("id") long id) {return success(clones.refresh(posts.require(),id));}
+    @PutMapping("/clones/{id}/title")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
+    public CommonResult<Map<String,Object>> rename(@PathVariable("id") long id, @RequestBody Rename body) {
+        return success(clones.rename(posts.require(), id, body.title()));
+    }
+    @DeleteMapping("/clones/{id}")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
+    public CommonResult<Boolean> delete(@PathVariable("id") long id) {
+        clones.delete(posts.require(), id);
+        return success(true);
+    }
     @PutMapping("/clones/{id}/default")
-    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"')")
+    @PreAuthorize("@post.has('"+ContentPermissions.PERSONA+"','"+ContentPermissions.PERSONA_SELF+"')")
     public CommonResult<Map<String,Object>> setDefault(@PathVariable("id") long id) {return success(clones.setDefault(posts.require(),id));}
 }

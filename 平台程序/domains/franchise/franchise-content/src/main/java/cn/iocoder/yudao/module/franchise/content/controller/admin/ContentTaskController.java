@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.franchise.content.ContentPermissions;
 import cn.iocoder.yudao.module.franchise.content.content.ContentDraftService;
 import cn.iocoder.yudao.module.franchise.content.content.ContentTaskService;
+import cn.iocoder.yudao.module.franchise.content.content.ContentTaskTitle;
 import cn.iocoder.yudao.module.franchise.content.content.ContentTaskResultService;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentDraftDO;
 import cn.iocoder.yudao.module.franchise.content.dal.FrContentTaskDO;
@@ -61,7 +62,7 @@ public class ContentTaskController {
         PostSnapshot post = post();
         String key = ContentScriptController.requireIdem(idem);
         FrContentTaskDO task = tasks.createFromPost(post, body, key);
-        return success(viewOf(task));
+        return success(viewOf(task, post));
     }
 
     @GetMapping
@@ -79,7 +80,7 @@ public class ContentTaskController {
                                 + " AND author_user_id = " + post.userId())
                 .orderByDesc(FrContentTaskDO::getCreateTime)
                 .last("LIMIT 100"));
-        return success(rows.stream().map(ContentTaskController::viewOf).toList());
+        return success(rows.stream().map(task -> viewOf(task, post)).toList());
     }
 
     @PostMapping("{id}/dismiss")
@@ -108,7 +109,7 @@ public class ContentTaskController {
     @PreAuthorize("@post.has('" + ContentPermissions.QUERY + "')")
     public CommonResult<Map<String, Object>> detail(@PathVariable("id") Long id) {
         PostSnapshot post = post();
-        return success(viewOf(tasks.requireOwned(post.orgId(), id)));
+        return success(viewOf(tasks.requireOwned(post.orgId(), id), post));
     }
 
     @GetMapping("{id}/editable-input")
@@ -127,13 +128,14 @@ public class ContentTaskController {
             @RequestBody Map<String, Object> body,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
         Long actualUnits = parseQuantity(body.get("actualQuantity"));
-        FrContentTaskDO task = tasks.manualVerify(post(), id,
+        PostSnapshot post = post();
+        FrContentTaskDO task = tasks.manualVerify(post, id,
                 body.get("decision") == null ? null : String.valueOf(body.get("decision")),
                 actualUnits,
                 body.get("reason") == null ? null : String.valueOf(body.get("reason")),
                 body.get("evidenceSummary") == null ? null : String.valueOf(body.get("evidenceSummary")),
                 ContentScriptController.requireIdem(idem));
-        return success(viewOf(task));
+        return success(viewOf(task, post));
     }
 
     @GetMapping("{id}/manual-verification")
@@ -170,7 +172,7 @@ public class ContentTaskController {
     @PreAuthorize("@post.has('" + ContentPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> retrySave(@PathVariable("id") Long id) {
         PostSnapshot post=post();
-        return success(viewOf(results.retrySave(post.orgId(),post.userId(),id)));
+        return success(viewOf(results.retrySave(post.orgId(),post.userId(),id), post));
     }
 
     @PostMapping("{id}/save-work")
@@ -213,10 +215,11 @@ public class ContentTaskController {
                 || "SUCCEEDED".equals(status) && !waitingForSave(task);
     }
 
-    static Map<String, Object> viewOf(FrContentTaskDO task) {
+    static Map<String, Object> viewOf(FrContentTaskDO task, PostSnapshot post) {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", task.getId());
         view.put("kind", task.getKind());
+        view.put("title", ContentTaskTitle.forViewer(task, post.orgId(), post.userId()));
         // Media is usable as soon as link_parse succeeds, even while its optional caption is saving.
         boolean pending = waitingForSave(task);
         view.put("canDismiss", canDismiss(task));
