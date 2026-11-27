@@ -584,6 +584,61 @@ test('lost create response reopens the same frozen command and resolves to the o
   assert.match(f.notices.at(-1), /原公告/)
 })
 
+test('manual role switch waits for a lost save response to be resolved by the original command', async () => {
+  const storage = tabStorage()
+  const finance = { postId: '202', orgType: 'headquarters', roleCode: 'finance' }
+  const saved = new Map()
+  const requestIds = []
+  const switched = []
+  const f = view({
+    storage,
+    identity: {
+      loadPosts: async () => [finance],
+      selectPost: async (postId) => {
+        switched.push(postId)
+        return true
+      }
+    },
+    api: {
+      saveAnnouncement: async (input, existing, requestId) => {
+        requestIds.push(requestId)
+        if (!saved.has(requestId)) {
+          saved.set(requestId, record(input))
+          throw Error('模拟保存回执丢失')
+        }
+        return saved.get(requestId)
+      }
+    }
+  })
+  await f.page.load()
+  f.page.createDraft()
+  Object.assign(f.page.form, { title: '待确认草稿', content: '原正文' })
+  await f.page.save()
+  f.page.editorOpen.value = false
+  f.page.closeEditor()
+  assert.equal(f.page.pendingCreate.value.id, requestIds[0])
+  const stored = storage.getItem(platform.PENDING_ANNOUNCEMENT_CREATE_KEY)
+
+  await f.page.openPostPicker()
+  assert.equal(f.page.postPickerOpen.value, false)
+  f.page.postChoices.value = [finance]
+  await f.page.choosePost(finance)
+  assert.deepEqual(switched, [])
+  assert.equal(storage.getItem(platform.PENDING_ANNOUNCEMENT_CREATE_KEY), stored)
+
+  f.page.createDraft()
+  assert.equal(f.page.form.title, '待确认草稿')
+  await f.page.save()
+  assert.deepEqual(requestIds, [requestIds[0], requestIds[0]])
+  assert.equal(saved.size, 1)
+  assert.equal(f.page.pendingCreate.value, null)
+
+  await f.page.openPostPicker()
+  assert.equal(f.page.postPickerOpen.value, true)
+  await f.page.choosePost(finance)
+  assert.deepEqual(switched, [finance.postId])
+})
+
 test('definite create rejection allows editing and a new command; switching identity clears pending state', async () => {
   const attempts = []
   const f = view({

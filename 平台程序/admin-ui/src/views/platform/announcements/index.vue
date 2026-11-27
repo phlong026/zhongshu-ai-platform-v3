@@ -6,7 +6,9 @@
         <p>发布后，员工可在小程序“我的 → 公司公告”查看。</p>
       </div>
       <div class="announcement-actions">
-        <el-button v-if="ready" :disabled="busy" @click="openPostPicker">切换工作身份</el-button>
+        <el-button v-if="ready" :disabled="busy || !!pendingCreate" @click="openPostPicker">
+          切换工作身份
+        </el-button>
         <el-button v-if="canWrite" type="primary" :disabled="busy" @click="createDraft">
           {{ pendingCreate ? '继续确认草稿' : '新建公告' }}
         </el-button>
@@ -52,6 +54,9 @@
           <el-button v-else link type="primary" @click="load">重新加载</el-button>
         </template>
       </el-alert>
+      <p v-if="pendingCreate && !editorOpen" class="read-only-note">
+        请先点击「继续确认草稿」，确认保存结果后再切换工作身份。
+      </p>
       <p v-if="ready && !canWrite" class="read-only-note">
         当前工作身份可查看公告。编辑和发布请选择「总部管理员」。
       </p>
@@ -474,7 +479,7 @@ const load = async () => {
 }
 
 const openPostPicker = async () => {
-  if (postPickerBusy.value) return
+  if (postPickerBusy.value || busy.value || pendingCreate.value) return
   const captured = scope()
   postPickerOpen.value = true
   postPickerBusy.value = true
@@ -491,8 +496,12 @@ const openPostPicker = async () => {
 }
 
 const choosePost = async (post: StaffPost) => {
-  if (postPickerBusy.value || !postChoices.value.some((choice) => choice.postId === post.postId))
-    return
+  if (
+    postPickerBusy.value ||
+    busy.value ||
+    pendingCreate.value ||
+    !postChoices.value.some((choice) => choice.postId === post.postId)
+  ) return
   postPickerBusy.value = true
   postPickerError.value = ''
   try {
