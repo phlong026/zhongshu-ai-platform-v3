@@ -432,3 +432,20 @@ test('省市覆盖资料只提示待确认，不扩成县点、视野统计或�
   assert.equal(viewport.summary.coverageRecordCount,1);
   assert.equal(mapView(snapshot,{...county,keyword:'武汉'},catalog).rows.find(row=>row.id==='city-cover').upperCoverageLabel,'武汉市');
 });
+
+test('经明确确认的全市覆盖可查到下辖县，一条统计且不产生县点',()=>{
+  const city={...record('verified-area','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL',wholeAreaCoverage:true};
+  const snapshot=readSnapshot(fixture([city]),hq),catalog=readRegions(regions);
+  const view=mapView(snapshot,county,catalog);
+  assert.equal(view.upperCoverageLabel,'武汉市 · 已确认全域覆盖 1 条');
+  assert.equal(view.summary.franchiseCount,2);
+  assert.equal(view.summary.coverageRecordCount,2);
+  assert.equal(view.summary.pendingCount,0);
+  assert.equal(view.rows.find(row=>row.id==='verified-area').wholeAreaCoverage,true);
+  assert.deepEqual(view.markers.flatMap(marker=>marker.storeIds).sort(),['coverage','one','two']);
+  const outside=mapView(snapshot,{province:'110000',district:'110101'},catalog);
+  assert(!outside.rows.some(row=>row.id==='verified-area'));
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:32}};
+  assert.equal(mapView(snapshot,county,catalog,'viewport',bounds).summary.coverageRecordCount,1);
+  assert.equal(mapView(snapshot,{},catalog).summary.coverageRecordCount,2);
+});
