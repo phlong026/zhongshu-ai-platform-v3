@@ -722,16 +722,22 @@ public class SaleContractService {
               AND d.status IN ('PENDING','RETURNED') ORDER BY d.id DESC
             """,post.orgId(),contractId,post.userId());
     }
+    private static final String ENGINEERING_DECLARATION = """
+        EXISTS (SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.aggregate_type='fr-eng-project'
+          AND e.command='eng-collection-declare' AND e.org_id=d.company_id AND e.aggregate_id=d.id)
+        """;
+
     public java.util.List<Map<String,Object>> collectionDeclarations(PostSnapshot post) {
         return jdbcTemplate.queryForList("""
             SELECT d.id::text,d.stage_id::text,d.amount_cents,d.received_date,d.transaction_no,d.status,d.return_reason,
-              d.account_name,d.method,d.voucher_file_id::text,s.contract_id::text,s.stage,c.customer_id::text,customer.name AS customer_name
+              d.account_name,d.method,d.voucher_file_id::text,s.contract_id::text,s.stage,c.customer_id::text,customer.name AS customer_name,
+              %s AS requires_method_confirmation
             FROM fr_sale_collection_declaration d
             JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
             JOIN fr_sale_contract c ON c.id=s.contract_id AND c.company_id=s.company_id
             LEFT JOIN fr_customer customer ON customer.id=c.customer_id AND customer.company_id=c.company_id
             WHERE d.company_id=? AND d.status='PENDING' ORDER BY d.received_date,d.id
-            """,post.orgId());
+            """.formatted(ENGINEERING_DECLARATION),post.orgId());
     }
     public void returnDeclaration(PostSnapshot post,long id,String reason,String key){
         if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode()) || reason==null||reason.isBlank()||reason.length()>500)throw exception(REFERENCE_INVALID);
@@ -752,7 +758,10 @@ public class SaleContractService {
             // Match collect's key lock before locking the declaration; one key cannot confirm two original claims.
             jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
                     FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),token));
-            var rows=jdbcTemplate.queryForList("SELECT * FROM fr_sale_collection_declaration WHERE id=? AND company_id=? FOR UPDATE",id,post.orgId());
+            var rows=jdbcTemplate.queryForList("""
+                SELECT d.*, %s AS requires_method_confirmation FROM fr_sale_collection_declaration d
+                WHERE d.id=? AND d.company_id=? FOR UPDATE OF d
+                """.formatted(ENGINEERING_DECLARATION),id,post.orgId());
             if(rows.isEmpty())throw exception(REFERENCE_INVALID);var d=rows.get(0);
             boolean confirmed = "CONFIRMED".equals(d.get("status"));
             if(!confirmed && !"PENDING".equals(d.get("status")))throw exception(REFERENCE_INVALID);
@@ -772,6 +781,7 @@ public class SaleContractService {
                 return Map.of("receiptId",d.get("receipt_id"),"replayed",true);
             }
             if (account == null || account.isBlank() || account.length() > 100
+                    || (Boolean.TRUE.equals(d.get("requires_method_confirmation")) && (confirmation == null || confirmation.method() == null))
                     || !java.util.Set.of("bank","cash","other").contains(nullSafe(method))) {
                 throw PaymentPlanRules.invalid("请填写实际收款账户并选择收款方式");
             }
