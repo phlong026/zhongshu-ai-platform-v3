@@ -63,12 +63,16 @@ test('completion bounds and any upload failure prevent a partially saved node',a
  await assert.rejects(P.perform('node','100',{files:[{path:'a'},{path:'b'},{path:'c'}]},{id:'101'},'original'),/上传失败/);
  assert.equal(calls.length,0);assert.equal(uploads,2);
 });
-test('choosing one replacement file clears an older multi-photo selection',()=>{
+test('a node chat file appends to earlier photos, while correction targets its own field',()=>{
  let page;const file=path.resolve('miniprogram/pages/build/record/index.js'),real=createRequire(file);
  vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:p=>page=p,require:real});
  page.data={view:'node',form:{files:[{path:'old-a'},{path:'old-b'}]}};
  page.setData=patch=>{for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let target=page.data;for(const part of parts.slice(0,-1))target=target[part]||(target[part]={});target[parts.at(-1)]=v;}};
- page.setFile('file',{name:'new.jpg',path:'new.jpg'});assert.equal(page.data.form.files.length,1);assert.equal(page.data.form.files[0].path,'new.jpg');
+ page.setFile('file',{name:'验收单.pdf',path:'new.pdf'});
+ assert.deepEqual(Array.from(page.data.form.files,f=>f.path),['old-a','old-b','new.pdf']);
+ page.setFile('nodeFile',{name:'更正件.pdf',path:'correction.pdf'});
+ assert.equal(page.data.form.nodeFile.path,'correction.pdf');
+ assert.deepEqual(Array.from(page.data.form.files,f=>f.path),['old-a','old-b','new.pdf']);
 });
 test('handover next step progresses through preparation, schedule, collection, start, node, delivery, settlement and archive', () => {
   const { P } = harness(),
@@ -274,3 +278,4 @@ test('reopen is limited to the latest completed node and hides after a subsequen
   b.collections.records = [{ id: '9', stage: 'CAP_DONE', amountCents: 1000 }];
   assert.equal(view('102'), false);
 });
+
