@@ -1,7 +1,7 @@
 <template>
   <section class="directory-account">
     <el-form label-width="120px" class="directory-account-form" @submit.prevent>
-      <el-form-item label="选择加盟商">
+      <el-form-item label="先查加盟商名录">
         <el-select
           v-model="selectedId"
           filterable
@@ -10,14 +10,14 @@
           :remote-method="searchCandidates"
           :loading="searching"
           :disabled="busy"
-          placeholder="搜索名录名称、品牌或地区"
+          placeholder="按门店名、品牌或地区搜索"
           @change="selectRecord"
         >
           <el-option
             v-for="item in candidates"
             :key="item.id"
             :value="item.id"
-            :label="`${item.brandName || item.brand} · ${item.name || item.originalRegionText}`"
+            :label="candidateLabel(item)"
             :disabled="!!item.linkedOrgId"
           />
         </el-select>
@@ -25,14 +25,14 @@
       </el-form-item>
       <el-alert
         v-if="record"
-        :title="`${record.brandName || record.brand} · ${record.originalRegionText}`"
+        :title="candidateLabel(record)"
         type="info"
         :closable="false"
         class="selection-summary"
       />
       <el-alert
         v-if="record && !eligible"
-        title="请先在加盟商名录中确认区县信息，再从这条记录开通账号。"
+        title="先确认这是真实加盟商档案，且已明确开户区县。已开户门店请到「已开通组织」维护。"
         type="warning"
         :closable="false"
         class="selection-summary"
@@ -55,7 +55,7 @@
       <el-form-item label="老板姓名">
         <el-input
           v-model.trim="adminName"
-          :disabled="busy"
+          :disabled="busy || !eligible"
           maxlength="20"
           placeholder="请输入老板姓名"
         />
@@ -63,7 +63,7 @@
       <el-form-item label="老板手机号">
         <el-input
           v-model.trim="adminMobile"
-          :disabled="busy"
+          :disabled="busy || !eligible"
           maxlength="11"
           placeholder="请输入11位手机号"
         />
@@ -71,7 +71,7 @@
       <el-form-item label="姓名拼音校正">
         <el-input
           v-model.trim="ownerPinyin"
-          :disabled="busy"
+          :disabled="busy || !eligible"
           maxlength="40"
           placeholder="留空自动生成"
         />
@@ -79,7 +79,7 @@
       <el-form-item label="内部备注">
         <el-input
           v-model.trim="remark"
-          :disabled="busy"
+          :disabled="busy || !eligible"
           type="textarea"
           :rows="2"
           maxlength="200"
@@ -179,6 +179,7 @@ const selectedDistrict = computed(() =>
 const eligible = computed(
   () =>
     !!record.value &&
+    record.value.recordType === 'FRANCHISE' &&
     record.value.matchStatus === 'RESOLVED' &&
     !record.value.linkedOrgId &&
     districtOptions.value.length > 0 &&
@@ -201,13 +202,19 @@ function clearCredentials() {
   copyFallback.value = ''
 }
 
+function candidateLabel(item: DirectoryItem) {
+  return [item.brandName || item.brand, item.name, item.originalRegionText,
+    item.linkedOrgId ? '已开户' : item.matchStatus === 'RESOLVED' ? '待开户' : '区县待确认'
+  ].filter(Boolean).join(' · ')
+}
+
 async function searchCandidates(keyword = '') {
   if (!active) return
   const generation = ++searchGeneration
   searching.value = true
   searchError.value = ''
   try {
-    const rows = await getDirectoryCandidates(keyword)
+    const rows = (await getDirectoryCandidates(keyword)).filter((item) => item.recordType === 'FRANCHISE')
     if (!active || generation !== searchGeneration) return
     candidates.value =
       record.value && !rows.some((r) => r.id === record.value?.id) ? [record.value, ...rows] : rows
@@ -221,7 +228,14 @@ async function searchCandidates(keyword = '') {
 
 function selectRecord(id: string) {
   if (busy.value) return
-  record.value = candidates.value.find((r) => r.id === id) || null
+  const next = candidates.value.find((r) => r.id === id && r.recordType === 'FRANCHISE') || null
+  if (next?.id !== record.value?.id) {
+    adminName.value = ''
+    adminMobile.value = ''
+    ownerPinyin.value = ''
+    remark.value = ''
+  }
+  record.value = next
   districtCode.value = districtOptions.value.length === 1 ? districtOptions.value[0].code : ''
   clearCredentials()
   schedulePreview()
@@ -314,7 +328,7 @@ watch([adminMobile, remark], clearCredentials)
 watch(
   () => props.initialRecord,
   (value) => {
-    if (!value || busy.value) return
+    if (!value || value.recordType !== 'FRANCHISE' || busy.value) return
     candidates.value = [value, ...candidates.value.filter((r) => r.id !== value.id)]
     selectedId.value = value.id
     selectRecord(value.id)
