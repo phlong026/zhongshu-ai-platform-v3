@@ -144,8 +144,13 @@ public class EngClosureService {
                     .mapToLong(FrEngCollectionDO::getAmountCents).sum();
             if (received < expected) throw exception(GATE_NOT_MET);
         }
-        LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
-        if (StrUtil.isBlank(cmd.recipient()) || cmd.fileAssetId() == null || date.isAfter(LocalDate.now())) {
+        LocalDate date = EngGuard.actualDate(cmd.date());
+        LocalDate lastCompletion = nodes.stream().map(FrEngPlanNodeDO::getCompletedAt)
+                .filter(java.util.Objects::nonNull).max(LocalDate::compareTo).orElse(project.getActualStartAt());
+        if (date.isBefore(project.getActualStartAt()) || date.isBefore(lastCompletion)) {
+            throw exception(ENGINEERING_INPUT_INVALID, "交付日期不能早于最后施工完成日期");
+        }
+        if (StrUtil.isBlank(cmd.recipient()) || cmd.fileAssetId() == null) {
             throw exception(ENGINEERING_INPUT_INVALID, "请留存业主签收人及交付凭据");
         }
         // M09-T01/I01：交付凭据资产域侧校验（复用 EngPlanService 同款——假 ID/跨组织/未 ACCEPTED/类型不符全拒）

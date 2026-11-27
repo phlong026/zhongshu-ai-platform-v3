@@ -957,6 +957,75 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
 
 
     @Test
+    void actualNodeDatesShareBoundsForInitialCompletionAndCorrection() {
+        var today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var startDate = today.minusDays(4);
+        long asset = insertAsset("ENG_DRAWING", true, store.orgId());
+        as(engineer, () -> planService.prepare(engineer, projectId, startCmd(asset), idem()));
+        // Overlapping/future planned ranges do not determine the actual historical dates.
+        jdbc.update("UPDATE fr_eng_plan_node SET start_date=?,end_date=CASE WHEN milestone='START' THEN ? ELSE ? END WHERE project_id=?",
+                startDate, startDate, today.plusDays(30), projectId);
+        Config.STAGE_COLLECTED_MAP.put(Config.SIGN_AFTER, 40800000L);
+        as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(startDate, "实际开工", asset, true), idem()));
+        jdbc.update("UPDATE fr_eng_material SET status='CANCELLED' WHERE project_id=?", projectId);
+        for (LocalDate invalid : List.of(startDate.minusDays(1), today.plusDays(1))) {
+            assertThatThrownBy(() -> as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                    new EngPlanService.NodeRecordCommand(invalid, "错误实际日期", asset, true), idem())))
+                    .isInstanceOf(ServiceException.class);
+        }
+        assertThat(jdbc.queryForObject("SELECT completed_at FROM fr_eng_plan_node WHERE id=?", LocalDate.class, nodeId)).isNull();
+        var firstDate = today.minusDays(2);
+        as(engineer, () -> planService.completeNode(engineer, projectId, nodeId,
+                new EngPlanService.NodeRecordCommand(firstDate, "真实前序完成", asset, true), idem()));
+        long next = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,status,start_date,end_date) VALUES(?,?,?,2,'后续施工','IN_PROGRESS',?,?)",
+                next, store.orgId(), projectId, startDate, today.plusDays(30));
+        for (LocalDate invalid : List.of(firstDate.minusDays(1), today.plusDays(1))) {
+            assertThatThrownBy(() -> as(engineer, () -> planService.completeNode(engineer, projectId, next,
+                    new EngPlanService.NodeRecordCommand(invalid, "错误后序日期", asset, true), idem())))
+                    .isInstanceOf(ServiceException.class);
+        }
+        var completedAt = today.minusDays(1);
+        as(engineer, () -> planService.completeNode(engineer, projectId, next,
+                new EngPlanService.NodeRecordCommand(completedAt, "真实后序完成", asset, true), idem()));
+        var original = jdbc.queryForMap("SELECT completed_at,corrections FROM fr_eng_plan_node WHERE id=?", next);
+        for (LocalDate invalid : List.of(startDate.minusDays(1), firstDate.minusDays(1), today.plusDays(1))) {
+            assertThatThrownBy(() -> as(engineer, () -> planService.correctNode(engineer, projectId, next,
+                    new EngPlanService.NodeCorrectCommand(invalid, null, null, "错误更正日期"), idem())))
+                    .isInstanceOf(ServiceException.class);
+            assertThat(jdbc.queryForMap("SELECT completed_at,corrections FROM fr_eng_plan_node WHERE id=?", next)).isEqualTo(original);
+        }
+        String key = idem();
+        var correction = new EngPlanService.NodeCorrectCommand(today, null, null, "核实实际完成日期");
+        as(engineer, () -> planService.correctNode(engineer, projectId, next, correction, key));
+        as(engineer, () -> planService.correctNode(engineer, projectId, next, correction, key));
+        assertThat(jdbc.queryForObject("SELECT completed_at FROM fr_eng_plan_node WHERE id=?", LocalDate.class, next)).isEqualTo(today);
+        assertThat(jdbc.queryForObject("SELECT jsonb_array_length(corrections) FROM fr_eng_plan_node WHERE id=?", Integer.class, next)).isOne();
+        assertThat(jdbc.queryForObject("SELECT actual_start_at FROM fr_eng_project WHERE id=?", LocalDate.class, projectId)).isEqualTo(startDate);
+        assertThat(jdbc.queryForObject("SELECT end_date FROM fr_eng_plan_node WHERE id=?", LocalDate.class, nodeId)).isEqualTo(today.plusDays(30));
+    }
+
+    @Test
+    void deliveryCannotPrecedeLastActualCompletionOrUseFutureDate() {
+        var completed = completedInspection();
+        var before = jdbc.queryForMap("SELECT * FROM fr_eng_closure WHERE project_id=?", projectId);
+        for (LocalDate invalid : List.of(completed.date().minusDays(1), LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1))) {
+            assertThatThrownBy(() -> as(engineer, () -> closuresService.deliver(engineer, projectId,
+                    new EngClosureService.DeliverCommand(invalid, "业主", null, completed.photos().get(0), "交付核对"), idem())))
+                    .isInstanceOf(ServiceException.class);
+            assertThat(jdbc.queryForMap("SELECT * FROM fr_eng_closure WHERE project_id=?", projectId)).isEqualTo(before);
+        }
+        String key = idem();
+        var command = new EngClosureService.DeliverCommand(completed.date(), "业主", null, completed.photos().get(0), "历史实际交付");
+        as(engineer, () -> closuresService.deliver(engineer, projectId, command, key));
+        as(engineer, () -> closuresService.deliver(engineer, projectId, command, key));
+        assertThat(jdbc.queryForObject("SELECT delivered_at FROM fr_eng_closure WHERE project_id=?", LocalDate.class, projectId)).isEqualTo(completed.date());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-deliver'", Integer.class, projectId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT actual_start_at FROM fr_eng_project WHERE id=?", LocalDate.class, projectId)).isEqualTo(completed.date().minusDays(1));
+    }
+
+    @Test
     void dateOnlyNodeCorrectionPreservesAllEvidenceAndReplaysWithoutAnotherHistoryEntry() {
         var completed = completedInspection();
         var correctedDate = java.time.LocalDate.now();
