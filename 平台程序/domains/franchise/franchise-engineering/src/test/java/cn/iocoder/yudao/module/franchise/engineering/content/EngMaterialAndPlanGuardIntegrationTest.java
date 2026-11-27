@@ -36,6 +36,7 @@ import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertE
         EngClosureService.class,
         EngExpenseService.class,
         cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.class,
         cn.iocoder.yudao.module.franchise.finance.FinRefundService.class,
         FranchiseCommands.class, CommandLogImpl.class,
         EngMaterialAndPlanGuardIntegrationTest.Config.class})
@@ -1797,6 +1798,58 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     // ========== 辅助 ==========
 
     @Resource private EngProjectService projectService;
+
+    @Resource private cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService financeWorkbench;
+
+    @Test
+    void cancelledMaterialKeepsOriginalDebtAndActualCashUntilFinancialReconciliation() {
+        as(engineer, () -> materialsService.terms(engineer, supplyId,
+                new EngMaterialService.TermsCommand("原供应商", BigDecimal.TEN, BigDecimal.ZERO, null, null, "原采购依据"), idem()));
+        long payableId = jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?", Long.class, supplyId);
+        as(engineer, () -> materialsService.adjust(engineer, materialId,
+                new EngMaterialService.AdjustCommand(BigDecimal.ZERO, "取消材料需用"), idem()));
+        var summary = as(engineer, () -> closuresService.settleSummary(engineer, projectId));
+        assertThat(summary).containsEntry("materialsTotalCents", 10000L)
+                .containsEntry("materialsPaidCents", 0L).containsEntry("materialsRemainingCents", 10000L)
+                .containsEntry("expensesTotalCents", 0L);
+        assertThat(summary.get("materialsNote").toString()).contains("已取消材料", "原应付");
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?", Long.class, payableId)).isEqualTo(10000L);
+        var otherEngineer = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        assertThat(as(otherEngineer, () -> closuresService.settleSummary(otherEngineer, projectId)))
+                .doesNotContainKeys("materialsTotalCents", "materialsPaidCents", "materialsNote");
+
+        var finance = fixture.post(store.orgId(), "finance", null);
+        String paymentKey = idem();
+        var payment = new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                payableId, 4000, LocalDate.now(), null, null);
+        long paymentId = paymentService.register(finance, paymentKey, payment);
+        assertThat(paymentService.register(finance, paymentKey, payment)).isEqualTo(paymentId);
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("materialsTotalCents", 10000L).containsEntry("materialsPaidCents", 4000L)
+                .containsEntry("materialsRemainingCents", 6000L).containsEntry("expensesTotalCents", 0L);
+        refundService.registerExpense(finance, idem(), new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(
+                paymentId, 4000, "原采购取消后实际退回", LocalDate.now(), null, null, null));
+        financeWorkbench.adjustPayable(finance, payableId, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.PayableAdjustment(0, "原采购已核对取消", null));
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("materialsTotalCents", 0L).containsEntry("materialsPaidCents", 0L)
+                .containsEntry("materialsRemainingCents", 0L).containsEntry("materialsNote", "")
+                .containsEntry("expensesTotalCents", 0L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?", Integer.class, projectId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE payable_id=?", Integer.class, payableId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_expense WHERE project_id=?", Integer.class, projectId)).isZero();
+    }
+
+    @Test
+    void invalidOriginalPayableCannotFallBackToOldMaterialProcurementCost() {
+        as(engineer, () -> materialsService.terms(engineer, supplyId,
+                new EngMaterialService.TermsCommand("原供应商", BigDecimal.TEN, BigDecimal.ZERO, null, null, "原采购依据"), idem()));
+        long payableId = jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?", Long.class, supplyId);
+        jdbc.update("UPDATE fr_fin_payable SET deleted=TRUE WHERE id=?", payableId);
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("materialsTotalCents", 0L).containsEntry("materialsRemainingCents", 0L)
+                .containsEntry("expensesTotalCents", 0L);
+    }
 
     @Test
     void largeOrganizationListFiltersManagerAndAssignedEngineerBeforeReturningRows() {

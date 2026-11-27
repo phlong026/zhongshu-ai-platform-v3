@@ -269,17 +269,26 @@ public class EngClosureService {
                         .map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull).toList());
         long materialsTotal = 0;
         long materialsPaid = 0;
+        boolean cancelledMaterialDebt = false;
         for (FrEngSupplyDO s : supplyRows) {
             var material = materials.selectById(s.getMaterialId());
-            if (material == null || cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialDO
-                    .STATUS_CANCELLED.equals(material.getStatus()) || s.getUnitPriceCents() == null
-                    || s.getUnitPriceCents() == 0) {
-                continue;
+            boolean cancelled = material != null && cn.iocoder.yudao.module.franchise.engineering.dal.FrEngMaterialDO
+                    .STATUS_CANCELLED.equals(material.getStatus());
+            long cost = 0;
+            long paid = s.getPayableId() == null ? 0 : paidByPayable.getOrDefault(s.getPayableId(), 0L);
+            if (s.getPayableId() != null) {
+                // 取消需用不注销原债务；已挂接后只取有效原应付，不能用零需用量或旧采购金额覆盖财务核定。
+                var financial = jdbcTemplate.queryForList("SELECT total_cents FROM fr_fin_payable WHERE id=? AND company_id=? AND NOT deleted AND status<>'已作废'",
+                        Long.class, s.getPayableId(), post.orgId());
+                cost = financial.isEmpty() ? 0 : financial.get(0);
+            } else if (material != null && !cancelled && s.getUnitPriceCents() != null && s.getUnitPriceCents() > 0) {
+                cost = BigDecimal.valueOf(s.getUnitPriceCents()).multiply(material.getQuantity())
+                        .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact()
+                        + (s.getFreightCents() == null ? 0 : s.getFreightCents());
             }
-            long originalTotal=BigDecimal.valueOf(s.getUnitPriceCents()).multiply(material.getQuantity()).setScale(0,java.math.RoundingMode.HALF_UP).longValueExact()+(s.getFreightCents()==null?0:s.getFreightCents());
-            var financial=s.getPayableId()==null?java.util.List.<Long>of():jdbcTemplate.queryForList("SELECT total_cents FROM fr_fin_payable WHERE id=? AND company_id=?",Long.class,s.getPayableId(),post.orgId());
-            materialsTotal+=financial.isEmpty()?originalTotal:financial.get(0);
-            materialsPaid += s.getPayableId() == null ? 0 : paidByPayable.getOrDefault(s.getPayableId(), 0L);
+            materialsTotal += cost;
+            materialsPaid += paid;
+            cancelledMaterialDebt |= cancelled && (cost > 0 || paid > 0);
         }
         List<Map<String, Object>> stages = new java.util.ArrayList<>();
         long receivedTotal = 0;
@@ -317,6 +326,7 @@ public class EngClosureService {
             view.put("materialsTotalCents", materialsTotal);
             view.put("materialsPaidCents", materialsPaid);
             view.put("materialsRemainingCents", Math.max(0, materialsTotal - materialsPaid));
+            view.put("materialsNote", cancelledMaterialDebt ? "已取消材料仍有原应付或实际付款，请财务核对原付款事项。" : "");
             // M09-T04：直接费用真实汇总——Σ已确认费用（成本口径）；已付=经应付清偿的现金（付款不重计成本）；
             // 退回减已付现金不改已确认费用；无公共费用分摊
             var financeCosts = new java.util.HashMap<>(ledger.projectCostAmounts(post, projectId));
