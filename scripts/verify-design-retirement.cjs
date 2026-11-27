@@ -63,19 +63,19 @@ test('legacy entry restores the fixed result after login and guards other roles'
  assert.equal(routes.pop(),'/design-migration/pages/ai-design/result?projectId=90071992547409973&resultVersionId=901');
 });
 
-test('quick budget confirms the company rate, retries one estimate and opens the customer result',async()=>{
+test('quick budget refuses a paid server, then calculates free and retries the original request',async()=>{
  const scope='company:11:user:22'; const prices=[],writes=[],routes=[],storage=new Map();
- const price={subject:'budget_estimate',quantity:1,credits:7,priceVersion:'company-v2'};
+ const price={subject:'budget_estimate',quantity:'1',credits:'0',priceVersion:'budget-free-v1'};
  const result={budgetId:'90071992547409971',draftId:'90071992547409972',projectId:null};
- let confirmed=false,dropResponse=true,page;
+ let free=false,dropResponse=true,page;
  const wx={
    getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>storage.set(key,value),removeStorageSync:key=>storage.delete(key),
-   showModal:options=>{assert.match(options.content,/7 公司积分/);options.success({confirm:confirmed});},
+   showModal:()=>assert.fail('免费测算不应出现收费确认'),
    navigateTo:options=>{routes.push(options.url);options.success();}
  };
  const platform={
    token:()=>'store-session',sessionGeneration:()=>3,
-   get:async(path,query)=>{prices.push([path,query.subject,query.quantity]);return price;},
+   get:async(path,query)=>{prices.push([path,query.subject,query.quantity]);return free ? price : {...price,credits:7,priceVersion:"company-v2"};},
    post:async(path,body,headers)=>{
      assert.equal(path,'/franchise/design/flow');writes.push([body,headers]);
      if(dropResponse){dropResponse=false;throw {message:'response interrupted'};}
@@ -89,16 +89,54 @@ test('quick budget confirms the company rate, retries one estimate and opens the
  const customer={bind:(kind,id,customerId)=>assert.deepEqual([kind,id,customerId],['budget',result.budgetId,'31']),suffix:id=>'&customerId='+id};
  load('miniprogram/design-migration/pages/budget/quick.js',id=>({
    '../../utils/access':{protectedPage:definition=>page=definition},'../../utils/context':context,'../../utils/api':api,
-   '../../utils/budget-draft':drafts,'../../utils/customer-context':customer,'../../utils/budget-view':{errorText:error=>error.msg}
+   '../../utils/budget-draft':drafts,'../../utils/budget-free':require('../miniprogram/design-migration/utils/budget-free'),'../../utils/customer-context':customer,'../../utils/budget-view':{errorText:error=>error.msg}
  }[id]||{}),{wx});
  Object.assign(page,{_scope:scope,_seq:1,_catalogRegion:'WUHAN',_sourceScope:scope,_sourceCustomer:'31',
    setData:patch=>Object.assign(page.data,patch)});
  Object.assign(page.data,{draft:{draftId:result.draftId,version:2},values:{regionCode:'WUHAN'},catalogReady:true});
  await page.generate();assert.equal(writes.length,0);assert.equal(routes.length,0);
- confirmed=true;await page.generate();assert.equal(writes.length,1);assert.equal(routes.length,0);
- await page.generate();assert.equal(writes.length,2);assert.deepEqual(prices,Array(2).fill(['/franchise/design/flow-price','budget_estimate',1]));
+ free=true;await page.generate();assert.equal(writes.length,1);assert.equal(routes.length,0);
+ await page.generate();assert.equal(writes.length,2);assert.deepEqual(prices,Array(3).fill(['/franchise/design/flow-price','budget_estimate',1]));
  assert.equal(writes[0][0].path,'/budget-drafts/'+result.draftId+'/estimates');
- assert.equal(writes[0][0].body.expectedVersion,2);assert.equal(writes[0][0].body.companyPrice.priceVersion,price.priceVersion);
+ assert.equal(writes[0][0].body.expectedVersion,2);assert.equal(writes[0][0].body.companyPrice,undefined);assert.deepEqual(writes[1][0],writes[0][0]);
  assert.equal(writes[1][1]['Idempotency-Key'],writes[0][1]['Idempotency-Key']);assert.ok(writes[0][1]['Idempotency-Key']);
  assert.deepEqual(routes,['/design-migration/pages/budget/result?budgetId='+result.budgetId+'&customerId=31']);assert.equal(storage.size,0);
+});
+
+test('project budget sends only free new requests and preserves an interrupted legacy receipt', async () => {
+ const scope='company:11:user:22', body={regionCode:'WUHAN'}, oldPrice={subject:'budget_estimate',quantity:1,credits:7,priceVersion:'old'};
+ let saved={projectId:'91',resultVersionId:'92',companyPrice:oldPrice}, page, enabled=false;
+ const writes=[], routes=[];
+ const requestBody=draft=>draft.companyPrice?{...body,companyPrice:draft.companyPrice}:{...body};
+ const drafts={
+   read:()=>saved, write:value=>saved=value, requestBody, sessionScope:()=>scope, id:String,
+   prepareGeneration(draft){
+     const req=requestBody(draft), signature=JSON.stringify(req);
+     const key=draft.generationAttempt?.signature===signature?draft.generationAttempt.key:'fresh-free-key';
+     return {key,body:req,draft:{...draft,generationAttempt:{signature,key}}};
+   }
+ };
+ const api={
+   getBudgetPointQuote:async()=>({companyPrice:enabled?{...oldPrice,credits:0,priceVersion:'budget-free-v1'}:oldPrice}),
+   createItemizedBudget:async(...args)=>{writes.push(args);return {budgetId:'93'};}
+ };
+ load('miniprogram/design-migration/pages/budget/input.js',id=>({
+   '../../utils/access':{protectedPage:definition=>page=definition}, '../../utils/api':api,
+   '../../utils/budget-draft':drafts, '../../utils/budget-free':require('../miniprogram/design-migration/utils/budget-free'),
+   '../../utils/customer-context':{read:()=>'',bind(){},suffix:()=>''}
+ }[id]||{}),{wx:{showModal:()=>assert.fail('不应显示收费确认'),
+   navigateTo:options=>{routes.push(options.url);options.success();}}});
+ Object.assign(page,{_sessionScope:scope,currentSession:()=>true,renderDraft(){},setData:patch=>Object.assign(page.data,patch)});
+ Object.assign(page.data,{draft:saved,canGenerate:true});
+ const calculate=async()=>{page.generate();await new Promise(resolve=>setImmediate(resolve));};
+ await calculate();
+ assert.deepEqual(writes,[]);
+ enabled=true;
+ await calculate();
+ assert.deepEqual(writes[0],['91',body,'fresh-free-key']);
+ assert.equal(saved.companyPrice,null);
+ saved={...saved,companyPrice:oldPrice,generationAttempt:{key:'old-paid-key',signature:JSON.stringify({...body,companyPrice:oldPrice})}};
+ await calculate();
+ assert.deepEqual(writes[1],['91',{...body,companyPrice:oldPrice},'old-paid-key']);
+ assert.equal(routes.length,2);
 });

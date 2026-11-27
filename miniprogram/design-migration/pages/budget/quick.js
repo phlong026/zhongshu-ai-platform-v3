@@ -3,6 +3,7 @@ const getDesignApp = require('../../utils/context').getApp;
 'use strict';
 const { protectedPage } = require('../../utils/access');
 const api = require('../../utils/api');
+const assertFreeBudget = require('../../utils/budget-free');
 const drafts = require('../../utils/budget-draft');
 const selection = require('../../utils/budget-selection');
 const view = require('../../utils/budget-view');
@@ -275,16 +276,13 @@ protectedPage({
     if (!this.current(this._seq) || this.data.busy || this.data.localConflict || !this.data.draft || !this.data.catalogReady || this._catalogRegion !== this.data.values.regionCode) return;
     const seq = this._seq; let attemptKey; this.setData({ busy: true, error: '' });
     try {
+      await assertFreeBudget(api); if (!this.current(seq)) return;
       const d = await this.saveCurrent(); if (!this.current(seq)) return;
       attemptKey = this.cacheKey(d.draftId + ':attempt');
       let attempt = wx.getStorageSync(attemptKey);
       if (!attempt || attempt.version !== d.version) {
-        const quote = await api.getBudgetPointQuote(); if (!this.current(seq)) return;
-        if (!quote || !quote.companyPrice || quote.companyPrice.subject !== 'budget_estimate' || !Number.isSafeInteger(quote.pointCost) || quote.pointCost < 1) throw Error('预算积分报价不可用');
-        const confirmed = await new Promise((resolve, reject) => wx.showModal({ title: '确认预算测算', content: '成功测算扣除 ' + quote.pointCost + ' 公司积分。缺价或缺量仍会显示待补，不会按0元计算。', success: r => resolve(r.confirm), fail: reject }));
-        if (!this.current(seq) || !confirmed) return;
-        attempt = { version: d.version, key: key('ind-budget'), body: { expectedVersion: d.version, companyPrice: quote.companyPrice } };
-        wx.setStorageSync(attemptKey, attempt); // Must persist before any charged request.
+        attempt = { version: d.version, key: key('ind-budget'), body: { expectedVersion: d.version } };
+        wx.setStorageSync(attemptKey, attempt); // Keep the same body and key if the receipt is lost.
       }
       const response = await api.createIndependentBudget(d.draftId, attempt.body, attempt.key);
       if (!this.current(seq)) return;
@@ -295,7 +293,7 @@ protectedPage({
         success: () => { if (this.current(seq)) wx.removeStorageSync(attemptKey); },
         fail: () => { if (this.current(seq)) this.setData({ error: '预算已生成，页面未打开；重试将读取同一预算' }); } });
     } catch (e) { if (this.current(seq) && !e.cancelled) {
-      if (e.code === 'DESIGN_PRICE_CHANGED' && attemptKey) { wx.removeStorageSync(attemptKey); this.setData({ error: '计价规则已更新，请再次测算并确认新价格' }); }
+      if (e.code === 'DESIGN_PRICE_CHANGED' && attemptKey) { wx.removeStorageSync(attemptKey); this.setData({ error: '原测算未被接受，请重新测算' }); }
       else this.setData({ error: view.errorText(e) });
     } }
     finally { if (this.current(seq)) this.setData({ busy: false }); }
