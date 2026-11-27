@@ -85,17 +85,27 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
                 id, tenant, salesA1.orgId(), id);
         jdbc.update("UPDATE fr_customer SET next_visit_date=? WHERE id=?", resumeOn, id);
         var oldNote = new FollowCommand("旧版来电补记", null);
+        var clear = new FollowCommand("旧版取消回访", null, "FOLLOW", null,
+                new CustomerService.FollowChanges(null, "AWAITING_REPLY", true));
         as(salesA1, () -> customers.follow(salesA1, id, oldNote, "mixed-old-note"));
-        as(salesA1, () -> customers.follow(salesA1, id, oldNote, "mixed-old-note"));
+        as(salesA1, () -> customers.follow(salesA1, id, clear, "mixed-paused-clear"));
+        as(salesA1, () -> customers.follow(salesA1, id, clear, "mixed-paused-clear"));
         var detail = as(salesA1, () -> customers.get(salesA1, id));
         assertThat(detail.customer().getNextVisitDate()).isEqualTo(resumeOn);
-        assertThat(detail.follows()).filteredOn(row -> "旧版来电补记".equals(row.getNote())).hasSize(1);
+        assertThat(detail.follows()).extracting(CustomerFollowDO::getNote)
+                .containsExactlyInAnyOrder("旧版来电补记", "旧版取消回访");
         assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn.minusDays(1)))).isEmpty();
         assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn))).extracting(CustomerDO::getId).containsExactly(id);
 
         jdbc.update("UPDATE fr_customer_workflow SET status='ACTIVE' WHERE id=?", id);
         as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("旧版取消回访", null), "mixed-active-clear"));
         assertThat(as(salesA1, () -> customers.get(salesA1, id)).customer().getNextVisitDate()).isNull();
+
+        jdbc.update("UPDATE fr_customer_workflow SET status='LOST' WHERE id=?", id);
+        var schedule = new FollowCommand("旧版约回访", today.plusDays(2));
+        var lost = as(salesA1, () -> customers.follow(salesA1, id, schedule, "mixed-lost-schedule"));
+        assertThat(lost.customer().getNextVisitDate()).isNull();
+        assertThat(lost.follows()).anySatisfy(row -> assertThat(row.getNote()).isEqualTo("旧版约回访"));
     }
 
     // ===================== 客资 =====================
@@ -220,6 +230,37 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(detail.follows()).extracting(CustomerFollowDO::getNote).containsExactly("客户想看两层方案");
         assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, today))).extracting(CustomerDO::getId).contains(id);
         assertThat(as(salesA1, () -> customers.listAwaitingFirstFollow(salesA1))).extracting(CustomerDO::getId).doesNotContain(id);
+    }
+
+    @Test
+    void recordsVisitProgressAndClearsTheReminderOnlyOnce() {
+        long id = capture(salesA1, phone()).customerId();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        var contact = new FollowCommand("已约好到店", today, "FOLLOW", null,
+                new CustomerService.FollowChanges("PROPOSAL", "AWAITING_REPLY", false));
+        var afterContact = as(salesA1, () -> customers.follow(salesA1, id, contact, "contact"));
+        assertThat(afterContact.customer().getSalesStage()).isEqualTo("PROPOSAL");
+        assertThat(afterContact.customer().getNextVisitDate()).isEqualTo(today);
+
+        var noteOnly = new FollowCommand("补记", null, "FOLLOW", null,
+                new CustomerService.FollowChanges(null, "UNREACHED", false));
+        var afterNote = as(salesA1, () -> customers.follow(salesA1, id, noteOnly, "note-only"));
+        assertThat(afterNote.customer().getNextVisitDate()).isEqualTo(today);
+
+        var visit = new FollowCommand("", null, "VISIT", today,
+                new CustomerService.FollowChanges(null, "ARRIVED", true));
+        as(salesA1, () -> customers.follow(salesA1, id, visit, "arrived"));
+        var replay = as(salesA1, () -> customers.follow(salesA1, id, visit, "arrived"));
+        assertThat(replay.customer().getVisited()).isTrue();
+        assertThat(replay.customer().getSalesStage()).isEqualTo("PROPOSAL");
+        assertThat(replay.customer().getNextVisitDate()).isNull();
+        assertThat(replay.follows()).extracting(CustomerFollowDO::getOutcome)
+                .containsExactlyInAnyOrder("AWAITING_REPLY", "UNREACHED", "ARRIVED");
+
+        var invalidVisit = new FollowCommand("", null, "FOLLOW", today,
+                new CustomerService.FollowChanges(null, "ARRIVED", false));
+        assertError(() -> as(salesA1, () -> customers.follow(salesA1, id, invalidVisit, null)),
+                FOLLOW_INPUT_INVALID);
     }
 
     @Test

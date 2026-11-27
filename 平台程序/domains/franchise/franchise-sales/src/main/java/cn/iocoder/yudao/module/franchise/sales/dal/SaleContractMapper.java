@@ -2,12 +2,31 @@ package cn.iocoder.yudao.module.franchise.sales.dal;
 
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.franchise.api.SignedCustomerQuery;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Mapper
-public interface SaleContractMapper extends BaseMapperX<SaleContractDO> {
+public interface SaleContractMapper extends BaseMapperX<SaleContractDO>, SignedCustomerQuery {
+
+    @Override
+    default Set<Long> signedCustomers(long companyId, List<Long> customerIds) {
+        if (customerIds.isEmpty()) {
+            return Set.of();
+        }
+        return selectList(new LambdaQueryWrapperX<SaleContractDO>()
+                .select(SaleContractDO::getCustomerId)
+                .eq(SaleContractDO::getCompanyId, companyId)
+                .in(SaleContractDO::getCustomerId, customerIds)
+                .eq(SaleContractDO::getStatus, SaleContractDO.STATUS_SIGNED)
+                .apply("deleted = false"))
+                .stream()
+                .map(SaleContractDO::getCustomerId)
+                .collect(Collectors.toSet());
+    }
 
     @org.apache.ibatis.annotations.Select(cn.iocoder.yudao.module.franchise.api.UnifiedStageAccountPort.SIGNED_CONTRACT
             + "AND k.company_id=#{company} AND k.customer_id=#{customer}"

@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.franchise.crm;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.franchise.api.CommissionQueryPort;
+import cn.iocoder.yudao.module.franchise.api.SignedCustomerQuery;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerFollowDO;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerFollowMapper;
@@ -16,6 +19,10 @@ import cn.iocoder.yudao.module.platform.org.PostSnapshot;
 import cn.iocoder.yudao.module.platform.org.StaffPostService;
 import cn.iocoder.yudao.module.platform.org.SystemDirectory;
 import cn.iocoder.yudao.module.platform.org.dal.StaffPostDO;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.annotation.Resource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,13 +48,24 @@ public class CustomerService {
     public static final String AGGREGATE = "customer";
     private static final int PAYLOAD_MAX = 64 * 1024;
     private static final Set<String> SCHEME_KINDS = Set.of(CustomerSchemeDO.KIND_BUDGET, CustomerSchemeDO.KIND_PLAN, CustomerSchemeDO.KIND_FACADE);
+    private static final Set<String> SALES_STAGES = Set.of("NEW", "CONTACTED", "PROPOSAL", "QUOTED", "SIGNED");
+    private static final Set<String> FOLLOW_OUTCOMES = Set.of("UNREACHED", "AWAITING_REPLY", "ARRIVED", "DEFERRED");
 
     public record Detail(CustomerDO customer, List<CustomerFollowDO> follows, List<CustomerSchemeDO> schemes) {
     }
 
-    public record FollowCommand(String note, LocalDate nextVisitDate, String contactKind, LocalDate occurredOn) {
-        public FollowCommand(String note,LocalDate nextVisitDate){this(note,nextVisitDate,null,null);}
+    public record FollowCommand(String note, LocalDate nextVisitDate, String contactKind, LocalDate occurredOn,
+                                @JsonInclude(JsonInclude.Include.NON_NULL) FollowChanges changes) {
+        public FollowCommand(String note, LocalDate nextVisitDate, String contactKind, LocalDate occurredOn) {
+            this(note, nextVisitDate, contactKind, occurredOn, null);
+        }
+
+        public FollowCommand(String note, LocalDate nextVisitDate) {
+            this(note, nextVisitDate, null, null);
+        }
     }
+
+    public record FollowChanges(String salesStage, String outcome, boolean clearReminder) {}
 
     private record LegacyFollow(String note, LocalDate nextVisitDate) {}
     private record FollowRequest(long customerId,FollowCommand follow) {}
@@ -71,8 +89,11 @@ public class CustomerService {
     public record TransferCommand(long targetUserId, String reason) {
     }
 
-    @jakarta.annotation.Resource
-    private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.api.CommissionQueryPort> commissionQueries;
+    @Resource
+    private ObjectProvider<CommissionQueryPort> commissionQueries;
+
+    @Resource
+    private ObjectProvider<SignedCustomerQuery> signedCustomerQueries;
 
     @jakarta.annotation.Resource
     private org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowReadService> workflowQueries;
@@ -90,11 +111,17 @@ public class CustomerService {
         }
     }
 
-    private void enrichDesignStatus(PostSnapshot post, List<CustomerDO> rows) {
+    private void enrichCustomerProgress(PostSnapshot post, List<CustomerDO> rows) {
         if (rows.isEmpty()) return;
+        List<Long> customerIds = rows.stream().map(CustomerDO::getId).toList();
+        var signedQuery = signedCustomerQueries == null ? null : signedCustomerQueries.getIfAvailable();
+        if (signedQuery != null) {
+            Set<Long> signed = signedQuery.signedCustomers(post.orgId(), customerIds);
+            rows.forEach(row -> row.setContractSigned(signed.contains(row.getId())));
+        }
         var commissionQuery = commissionQueries.getIfAvailable();
         if (commissionQuery == null) return;
-        Map<Long, String> states = commissionQuery.customerDesignStatuses(post.orgId(), rows.stream().map(CustomerDO::getId).toList());
+        Map<Long, String> states = commissionQuery.customerDesignStatuses(post.orgId(), customerIds);
         rows.forEach(row -> row.setDesignStatus(states.get(row.getId())));
     }
 
@@ -119,14 +146,14 @@ public class CustomerService {
 
     public Detail get(PostSnapshot post, long customerId) {
         CustomerDO customer = requireReadable(post, customerId);
-        enrichDesignStatus(post, List.of(customer));
+        enrichCustomerProgress(post, List.of(customer));
         enrichWorkflowSummary(post, List.of(customer));
         return new Detail(customer, followMapper.selectByCustomer(customerId), schemeMapper.selectByCustomer(customerId));
     }
 
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword) {
         PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword);
-        enrichDesignStatus(post, result.getList());
+        enrichCustomerProgress(post, result.getList());
         enrichWorkflowSummary(post, result.getList());
         return result;
     }
@@ -140,7 +167,7 @@ public class CustomerService {
     public PageResult<CustomerDO> page(PostSnapshot post, PageParam page, String keyword,
                                        String status, Long ownerUserId, CustomerMapper.FollowFilter followFilter) {
         PageResult<CustomerDO> result = customerMapper.selectPage(page, CustomerAccess.visibleTo(post), keyword, status, ownerUserId, followFilter);
-        enrichDesignStatus(post, result.getList());
+        enrichCustomerProgress(post, result.getList());
         enrichWorkflowSummary(post, result.getList());
         return result;
     }
@@ -189,7 +216,7 @@ public class CustomerService {
             }
         }
         result.getList().forEach(customer -> digest.update(prefixEntry(customer)));
-        enrichDesignStatus(post, result.getList());
+        enrichCustomerProgress(post, result.getList());
         enrichWorkflowSummary(post, result.getList());
         return new StableCustomerPage(result, java.util.HexFormat.of().formatHex(digest.digest()), false);
     }
@@ -340,27 +367,43 @@ public class CustomerService {
         // Serialize with pause/resume, then recheck the locked customer before changing the projection.
         CustomerDO customer = customerMapper.lockById(customerId);
         if (customer == null || !CustomerAccess.canWrite(post, customer)) throw exception(CUSTOMER_FORBIDDEN);
-        String kind=command.contactKind()==null?"FOLLOW":command.contactKind();
-        if(!Set.of("FOLLOW","VISIT").contains(kind)) throw exception(VISIT_DATE_INVALID);
-        FollowCommand input = new FollowCommand(CrmInputs.note(command.note()), command.nextVisitDate(),kind,command.occurredOn());
+        String kind = command.contactKind() == null ? "FOLLOW" : command.contactKind();
+        if (!Set.of("FOLLOW", "VISIT").contains(kind)) throw exception(VISIT_DATE_INVALID);
+        FollowChanges changes = command.changes();
+        String stage = changes == null ? null : changes.salesStage();
+        String outcome = changes == null ? null : changes.outcome();
+        boolean clearReminder = changes != null && changes.clearReminder();
+        boolean visit = "VISIT".equals(kind);
+        boolean reached = !"UNREACHED".equals(outcome);
+        if ((stage != null && !SALES_STAGES.contains(stage))
+                || (outcome != null && !FOLLOW_OUTCOMES.contains(outcome))
+                || (visit && !reached)
+                || (!visit && "ARRIVED".equals(outcome))
+                || (clearReminder && command.nextVisitDate() != null)) {
+            throw exception(FOLLOW_INPUT_INVALID);
+        }
+        String note = outcome != null && StrUtil.isBlank(command.note()) ? "" : CrmInputs.note(command.note());
+        FollowCommand input = new FollowCommand(note, command.nextVisitDate(), kind, command.occurredOn(), changes);
         var fingerprint = new FollowRequest(customerId,input);
         var previous = commands.previous(post,idempotencyKey,"customer-follow",customerId);
         if (previous.isPresent()) {
             var event = previous.get();
             // Older clients omitted occurredOn; previous servers hashed their local date into the command.
             Object legacy = null;
-            var stored=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),Map.class);
-            if (!stored.containsKey("follow") && !stored.containsKey("contactKind") && !stored.containsKey("occurredOn")) {
-                if ("FOLLOW".equals(kind) && input.occurredOn()==null)
-                    legacy=new LegacyFollow(input.note(),input.nextVisitDate());
-            } else if (!stored.containsKey("follow")) {
-                var original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(event.getPayload(),FollowCommand.class);
-                legacy=input;
-                if (input.occurredOn()==null && original.occurredOn()!=null && event.getOccurredAt()!=null) {
-                    var instant=event.getOccurredAt().toInstant();
-                    if (java.util.List.of(java.time.ZoneId.systemDefault(),java.time.ZoneId.of("Asia/Shanghai"),java.time.ZoneOffset.UTC)
-                            .stream().anyMatch(zone -> instant.atZone(zone).toLocalDate().equals(original.occurredOn()))) {
-                        legacy=new FollowCommand(input.note(),input.nextVisitDate(),kind,original.occurredOn());
+            var stored = JsonUtils.parseObject(event.getPayload(), Map.class);
+            if (changes == null && !stored.containsKey("follow")) {
+                if (!stored.containsKey("contactKind") && !stored.containsKey("occurredOn")) {
+                    if ("FOLLOW".equals(kind) && input.occurredOn() == null)
+                        legacy = new LegacyFollow(input.note(), input.nextVisitDate());
+                } else {
+                    var original = JsonUtils.parseObject(event.getPayload(), FollowCommand.class);
+                    legacy = input;
+                    if (input.occurredOn() == null && original.occurredOn() != null && event.getOccurredAt() != null) {
+                        var instant = event.getOccurredAt().toInstant();
+                        if (List.of(java.time.ZoneId.systemDefault(), java.time.ZoneId.of("Asia/Shanghai"), java.time.ZoneOffset.UTC)
+                                .stream().anyMatch(zone -> instant.atZone(zone).toLocalDate().equals(original.occurredOn()))) {
+                            legacy = new FollowCommand(input.note(), input.nextVisitDate(), kind, original.occurredOn());
+                        }
                     }
                 }
             }
@@ -373,14 +416,21 @@ public class CustomerService {
         if (input.nextVisitDate() != null && input.nextVisitDate().isBefore(today)) throw exception(VISIT_DATE_INVALID);
         followMapper.insert(new CustomerFollowDO().setCompanyId(post.orgId()).setCustomerId(customerId)
                 .setNote(input.note()).setNextVisitDate(input.nextVisitDate()).setContactKind(kind).setOccurredOn(occurred)
+                .setOutcome(outcome)
                 .setAuthorUserId(post.userId()).setAuthorPostId(post.postId()));
         long revision = customer.getRevision();
+        // Clients with a changes object distinguish an omitted reminder from an explicit clear.
+        boolean updateReminder = changes == null || input.nextVisitDate() != null || clearReminder;
         Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
-                .set(CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)
+                .set(reached, CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)
+                .set(stage != null, CustomerDO::getSalesStage, stage)
+                .set(stage == null && reached && "NEW".equals(customer.getSalesStage()), CustomerDO::getSalesStage, "CONTACTED")
+                .set(visit, CustomerDO::getVisited, true)
                 .set(CustomerDO::getLastFollowAt, OffsetDateTime.now())
-                // The old form may add a note, but it must not edit a newer pause's scheduled reminder.
-                .setSql("next_visit_date = CASE WHEN " + CustomerMapper.PAUSED
-                        + " THEN next_visit_date ELSE CAST({0} AS date) END", input.nextVisitDate())));
+                // A legacy follow may add history while the workflow is paused or lost, but cannot change its reminder.
+                .setSql(updateReminder, "next_visit_date = CASE WHEN " + CustomerMapper.PAUSED
+                        + " OR " + CustomerMapper.LOST + " THEN next_visit_date ELSE CAST({0} AS date) END",
+                        input.nextVisitDate())));
         commands.record(post, AGGREGATE, customerId, revision + 1, "customer-follow", fingerprint, idempotencyKey);
         return get(post, customerId);
     }
@@ -471,8 +521,8 @@ public class CustomerService {
     private static SchemeSaveCommand normalizeItemizedSnapshot(SchemeSaveCommand command) {
         if(!CustomerSchemeDO.KIND_BUDGET.equals(command.kind()))throw exception(SCHEME_INVALID);
         var validated=normalizeInternal(new SchemeSaveCommand("PLAN",command.title(),command.payload(),command.width(),command.depth(),command.floors(),command.area(),command.totalCents(),command.designProjectId()));
-        com.fasterxml.jackson.databind.JsonNode root;
-        try {root=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(command.payload(),com.fasterxml.jackson.databind.JsonNode.class);}
+        JsonNode root;
+        try {root=JsonUtils.parseObject(command.payload(),JsonNode.class);}
         catch(RuntimeException invalid){throw exception(SCHEME_INVALID);}
         if(root==null)throw exception(SCHEME_INVALID);
         var snapshot=root.path("itemizedBudget");
@@ -500,8 +550,10 @@ public class CustomerService {
                 .setDesignProjectId(input.designProjectId());
         schemeMapper.insert(scheme);
         long revision = customer.getRevision();
-        Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> {
-        }));
+        boolean sentQuote = itemized && JsonUtils.parseObject(input.payload(), JsonNode.class).hasNonNull("sentQuote");
+        Revisions.requireUpdated(customerMapper.updateByRevision(customerId, revision, u -> u
+                .set(sentQuote && !"SIGNED".equals(customer.getSalesStage()), CustomerDO::getSalesStage, "QUOTED")
+                .set(sentQuote, CustomerDO::getStatus, CustomerDO.STATUS_FOLLOWING)));
         var eventPayload = new java.util.LinkedHashMap<String, Object>();
         eventPayload.put("kind", input.kind());
         eventPayload.put("version", scheme.getVersion());

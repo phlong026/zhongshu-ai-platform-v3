@@ -21,9 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -63,7 +61,7 @@ class CustomerPageTransferHttpContractTest {
         when(currentPost.require()).thenReturn(BOSS);
         when(directory.roleHasPermission("boss", "franchise:customer:query")).thenReturn(true);
         when(directory.roleHasPermission("boss", "franchise:customer:transfer")).thenReturn(true);
-        when(service.page(any(), any(), any(), any(), any()))
+        when(service.page(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
         when(service.ownerOptions(any())).thenReturn(List.of(
                 new CustomerService.OwnerOption(7L, "李四")));
@@ -163,11 +161,21 @@ class CustomerPageTransferHttpContractTest {
         customer.setStatus("REGISTERED");
         customer.setOwnerUserId(7L);
         customer.setRevision(1L);
-        when(service.page(any(), any(), any(), any(), any()))
+        customer.setSalesStage("PROPOSAL");
+        customer.setVisited(true);
+        customer.setContractSigned(true);
+        customer.setWorkflow(new cn.iocoder.yudao.module.franchise.crm.workflow.CustomerWorkflowModel.Summary(
+                "10", 2, 8, java.math.BigDecimal.valueOf(25), "HOUSE_SELECTION", "选房",
+                "SITE_VISIT", "ACTIVE", null, null, null, null, null, false));
+        when(service.page(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(customer), 1L));
         context.run(ctx -> mvc(ctx).perform(get("/franchise/customers"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.list[0].ownerName").value("李四")));
+                .andExpect(jsonPath("$.data.list[0].ownerName").value("李四"))
+                .andExpect(jsonPath("$.data.list[0].salesStage").value("PROPOSAL"))
+                .andExpect(jsonPath("$.data.list[0].visited").value(true))
+                .andExpect(jsonPath("$.data.list[0].contractSigned").value(true))
+                .andExpect(jsonPath("$.data.list[0].workflow.completedCount").value(2)));
     }
 
     @Test
@@ -183,9 +191,12 @@ class CustomerPageTransferHttpContractTest {
     @Test
     void pageStatusFilterIsPassedToService() {
         context.run(ctx -> {
-            mvc(ctx).perform(get("/franchise/customers").param("status", "FOLLOWING").param("ownerUserId", "7"));
-            org.mockito.Mockito.verify(service).page(any(), any(), any(), eq("FOLLOWING"), eq(7L));
-            assertThat(true).isTrue();
+            mvc(ctx).perform(get("/franchise/customers").param("status", "FOLLOWING")
+                            .param("ownerUserId", "7").param("followFilter", "VISITED"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(0));
+            org.mockito.Mockito.verify(service).page(any(), any(), any(), eq("FOLLOWING"), eq(7L),
+                    eq(cn.iocoder.yudao.module.franchise.crm.dal.CustomerMapper.FollowFilter.VISITED));
         });
     }
 }
