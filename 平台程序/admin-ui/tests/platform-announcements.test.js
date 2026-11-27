@@ -196,9 +196,9 @@ test('announcement API uses B endpoints, preserves UUID and large brand IDs, and
 test('an admin session without a current post can explicitly choose an eligible headquarters post', async () => {
   let selected = null
   const headquarters = {
-    postId: '202',
+    postId: '2126143515310000001',
     orgType: 'headquarters',
-    roleCode: 'finance',
+    roleCode: 'hq-admin',
     orgName: '总部'
   }
   const store = { postId: '203', orgType: 'store', roleCode: 'finance', orgName: '门店' }
@@ -217,22 +217,22 @@ test('an admin session without a current post can explicitly choose an eligible 
     api: {
       announcementOptions: async () => {
         if (!selected) throw Object.assign(new Error('请选择工作身份'), { code: 1103000001 })
-        return choices(false)
+        return choices()
       }
     }
   })
   await fixture.hooks.mount()
   assert.equal(fixture.page.needsPost.value, true)
   assert.equal(fixture.page.canWrite.value, false)
-  await fixture.page.openPostPicker()
+  assert.equal(fixture.page.postPickerOpen.value, true)
   assert.deepEqual(plain(fixture.page.postChoices.value), [headquarters])
   await fixture.page.choosePost(store)
   assert.equal(selected, null)
   await fixture.page.choosePost(headquarters)
   await vue.nextTick()
-  assert.equal(selected, '202')
+  assert.equal(selected, headquarters.postId)
   assert.equal(fixture.page.postPickerOpen.value, false)
-  assert.equal(fixture.page.canWrite.value, false)
+  assert.equal(fixture.page.canWrite.value, true)
 })
 
 test('headquarters announcement entry requires headquarters current post and query permission', () => {
@@ -381,6 +381,12 @@ test('read-only finance cannot create, edit or publish even through page handler
   await f.page.save()
   await f.page.changeStatus(record(), 'publish')
   assert.equal(f.calls.length, 0)
+})
+
+test('announcement roles can switch from read-only and see how to edit a published record', () => {
+  const template = parse(source('views/platform/announcements/index.vue')).descriptor.template.content
+  assert.match(template, /v-if="ready"[^>]+@click="openPostPicker"[^>]*>\s*切换工作身份/)
+  assert.match(template, /撤回后可编辑/)
 })
 
 test('published records remain read-only until withdrawn', async () => {
