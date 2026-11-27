@@ -16,6 +16,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicLong;
@@ -118,6 +120,15 @@ class FinReconciliationIntegrationTest extends FranchisePgIntegrationTest {
         // 异常不进毛额/净额（不凑平）
         assertThat(withAbnormal.grossReceiptsCents()).isEqualTo(1_000_000L);
         assertThat(withAbnormal.netReceivedCents()).isEqualTo(600_000L);
+    }
+
+    @Test
+    void monthlyReconciliationUsesOneReadOnlyRepeatableSnapshot() throws Exception {
+        var method=FinReconciliationService.class.getMethod("monthReconciliation",long.class,String.class);
+        var transaction=method.getAnnotation(Transactional.class);
+        assertThat(transaction).isNotNull();
+        assertThat(transaction.readOnly()).isTrue();
+        assertThat(transaction.isolation()).isEqualTo(Isolation.REPEATABLE_READ);
     }
 
     @Test
