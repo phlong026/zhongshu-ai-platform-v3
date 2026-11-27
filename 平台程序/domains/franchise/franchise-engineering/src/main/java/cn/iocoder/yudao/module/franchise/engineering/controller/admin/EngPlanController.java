@@ -63,7 +63,7 @@ public class EngPlanController {
     }
 
     @PutMapping("/{id}/plan")
-    @Operation(summary = "保存计划（整体提交；日期齐全+不重叠 002；已完成节点跳过=改期入口之一）")
+    @Operation(summary = "保存计划（保留原节点；远期日期可后补、可并行；已完成记录不改）")
     @PreAuthorize("@post.has('" + EngineeringPermissions.WRITE + "')")
     public CommonResult<Map<String, Object>> savePlan(@PathVariable long id, @RequestBody Map<String, Object> body,
                                                       @RequestHeader(value = "Idempotency-Key", required = false) String idem) {

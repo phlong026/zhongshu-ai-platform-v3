@@ -480,6 +480,69 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void essentialStartPlanAllowsUnscheduledFutureNodesWithoutWeakeningGates() {
+        var dated = constructionPlanInputs();
+        var inputs = List.of(dated.get(0), new EngPlanService.NodeInput(1, "主体施工", null, null));
+        var unscheduled = List.of(new EngPlanService.NodeInput(0, "正式开工", null, null), inputs.get(1));
+        long asset = insertAsset("ENG_DRAWING", true, store.orgId());
+        var base = startCmd(asset);
+        var prepare = new EngPlanService.PrepareCommand(base.total(), base.signAfter(), base.baseDone(), base.capDone(),
+                asset, base.note(), null, unscheduled);
+        var ids = jdbc.queryForList("SELECT id FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", Long.class, projectId);
+        as(engineer, () -> planService.prepare(engineer, projectId, prepare, idem()));
+        var start = new EngPlanService.NodeRecordCommand(dated.get(0).startDate(), "实际开工", asset, false);
+        assertThatThrownBy(() -> as(engineer, () -> planService.start(engineer, projectId, start, idem())))
+                .isInstanceOf(ServiceException.class).hasMessageContaining("计划开工日期");
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, idem()));
+        assertError(() -> as(engineer, () -> planService.start(engineer, projectId, start, idem())),
+                cn.iocoder.yudao.module.franchise.engineering.enums.FranchiseEngineeringErrorCodes.GATE_NOT_MET);
+        Config.STAGE_COLLECTED_MAP.put("SIGN_AFTER", 40_800_000L);
+        assertThatThrownBy(() -> as(engineer, () -> planService.start(engineer, projectId,
+                new EngPlanService.NodeRecordCommand(start.date(), start.note(), IDS.incrementAndGet(), false), idem())))
+                .isInstanceOf(ServiceException.class);
+        String key = idem();
+        as(engineer, () -> planService.start(engineer, projectId, start, key));
+        as(engineer, () -> planService.start(engineer, projectId, start, key));
+        assertThat(jdbc.queryForList("SELECT id FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", Long.class, projectId)).isEqualTo(ids);
+        assertThat(jdbc.queryForMap("SELECT start_date,end_date,status FROM fr_eng_plan_node WHERE id=?", nodeId))
+                .containsEntry("start_date", null).containsEntry("end_date", null).containsEntry("status", "IN_PROGRESS");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_site_record WHERE project_id=? AND completion", Integer.class, projectId)).isOne();
+        assertConstructionCommandCount("eng-start", 1, 3);
+    }
+
+    @Test
+    void parallelAndUnscheduledDatesKeepOriginalNodeIdsAndSnapshotValues() {
+        var dated = constructionPlanInputs();
+        long roof = IDS.incrementAndGet();
+        jdbc.update("INSERT INTO fr_eng_plan_node(id,company_id,project_id,node_index,name,status) VALUES(?,?,?,2,'屋面施工','PENDING')",
+                roof, store.orgId(), projectId);
+        var inputs = List.of(dated.get(0), dated.get(1),
+                new EngPlanService.NodeInput(2, "屋面施工", dated.get(1).startDate().plusDays(2), dated.get(1).endDate().plusDays(2)));
+        as(engineer, () -> planService.savePlan(engineer, projectId, inputs, idem()));
+        var ids = jdbc.queryForList("SELECT id FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", Long.class, projectId);
+        var cleared = List.of(inputs.get(0), inputs.get(1), new EngPlanService.NodeInput(2, "屋面施工", null, null));
+        as(engineer, () -> planService.savePlan(engineer, projectId, cleared, idem()));
+        assertThat(jdbc.queryForMap("SELECT start_date,end_date FROM fr_eng_plan_node WHERE id=?", roof))
+                .containsEntry("start_date", null).containsEntry("end_date", null);
+        assertThat(jdbc.queryForObject("SELECT nodes->2->>'startDate' FROM fr_eng_plan_version WHERE project_id=? ORDER BY version DESC LIMIT 1",
+                String.class, projectId)).isNull();
+        // A partially entered or inverted range must not create a version or change any existing date.
+        var before = constructionPlanState(projectId);
+        for (var invalid : List.of(new EngPlanService.NodeInput(2, "屋面施工", dated.get(1).startDate(), null),
+                new EngPlanService.NodeInput(2, "屋面施工", dated.get(1).endDate(), dated.get(1).startDate()))) {
+            assertThatThrownBy(() -> as(engineer, () -> planService.savePlan(engineer, projectId,
+                    List.of(inputs.get(0), inputs.get(1), invalid), idem()))).isInstanceOf(ServiceException.class);
+        }
+        assertThat(constructionPlanState(projectId)).isEqualTo(before);
+        // Parallel plans may start on the same day as a preceding planned node; empty future ranges stay empty.
+        as(engineer, () -> planService.reschedule(engineer, projectId,
+                new EngPlanService.RescheduleCommand(1, dated.get(0).startDate(), "并行准备后施工"), idem()));
+        assertThat(jdbc.queryForList("SELECT id FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", Long.class, projectId)).isEqualTo(ids);
+        assertThat(jdbc.queryForMap("SELECT start_date,end_date FROM fr_eng_plan_node WHERE id=?", roof))
+                .containsEntry("start_date", null).containsEntry("end_date", null);
+    }
+
+    @Test
     void formalPaymentPlanIsInheritedWithoutEngineeringReentryAndKeepsOneSnapshotOnRetry() {
         long asset=insertAsset("CONTRACT_ATTACHMENT",true,store.orgId());
         Config.FORMAL_PLAN=new cn.iocoder.yudao.module.franchise.api.SaleContractQueryPort.PaymentPlan(900,1,1,100000,asset,java.util.List.of(

@@ -406,7 +406,18 @@ public class EngProjectService {
 
     /** 两入口共用的模板初始化：v1 快照（TEMPLATE）+ 当前节点行（日期留空待填） */
     private void initTemplatePlan(PostSnapshot post, FrEngProjectDO project) {
-        List<EngTemplate.NodeDraft> drafts = EngTemplate.buildNodes(project.getFloors());
+        // A signed contract may predate its project. Its node numbers cannot be inferred from creation time.
+        boolean essential = project.getSaleContractId() != null && Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                SELECT EXISTS(SELECT 1 FROM fr_sale_contract c
+                  WHERE c.id=? AND c.company_id=? AND c.status='SIGNED' AND NOT c.deleted AND c.payment_plan_mode='CUSTOM'
+                    AND EXISTS(SELECT 1 FROM fr_sale_payment_stage s WHERE s.contract_id=c.id AND s.company_id=c.company_id
+                      AND NOT s.deleted AND s.plan_version=c.payment_plan_version)
+                    AND NOT EXISTS(SELECT 1 FROM fr_sale_payment_stage s WHERE s.contract_id=c.id AND s.company_id=c.company_id
+                      AND NOT s.deleted AND (s.plan_version<>c.payment_plan_version OR s.trigger_node_index IS NOT NULL
+                        OR s.trigger_type NOT IN ('ON_SIGN','BEFORE_START','ON_FINISH','DATE','MANUAL'))))
+                """, Boolean.class, project.getSaleContractId(), post.orgId()));
+        List<EngTemplate.NodeDraft> drafts = essential ? EngTemplate.buildEssentialNodes(project.getFloors())
+                : EngTemplate.buildNodes(project.getFloors());
         long version = 1;
         insertVersionSnapshot(post, project.getId(), version,
                 drafts.stream().map(EngTemplate.PlanSnapshotRow::from).toList(),
