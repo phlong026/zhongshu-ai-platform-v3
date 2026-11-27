@@ -218,8 +218,8 @@ module.exports = {
  * M07-T04 批次#36：委托 api.uploadVoucher（基-1 票据真传——sha 幂等可重试；
  * 未 complete 的票据不产生有效资产引用，取消/超时不落业务记录）。
  */
-function uploadVoucher(filePath, assetType) {
-  return api.uploadVoucher(filePath, assetType);
+function uploadVoucher(filePath, assetType, options) {
+  return api.uploadVoucher(filePath, assetType, options);
 }
 
 async function loadProject(id) {
@@ -360,7 +360,7 @@ async function perform(action, id, form, node, key, batchExpected) {
       const files = f.files && f.files.length ? f.files : f.file ? [f.file] : [];
       if (!files.length || files.length > 9) throw new Error('请选择1至9份现场验收凭据');
       const assetIds = [];
-      for (const file of files) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO'));
+      for (const file of files) assetIds.push(await uploadVoucher(file.path, 'ENG_SITE_PHOTO', { nodeEvidence: true }));
       return api.plan.complete(id, node.id, {
         date: dateStr, note: f.note, fileAssetIds: assetIds, noMaterials: !!f.noMaterials
       }, key);
@@ -377,7 +377,7 @@ async function perform(action, id, form, node, key, batchExpected) {
         if (!f.nodeRecordId || !f.nodeReplaceAssetId || !file || !file.path) throw new Error('请选择要替换的原凭据和新凭据');
         body.replacementRecordId = String(f.nodeRecordId);
         body.replaceFileAssetId = String(f.nodeReplaceAssetId);
-        body.fileAssetId = await uploadVoucher(file.path, 'ENG_SITE_PHOTO');
+        body.fileAssetId = await uploadVoucher(file.path, 'ENG_SITE_PHOTO', { nodeEvidence: true });
       }
       return api.plan.correct(id, node.id, body, key);
     }
