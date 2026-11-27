@@ -103,9 +103,9 @@ function seedLocalRole(role, orgType = 'store') {
 }
 
 // API-only accounts must pass protected account views; a missing API session must still be guarded.
-for (const role of ['boss', 'owner', 'sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead', 'hq-design-admin']) {
+for (const role of ['boss', 'owner', 'sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead']) {
   for (const view of ['profile', 'messages', 'identity', 'devices', 'permissions', 'binding']) {
-    reset(post(role, { orgType: role === 'hq-design-admin' ? 'headquarters' : 'store' }));
+    reset(post(role, { orgType: 'store' }));
     const page = pageOf(definitions.account);
     page.onLoad({ view });
     assert.equal(navigation.length, 0, role + ' API session must enter ' + view);
@@ -124,7 +124,7 @@ const apiLocalOrder = pageOf(definitions.account);
 apiLocalOrder.onLoad({ view: 'feedback' });
 assert.match(navigation[0]?.url || '', /view=access/, 'API role does not gain access to legacy local feedback records');
 
-for (const role of ['sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead', 'hq-design-admin']) {
+for (const role of ['sales', 'sales-lead', 'engineer', 'project-manager', 'finance', 'finance-lead']) {
   reset(post(role));
   const membersPage = pageOf(definitions.account);
   membersPage.onLoad({ view: 'api-members' });
@@ -190,7 +190,6 @@ const enabledRoles = [
   ['store', 'project-manager', '/pages/build/home/index'],
   ['store', 'finance', '/pages/admin/finance-desk/index'],
   ['store', 'finance-lead', '/pages/admin/finance-desk/index'],
-  ['headquarters', 'hq-design-admin', '/pages/business/index'],
   ['headquarters', 'hq-admin', '/pages/headquarters/index?section=overview'],
   ['headquarters', 'finance', '/pages/headquarters/index?section=finance'],
   ['headquarters', 'finance-lead', '/pages/headquarters/index?section=finance'],
@@ -220,16 +219,10 @@ seedLocalRole('engineer');
 pageOf(definitions.engineering).onShow();
 assert.notEqual(navigation[0]?.url, '/pages/build/home/index', 'sales is not routed to engineering workbench');
 
-reset(post('hq-design-admin', { orgType: 'headquarters' }));
-seedLocalRole('engineer');
+reset(post('engineer', { orgType: 'store' }));
+seedLocalRole('hq-operations', 'headquarters');
 pageOf(definitions.business).onShow();
-assert.notEqual(navigation[0]?.url, '/pages/workflow/commission/index?view=admin', 'design admin no longer routes to the legacy commission workbench');
-
-reset(post('engineer'));
-seedLocalRole('hq-design-admin', 'headquarters');
-pageOf(definitions.business).onShow();
-assert.notEqual(navigation[0]?.url, '/pages/workflow/commission/index?view=admin', 'API engineer overrides stale local design role');
-assert.notEqual(navigation[0]?.url, '/pages/headquarters/index', 'stale local design role cannot route the API engineer to headquarters');
+assert.notEqual(navigation[0]?.url, '/pages/headquarters/index', 'API engineer overrides stale local headquarters role');
 
 // Finance defaults depend on the API post; explicit route options still win.
 reset(post('finance', { orgType: 'store' }));
