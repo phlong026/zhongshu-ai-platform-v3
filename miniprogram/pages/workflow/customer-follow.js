@@ -4,7 +4,7 @@
 const PF = require('../../utils/platform-crm');
 const epochMsOf = require('../../utils/epoch-ms').epochMsOf;
 const toDate = PF.toDate;
-const TIMELINE_STEPS = { INVITATION: '邀约进店', INTRODUCTION: '店面讲解', HOUSE_SELECTION: '户型选择', SITE_VISIT: '带看工地', MEASUREMENT: '现场测量', QUOTATION: '别墅报价', CONTRACT: '施工签约', START: '开工大吉' };
+const TIMELINE_STEPS = { INVITATION: '邀约进店', INTRODUCTION: '店面讲解', HOUSE_SELECTION: '户型选择', SITE_VISIT: '带看工地', MEASUREMENT: '现场测量', QUOTATION: '别墅报价', CONTRACT: '合同签约', START: '开工大吉' };
 const TIMELINE_TYPES = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新办理', STATUS: '更新状态', SUPPLEMENT: '补充记录', CONSULT: '再次咨询', LEGACY: '跟进记录', VISIT: '实际接待' };
 
 function railView(flow) {

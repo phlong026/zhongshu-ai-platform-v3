@@ -12,7 +12,7 @@ const customerStatus = c => DESIGN_STATUS_TEXT[c.designStatus] || statusText(c.s
 const STATUS_TEXT = { REGISTERED: '已登记', FOLLOWING: '跟进中' };
 /** 八步流程状态里需要单独显示的三种；进行中（ACTIVE）显示当前步骤。 */
 const FLOW_STATE = { PAUSED: '暂缓', LOST: '已流失', COMPLETED: '已开工' };
-const CRM_ROLESTEPS = { INVITATION: '邀约进店', INTRODUCTION: '店面讲解', HOUSE_SELECTION: '户型选择', SITE_VISIT: '带看工地', MEASUREMENT: '现场测量', QUOTATION: '别墅报价', CONTRACT: '施工签约', START: '开工大吉' };
+const CRM_ROLESTEPS = { INVITATION: '邀约进店', INTRODUCTION: '店面讲解', HOUSE_SELECTION: '户型选择', SITE_VISIT: '带看工地', MEASUREMENT: '现场测量', QUOTATION: '别墅报价', CONTRACT: '合同签约', START: '开工大吉' };
 const TIMELINE_TYPES = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新办理', STATUS: '更新状态', SUPPLEMENT: '补充记录', CONSULT: '再次咨询', LEGACY: '跟进记录', VISIT: '实际接待' };
 
 /** 五态判定归并：guest/no-post/non-role → demo；仅 token+销售家族岗位 → api（岗位缓存不作为依据） */

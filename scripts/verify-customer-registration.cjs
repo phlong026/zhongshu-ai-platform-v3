@@ -131,7 +131,7 @@ function followupHarness(customerView = {}) {
   const {page}=pageHarness(http, navigations);
   const customer={id:'42',name:'钱女士',revision:4,ownerUserId:'11',status:'FOLLOWING',
     workflow:{status:'ACTIVE',completedCount:2,totalSteps:8,progressPercent:25,currentStepCode:'HOUSE_SELECTION',currentStepName:'户型选择',nextStepCode:'SITE_VISIT',nextFollowOn:planned}};
-  const stepNames={INVITATION:'邀约进店',INTRODUCTION:'店面讲解',HOUSE_SELECTION:'户型选择',SITE_VISIT:'带看工地',MEASUREMENT:'现场测量',QUOTATION:'别墅报价',CONTRACT:'施工签约',START:'开工大吉'};
+  const stepNames={INVITATION:'邀约进店',INTRODUCTION:'店面讲解',HOUSE_SELECTION:'户型选择',SITE_VISIT:'带看工地',MEASUREMENT:'现场测量',QUOTATION:'别墅报价',CONTRACT:'合同签约',START:'开工大吉'};
   // 步骤名称来自服务端八步视图（Step.label），工作区不自己翻译步骤编码。
   const steps=Object.keys(stepNames).map((code,index)=>({code,name:stepNames[code],order:index+1,
     status:index<2?'COMPLETED':'TODO',revision:index<2?1:0,occurredOn:null,note:'',fields:{},attachments:[],completedAt:null,canWrite:false,canComplete:false,canReopen:false,completionErrors:[],source:'MANUAL'}));

@@ -2,7 +2,7 @@ const api = require('./api');
 const { money } = require('../../utils/money');
 const SECTIONS = [{ key: 'overview', label: '概览' }, { key: 'customers', label: '客户' }, { key: 'projects', label: '工程' }, { key: 'books', label: '账本' }, { key: 'finance', label: '财务' }];
 const FINANCE = [{ key: 'receipts', label: '收款' }, { key: 'payables', label: '应付' }, { key: 'payments', label: '付款' }, { key: 'refunds', label: '退款' }];
-const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '施工签约', '开工大吉'];
+const STEP_NAMES = ['邀约进店', '店面讲解', '户型选择', '带看工地', '现场测量', '别墅报价', '合同签约', '开工大吉'];
 const STATUS = { DRAFT: '草稿', PENDING: '待处理', NOT_STARTED: '未开始', IN_PROGRESS: '进行中', COMPLETED: '已完成', COMPLETE: '已完成',
   SIGNED: '已签约', ACTIVE: '进行中', OPEN: '进行中', CLOSED: '已关闭', VOID: '已作废', VOIDED: '已作废', CANCELLED: '已取消',
   PAID: '已付清', UNPAID: '未付款', PARTIAL: '部分完成', PARTIALLY_PAID: '部分付款', RECEIVED: '已收款', CONFIRMED: '已确认',
