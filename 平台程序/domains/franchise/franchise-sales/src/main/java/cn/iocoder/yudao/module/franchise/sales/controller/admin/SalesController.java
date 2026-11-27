@@ -317,7 +317,7 @@ public class SalesController {
     }
 
     @PostMapping("/deliveries")
-    @Operation(summary = "创建交付（四节点登记制）")
+    @Operation(summary = "旧交付创建已退役，仅重放原成功请求")
     @PreAuthorize("@post.has('franchise:sale:write')")
     public CommonResult<Map<String, Object>> createDelivery(@RequestBody DeliveryReq req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idem) {
@@ -334,7 +334,7 @@ public class SalesController {
     }
 
     @PostMapping("/deliveries/{deliveryId}/advance")
-    @Operation(summary = "推进交付节点（顺序强制，登记即事实）")
+    @Operation(summary = "旧交付推进已退役，仅重放原成功请求")
     @PreAuthorize("@post.has('franchise:sale:write')")
     public CommonResult<Map<String, Object>> advanceDelivery(@PathVariable("deliveryId") long deliveryId,
             @RequestBody DeliveryAdvanceReq req,
@@ -351,7 +351,7 @@ public class SalesController {
     }
 
     @GetMapping("/deliveries")
-    @Operation(summary = "交付查询（按合同）")
+    @Operation(summary = "历史交付查询（按合同，只读）")
     @PreAuthorize("@post.has('franchise:sale:query')")
     public CommonResult<SaleDeliveryDO> delivery(@RequestParam("contractId") long contractId) {
         return success(deliveries.requireOfOrg(post(), contractId));

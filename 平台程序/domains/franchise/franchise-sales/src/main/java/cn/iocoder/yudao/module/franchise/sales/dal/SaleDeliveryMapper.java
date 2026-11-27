@@ -16,9 +16,4 @@ public interface SaleDeliveryMapper extends BaseMapperX<SaleDeliveryDO> {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    default SaleDeliveryDO lockById(Long id) {
-        return selectOne(new LambdaQueryWrapperX<SaleDeliveryDO>()
-                .eq(SaleDeliveryDO::getId, id).last("FOR UPDATE"));
-    }
-
 }

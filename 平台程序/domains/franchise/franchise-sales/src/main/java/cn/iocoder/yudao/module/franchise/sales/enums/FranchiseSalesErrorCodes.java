@@ -18,5 +18,6 @@ public interface FranchiseSalesErrorCodes {
     ErrorCode STAGE_AMOUNT_INVALID = new ErrorCode(1_113_000_009, "分笔金额必须大于 0");
     ErrorCode STAGE_BUSINESS_DATE_REQUIRED = new ErrorCode(1_113_000_010, "回款业务发生日期必填（正常归单不静默代填）");
     ErrorCode STAGE_BUSINESS_DATE_FUTURE = new ErrorCode(1_113_000_011, "回款业务发生日期不能晚于今天（未来收付由计划表达）");
+    ErrorCode DELIVERY_WRITE_RETIRED = new ErrorCode(1_113_000_012, "旧交付仅供历史查询，请在原工程记录施工交付");
 
 }
