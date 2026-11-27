@@ -157,7 +157,7 @@ test('the workspace reads the eight-step view and the merged follow-up timeline,
   assert.deepEqual(requests.map(row=>row[0]),['get','workflow','timeline']);
   assert.equal(page.data.flow.status,'ACTIVE');
   assert.deepEqual(page.data.rail.filter(row=>row.active).map(row=>row.code),['HOUSE_SELECTION']);
-  assert.equal(page.data.nextStepName,'带看工地');
+  assert.equal(page.data.currentStepName,'户型选择');
   assert.equal(page.data.canChange,true);assert.equal(page.data.nextFollowLate,false);
   assert.equal(page.data.timelineTotal,3);assert.equal(page.data.timelineMore,true);
   assert.deepEqual(page.data.timeline.map(row=>row.title),['店面讲解 · 再次咨询','店面讲解 · 完成步骤']);
@@ -407,4 +407,13 @@ test('customer reminders open the matching customer follow-up tab on a cold entr
     assert.equal(page.data.activeCustomerTab,expected);
     if(options.id)assert.equal(page.id,id);
   }
+});
+
+
+test('最后一个待办和八步完成来自服务端，不把 nextStepCode 为空当作完成',()=>{
+  const {page}=followupHarness();
+  page.applyFlow({status:'ACTIVE',completedCount:7,currentStepCode:'START',nextStepCode:null,steps:[]});
+  assert.equal(page.data.currentStepName,'开工大吉');
+  page.applyFlow({status:'COMPLETED',completedCount:8,currentStepCode:null,nextStepCode:null,steps:[]});
+  assert.equal(page.data.currentStepName,'业务八步完成');
 });

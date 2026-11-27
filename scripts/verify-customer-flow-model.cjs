@@ -78,3 +78,34 @@ test('客户列表的预约跟进与八步邀约日期分开，筛选和卡片�
   assert.equal(due.cue,'逾期 1 天');
   assert.deepEqual(tabFilter([due],'due',{today}),[due]);
 });
+
+
+test('列表与八步页共用当前原包及主工程事实，接收不等于开工',()=>{
+  const CRM=require('../miniprogram/utils/platform-crm');
+  const response={customerId:'42',totalSteps:8,revision:1,completedCount:2,progressPercent:25,currentStepCode:'HOUSE_SELECTION',status:'ACTIVE',
+    steps:model.STEPS.map((step,i)=>({code:step.code,status:i<2?'COMPLETED':'TODO',fields:{},attachments:[]}))};
+  const cases=[
+    [{commissionStatus:'EXTERNAL_PENDING'},'TODO','待登记外部成果'],
+    [{commissionStatus:'EXTERNAL_READY',contractSigned:false},'TODO','待提交工程移交，缺正式施工合同'],
+    [{commissionStatus:'HANDOVER_SUBMITTED',handoverStatus:'PENDING',handoverVersion:2},'TODO','已移交，待指定工程人员接收 · 移交 V2'],
+    [{commissionStatus:'HANDOVER_RETURNED',handoverStatus:'RETURNED',handoverVersion:2},'TODO','移交已退回，待补齐重提 · 移交 V2'],
+    [{commissionStatus:'HANDOVER_SUBMITTED',handoverStatus:null,handoverVersion:3},'TODO','移交资料待核对 · 移交 V3'],
+    [{commissionStatus:'ACCEPTED'},'TODO','工程已接收，但缺少关联主工程'],
+    [{commissionStatus:'ACCEPTED',projectId:'991'},'DRAFT','工程已接收，待实际开工'],
+    [{projectId:'991',actualStartAt:'2026-11-27'},'DRAFT','已登记开工日期，开工凭据待核对'],
+    [{projectId:'991',actualStartAt:'2026-11-27'},'COMPLETED','已实际开工']
+  ];
+  for(const [fields,status,expected] of cases){
+    response.steps[7]={...response.steps[7],status,fields:{commissionId:'900719925474099999',...fields}};
+    const detail=model.workflow(response,'42');
+    const summary={...response,steps:undefined,start:response.steps[7]};
+    for(const mainStatus of ['ACTIVE','PAUSED','LOST']){
+      const row=CRM.customerRow({id:'42',name:'原客户',workflow:{...summary,status:mainStatus}},{canWrite:true});
+      assert.equal(row.engineeringHint,expected);assert.equal(detail.engineeringHint,expected);
+      assert.match(row.progress,/^2\/8步/);assert.equal(row.workflow.status,mainStatus);
+      if(mainStatus==='ACTIVE')assert.equal(row.stageName,'户型选择');
+      else assert.equal(row.stageName,mainStatus==='LOST'?'已流失':'暂缓');
+    }
+    assert.equal(detail.currentStepName,'户型选择');
+  }
+});

@@ -1,4 +1,5 @@
 const houseSelection = require('./house-selection');
+const workflowProgress = require('../../utils/platform-crm').workflowProgress;
 const field = (key, label, type = 'text', extra = {}) => ({ key, label, type,
   maxLength: ['requirements', 'feedback'].includes(key) ? 4000 : 1000, ...extra });
 const STEPS = [
@@ -157,8 +158,7 @@ function workflow(response, customerId) {
       canWrite: response.canWrite === true && s.canWrite === true && index < 6,
       canReopen: response.canWrite === true && s.canReopen === true && finished && index < 6 };
   });
-  return { ...response, steps, statusLabel: FLOW_STATUS[response.status] || '待核对',
-    currentStepName: definition(response.currentStepCode)?.name || (response.completedCount === 8 ? '已开工' : '待办理') };
+  return { ...response, steps, statusLabel: FLOW_STATUS[response.status] || '待核对', ...workflowProgress(response) };
 }
 function records(rows) {
   return (Array.isArray(rows) ? rows : []).map(row => ({ ...row, id: String(row.id), stepName: definition(row.stepCode)?.name || '跟进记录',
@@ -173,7 +173,8 @@ function facts(step) {
     {label: '办理时间', value: dateTime(step.completedAt)}];
   if (step.code === 'CONTRACT') return [{ label: '合同编号', value: f.contractNo || f.contractId },
     { label: '签约日期', value: date(f.signedDate) }, { label: '合同总额', value: fromCents(f.totalCents) ? '¥' + fromCents(f.totalCents) : '' }];
-  if (step.code === 'START') return [{ label: '工程编号', value: f.projectId }, { label: '实际开工', value: date(f.actualStartAt) },
+  if (step.code === 'START') return [{ label: '原委托编号', value: f.commissionId }, { label: '移交版本', value: f.handoverVersion ? 'V' + f.handoverVersion : '' },
+    { label: '主工程编号', value: f.projectId }, { label: '实际开工', value: date(f.actualStartAt) },
     { label: '工程负责人', value: f.managerName || (f.managerUserId ? '编号 ' + f.managerUserId : '') }];
   return [];
 }

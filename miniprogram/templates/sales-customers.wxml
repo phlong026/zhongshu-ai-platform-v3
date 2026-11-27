@@ -11,6 +11,7 @@
         <view class="customer-row-copy">
           <view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge {{item.lost?'customer-badge-lost':item.paused?'customer-badge-paused':''}}">{{item.stageName}}</text><text class="customer-cue {{item.cueTone}}">{{item.cue}}</text></view>
           <text class="hint">{{item.brief}}<text wx:if="{{item.progress}}"> · {{item.progress}}</text></text>
+          <text wx:if="{{item.engineeringHint}}" class="hint">{{item.engineeringHint}}</text>
           <view class="customer-row-foot"><text class="customer-next {{item.off?'customer-next-quiet':item.cueTone}}">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{intent==='entrust'&&canRegister?'外部委托':item.action}}</button></view>
         </view>
       </view>
