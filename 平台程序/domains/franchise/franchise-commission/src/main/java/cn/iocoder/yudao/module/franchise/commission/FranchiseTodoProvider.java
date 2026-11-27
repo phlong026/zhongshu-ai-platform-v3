@@ -66,6 +66,11 @@ public class FranchiseTodoProvider implements TodoProvider {
         }
         pendingLeadTodos(post, items);
         commissionTodos(post, items);
+        for (var commission : commissions.pendingHistoricalSettlements(post)) {
+            items.add(item("historical-settlement:"+commission.getId()+":"+commission.getSubmissionVersion(),
+                    "「"+commission.getCustomerName()+"」历史设计费用待复核", "HISTORICAL_SETTLEMENT",null,true,
+                    commissionPage(commission.getId(),"receipt"),commission.getUpdateTime()));
+        }
         return items;
     }
 
@@ -137,6 +142,10 @@ public class FranchiseTodoProvider implements TodoProvider {
             // 设计岗位退役不应隐藏已发给工程接收人的在途移交；不恢复旧设计岗位待办。
             if (CommissionDO.STATUS_HANDOVER_SUBMITTED.equals(commission.getStatus())) {
                 handoverReviewTodo(post, commission, items);
+            } else if (commissions.allowedActions(post,commission).contains("external-entrust-convert")) {
+                items.add(item("legacy-convert:"+key+":"+commission.getRevision(),
+                        "「"+customer+"」原委托待转入外部流程",commission.getStatus(),null,true,
+                        "/pages/external-entrust/index?customerId="+commission.getCustomerId(),since));
             }
         }
     }
@@ -152,8 +161,9 @@ public class FranchiseTodoProvider implements TodoProvider {
             return;
         }
         if (access.isHandoverManager(post, commission.getCompanyId(), handover.getManagerUserId())) {
-            if (!external && !commissions.allowedActions(post, commission).contains("packet-receive")) {
-                return;
+            if (!external) {
+                var actions = commissions.allowedActions(post, commission);
+                if (!actions.contains("packet-receive") && !actions.contains("packet-return")) return;
             }
             items.add(item("handover-review:" + commission.getId() + ":" + version,
                     "「" + commission.getCustomerName() + "」移交资料待核查接收", "HANDOVER_SUBMITTED",

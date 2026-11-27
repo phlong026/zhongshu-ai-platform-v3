@@ -39,7 +39,7 @@ import static cn.iocoder.yudao.module.franchise.commission.enums.FranchiseCommis
 @Service
 public class ExternalCommissionService {
     private static final String AGGREGATE = "fr-external-commission";
-    private static final Set<String> CONVERTIBLE = Set.of(STATUS_FEE_PENDING, STATUS_FEE_RETURNED, STATUS_DESIGNING,
+    static final Set<String> CONVERTIBLE = Set.of(STATUS_FEE_PENDING, STATUS_FEE_RETURNED, STATUS_DESIGNING,
             STATUS_DESIGN_COMPLETED, STATUS_DISPATCHED, STATUS_HANDOVER_RETURNED);
     private static final TypeReference<List<Attachment>> FILES = new TypeReference<>() { };
     private final JdbcTemplate jdbc;
