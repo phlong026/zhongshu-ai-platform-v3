@@ -19,19 +19,26 @@ test('老板入口保留当前在线客户与工程路由', async () => {
   assert.match(customers, /\['boss','owner'\]\.includes\(post\.roleCode\)/);
   assert.match(customers, /customers\.page\(pageNo,batchSize,keyword\|\|undefined,tab==='all'\?undefined:tab\.toUpperCase\(\),true,prefix\)/);
   assert.match(projects, /\['boss','owner'\]\.includes\(navCtx\.role\)/);
-  assert.match(projects, /P\.api\.projects\.page\(\)/);
   const runtime = await require('./role-page-runtime.cjs').connect();
   const auth = require('../miniprogram/api/auth');
   const post = { postId: 'boss-project-route', orgId: 'test-store', orgType: 'store', roleCode: 'boss' };
   auth.saveLogin({ accessToken: 'isolated-route-test' }); auth.savePosts([post]); auth.switchPost(post.postId);
-  wx.request = options => setImmediate(() => options.success({ statusCode: 200, data: { code: 0,
-    data: [{ id: '9007199254740993', name: '当前在线工程', status: 'IN_PROGRESS' }] } }));
+  const projectRequests=[];
+  wx.request = options => {
+    if(new URL(options.url).pathname.endsWith('/franchise/engineering/projects'))projectRequests.push(options);
+    setImmediate(() => options.success({ statusCode: 200, data: { code: 0,
+      data: [{ id: '9007199254740993', name: '当前在线工程', status: 'IN_PROGRESS' }] } }));
+  };
   await runtime.callWxMethod('reLaunch', { url: '/pages/build/projects/index' });
   for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve));
   const page = getCurrentPages().at(-1);
   assert.equal(page.data.readOnly, true);
   assert.equal(page.data.navigationIndex, 12);
   assert.equal(page.data.cards[0].id, '9007199254740993');
+  assert.equal(projectRequests.length,1);
+  assert.equal(projectRequests[0].method,'GET');
+  assert.equal(projectRequests[0].data.page,1);
+  assert.equal(projectRequests[0].data.pageSize,50);
 });
 
 test('上传链使用当前B资产协议并隔离切岗迟到响应', () => {

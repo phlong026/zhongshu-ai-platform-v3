@@ -174,7 +174,7 @@ function projectView(detail) {
     id: String(detail.id), projectId: String(detail.id),
     name: detail.name, customer: detail.customer || '', city: detail.city || '',
     phone: detail.phone || '', area: detail.area, floors: detail.floors,
-    sourceType: detail.sourceType, drawingVersion: detail.drawingVersion || '',
+    sourceType: detail.sourceType, parentProjectId: detail.parentProjectId==null?'':String(detail.parentProjectId), drawingVersion: detail.drawingVersion || '',
     managerId: detail.managerUserId, manager: detail.managerName || (detail.managerUserId ? '已指派工程人员' : '待指派'),
     archived: !!closure.archivedAt, delivery: closure.deliveredAt ? {
       date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || '',

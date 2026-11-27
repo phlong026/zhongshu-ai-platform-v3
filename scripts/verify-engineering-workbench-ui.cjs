@@ -23,6 +23,9 @@ async function setup(role = 'engineer', supportsFiling = true) {
   const writes = [];
   const filingRequests = [];
   const projectRequests = [];
+  const toasts = [];
+  let filingResult = rows[0];
+  wx.showToast = options => toasts.push(options.title);
   wx.request = options => {
     const url = new URL(options.url).pathname.replace('/admin-api', '');
     let data = [];
@@ -31,10 +34,10 @@ async function setup(role = 'engineer', supportsFiling = true) {
       if (options.method === 'GET') data = true;
       else {
         filingRequests.push(options.data);
-        if (!options.data.independent && options.data.phone !== '13900008158') {
-          return setImmediate(() => options.success({statusCode:200,data:{code:1115000001,msg:'未找到对应销售合同，请选择独立建档'}}));
+        if (options.data.independent || options.data.parentProjectId || options.data.phone !== '13900008158') {
+          return setImmediate(() => options.success({statusCode:200,data:{code:1115000001,msg:'请先核对已签正式施工合同，增项请在原工程办理'}}));
         }
-        data = rows[0];
+        data = filingResult;
       }
     }
     if (url === '/platform/profile/mine') data = { nickname: '工程同事' };
@@ -50,7 +53,7 @@ async function setup(role = 'engineer', supportsFiling = true) {
     if (options.method !== 'GET') writes.push(options.url);
     setImmediate(() => options.success({ statusCode: 200, data: { code: 0, data } }));
   };
-  return { runtime, writes, filingRequests, projectRequests, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
+  return { runtime, writes, filingRequests, projectRequests, toasts, filing(value) {filingResult=value;}, projects(value) { projects = value; }, async open(url) { await runtime.callWxMethod('reLaunch', { url }); await flush(); return runtime.currentPage(); } };
 }
 
 function workspaceBar() {
@@ -265,22 +268,48 @@ test('旧后端可浏览工程列表，缺少合同建档能力时不展示入�
   assert.deepEqual(h.writes, []);
 });
 
-test('未匹配合同保留建档表单，只有用户主动选择时才提交独立建档', async () => {
+test('合同未匹配保留原表单；不能通过独立或增项开关绕过正式合同', async () => {
   const h = await setup();
   const page = await h.open('/pages/build/projects/index');
   await (await page.$('.eng-create-entry')).tap();
   const form = current();
-  form.setData({'createForm.name':'陈家乡墅','createForm.phone':'13900008157'});
+  form.setData({'createForm.name':'陈家乡墅','createForm.customer':'陈先生','createForm.city':'武汉','createForm.phone':'13900008157'});
   await form.submitCreateOnline();
-  assert.match(form.data.error,/选择独立建档/);
+  assert.match(form.data.error,/已签正式施工合同/);
   assert.equal(form.data.creating,true);
   assert.equal(form.data.createForm.name,'陈家乡墅');
   assert.equal(h.filingRequests[0].independent,undefined);
-  form.toggleIndependent({detail:{value:true}});
+  assert.equal(await page.$('switch'),null);
+  assert.equal(typeof form.toggleIndependent,'undefined');
+  assert.equal(typeof form.pickCreateParent,'undefined');
+  form.setData({'createForm.phone':'13900008158','createForm.independent':true,'createForm.parentIndex':1});
   await form.submitCreateOnline();
-  assert.equal(h.filingRequests[1].independent,true);
+  assert.equal(h.filingRequests[1].independent,undefined);
+  assert.equal(h.filingRequests[1].parentProjectId,undefined);
   assert.equal(h.filingRequests[1].name,'陈家乡墅');
   assert.ok(h.writes.every(url=>url.endsWith('/projects/contract-filing')));
+});
+
+test('合同核对复用原工程时沿用返回的大 ID，不把复用提示成新项目或重建付款计划',async()=>{
+ const h=await setup(),page=await h.open('/pages/build/projects/index');
+ h.filing({...rows[0],reused:true});
+ await (await page.$('.eng-create-entry')).tap();
+ current().setData({'createForm.name':'林家乡墅','createForm.customer':'林先生','createForm.city':'泉州','createForm.phone':'13900008158'});
+ await current().submitCreateOnline();await flush();
+ assert.equal(current().route,'pages/build/record/index');assert.equal(current().id,rows[0].id);assert.equal(current().data.view,'prepare');
+ assert(h.toasts.includes('已打开原工程'));assert(!h.toasts.includes('项目已创建'));
+ assert.equal(h.filingRequests.length,1);assert.ok(h.writes.every(url=>url.endsWith('/projects/contract-filing')));
+});
+
+test('存量增项保留自己的记录 ID，并提供原主工程的合同及开工办理路径',async()=>{
+ const h=await setup();
+ const p=require('../miniprogram/utils/platform-engineering').projectView({...rows[2],sourceType:'INCREMENT',parentProjectId:rows[0].id});
+ assert.equal(p.id,rows[2].id);assert.equal(p.parentProjectId,rows[0].id);
+ const page=await h.runtime.mountFixture({file:path.resolve(__dirname,'../miniprogram/pages/build/record/index.wxml'),data:{p,view:'overview',actions:[]},
+  methods:{go(e){require('../miniprogram/utils/page-navigation').open(e.currentTarget.dataset.url);}}});
+ const original=await page.$('button[bindtap="go"]');assert.match(await original.text(),/打开原工程/);
+ await original.tap();await flush();assert.equal(current().id,rows[0].id);assert.equal(current().data.view,'overview');
+ assert.deepEqual(h.writes,[]);
 });
 
 test('工程概览指标进入对应月份的工程明细，最近项目随数量显示入口', async () => {
@@ -344,7 +373,7 @@ test('项目空态不显示查看入口，多项目可展开、收起并搜索�
   assert.equal(current().data.cards[0].id, rows[2].id);
   await (await page.$('.eng-create-entry')).tap();
   assert.ok(await page.$('.eng-create-form'));
-  assert.equal(current().data.parentOptions.length, 4, '增项可关联完整授权项目列表');
+  assert.equal(await page.$('picker[range-key="name"]'),null,'不再新建没有独立应收依据的增项空壳');
   assert.equal(await page.$('.eng-project-open'), null);
   h.projects([]);
   page = await h.open('/pages/build/projects/index');

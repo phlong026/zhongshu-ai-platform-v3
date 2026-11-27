@@ -12,7 +12,7 @@ const idem = (key, action) => (key
   : { 'Idempotency-Key': 'eng-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8) });
 
 const projects = {
-  /** 手工新建/增项（查重=同组织未归档项目名唯一 1_115_000_008）{name,customer,city,phone?,floors?,area?,parentProjectId?} */
+  /** 按已签正式合同新建或核对原工程 {name,customer,city,phone,floors?,area?}；reused 表示继续原档案 */
   supportsContractFiling: () => http.get('/franchise/engineering/projects/contract-filing'),
   create: (data, key) => http.post('/franchise/engineering/projects/contract-filing', data, idem(key, 'create')),
   /** 列表（?status=；工程岗仅本人，财务线全量） */
