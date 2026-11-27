@@ -19,6 +19,13 @@ public interface CommissionQueryPort {
         return java.util.Map.of();
     }
 
+    record CustomerHandover(long companyId, long commissionId, String status,
+                            Integer version, String packetStatus) { }
+    /** Batch read of the current packet for already-authorized customers; never implies actual engineering start. */
+    default java.util.Map<Long, CustomerHandover> customerHandovers(long companyId, java.util.Collection<Long> customerIds) {
+        return java.util.Map.of();
+    }
+
     /** 按委托编号取当前提交版本的费用视图；不存在返回 null */
     CommissionFeeView findCurrentFee(long commissionId);
 

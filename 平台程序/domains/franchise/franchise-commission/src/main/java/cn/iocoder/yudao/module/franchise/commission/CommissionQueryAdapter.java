@@ -50,6 +50,28 @@ public class CommissionQueryAdapter implements CommissionQueryPort {
     }
 
     @Override
+    public java.util.Map<Long, CustomerHandover> customerHandovers(long companyId, java.util.Collection<Long> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) return java.util.Map.of();
+        var ids = customerIds.stream().distinct().toList();
+        var args = new java.util.ArrayList<Object>(java.util.List.of(companyId, ExternalCommissionService.tenant()));
+        args.addAll(ids);
+        var result = new java.util.LinkedHashMap<Long, CustomerHandover>();
+        jdbc.query("""
+                SELECT c.customer_id,c.company_id,c.id,c.status,c.handover_version,h.status AS packet_status
+                FROM fr_commission c JOIN system_dept d ON d.id=c.company_id
+                LEFT JOIN fr_commission_handover h ON h.commission_id=c.id AND h.company_id=c.company_id
+                  AND h.version=c.handover_version
+                WHERE c.company_id=? AND d.tenant_id=? AND d.status=0 AND d.deleted=0
+                  AND (c.submission_version>0 OR c.external_request_version>0) AND c.customer_id IN (
+                """ + String.join(",", java.util.Collections.nCopies(ids.size(), "?")) + ")", rs -> {
+            result.put(rs.getLong("customer_id"), new CustomerHandover(rs.getLong("company_id"), rs.getLong("id"),
+                    rs.getString("status"), rs.getObject("handover_version", Integer.class),
+                    rs.getString("packet_status")));
+        }, args.toArray());
+        return result;
+    }
+
+    @Override
     public CommissionFeeView findCurrentFee(long commissionId) {
         Optional<CommissionSubmissionDO> latest = submissionMapper.selectList(
                         new LambdaQueryWrapperX<CommissionSubmissionDO>()

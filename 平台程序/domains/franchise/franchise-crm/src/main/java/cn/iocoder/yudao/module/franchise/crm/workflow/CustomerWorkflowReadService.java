@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.franchise.api.CustomerWorkflowFactsPort;
+import cn.iocoder.yudao.module.franchise.api.CommissionQueryPort;
 import cn.iocoder.yudao.module.franchise.crm.CustomerAccess;
 import cn.iocoder.yudao.module.franchise.crm.dal.CustomerDO;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -67,6 +68,7 @@ public class CustomerWorkflowReadService {
     private final JdbcTemplate jdbc;
     private final ObjectProvider<CustomerWorkflowFactsPort> factProviders;
     private final SystemDirectory directory;
+    @jakarta.annotation.Resource private ObjectProvider<CommissionQueryPort> commissionQueries;
 
     public CustomerWorkflowReadService(JdbcTemplate jdbc, ObjectProvider<CustomerWorkflowFactsPort> factProviders,
                                       SystemDirectory directory) {
@@ -181,6 +183,15 @@ public class CustomerWorkflowReadService {
             var prior = facts.computeIfAbsent(fact.customerId(), ignored -> new LinkedHashMap<>()).putIfAbsent(fact.stepCode(), fact);
             if (prior != null) throw new IllegalStateException("Ambiguous workflow source fact");
         }));
+        Map<Long, CommissionQueryPort.CustomerHandover> handovers = new LinkedHashMap<>();
+        CommissionQueryPort commissions = commissionQueries.getIfAvailable();
+        if (commissions != null) customers.stream().collect(Collectors.groupingBy(CustomerDO::getCompanyId))
+                .forEach((company, rows) -> commissions.customerHandovers(company, rows.stream().map(CustomerDO::getId).toList())
+                        .forEach((id, handover) -> {
+                            if (!Objects.equals(companies.get(id), company) || handover.companyId() != company)
+                                throw new IllegalStateException("Invalid workflow handover scope");
+                            handovers.put(id, handover);
+                        }));
         Map<Long, Projection> result = new LinkedHashMap<>();
         for (CustomerDO customer : customers) {
             WorkflowRow workflow = workflows.get(customer.getId());
@@ -209,9 +220,20 @@ public class CustomerWorkflowReadService {
                     var fact = source.get(code.name());
                     List<String> errors = fact == null ? List.of(code == Step.CONTRACT ? "等待正式施工合同签署记录" : "等待工程实际开工记录") : fact.missingEvidence();
                     boolean completed = fact != null && fact.complete();
+                    Map<String, Object> fields = new LinkedHashMap<>(fact == null ? Map.of() : fact.fields());
+                    var handover = handovers.get(customer.getId());
+                    if (code == Step.START && handover != null) {
+                        fields.put("commissionId", Long.toString(handover.commissionId()));
+                        fields.put("commissionStatus", handover.status());
+                        fields.put("handoverVersion", handover.version());
+                        fields.put("handoverStatus", handover.packetStatus());
+                        fields.put("contractSigned", source.containsKey(Step.CONTRACT.name()) && source.get(Step.CONTRACT.name()).complete());
+                        if (fact == null && "ACCEPTED".equals(handover.status()))
+                            errors = List.of("工程已接收，但缺少关联主工程，请核对原移交单");
+                    }
                     steps.add(new StepView(code.name(), code.label, code.ordinal() + 1,
                             fact == null ? "TODO" : completed ? "COMPLETED" : "DRAFT", 0,
-                            fact == null ? null : fact.occurredOn(), "", fact == null ? Map.of() : fact.fields(), List.of(),
+                            fact == null ? null : fact.occurredOn(), "", fields, List.of(),
                             null, // source domains store an actual date, not a fabricated completion timestamp
                             false, false, false, errors, code == Step.CONTRACT ? "CONTRACT" : "ENGINEERING", null));
                 }
@@ -221,12 +243,13 @@ public class CustomerWorkflowReadService {
             String status = !active ? workflow.status() : completed == 8 ? "COMPLETED" : "ACTIVE";
             var summary = new Summary(workflow == null ? null : Long.toString(workflow.id()), completed, 8,
                     BigDecimal.valueOf(completed * 125L, 1), remaining.isEmpty() ? null : remaining.get(0).code(),
-                    remaining.isEmpty() ? "全部完成" : remaining.get(0).name(), remaining.size() < 2 ? null : remaining.get(1).code(),
+                    remaining.isEmpty() ? "业务八步完成" : remaining.get(0).name(), remaining.size() < 2 ? null : remaining.get(1).code(),
                     status, workflow == null ? null : workflow.updatedAt(),
                     rows.containsKey(Step.INVITATION.name()) ? (String) rows.get(Step.INVITATION.name()).fields().get("nextContactOn") : null,
                     customer.getNextVisitDate(), workflow == null ? null : workflow.statusReasonCode(),
                     workflow == null || "ACTIVE".equals(workflow.status()) ? null : workflow.statusReason(),
-                    workflow != null && workflow.reconsultedAt() != null);
+                    workflow != null && workflow.reconsultedAt() != null,
+                    new StartSummary(steps.get(7).status(), steps.get(7).fields()));
             result.put(customer.getId(), new Projection(workflow, List.copyOf(steps), summary, writable));
         }
         return result;
