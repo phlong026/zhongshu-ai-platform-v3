@@ -459,4 +459,37 @@ class FranchiseDirectoryIntegrationTest extends PlatformPgIntegrationTest {
         assertThat(directory.page("",null,null,2,20).getList()).isEmpty();
         assertThatThrownBy(()->directory.page("",null,null,1,101)).isInstanceOf(ServiceException.class);
     }
+
+    @Test
+    void citywideCoverageIsExplicitAndCannotBeSavedForADistrictOrFranchise() {
+        var coverage=directory.create(new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,null),7);
+        assertThat(coverage.wholeAreaCoverage()).isFalse();
+        var confirmed=directory.update(coverage.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,coverage.version(),true),7);
+        assertThat(confirmed.wholeAreaCoverage()).isTrue();
+        assertThat(confirmed.regionCodes()).containsExactly("420100");
+        assertThatThrownBy(()->directory.update(confirmed.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","江夏区",
+                List.of("420115"),null,null,confirmed.version(),true),7)).isInstanceOf(ServiceException.class);
+        assertThatThrownBy(()->directory.create(new FranchiseDirectoryService.RecordRequest("测试店","测试甲","FRANCHISE","武汉大区",
+                List.of("420100"),null,null,null,true),7)).isInstanceOf(ServiceException.class);
+        var revoked=directory.update(confirmed.id(),new FranchiseDirectoryService.RecordRequest("","测试甲","COVERAGE","武汉大区",
+                List.of("420100"),null,null,confirmed.version(),false),7);
+        assertThat(revoked.wholeAreaCoverage()).isFalse();
+    }
+
+    @Test void namedFranchiseLookupShowsOpenedRecordsAndPreservesTheSelectedNameAndId() {
+        create("黄陂区",List.of("420116"));
+        var item=directory.create(new FranchiseDirectoryService.RecordRequest("现有测试加盟门店","测试甲","FRANCHISE",
+                "黄陂区",List.of("420116"),"420000","420100",null),7);
+        assertThat(directory.candidates("黄陂区")).extracting(FranchiseDirectoryService.Item::id).containsExactly(item.id());
+        var opened=directory.onboard(new FranchiseDirectoryService.FromDirectoryRequest(item.id(),item.version(),
+                "测试老板","13900001240",null,null,null,"420116"),7);
+        var linked=directory.candidates("现有测试加盟门店");
+        assertThat(linked).hasSize(1);
+        assertThat(linked.get(0).id()).isEqualTo(item.id());
+        assertThat(linked.get(0).name()).isEqualTo(item.name());
+        assertThat(linked.get(0).linkedOrgId()).isEqualTo(Long.toString(opened.orgId()));
+        assertThat(records(maps.snapshot()).stream().filter(r->r.recordType().equals("FRANCHISE")).toList()).hasSize(1);
+    }
 }

@@ -26,6 +26,7 @@ export interface DirectoryItem {
   recordType: 'FRANCHISE' | 'COVERAGE'
   originalRegionText: string
   matchStatus: 'RESOLVED' | 'PARTIAL' | 'UNRESOLVED'
+  wholeAreaCoverage?: boolean
   regionCodes: string[]
   provinceCode: string | null
   cityCode: string | null
@@ -49,6 +50,7 @@ export interface DirectoryInput {
   brand: string
   recordType: DirectoryItem['recordType']
   originalRegionText: string
+  wholeAreaCoverage?: boolean
   regionCodes: string[]
   provinceCode?: string
   cityCode?: string

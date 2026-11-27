@@ -372,13 +372,15 @@ test('unmount discards a pending import preview and the source file', async () =
   assert.equal(state.importResult.value, null)
 })
 
+const onboardEntry = { ...entry, recordType: 'FRANCHISE' }
+
 test('ambiguous city data cannot open an account by choosing an unrelated district', async () => {
   const { state, hooks } = loadView(
     'DirectoryAccountForm.vue',
     {
       getDirectoryRegions: async () => [region]
     },
-    { initialRecord: { ...entry, regionCodes: ['420100'], matchStatus: 'PARTIAL' } }
+    { initialRecord: { ...onboardEntry, regionCodes: ['420100'], matchStatus: 'PARTIAL' } }
   )
   await hooks.mounted()
   state.districtCode.value = '420116'
@@ -395,7 +397,7 @@ test('opening from a resolved record carries its stable ID/version and does not 
     'DirectoryAccountForm.vue',
     {
       getDirectoryRegions: async () => [region],
-      getDirectoryCandidates: async () => [entry],
+      getDirectoryCandidates: async () => [onboardEntry],
       previewFranchise: async () => ({
         orgName: '测试开户名称',
         loginName: 'test-login',
@@ -406,7 +408,7 @@ test('opening from a resolved record carries its stable ID/version and does not 
         return pending.promise
       }
     },
-    { initialRecord: entry }
+    { initialRecord: onboardEntry }
   )
   await hooks.mounted()
   state.adminName.value = '测试人'
@@ -469,11 +471,11 @@ test('reactivating a cached page reloads candidates without retaining a prior se
     {
       getDirectoryCandidates: async () => {
         calls++
-        return [entry]
+        return [onboardEntry]
       },
       getDirectoryRegions: async () => [region]
     },
-    { initialRecord: entry }
+    { initialRecord: onboardEntry }
   )
   await hooks.mounted()
   state.adminMobile.value = '13800000000'
@@ -486,4 +488,21 @@ test('reactivating a cached page reloads candidates without retaining a prior se
   assert.equal(calls, 2)
   assert.equal(state.candidates.value.length, 1)
   assert.equal(state.selectedId.value, '')
+})
+
+test('onboarding search labels opened stores, excludes coverage, and clears contact when selecting another store', async () => {
+  const other = { ...onboardEntry, id: 'other', linkedOrgId: '998' }
+  const { state, hooks } = loadView('DirectoryAccountForm.vue', {
+    getDirectoryRegions: async () => [region],
+    getDirectoryCandidates: async () => [entry, onboardEntry, other]
+  }, { initialRecord: onboardEntry })
+  await hooks.mounted()
+  assert.deepEqual(plain(state.candidates.value.map((r) => r.id)), [onboardEntry.id, other.id])
+  assert.match(state.candidateLabel(other), /已开户/)
+  state.adminName.value = '测试人'
+  state.adminMobile.value = '13800000000'
+  state.selectRecord(other.id)
+  assert.equal(state.adminName.value, '')
+  assert.equal(state.adminMobile.value, '')
+  assert.equal(state.eligible.value, false)
 })
