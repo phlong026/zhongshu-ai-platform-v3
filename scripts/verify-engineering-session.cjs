@@ -4,6 +4,8 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+
+
 function fixture(file,P){
   let post='A',gen=0,spec;const mod={exports:{}};const notices=[],sequences={};
   const http={currentPostId:()=>post,sessionGeneration:()=>gen,sessionGuard:()=>{const g=gen;return()=>g===gen;},requestGuard:key=>{const g=gen,s=sequences[key]=(sequences[key]||0)+1;return()=>g===gen&&s===sequences[key];},token:()=> 'token'};
@@ -237,4 +239,21 @@ test('original expense terms use the existing exact expense and preserve active-
  const bundle={detail:{id:'original-project',managerUserId:'engineer',status:'IN_PROGRESS',nodes:[],closure:{}},collections:{stages:[]},materials:{plans:[]},settle:{},followups:[]};
  const options={view:'expenses',userId:'engineer',writeRole:true,initialized:true,form:{expenseId:'old'},expenses:[{expenseId:'old',status:'REGISTERED',payableId:''}]};
  for(const mode of ['register','terms','revise','cancel'])assert.deepEqual(P.recordView(bundle,{...options,expenseMode:mode}).actions.map(row=>row.action),['expense-'+mode]);
+});
+
+
+test('cancelled-material settlement keeps original debt and only adds the server review note',()=>{
+ const {render}=require('./role-page-runtime.cjs'), {settleView}=require('../miniprogram/utils/platform-engineering');
+ const file=path.join(__dirname,'../miniprogram/pages/build/record/index.wxml');
+ const show=facts=>JSON.stringify(render(file,{view:'settlement',p:{id:'original-project'},expanded:{},actions:[],settle:settleView(facts)}),(key,value)=>key==='parent'?undefined:value);
+ const facts={materialsTotalCents:10000,materialsPaidCents:4000,materialsRemainingCents:6000,materialsNote:'已取消材料仍有原应付或实际付款，请财务核对原付款事项。'};
+ const view=settleView(facts);
+ assert.equal(view.materialsTotalText,'¥ 100');
+ assert.equal(view.materialsPaidText,'¥ 40');
+ assert.equal(view.materialsRemainingText,'¥ 60');
+ const rendered=show(facts);
+ for(const text of ['已取消材料','请财务核对原付款事项','¥ 100','¥ 40','¥ 60'])assert.ok(rendered.includes(text),text);
+ assert.ok(!rendered.includes('data-action'),'review note cannot add a payable or payment action');
+ assert.ok(!show({materialsTotalCents:0,materialsPaidCents:0,materialsRemainingCents:0,materialsNote:''}).includes('已取消材料'));
+ assert.ok(!show({}).includes('已取消材料'),'older or redacted response does not invent a review state');
 });
