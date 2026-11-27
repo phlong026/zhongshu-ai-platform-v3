@@ -65,7 +65,7 @@
           <el-button
             link
             type="primary"
-            :disabled="busy || !!row.linkedOrgId || row.matchStatus !== 'RESOLVED'"
+            :disabled="busy || !!row.linkedOrgId || row.recordType !== 'FRANCHISE' || row.matchStatus !== 'RESOLVED'"
             @click="emit('open-account', row)"
             >开通账号</el-button
           >
