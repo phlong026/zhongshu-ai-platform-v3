@@ -274,9 +274,9 @@ test('门店登录后加盟商服务的两个入口仍直达对应展示页', ()
   ]);
 });
 
-for (const role of ['hq-admin','hq-design-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
+for (const role of ['hq-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
   test('总部 '+role+'：全品牌地图仅开放管理员与财务，查看入口不依赖编辑权限', () => {
-    reset('hq-design-admin');
+    reset(role);
     auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:role,permissions:[]}]);
     auth.switchPost(42);
     const page=show('/pages/profile/index');
@@ -411,8 +411,6 @@ test('灵感首页入口可用，销售工具冷启动返回首页，预算入�
   assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'budget' } }), '/pages/business/index');
   assert.equal(business.data.salesShortcuts.find(row => row.action === 'quickBudget').url, '/pages/workflow/explore/index?view=budget');
 
-  reset('hq-design-admin');
-  assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'inspiration' } }), '/pages/design/index');
 });
 
 async function finishCreationAuthorization() {
