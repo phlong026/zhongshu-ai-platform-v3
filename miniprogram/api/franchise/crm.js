@@ -39,9 +39,6 @@ const customers = {
   /** 流程状态 {revision,status,reasonCode?,reason?,nextFollowOn?} */
   workflowStatus: (id, data, idempotencyKey) =>
     http.post(base(id) + '/workflow/status', data, { 'Idempotency-Key': idempotencyKey }),
-  /** 保存参考方案或预算版本（BUDGET / PLAN / FACADE；revision 服务端自取） */
-  saveScheme: (id, data, idempotencyKey) =>
-    http.post(base(id) + '/schemes', data, idem(idempotencyKey)),
   /** 责任转交（revision） */
   transfer: (id, data, idempotencyKey) =>
     http.post(base(id) + '/transfer', data, idem(idempotencyKey))
