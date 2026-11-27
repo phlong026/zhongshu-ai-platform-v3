@@ -23,7 +23,7 @@ function harness(file, api = {}, role = 'sales-lead', persistence = {}) {
   let linkDraft;
   let page, scope = 'post-1', generation = 1;
   let token = 'token', orgType = 'store';
-  const seq = {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
+  const seq = persistence.requestSequences || {}, storage = persistence.storage || new Map(), navigations = [], toasts = [], calls = [];
   const state = { title: '', original: '', script: '', tasks: [], records: [], works: [], rewriteHistory: [], publishDrafts: {} };
   const studio = { title: '', kindLabel:kind=>kind==='ai'?'AI视频':'数字人口播', guard: () => true, allowed: () => true, scope: () => scope, scopedKey: key => key + ':' + scope, read: () => state, write: value => Object.assign(state, value), recentItems: () => [] };
   const http = { tenantId:()=>1,token: () => token, sessionGeneration: () => generation, requestGuard: domain => { const g = generation, n = seq[domain] = (seq[domain] || 0) + 1; return () => generation === g && seq[domain] === n; } };
@@ -486,13 +486,238 @@ test('changing defaults cannot replace resources frozen by a pending digital sub
 test('setting a default reloads authoritative rows and preserves the other resource kind',async()=>{
   const rows=[{id:'31',kind:'AVATAR',ready:true,isDefault:true},{id:'33',kind:'AVATAR',ready:true,isDefault:false},{id:'32',kind:'VOICE',ready:true,isDefault:true}],requests=[];
   const h=harness('studio/characters/index.js',{clones:{setDefault:async id=>{requests.push(id);rows.filter(r=>r.kind==='AVATAR').forEach(r=>{r.isDefault=r.id===id;});},list:async()=>rows}});
-  h.page.onLoad();Object.assign(h.page.data,{canManage:true,digitalPersona:{id:'21',enabled:true},cloneRows:plain(rows)});
+  openTestResources(h, plain(rows), true);
   await h.page.setDefaultClone(event({id:'33'}));
   assert.deepEqual(requests,['33']);assert.equal(h.page.data.cloneRows.find(r=>r.id==='33').isDefault,true);
   assert.equal(h.page.data.cloneRows.find(r=>r.id==='31').isDefault,false);assert.equal(h.page.data.cloneRows.find(r=>r.id==='32').isDefault,true);
   h.page.data.canManage=false;await h.page.setDefaultClone(event({id:'31'}));assert.equal(requests.length,1);
 });
 
+
+function openTestResources(h, rows, canManage = false) {
+  h.page.onLoad();
+  Object.assign(h.page.data, { view: 'resources', digitalPersona: { id: '21', enabled: true }, cloneRows: rows, canManage });
+  h.page.filterClones();
+}
+
+test('person detail opens the selected resource list without reusing another form or filter', async () => {
+  const history = [{ id: '29', name: '前一人物', enabled: true }, { id: '21', name: '当前人物', enabled: true }];
+  const gate = deferred(), calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: id => { calls.push(id); return gate.promise; },
+    quote: async () => ({ available: true })
+  } });
+  h.page.onLoad();
+  const originalAttempt = { key: 'other-person-request', body: { kind: 'AVATAR', title: '前一人物分身' } };
+  const samePersonAttempt = { key: 'this-person-request', body: { kind: 'VOICE', title: '当前人物声音' } };
+  h.page.__cloneAttempt = originalAttempt;
+  h.storage.set('zs-clone-attempt:29:post-1', originalAttempt);
+  h.storage.set('zs-clone-attempt:21:post-1', samePersonAttempt);
+  Object.assign(h.page.data, { rows: history, digitalPeople: history, cloneRetry: true, resourceFilter: 'VOICE',
+    cloneRows: [{ id: '999', kind: 'VOICE' }], visibleCloneRows: [{ id: '999', kind: 'VOICE' }], canUseDigital: true });
+  h.page.detail(event({ id: '21' }));
+  const source = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/characters/index.wxml'), 'utf8');
+  const detail = source.split("view==='detail'&&digitalPersona")[1].split("view==='avatar'")[0];
+  assert.match(detail, /bindtap="resources"[^>]*>查看人物资源/);
+  const pending = h.page.resources();
+  assert.equal(h.page.data.view, 'resources');
+  assert.equal(h.page.data.resourceFilter, 'ALL');
+  assert.equal(h.page.data.cloneRows.length, 0);
+  assert.equal(h.page.data.visibleCloneRows.length, 0);
+  assert.equal(h.page.data.canUseDigital, false);
+  assert.equal(h.page.__cloneAttempt, null);
+  assert.equal(h.page.data.cloneRetry, false);
+  assert.deepEqual(calls, ['21']);
+  gate.resolve([{ id: '31', kind: 'VOICE' }]);
+  await pending;
+  assert.equal(h.page.data.visibleCloneRows[0].id, '31');
+  assert.equal(h.storage.get('zs-clone-attempt:29:post-1'), originalAttempt);
+  h.page.addClone(event({ kind: 'AVATAR' }));
+  assert.equal(h.page.__cloneAttempt.key, samePersonAttempt.key);
+  assert.equal(h.page.data.view, 'voice');
+  assert.equal(h.page.data.cloneRetry, true);
+});
+
+test('clone resource controls use explicit row capabilities and preserve the long ID in API routes', async () => {
+  const longId = '90071992547409931';
+  const rows = [
+    { id: longId, kind: 'AVATAR', ready: true, canRename: true, canDelete: true, canSetDefault: true },
+    { id: '22', kind: 'VOICE', ready: true },
+    { id: '23', kind: 'VOICE', ready: true, canRename: false, canDelete: false, canSetDefault: false }
+  ];
+  const h = harness('studio/characters/index.js', {}, 'sales');
+  openTestResources(h, rows, true);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.map(row => row.canSetDefault)), [true, false, false]);
+  const template = fs.readFileSync(path.resolve(__dirname, '../miniprogram/pages/studio/characters/index.wxml'), 'utf8');
+  assert.match(template, /wx:if="{{item.canRename}}"[^>]*bindtap="renameClone"/);
+  assert.match(template, /wx:if="{{item.canDelete}}"[^>]*bindtap="deleteClone"/);
+  assert.match(template, /wx:if="{{item.canSetDefault}}"[^>]*bindtap="setDefaultClone"/);
+  const manage = harness('studio/characters/index.js');
+  openTestResources(manage, rows, true);
+  assert.deepEqual(plain(manage.page.data.visibleCloneRows.map(row => row.canSetDefault)), [true, true, false]);
+  const apiPath = require.resolve('../miniprogram/api/franchise/content');
+  const calls = [], module = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(apiPath, 'utf8'), { module, encodeURIComponent, require() { return {
+    put: (url, body) => calls.push(['PUT', url, plain(body)]), del: url => calls.push(['DELETE', url])
+  }; } });
+  module.exports.clones.rename(longId, '新名称');
+  module.exports.clones.remove(longId);
+  assert.deepEqual(calls, [['PUT', '/franchise/content/clones/' + longId + '/title', { title: '新名称' }],
+    ['DELETE', '/franchise/content/clones/' + longId]]);
+});
+
+test('rename validates the trimmed UTF-16 length and works for both clone kinds', async () => {
+  const rows = [
+    { id: '90071992547409931', kind: 'AVATAR', title: '视频甲', ready: true, canRename: true },
+    { id: '90071992547409932', kind: 'VOICE', title: '声音甲', ready: true, canRename: true }
+  ];
+  const calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: async () => rows,
+    rename: async (id, title) => { calls.push([id, title]); const row = rows.find(item => item.id === id); row.title = title; return row; }
+  } }, 'sales');
+  openTestResources(h, rows);
+  let content = '   ';
+  h.wx.showModal = options => { assert.equal(options.editable, true); options.success({ confirm: true, content }); };
+  await h.page.renameClone(event({ id: rows[0].id }));
+  content = '😀'.repeat(11);
+  await h.page.renameClone(event({ id: rows[0].id }));
+  assert.equal(calls.length, 0);
+  assert.match(h.page.data.cloneError, /1–20/);
+  content = '   主讲形象  ';
+  await h.page.renameClone(event({ id: rows[0].id }));
+  content = '   讲解原声  ';
+  await h.page.renameClone(event({ id: rows[1].id }));
+  assert.deepEqual(calls, [[rows[0].id, '主讲形象'], [rows[1].id, '讲解原声']]);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.map(row => row.title)), ['主讲形象', '讲解原声']);
+});
+
+test('canceled, hidden and old-session clone dialogs cannot send a mutation', async () => {
+  const row = { id: '31', kind: 'VOICE', title: '旧名称', ready: true, canRename: true, canDelete: true };
+  const calls = [];
+  const h = harness('studio/characters/index.js', { clones: { rename: (...args) => calls.push(args), remove: id => calls.push(id) } }, 'sales');
+  openTestResources(h, [row]);
+  let modal;
+  h.wx.showModal = options => { modal = options; };
+  const canceled = h.page.renameClone(event({ id: row.id }));
+  modal.success({ confirm: false, content: '改名' });
+  await canceled;
+  assert.equal(h.page.data.cloneBusy, false);
+  const hidden = h.page.deleteClone(event({ id: row.id }));
+  h.page.onHide();
+  h.page.__hidden = false;
+  modal.success({ confirm: true });
+  await hidden;
+  assert.equal(h.page.data.cloneBusy, false);
+  const stale = h.page.renameClone(event({ id: row.id }));
+  h.changeScope();
+  modal.success({ confirm: true, content: '改名' });
+  await stale;
+  assert.deepEqual(calls, []);
+  assert.equal(h.page.data.cloneRows[0].title, '旧名称');
+});
+
+test('confirmed deletion tolerates a failed request and clears the deleted voice preview on retry', async () => {
+  const voice = { id: '90071992547409938', kind: 'VOICE', title: '待删除的声音', ready: true, canDelete: true };
+  const avatar = { id: '32', kind: 'AVATAR', title: '形象', ready: true };
+  let removed = false, attempts = 0, destroyed = 0;
+  const h = harness('studio/characters/index.js', { clones: {
+    list: async () => removed ? [avatar] : [voice, avatar],
+    remove: async id => { assert.equal(id, voice.id); if (++attempts === 1) throw Error('网络暂不可用'); removed = true; return true; }
+  } }, 'sales');
+  openTestResources(h, [voice, avatar]);
+  h.page.__previewAudio = { destroy() { destroyed++; } };
+  h.page.data.previewAudioId = 'clone-' + voice.id;
+  h.page.data.previewAudioPlaying = true;
+  h.wx.showModal = options => {
+    assert.match(options.content, /新任务/);
+    assert.match(options.content, /历史/);
+    options.success({ confirm: true });
+  };
+  await h.page.deleteClone(event({ id: voice.id }));
+  assert.equal(h.page.data.cloneBusy, false);
+  assert.match(h.page.data.cloneError, /网络暂不可用/);
+  assert.equal(h.page.data.voiceCount, 1);
+  assert.equal(destroyed, 0);
+  await h.page.deleteClone(event({ id: voice.id }));
+  assert.equal(destroyed, 1);
+  assert.equal(h.page.data.previewAudioId, '');
+  assert.equal(h.page.data.voiceCount, 0);
+  assert.equal(h.page.data.canUseDigital, false);
+});
+
+test('row-approved default takes effect before refreshing and leaves the other kind unchanged', async () => {
+  const rows = [
+    { id: '31', kind: 'AVATAR', isDefault: true, ready: true },
+    { id: '33', kind: 'AVATAR', isDefault: false, ready: true, canSetDefault: true },
+    { id: '32', kind: 'VOICE', isDefault: true, ready: true }
+  ];
+  const response = deferred(), calls = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    list: () => response.promise,
+    setDefault: async id => { calls.push(id); }
+  } }, 'sales');
+  openTestResources(h, rows);
+  const pending = h.page.setDefaultClone(event({ id: '33' }));
+  await flush();
+  assert.deepEqual(calls, ['33']);
+  assert.deepEqual(plain(h.page.data.visibleCloneRows.filter(row => row.isDefault).map(row => row.id)), ['33', '32']);
+  response.resolve(rows.map(row => ({ ...row, isDefault: row.id === '33' || row.id === '32' })));
+  await pending;
+  assert.equal(h.page.data.cloneBusy, false);
+});
+
+test('inline avatar default remains available and waits for the current status refresh', async () => {
+  const avatar = { id: '31', kind: 'AVATAR', ready: true, canSetDefault: true };
+  const requests = [];
+  const h = harness('studio/characters/index.js', { clones: {
+    setDefault: async id => { requests.push(id); },
+    list: async () => [{ ...avatar, isDefault: true, canSetDefault: false }]
+  } }, 'sales');
+  openTestResources(h, [avatar]);
+  Object.assign(h.page.data, { view: 'avatar', cloneRefreshing: true });
+  assert.equal(h.page.data.avatarCloneRows[0].canSetDefault, true);
+  await h.page.setDefaultClone(event({ id: avatar.id }));
+  assert.deepEqual(requests, []);
+  h.page.data.cloneRefreshing = false;
+  await h.page.setDefaultClone(event({ id: avatar.id }));
+  assert.deepEqual(requests, [avatar.id]);
+  assert.equal(h.page.data.avatarCloneRows[0].isDefault, true);
+});
+
+test('one resource page cannot strand another page in a busy state', async () => {
+  const row = { id: '31', kind: 'VOICE', title: '声音', ready: true, canSetDefault: true };
+  const firstWrite = deferred(), requestSequences = {}, read = [];
+  const first = harness('studio/characters/index.js', { clones: {
+    setDefault: () => firstWrite.promise,
+    list: async () => { read.push('first'); return [{ ...row, isDefault: true }]; }
+  } }, 'sales', { requestSequences });
+  const second = harness('studio/characters/index.js', { clones: {
+    setDefault: async () => {}, list: async () => { read.push('second'); return [{ ...row, isDefault: true }]; }
+  } }, 'sales', { requestSequences });
+  openTestResources(first, [row]);
+  openTestResources(second, [row]);
+  const pending = first.page.setDefaultClone(event({ id: row.id }));
+  first.page.onHide();
+  await second.page.setDefaultClone(event({ id: row.id }));
+  firstWrite.resolve();
+  await pending;
+  assert.equal(first.page.data.cloneBusy, false);
+  assert.equal(second.page.data.cloneBusy, false);
+  assert.deepEqual(read, ['second']);
+});
+
+test('clone creation shares the rename limit and validates before attempting a paid request', async () => {
+  let calls = 0;
+  const h = harness('studio/characters/index.js', { clones: { create: async () => { calls++; } } });
+  openTestResources(h, [], true);
+  Object.assign(h.page.data, { view: 'avatar', cloneTitle: '😀'.repeat(11), cloneUploadId: '101', cloneConsented: true,
+    cloneQuote: { available: true, credits: 5, consentVersion: 'digital-clone-v1' } });
+  await h.page.createClone();
+  assert.equal(calls, 0);
+  assert.match(h.page.data.cloneError, /1–20/);
+  assert.equal(h.storage.size, 0);
+});
 
 test('task center hides explicit test records but retains real text and video tasks without fake progress',async()=>{
  const rows=[{id:'1',kind:'digital',status:'SUCCEEDED',provider:'fake'},{id:'2',kind:'digital',status:'RUNNING',mock:true},{id:'task-complete',kind:'digital',status:'SUCCEEDED'},{id:'3',kind:'asr',status:'SUCCEEDED',provider:'dashscope',result:{text:'真实转写 mock 示例'}},{id:'4',kind:'ai_video',status:'RUNNING',provider:'metaso'}];
