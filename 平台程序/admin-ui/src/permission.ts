@@ -57,7 +57,7 @@ router.beforeEach(async (to, from) => {
       if (to.path === ANNOUNCEMENTS_PATH) {
         return canReadHeadquartersAnnouncements(identity.currentPost, identity.can)
           ? true
-          : { path: '/fr/identity', replace: true }
+          : { path: '/fr/identity', replace: true, ...announcementRedirect }
       }
       if (!to.path.startsWith('/fr')) return { path: '/fr/identity', replace: true }
       return true

@@ -102,3 +102,41 @@ test('unmapped role falls back in order: operate -> fin -> org -> identity', () 
 test('unmapped role without permissions does not dead-end on a blank page', () => {
   assert.equal(identity.resolveStaffLandingPath(post('engineer'), withPermissions()), '/fr/identity')
 })
+
+test('公告直达遇到门店身份，选岗后仍回到原公告，但无权身份仍不能查看', async () => {
+  let guard
+  const staff = { context: {}, posts: [post('finance'), post('finance', 'headquarters')],
+    currentPost: post('finance'), can: withPermissions('platform:announcement:query') }
+  const router = { beforeEach: (fn) => { guard = fn }, afterEach() {} }
+  const noop = () => {}
+  const deps = {
+    './router': { __esModule: true, default: router },
+    '@/config/axios/service': {},
+    '@/utils/auth': { getAccessToken: () => 'synthetic-session' },
+    '@/hooks/web/useTitle': { useTitle: noop },
+    '@/hooks/web/useNProgress': { useNProgress: () => ({ start: noop, done: noop }) },
+    '@/hooks/web/usePageLoading': { usePageLoading: () => ({ loadStart: noop, loadDone: noop }) },
+    '@/store/modules/dict': {},
+    '@/store/modules/user': {},
+    '@/store/modules/permission': { usePermissionStoreWithOut: () => ({ getRouters: [true] }) },
+    '@/utils/routeParams': {},
+    '@/utils/platformIdentity': { ...identity, portalMode: () => 'staff' },
+    '@/store/modules/platformIdentity': { usePlatformIdentityStoreWithOut: () => staff }
+  }
+  const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/permission.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText
+  vm.runInNewContext(code, { exports: {}, require: (id) => deps[id] })
+  const destination = { path: identity.ANNOUNCEMENTS_PATH, query: {} }
+  const redirect = await guard(destination, {})
+  assert.equal(redirect.path, '/fr/identity')
+  assert.equal(redirect.query?.redirect, identity.ANNOUNCEMENTS_PATH)
+  assert.equal(identity.resolveStaffLandingPath(post('finance', 'headquarters'), staff.can,
+    redirect.query.redirect), identity.ANNOUNCEMENTS_PATH)
+  assert.equal(identity.resolveStaffLandingPath(post('finance'), staff.can,
+    redirect.query.redirect), '/fr/finance')
+  staff.currentPost = post('finance', 'headquarters')
+  assert.equal(await guard(destination, {}), true)
+  staff.can = withPermissions()
+  assert.equal((await guard(destination, {})).path, '/fr/identity')
+})
