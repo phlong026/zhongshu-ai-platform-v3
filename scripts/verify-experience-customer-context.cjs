@@ -124,7 +124,7 @@ function harness(options = {}) {
       list: () => Promise.resolve(options.contracts || []),
       create(body) { contractCreates.push(body); return Promise.resolve({}); }
     },
-    deliveries: { get: () => Promise.resolve(options.delivery || {}) }
+    deliveries: { get: id => typeof options.deliveryGet === 'function' ? options.deliveryGet(id) : Promise.resolve(options.delivery || {}) }
   };
   Object.assign(page, {
     id: 'customer-9',
@@ -453,4 +453,46 @@ test('a contract with no quote opens the same editor for explicit manual totals 
   assert.equal(h.navigations.at(-1), '/pages/workflow/payment-plan/index?customerId=customer-9');
   assert.equal(h.contractCreates.length, 0);
   // The editor behavior and exact manual payload are exercised by verify-payment-plan-page.cjs.
+});
+
+
+test('legacy delivery and progress display only historical facts and keep the original customer route', async () => {
+  const {render}=require('./role-page-runtime.cjs');
+  const delivered=Date.parse('2026-11-20T01:00:00Z');
+  const h=harness({contracts:[{contract:{id:'contract-original',status:'SIGNED'},stages:[]}],
+    delivery:{id:'delivery-original',contractId:'contract-original',designDeliveredAt:delivered,designConfirmedAt:delivered}});
+  h.page.loadPlatformDelivery();
+  await flush();await flush();
+  assert.equal(h.page.data.title,'历史交付记录');
+  assert.equal(h.page.data.delivery.nodes.filter(row=>row.done).length,2);
+  assert.equal(h.page.data.delivery.nodes[2].at,null);
+  assert.equal(typeof h.page.platformCreateDelivery,'undefined');
+  assert.equal(typeof h.page.platformAdvanceDelivery,'undefined');
+  const file=path.join(ROOT,'miniprogram/pages/workflow/index.wxml');
+  const snapshot=()=>JSON.stringify(render(file,h.page.data),(key,value)=>key==='parent'?undefined:value);
+  const historical=snapshot();
+  assert.ok(historical.includes('历史交付记录（只读）'));
+  assert.ok(historical.includes('11-20 09:00'));
+  for(const retired of ['platformCreateDelivery','platformAdvanceDelivery','登记即事实','登记施工交付'])assert.ok(!historical.includes(retired),retired);
+  h.page.openCustomerFlow();
+  assert.deepEqual(h.navigations,['/pages/customer-flow/index?customerId=customer-9']);
+  h.page.loadPlatformProgress();
+  await flush();await flush();
+  assert.ok(snapshot().includes('施工进度与交付以原工程记录为准'));
+  assert.ok(!snapshot().includes('交付已完成'));
+});
+
+test('an explicit old contract link reads that original history and cannot fall through to another signed contract',async()=>{
+  const calls=[];
+  const h=harness({contracts:[{contract:{id:'new-contract',status:'SIGNED'},stages:[]},{contract:{id:'old-contract',status:'VOIDED'},stages:[]}],
+    deliveryGet:id=>{calls.push(id);return Promise.resolve({id:'old-delivery',contractId:id});}});
+  h.page.homeContract='old-contract';
+  h.page.loadPlatformDelivery();await flush();await flush();
+  assert.deepEqual(calls,['old-contract']);
+  assert.equal(h.page.data.signedContractId,'old-contract');
+  h.page.homeContract='not-this-customer';
+  h.page.loadPlatformDelivery();await flush();await flush();
+  assert.deepEqual(calls,['old-contract']);
+  assert.equal(h.page.data.noSignedContract,true);
+  assert.equal(h.page.data.delivery,null);
 });

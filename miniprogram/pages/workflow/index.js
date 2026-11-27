@@ -524,17 +524,17 @@ Page({
   const PFc=this.__pf;
   const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
   this.platformTradeFrame();
-  this.setData({view:'delivery',title:'交付验收',salesContracts:null,delivery:null,noSignedContract:false,noDelivery:false,deliveryError:'',signedContractId:''});
+  this.setData({view:'delivery',title:'历史交付记录',salesContracts:null,delivery:null,noSignedContract:false,noDelivery:false,deliveryError:'',signedContractId:''});
   this.loadTradeCustomerContext(gen,sessionGen,postKey);
   const api=this.platformSalesApi();
   api.contracts.list(this.id).then(rows=>{
    if(this.stale(gen,sessionGen,postKey))return;
-   const signed=(rows||[]).map(r=>PF.contractRow(r)).find(c=>c.status==='SIGNED');
+   const cards=(rows||[]).map(r=>PF.contractRow(r));
+   const signed=this.homeContract?cards.find(c=>c.id===String(this.homeContract)):cards.find(c=>c.status==='SIGNED');
    if(!signed)return this.setData({noSignedContract:true});
    this.setData({noSignedContract:false,signedContractId:signed.id});
    return api.deliveries.get(signed.id).then(d=>{
     if(this.stale(gen,sessionGen,postKey))return;
-    this.__deliveryId=d.id;
     this.setData({delivery:PF.deliveryView(d),noDelivery:false});
    }).catch(err=>{
     if(this.handle401(err,sessionGen))return;
@@ -546,45 +546,6 @@ Page({
    if(this.handle401(err,sessionGen))return;
    if(this.stale(gen,sessionGen,postKey))return;
    this.setData({deliveryError:PFc.errorMessageSales(err)});
-  });
- },
- platformCreateDelivery(){
-  if(this.data.busy||!this.data.signedContractId)return;
-  const key=this.platformCommandFor('delivery-create',this.data.signedContractId);
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({busy:true,deliveryError:''});
-  this.platformSalesApi().deliveries.create({contractId:this.data.signedContractId},key).then(()=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommandFor('delivery-create',this.data.signedContractId);
-   this.setData({busy:false});
-   this.loadPlatformDelivery();
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});
-   if((err&&err.code)!==-1)this.platformDropCommandFor('delivery-create',this.data.signedContractId);
-   this.setData({deliveryError:PF.errorMessageSales(err)});
-  });
- },
- platformAdvanceDelivery(e){
-  const node=e.currentTarget.dataset.node;
-  if(this.data.busy||!this.data.delivery||!this.__deliveryId)return;
-  const idx=this.data.delivery.nodes.findIndex(n=>n.key===node);
-  if(idx>this.data.delivery.nextIndex)return wx.showToast({title:'请按顺序推进交付节点',icon:'none'});
-  const key=this.platformCommandFor('dv-'+node,this.data.signedContractId);
-  const gen=this.__loadGen=(this.__loadGen||0)+1,sessionGen=this.__http.sessionGeneration(),postKey=this.__postKey;
-  this.setData({busy:true,deliveryError:''});
-  this.platformSalesApi().deliveries.advance(this.__deliveryId,node,key).then(()=>{
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.platformDropCommandFor('dv-'+node,this.data.signedContractId);
-   this.setData({busy:false});
-   this.loadPlatformDelivery();
-  }).catch(err=>{
-   if(this.handle401(err,sessionGen))return;
-   if(this.stale(gen,sessionGen,postKey))return;
-   this.setData({busy:false});
-   if((err&&err.code)!==-1)this.platformDropCommandFor('dv-'+node,this.data.signedContractId);
-   this.setData({deliveryError:PF.errorMessageSales(err)});
   });
  },
  loadPlatformProgress(){
@@ -601,7 +562,7 @@ Page({
    this.setData({progressContracts:cards});
    const signed=cards.find(c=>c.status==='SIGNED');
    if(!signed)return;
-   api.deliveries.get(signed.id).then(d=>{if(!this.stale(gen,sessionGen,postKey)){this.__deliveryId=d.id;this.setData({progressDelivery:PF.deliveryView(d)});}}).catch(()=>{});
+   api.deliveries.get(signed.id).then(d=>{if(!this.stale(gen,sessionGen,postKey)){this.setData({progressDelivery:PF.deliveryView(d)});}}).catch(()=>{});
   }).catch(()=>{});
  },
  platformPromote(e){
