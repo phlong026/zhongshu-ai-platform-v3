@@ -5,9 +5,12 @@
         <h1>公司公告</h1>
         <p>发布后，员工可在小程序“我的 → 公司公告”查看。</p>
       </div>
-      <el-button v-if="canWrite" type="primary" :disabled="busy" @click="createDraft">
-        {{ pendingCreate ? '继续确认草稿' : '新建公告' }}
-      </el-button>
+      <div class="announcement-actions">
+        <el-button v-if="ready" :disabled="busy" @click="openPostPicker">切换工作身份</el-button>
+        <el-button v-if="canWrite" type="primary" :disabled="busy" @click="createDraft">
+          {{ pendingCreate ? '继续确认草稿' : '新建公告' }}
+        </el-button>
+      </div>
     </header>
 
     <section class="announcement-panel">
@@ -49,9 +52,9 @@
           <el-button v-else link type="primary" @click="load">重新加载</el-button>
         </template>
       </el-alert>
-      <p v-if="ready && !canWrite" class="read-only-note"
-        >当前工作身份可查看公告，发布和修改由总部管理员处理。</p
-      >
+      <p v-if="ready && !canWrite" class="read-only-note">
+        当前工作身份可查看公告。编辑和发布请选择「总部管理员」。
+      </p>
       <el-table v-loading="loading" :data="rows" row-key="id" empty-text="暂无符合条件的公告">
         <el-table-column label="公告" min-width="250">
           <template #default="{ row }">
@@ -121,6 +124,7 @@
 
     <el-dialog v-model="postPickerOpen" title="选择公告工作身份" width="min(560px, 94vw)">
       <div v-loading="postPickerBusy">
+        <p class="read-only-note">请选择「总部管理员」来新建、编辑和发布公告。</p>
         <el-alert v-if="postPickerError" :title="postPickerError" type="error" :closable="false" />
         <el-button
           v-for="post in postChoices"
@@ -232,6 +236,9 @@
           >
           <p v-if="selected.summary" class="preview-summary">{{ selected.summary }}</p>
           <div class="announcement-body">{{ selected.content || '正文尚未填写' }}</div>
+          <p v-if="canWrite && selected.status === 'PUBLISHED'" class="read-only-note">
+            已发布公告撤回后可编辑，修改完成后可再次发布。
+          </p>
         </article>
       </div>
       <template #footer>
@@ -342,6 +349,7 @@ let active = true
 let loadedScope = ''
 let listSequence = 0
 let detailSequence = 0
+let promptedForPost = false
 const actorId = () => identity.currentPost?.userId ?? user.getUser.id
 const scope = () =>
   JSON.stringify([
@@ -456,6 +464,10 @@ const load = async () => {
     needsPost.value = postErrors.includes(code)
     if (code === 401 || needsPost.value) clearPrivateState()
     listError.value = errorMessage(error, '公告加载失败，请重试。')
+    if (code === 1103000001 && !promptedForPost) {
+      promptedForPost = true
+      await openPostPicker()
+    }
   } finally {
     if (current(captured) && sequence === listSequence) loading.value = false
   }
@@ -719,6 +731,16 @@ onBeforeUnmount(() => {
 .announcement-heading h1 {
   margin: 0;
   font-size: 24px;
+}
+
+.announcement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.announcement-actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .announcement-heading p,
