@@ -59,7 +59,7 @@ module.exports = function (page, api) {
       const s=result.summary,entryRows=BookView.bookRows(result.entries),book=books.find(b=>b.scope===scope);
       const projectId = String(scope).startsWith('project:') ? Accounting.id(String(scope).slice(8)) : '';
       const accounting = result.accounting && projectId ? Accounting.view(result.accounting,projectId) : null;
-      this.setData({bookLoading:false,bookResult:result,workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
+      this.setData({bookLoading:false,bookResult:{...result,employeeScopeIncomplete:!Array.isArray(result.reimbursementIds)},workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
         bookFlowTab:this.data.bookFlowTab||'cash',bookSummary:BookView.summary(s),
         bookAccounting:accounting,bookAccountingUrl:projectId?'/pages/admin/accounting/index?projectId='+encodeURIComponent(projectId):'',
         bookNet:BookView.money(Number(s.received_cents)+Number(s.expense_refunded_cents)-Number(s.paid_cents)-Number(s.refunded_cents)),bookCost:BookView.money(s.committed_cents),bookEntryDetail:null,bookCollectionUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=collection',bookMaterialsUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=materials',bookExpensesUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=expenses'});this.filterBookEntries();this.updateBookEmployees();
@@ -67,8 +67,10 @@ module.exports = function (page, api) {
   };
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
-    const ids=new Set((this.data.bookResult?.reimbursementIds||[]).map(String));
-    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+    const book=this.data.bookResult;
+    const hasFullScope=Array.isArray(book?.reimbursementIds);
+    const ids=new Set((hasFullScope?book.reimbursementIds:(this.data.bookEntryRows||[]).filter(r=>r.type==='ADVANCE').map(r=>r.id)).map(String));
+    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>book&&ids.has(String(hasFullScope?r.id:r.origin_payment_id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
   };
   page.changeBookFlowTab=function(e){this.setData({bookFlowTab:e.currentTarget.dataset.tab});this.filterBookEntries();};
   page.openBookEntry=function(e){const key=e.currentTarget.dataset.key;const entry=(this.data.bookEntryRows||[]).find(r=>r.key===key);if(entry)this.setData({bookEntryDetail:entry});};

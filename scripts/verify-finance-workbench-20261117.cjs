@@ -240,3 +240,23 @@ for(const transition of ['book','company','post'])test(`employee balances cannot
  assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[second.payable_id]);
  assert.equal(h.page.data.bookEmployeeRows[0].remaining,8000);
 });
+
+test('employee balances distinguish old ledger responses from a confirmed empty full scope',async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.data.bookFlowTab='employee';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const first=employeeFacts[0],books=[{scope:'project:11',name:'兼容账本'}];
+ const entry={id:first.origin_payment_id,type:'ADVANCE',date:'2026-11-27',amount_cents:10000,name:'原垫付',status:'已核实'};
+ let ledger=employeeLedger('project:11',undefined,[entry]);delete ledger.reimbursementIds;
+ h.http.get=async url=>url.endsWith('/ledger')?ledger:url.endsWith('/books')?books:url.endsWith('/reimbursements')?structuredClone(employeeFacts):[];
+ const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]);
+ const renderBook=()=>flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
+ const hasText=value=>renderBook().map(n=>n.text||'').join('').includes(value);
+ await h.page.loadWorkbench();await h.page.loadBookLedger();
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[first.payable_id]);
+ assert.equal(h.page.data.bookResult.employeeScopeIncomplete,true);
+ assert(hasText('较早记录可能未列出'));
+ ledger=employeeLedger('project:11',[],[entry]);
+ await h.page.loadBookLedger();assert.equal(h.page.data.bookEmployeeRows.length,0);
+ assert.equal(h.page.data.bookResult.employeeScopeIncomplete,false);
+ assert(!hasText('较早记录可能未列出'));
+ assert(hasText('暂无员工往来'));
+});
