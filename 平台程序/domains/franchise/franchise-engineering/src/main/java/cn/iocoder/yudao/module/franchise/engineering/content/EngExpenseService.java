@@ -4,6 +4,8 @@ import cn.iocoder.yudao.module.franchise.api.EngineeringLedgerQueryPort;
 import cn.iocoder.yudao.module.franchise.api.EngineeringPayablePort;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseDO;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngExpenseMapper;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngClosureDO;
+import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngClosureMapper;
 import cn.iocoder.yudao.module.franchise.engineering.dal.FrEngProjectDO;
 import cn.iocoder.yudao.module.franchise.org.FranchiseCommands;
 import cn.iocoder.yudao.module.platform.org.PostSnapshot;
@@ -47,6 +49,8 @@ public class EngExpenseService {
 
     @Resource
     private FrEngExpenseMapper expenses;
+    @Resource
+    private FrEngClosureMapper closures;
     @Resource
     private EngProjectService projectService;
     @Resource
@@ -94,10 +98,13 @@ public class EngExpenseService {
     public Map<String, Object> terms(PostSnapshot post, long expenseId, TermsCommand cmd, String idempotencyKey) {
         FrEngExpenseDO expense = expenses.lockByCompany(post.orgId(), expenseId);
         if (expense == null || expense.getCompanyId() != post.orgId()
-                || FrEngExpenseDO.STATUS_CANCELLED.equals(expense.getStatus())) {
+                || !FrEngExpenseDO.STATUS_REGISTERED.equals(expense.getStatus())) {
             throw exception(ENGINEERING_INPUT_INVALID, "费用不存在或已取消");
         }
-        FrEngProjectDO project = projectService.requireOwned(post, expense.getProjectId(), "expenses");
+        FrEngProjectDO project = projectService.requireOwned(post, expense.getProjectId(), "expense-terms");
+        if (!canCompleteTerms(expense, closures.selectByProject(post.orgId(), expense.getProjectId()))) {
+            throw exception(ENGINEERING_INPUT_INVALID, "仅可补齐归档前已登记原费用的付款资料");
+        }
         // R1 P2-4：replay 与 record 共用同一 canonical（LinkedHashMap 固定键序）
         var canonical = new java.util.LinkedHashMap<String, Object>();
         canonical.put("expenseId", expenseId);
@@ -206,10 +213,11 @@ public class EngExpenseService {
      */
     public List<Map<String, Object>> listByProject(PostSnapshot post, long projectId) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
-        boolean full = EngProjectService.isFinanceOrAbove(post)
-                || post.userId() == project.getManagerUserId()
+        boolean own = post.userId() == project.getManagerUserId()
                 || (project.getAssignedEngineerUserId() != null
                         && post.userId() == project.getAssignedEngineerUserId());
+        boolean full = EngProjectService.isFinanceOrAbove(post) || own;
+        FrEngClosureDO closure = own ? closures.selectByProject(post.orgId(), projectId) : null;
         return expenses.selectByProject(post.orgId(), projectId).stream()
                 .map(e -> {
                     Map<String, Object> row = new LinkedHashMap<>();
@@ -220,8 +228,15 @@ public class EngExpenseService {
                     if (full) {
                         row.put("amountCents", e.getAmountCents());
                         row.put("payableId", e.getPayableId() == null ? "" : String.valueOf(e.getPayableId()));
+                        row.put("canCompleteTerms", own && e.getPayableId() == null && canCompleteTerms(e, closure));
                     }
                     return row;
                 }).toList();
+    }
+
+    private static boolean canCompleteTerms(FrEngExpenseDO expense, FrEngClosureDO closure) {
+        return FrEngExpenseDO.STATUS_REGISTERED.equals(expense.getStatus())
+                && (closure == null || closure.getArchivedAt() == null
+                    || expense.getCreateTime() != null && !expense.getCreateTime().isAfter(closure.getArchivedAt()));
     }
 }
