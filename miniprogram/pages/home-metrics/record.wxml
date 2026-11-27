@@ -1,5 +1,19 @@
 <brand-header title="{{title}}" back="{{true}}"/>
-<view class="detail-page"><view wx:if="{{row}}" class="detail-summary">
+<view class="detail-page"><block wx:if="{{budget}}">
+ <view class="detail-summary"><text class="detail-heading">{{budget.customerName}} · {{budget.title}}</text><view class="detail-number">{{budget.total}}</view>
+  <text class="detail-note">归档版本 V{{budget.version}} · 原单 {{budget.id}}</text><text class="detail-note">归档日期　{{budget.date||'未记录'}}</text>
+  <text class="detail-note">本页只读显示本版归档资料。参考预算及其确认记录不代表第六步「别墅报价」已完成，正式报价在该步骤单独办理。</text>
+  <text wx:if="{{budget.incomplete}}" class="detail-note">本版未记录完整总额，不按当前价格重新测算。</text>
+  <text wx:if="{{budget.subtotal}}" class="detail-note">归档已计价部分　{{budget.subtotal}}</text>
+  <text wx:for="{{budget.basis}}" wx:key="label" class="detail-note">{{item.label}}　{{item.value}}</text>
+ </view>
+ <view wx:for="{{budget.groups}}" wx:key="index" class="detail-summary"><text class="detail-heading">{{item.name}} · {{item.category}}</text><text class="detail-note">归档金额　{{item.amount}}</text><text wx:if="{{item.subtotal}}" class="detail-note">归档已计价部分　{{item.subtotal}}</text>
+  <view wx:for="{{item.lines}}" wx:for-item="line" wx:key="index"><text class="detail-note">{{line.name}} · {{line.status}} · {{line.quantity}} · {{line.amount}}</text></view>
+ </view>
+ <view class="detail-summary"><text wx:if="{{!budget.groups.length}}" class="detail-note">本版未保存可读取的分项明细，仅展示已有归档内容。</text><text wx:if="{{budget.missing}}" class="detail-note">归档待补项　{{budget.missing}}</text>
+  <text class="detail-note">{{budget.confirmation}}</text><text wx:if="{{budget.confirmationNote}}" class="detail-note">{{budget.confirmationNote}}</text>
+ </view>
+</block><view wx:elif="{{row}}" class="detail-summary">
   <text class="detail-heading">{{row.title}}</text><view class="detail-number">¥{{row.original}}</view>
   <text class="detail-note">状态　{{row.status}}</text><text class="detail-note">单号　{{row.id}}</text>
   <text class="detail-note">业务日期　{{row.date||'未约定'}}</text><text class="detail-note">{{row.description}}</text>
