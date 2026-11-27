@@ -140,7 +140,7 @@ public class FinWorkbenchService {
         long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,id);
         commands.record(post,"fin-payable",id,revision,"fin-payable-assign",input,key);
     }
-    /** 三种范围共享一个原单集合；历史空归属仍明确为待归属，不混入公司日常账。 */
+    /** 三种范围共享原单集合。原费用确认即计成本，挂应付后由原应付承接；现金明细继续取实际收付原单。 */
     static String cte() { return """
         WITH chosen AS (SELECT id,company_id,source_commission_id,sale_contract_id FROM fr_eng_project WHERE company_id=? AND id=?),
         qs AS (SELECT q.* FROM fr_fin_payable q WHERE q.company_id=? AND (
@@ -148,6 +148,10 @@ public class FinWorkbenchService {
           OR q.project_id=? OR (q.project_id IS NULL AND q.book_id IS NULL AND q.source_type='design' AND split_part(q.source_ref,':',1) IN(SELECT source_commission_id::text FROM chosen))
           OR (q.project_id IS NULL AND q.book_id IS NULL AND q.source_type='reimbursement' AND EXISTS(SELECT 1 FROM fr_fin_payment a JOIN fr_fin_payable b ON b.id=a.payable_id AND b.company_id=a.company_id WHERE a.id::text=q.source_ref AND a.company_id=q.company_id AND b.source_type='design' AND split_part(b.source_ref,':',1) IN(SELECT source_commission_id::text FROM chosen)))
           OR (? AND q.project_id IS NULL AND q.book_id IS NULL AND (q.source_type='manual' OR (q.source_type='reimbursement' AND EXISTS(SELECT 1 FROM fr_fin_payment a JOIN fr_fin_payable b ON b.id=a.payable_id AND b.company_id=a.company_id WHERE a.id::text=q.source_ref AND a.company_id=q.company_id AND b.project_id IS NULL AND b.book_id IS NULL AND b.source_type='manual')))))),
+        engineering_expenses AS (SELECT e.* FROM fr_eng_expense e JOIN chosen p ON p.company_id=e.company_id AND p.id=e.project_id),
+        confirmed_cost AS (
+          SELECT (SELECT COALESCE(sum(total_cents),0) FROM qs WHERE NOT deleted AND source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废')
+            + (SELECT COALESCE(sum(amount_cents),0) FROM engineering_expenses WHERE status='REGISTERED' AND payable_id IS NULL) AS cents),
         rs AS (SELECT r.* FROM fr_fin_receipt r WHERE r.company_id=? AND NOT r.deleted AND r.status='已登记' AND (
           r.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=r.company_id AND (id=? OR project_id=?)) OR r.project_id=?
           OR EXISTS(SELECT 1 FROM fr_sale_stage_receipt s JOIN chosen c ON c.sale_contract_id=s.contract_id WHERE s.receipt_id=r.id AND s.company_id=r.company_id)
@@ -186,7 +190,7 @@ public class FinWorkbenchService {
               (SELECT COALESCE(sum(amount_cents),0) FROM ms WHERE funding_type='COMPANY') AS paid_cents,
               (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='client') AS refunded_cents,
               (SELECT COALESCE(sum(amount_cents),0) FROM fs WHERE refund_direction='expense' AND funding_type='COMPANY') AS expense_refunded_cents,
-              (SELECT COALESCE(sum(total_cents),0) FROM qs WHERE NOT deleted AND source_type IS DISTINCT FROM 'reimbursement' AND status<>'已作废') AS committed_cents,
+              (SELECT cents FROM confirmed_cost) AS committed_cents,
               (SELECT cents FROM payable_balance) AS outstanding_cents
             """,args);
         var entries=jdbc.queryForList(cte()+"SELECT e.id::text,e.type,e.date,e.amount_cents,e.name,e.category,e.source_ref,e.status,q.id::text AS payable_id,             COALESCE(q.source_type,r.source_type) source_type,COALESCE(q.recipient,r.counterparty) counterparty,             COALESCE(m.account_name,r.account_name) account_name,COALESCE(m.transaction_no,r.transaction_no,f.transaction_no) transaction_no,             COALESCE(m.voucher_file_id,r.voucher_file_id,f.voucher_file_id)::text voucher_file_id,             COALESCE(m.funding_type,f.funding_type,'COMPANY') funding_type, (SELECT c.payload::jsonb#>>'{supplement,note}' FROM pf_command_event c WHERE c.domain='franchise' AND c.org_id=COALESCE(m.company_id,r.company_id,f.company_id) AND c.aggregate_id=e.id AND c.aggregate_type='fin-supplement-'||CASE WHEN e.type='RECEIPT' THEN 'receipt' WHEN e.type IN ('PAYMENT','ADVANCE') THEN 'payment' ELSE 'refund' END AND NULLIF(trim(c.payload::jsonb#>>'{supplement,note}'),'') IS NOT NULL ORDER BY c.revision DESC LIMIT 1) note             FROM entries e LEFT JOIN ms m ON e.type IN ('PAYMENT','ADVANCE') AND m.id=e.id             LEFT JOIN qs q ON q.id=CASE WHEN e.type='PAYABLE' THEN e.id ELSE m.payable_id END             LEFT JOIN rs r ON e.type='RECEIPT' AND r.id=e.id             LEFT JOIN fs f ON e.type IN ('REFUND','EXPENSE_REFUND') AND f.id=e.id             ORDER BY e.date DESC NULLS LAST,e.id DESC LIMIT 500",args);
