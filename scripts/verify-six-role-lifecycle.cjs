@@ -25,29 +25,21 @@ function harness() {
   const page = { ...definition, data: structuredClone(definition.data), setData(patch) { for (const [key, value] of Object.entries(patch)) { const keys = key.split('.'); let target = this.data; for (const segment of keys.slice(0, -1)) target = target[segment] ||= {}; target[keys.at(-1)] = value; } } };
   return { page, api, calls, http, post, switchPost() { generation++; }, setContext(value) { context = value; } };
 }
-const context = (budgetVersion = 1, ruleVersion = 2) => ({ customerId: '9007199254741001', latestBudget: { version: budgetVersion, width: 12, depth: 15, floors: 2, area: 360 },
-  feeOffer: { mode: 'AREA_FULL', ruleVersion, area: 360, rateCents: 1000, totalCents: 360000, firstCents: 0, tailCents: 0, scope: '施工图', recipient: '总部' }, allowedActions: ['commission-submit'] });
-test('new customer uses context, version update keeps draft and forces reconfirmation', async () => {
-  const h = harness(); h.setContext(context()); h.page.onLoad({ view: 'submit', customerId: '9007199254741001' });
-  await h.page.refresh(); assert.equal(h.calls[0][0], 'context'); assert.equal(h.page.id, '');
-  h.page.data.form.text = '保留用户已填需求'; h.page.data.form.checked = true;
-  h.setContext(context(2, 3)); await h.page.refresh(false);
-  assert.equal(h.page.data.form.text, '保留用户已填需求'); assert.equal(h.page.data.form.checked, false);
-  assert.equal(h.page.data.form.__budgetVersion, 2); assert.equal(h.page.data.form.__pricingVersion, 3);
+const originalPacket = id => ({commission:{id,customerId:'9007199254741001',customerName:'历史客户',status:'HANDOVER_SUBMITTED',workflowMode:'LEGACY'},submissions:[],handovers:[],progress:[],dispatches:[],allowedActions:['packet-receive']});
+test('legacy packet commands retain the exact original commission ID',async()=>{
+  const h=harness(),id='9007199254741999';h.post.roleCode='engineer';h.setContext({commission:originalPacket(id)});
+  h.page.onLoad({view:'receive',commissionId:id});await h.page.onShow();
+  assert.equal(h.page.action,'packet-receive');h.page.data.form.checked=true;
+  await h.page.submit();const command=h.calls.find(row=>row[0]==='command');
+  assert.equal(command[1],id);assert.equal(command[2],'packet-receive');assert.deepEqual({...command[3]},{confirmed:true});
+  assert.equal(h.calls.some(row=>row[0]==='submit'),false);
 });
-test('submit uses customerId and subsequent commands use returned opaque commissionId', async () => {
-  const h = harness(); h.setContext(context()); h.page.onLoad({ view: 'submit', customerId: '9007199254741001' }); await h.page.refresh();
-  h.page.data.form.text = 'TEST ONLY'; h.page.data.form.checked = true; h.page.refresh = () => {};
-  await h.page.submit(); assert.equal(h.page.id, '9007199254741999'); assert.equal(h.calls.find(c => c[0] === 'submit')[1], '9007199254741001');
-  h.page.action = 'design-complete'; h.page.data.form.checked = true; await h.page.submit();
-  assert.equal(h.calls.find(c => c[0] === 'command')[1], '9007199254741999');
-});
-test('old session command response never changes new session state', async () => {
-  const h = harness(); h.setContext(context()); h.page.onLoad({ view: 'submit', customerId: '9007199254741001' }); await h.page.refresh();
-  let finish; h.api.commissions.submit = () => new Promise(resolve => { finish = resolve; });
-  h.page.data.form.text = 'TEST ONLY'; h.page.data.form.checked = true;
-  const pending = h.page.submit(); h.switchPost(); h.page.data.form.text = '新身份内容'; finish({ commissionId: 'old-id' }); await pending;
-  assert.equal(h.page.id, ''); assert.equal(h.page.data.form.text, '新身份内容'); assert.equal(h.page.view, 'submit');
+test('old session packet response never changes the next identity state',async()=>{
+  const h=harness(),id='9007199254741999';h.post.roleCode='engineer';h.setContext({commission:originalPacket(id)});
+  h.page.onLoad({view:'receive',commissionId:id});await h.page.onShow();
+  let finish;h.api.commissions.command=()=>new Promise(resolve=>{finish=resolve;});h.page.data.form.checked=true;
+  const pending=h.page.submit();h.switchPost();h.page.data.form.note='新身份内容';finish({});await pending;
+  assert.equal(h.page.id,id);assert.equal(h.page.data.form.note,'新身份内容');assert.equal(h.page.view,'receive');
 });
 test('HQ detail reload stays commission-scoped rather than using CRM customer context', async () => {
   const h = harness(); h.setContext({ commission: { commissionId: 'c1', commission: { id: 'c1', customerId: 'customer1', status: 'DESIGNING' }, submissions: [], handovers: [], progress: [], dispatches: [], allowedActions: [] } });

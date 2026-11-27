@@ -45,11 +45,12 @@ test('finance home, books and shared profile switch inside one page and preserve
  p.__financeLoadedIdentity='';p.switchWorkspaceTab({key:'finance-home'});assert.equal(coldLoads,1);post.roleCode='sales';assert.equal(p.switchWorkspaceTab({key:'profile'}),false);
  const tabs=require('../miniprogram/utils/organization').navigation({active:true,loggedIn:true,role:'finance',orgType:'store'}).tabs;assert.equal(tabs.length,3);assert(tabs.every(t=>!t.native&&t.url.startsWith('/pages/admin/finance-desk/index')));
 });
-test('requirements inherit recorded scheme fields without confusing entrance, house, image orientation or population',()=>{
- const inherited=Brief.inherit({customerName:'王先生',latestBudget:{payload:JSON.stringify({configSnapshot:{orientation:'PORTRAIT',entranceOrientation:'SOUTH',rooms:{bedroom:5,living:3,bath:2},style:'现代'}})}}).brief;
- assert.equal(inherited.entranceDirection,'南');assert.equal(inherited.orientation,'');assert.equal(inherited.entranceAligned,'');assert.equal(inherited.householdMembers,'');assert.equal(inherited.bedrooms,'5');assert.deepEqual(inherited.rooms,['卧室','客厅']);assert.deepEqual(inherited.styleRefs,['现代']);
- assert.equal(Brief.inherit({}, {...inherited,bedrooms:'4'}).brief.bedrooms,'4');
- assert.equal(Brief.inherit({latestBudget:{payload:'bad json'}}).brief.orientation,'');
+test('historical brief reads only the frozen snapshot and keeps distinct orientation and population fields',()=>{
+ const brief={projectName:'原委托',orientation:'南',entranceDirection:'东',householdMembers:'5',rooms:['卧室','客厅'],styleRefs:['现代']};
+ const frozen=Brief.snapshot({schemeSnapshot:JSON.stringify({designBrief:brief})});
+ assert.deepEqual(frozen,brief);assert.match(Brief.summary(frozen),/房屋朝向：南/);
+ assert.match(Brief.summary(frozen),/常住人口：5/);assert.equal(Brief.snapshot({schemeSnapshot:'bad json'}),null);
+ assert.equal(Brief.snapshot({schemeSnapshot:JSON.stringify({configSnapshot:{orientation:'PORTRAIT'}})}),null,'unfrozen scheme fields cannot be invented as historical requirements');
 });
 test('completed text and parsed source tasks never become generated videos',()=>{
  for(const kind of ['copy','asr','link_parse']){
@@ -128,17 +129,16 @@ test('sales navigation has four native destinations, while engineer keeps its wo
  const eng=O.navigation({active:true,loggedIn:true,role:'engineer',orgType:'store'});assert(eng.tabs.some(t=>t.url==='/pages/build/home/index'));
 });
 function commission(prepare,contextOverride={}){
- let definition;const file=path.resolve('miniprogram/pages/workflow/commission/index.js');const nativeRequire=require('node:module').createRequire(file);let opened;
+ let definition;const file=path.resolve('miniprogram/pages/workflow/commission/index.js');const nativeRequire=require('node:module').createRequire(file);let opened;const navigation={open:url=>opened=url};let redirect;const module={exports:{}};vm.runInNewContext(fs.readFileSync(path.resolve('miniprogram/pages/workflow/commission/external-entry.js'),'utf8'),{module,require:()=>navigation});redirect=module.exports;
  const api={commissions:{context:async()=>({customerId:'100',customerName:'验收客户',city:'武汉',canPrepareBudget:prepare,allowedActions:[],latestBudget:null,commission:null,...contextOverride})}};
- vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:d=>definition=d,require:id=>id.endsWith('api/http')?{sessionGeneration:()=>1,requestGuard:()=>()=>true,token:()=>true}:id.endsWith('api/auth')?{currentApiPost:()=>({postId:'1',userId:'10',orgId:'1',orgType:'store',roleCode:'sales'})}:id.endsWith('api/franchise/commission')?api:id.endsWith('utils/page-navigation')?{open:url=>opened=url}:nativeRequire(id),console,wx:{showToast(){}}});
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:d=>definition=d,require:id=>id.endsWith('api/http')?{sessionGeneration:()=>1,requestGuard:()=>()=>true,token:()=>true}:id.endsWith('api/auth')?{currentApiPost:()=>({postId:'1',userId:'10',orgId:'1',orgType:'store',roleCode:'sales'})}:id.endsWith('api/franchise/commission')?api:id.endsWith('utils/page-navigation')?navigation:id==='./external-entry'?redirect:nativeRequire(id),console,wx:{showToast(){}}});
  const p={...definition,data:structuredClone(definition.data),setData(patch){Object.assign(this.data,patch)}};p.onLoad({view:'submit',customerId:'100'});
  return {p,getOpened:()=>opened};
 }
-test('retained legacy submit renderer never grants permission merely because budget preparation is available',async()=>{
- const {p,getOpened}=commission(true);await p.refresh(false);assert.equal(p.data.customer.name,'验收客户');assert.equal(p.data.budgetCard,true);assert.equal(p.data.canPrepareBudget,true);assert.equal(p.data.primary,'');assert.equal(p.action,'');p.completeBudget();assert.equal(getOpened(),'/pages/workflow/index?view=budget&id=100');
-});
-test('retained legacy renderer blocks a readonly customer from the budget write entry',async()=>{
- const {p,getOpened}=commission(false);await p.refresh(false);p.completeBudget();assert.equal(getOpened(),undefined);assert.equal(p.data.canPrepareBudget,false);assert(p.data.submitBlockedReason);
+for(const prepare of [true,false])test('old submit link follows external registration without a legacy budget form (canPrepareBudget='+prepare+')',async()=>{
+ const {p,getOpened}=commission(prepare);await p.onShow();
+ assert.equal(getOpened(),'/pages/external-entrust/index?customerId=100');
+ assert.equal(p.data.customer,null);assert.equal(p.action,undefined);assert.equal(p.data.primary,'');
 });
 test('returning to a historical simulated commission only opens read-only progress',async()=>{
  const detail={commission:{id:'200',customerId:'100',customerName:'验收客户',status:'DESIGNING',submissionVersion:1},submissions:[],allowedActions:['commission-simulate-pay'],simulatedPayment:{status:'PENDING',amountCents:240000}};

@@ -1,7 +1,7 @@
 /**
  * 设计委托页展示映射层（API 态）：
  * 后端 /franchise/commissions、/franchise/design-policies DTO → 页面 data 键
- * （customer/rows/fields/form/pricingQuote 及设计行政工作台视图）。
+ * （customer/rows/fields/form/pricingQuote 及历史原单资料）。
  * 按 R03 冻结的 CommissionDetail / CommissionSummary / context 映射，保留已有展示键。
  * 不含本地持久化、模拟支付与 sample-files 假文件逻辑。
  */
@@ -11,14 +11,9 @@ const Status = require('../../../utils/status-labels').commission;
 const money = cents => Money.money(cents, { symbol: false });
 const today = () => require('../../../utils/account').localDate();
 
-/** 视图 → API 动作（与 api/franchise/commission.js 注释的命令枚举一致；submit 走独立提交端点） */
-const ACTIONS = { submit: 'commission-submit', feedback: 'commission-feedback', complete: 'design-complete', dispatch: 'design-dispatch', handover: 'packet-submit', receive: 'packet-receive' };
-const FILTERS = ['全部', Status.designing, Status.modifying, Status.pay, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
-const FILTER_STATUSES = { [Status.designing]:'DESIGNING', [Status.modifying]:'MODIFYING', '设计与修改':'DESIGNING,MODIFYING',
-  [Status.pay]:'FEE_PENDING,FEE_RETURNED', [Status.dispatch]:'DESIGN_COMPLETED', [Status.handover]:'DISPATCHED,HANDOVER_RETURNED',
-  [Status.receive]:'HANDOVER_SUBMITTED', [Status.dispatched]:'ACCEPTED' };
-const STATUS_ORDER = { [Status.modifying]: 0, [Status.designing]: 1, [Status.pay]: 2, [Status.dispatch]: 3, [Status.handover]: 4, [Status.receive]: 5, [Status.dispatched]: 6 };
-const KNOWN_VIEWS = ['progress', 'submit', 'complete', 'dispatch', 'handover', 'receive'];
+/** 历史单仅保留仍可办理的原移交命令。 */
+const ACTIONS = { handover: 'packet-submit', receive: 'packet-receive' };
+const KNOWN_VIEWS = ['progress', 'handover', 'receive'];
 
 const url = (id, view = 'progress') => '/pages/workflow/commission/index?view=' + view + '&commissionId=' + encodeURIComponent(id);
 
@@ -42,11 +37,6 @@ function centsOf(obj, ...names) {
     if (y !== undefined && y !== null && y !== '') return Math.round(Number(y) * 100) || 0;
   }
   return null;
-}
-/** 金额回填表单（元字符串）；无值返回 '' */
-function formMoney(obj, ...names) {
-  const cents = centsOf(obj, ...names);
-  return cents == null ? '' : String(cents / 100);
 }
 function calendarDate(value) {
   if (Array.isArray(value) && value.length === 3) return value.map((n, i) => i ? String(n).padStart(2, '0') : String(n)).join('-');
@@ -174,21 +164,6 @@ function canDo(c, view) {
   return !!actionFor(view) && c.allowedActions.indexOf(actionFor(view)) >= 0;
 }
 
-/** 工作台项目状态（设计行政七态口径） */
-function statusOf(c) {
-  const status = { FEE_PENDING: Status.pay, FEE_RETURNED: Status.pay, DESIGNING: Status.designing, DESIGN_COMPLETED: Status.dispatch, DISPATCHED: Status.handover, HANDOVER_SUBMITTED: Status.receive, HANDOVER_RETURNED: Status.handover, ACCEPTED: Status.dispatched }[c.status];
-  if (status) return status;
-  const fb = c.feedbacks[c.feedbacks.length - 1];
-  if (c.acceptance) return Status.dispatched;
-  if (c.handover) return c.handover.status === 'returned' ? Status.handover : Status.receive;
-  if (!c.request || (c.fee && (['pending', 'pending-approval', 'pending_approval', 'approving', 'returned'].includes(c.fee.status)))) return Status.pay;
-  if (fb && fb.status === 'pending') return Status.modifying;
-  if (!c.completed) return Status.designing;
-  if (!c.dispatch) return Status.dispatch;
-  return Status.handover;
-}
-
-/* ---- 展示行 ---- */
 function feeNotice(c) {
   if(c.simulatedPayment)return '历史模拟记录不计实际收支；实际付款由财务登记流水和凭证';
   if (!c.request) return '提交委托后费用按授权规则执行；到账登记由财务在财务工作台办理';
@@ -260,29 +235,6 @@ function rowsFor(c, n) {
 
 /* ---- 表单 ---- */
 function formInit(c, view) {
-  const requestVersion = (c.request && c.request.version) || 0;
-  const version = 'V' + (requestVersion + c.feedbacks.length + 1);
-  if (view === 'submit') {
-    const basis = c.request && c.request.basis;
-    const form = {
-      text: (c.request && c.request.text) || '',
-      scope: (c.request && c.request.scope) || (c.fee && c.fee.quote && c.fee.quote.scope) || '',
-      attachment: (c.request && c.request.attachment) || null,
-      checked: false
-    };
-    if (basis) form.__budgetVersion = basis.version;
-    if (c.fee && c.fee.quote) form.__pricingVersion = c.fee.quote.pricingVersion;
-    form.__mode = c.fee && c.fee.mode;
-    if (c.fee && c.fee.mode === 'LEGACY_SPLIT') {
-      form.total = String(c.fee.totalCents / 100);
-      form.first = String(c.fee.firstCents / 100);
-      form.recipient = c.fee.recipient || '';
-    }
-    return form;
-  }
-  if (view === 'complete') return { note: '', drawingVersion: version, recipient: c.owner, checked: false };
-  if (view === 'feedback') return { note: '', attachment: null };
-  if (view === 'dispatch') return { recipient: c.owner, drawingVersion: version, note: '', checked: false };
   if (view === 'handover') {
     const prior = c.packet && c.dispatch && c.packet.dispatchVersion === c.dispatch.version ? c.packet : null;
     const p = prior || c.dispatch || {};
@@ -307,29 +259,6 @@ function formInit(c, view) {
 function fieldsFor(c, view, can, canReturn = can) {
   const fields = [];
   const add = (key, label, kind = 'input', locked = false) => fields.push({ key, label, kind, locked });
-  const hasSplit = !!(c.fee && c.fee.mode === 'LEGACY_SPLIT');
-  if (view === 'submit' && can) {
-    add('text', '客户设计需求', 'textarea');
-    if (hasSplit) {
-      add('scope', '本次交付范围', 'textarea');
-      add('total', '设计服务总额（元）', 'money');
-      add('first', '首款金额（元，余款为尾款）', 'money');
-      add('recipient', '总部实际收款方');
-    }
-    add('attachment', '需求附件（选填）', 'file');
-    add('checked', hasSplit ? '已核对需求、尺寸来源、范围及首尾款约定' : '已核对需求、尺寸来源、交付范围及费用授权规则', 'check');
-  }
-  if (view === 'complete' && can) { add('note', '线下完成说明（选填）', 'textarea'); add('checked', '本次设计及内部专业审核已完成', 'check'); }
-  if (view === 'feedback' && can) add('note', '需线下沟通的修改意见', 'textarea');
-  if (view === 'dispatch' && can) {
-    add('recipient', '实际成果接收人');
-    add('drawingVersion', '本次施工图版本');
-    add('resultFile', '正式设计成果', 'file');
-    add('drawingFile', '本版施工图', 'file');
-    add('reviewFile', '对应版本专业审核依据', 'file');
-    add('note', '实际交付清单、渠道及说明', 'textarea');
-    add('checked', '本次正式成果已经实际下发', 'check');
-  }
   if (view === 'handover' && can) {
     const locked = true;
     add('resultFile', '正式设计成果', 'file', locked);
@@ -357,116 +286,8 @@ function quoteOf(c) {
   return { area: q.area, rateText: money(q.rateCents), amountText: money(q.amountCents), scope: q.scope, recipient: q.recipient };
 }
 
-/* ---- 设计行政工作台（commissions.page 列表 → 首页/项目视图） ---- */
-function statusDetail(status, n) {
-  if (status === Status.modifying) return '客户新增修改意见 · 待继续设计';
-  if (status === Status.designing) return '核对需求与资料 · 待登记设计完成';
-  if (status === Status.pay) return (n.detail || n.roleState || n.state) + ' · 下一位：' + n.owner;
-  if (status === Status.dispatch) return '设计完成 · 登记正式成果下发';
-  if (status === Status.handover) return '正式成果已下发 · 待经办业务移交';
-  if (status === Status.receive) return '业务已移交 · 待工程负责人接收';
-  return '正式成果与移交记录可查';
-}
-function actionLabel(status) {
-  if (status === Status.modifying) return '处理修改';
-  if (status === Status.designing) return '查看委托';
-  if (status === Status.dispatch) return '上传并下发';
-  if (status === Status.dispatched) return '查看记录';
-  return '查看进度';
-}
-function latestEvent(c, actions) {
-  return (c.events || [])
-    .filter(e => actions.indexOf(String(e && e.action)) >= 0)
-    .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
-}
-function eventTime(at) {
-  const date = new Date(at);
-  if (Number.isNaN(date.getTime())) return '';
-  return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
-}
-function recentRows(list) {
-  if (!Array.isArray(list)) throw Error('办理记录加载失败');
-  return list.map(row => {
-    if (typeof row?.commissionId !== 'string' || !/^\d+$/.test(row.commissionId)
-      || typeof row.customerName !== 'string' || typeof row.handledAt !== 'string'
-      || !['COMPLETE','DISPATCH'].includes(row.kind) || !eventTime(row.handledAt)) throw Error('办理记录加载失败');
-    return { id:row.commissionId, name:row.customerName, initial:String(row.customerName || '项').slice(0,1),
-      url:url(row.commissionId,'progress'), recentWhen:eventTime(row.handledAt),
-      recentText:row.kind === 'DISPATCH' ? '成果已下发' : '已登记设计完成' };
-  });
-}
-function workbench(list, statusCounts) {
-  const rows = list.filter(c => c.commissionId).map(c => {
-    const n = stateOf(c), status = statusOf(c);
-    const actionable = !!(n.actionable && ['complete', 'dispatch'].indexOf(n.view) >= 0);
-    const event = latestEvent(c, ['design-complete', 'design-dispatch']);
-    return {
-      id: c.id,
-      projectId: c.projectId || c.id,
-      name: c.name,
-      initial: String(c.name || '项').slice(0, 1),
-      city: c.city,
-      company: c.company || '',
-      owner: c.owner || '',
-      status,
-      tone: status === Status.dispatched || status === Status.dispatch ? 'done' : [Status.pay, Status.handover, Status.receive].indexOf(status) >= 0 ? 'waiting' : '',
-      state: n.state,
-      detail: statusDetail(status, n),
-      nextOwner: n.owner,
-      url: url(c.commissionId, 'progress'),
-      actionUrl: url(c.commissionId, actionable ? n.view : 'progress'),
-      action: actionLabel(status),
-      actionable,
-      recentAt: (event && event.at) || '',
-      recentWhen: event ? eventTime(event.at) : '',
-      recentText: event ? (event.action === 'design-dispatch' ? '成果已下发' : '已登记设计完成') : ''
-    };
-  }).sort((a, b) => (STATUS_ORDER[a.status] || 0) - (STATUS_ORDER[b.status] || 0) || String(a.name).localeCompare(String(b.name), 'zh-CN'));
-  const counts = {};
-  FILTERS.forEach(label => { counts[label] = label === '全部' ? rows.length : rows.filter(r => r.status === label).length; });
-  if (statusCounts) FILTERS.forEach(label => {
-    counts[label] = (label === '全部' ? Object.keys(statusCounts) : FILTER_STATUSES[label].split(','))
-      .reduce((sum, status) => sum + Number(statusCounts[status] || 0), 0);
-  });
-  const byRecency = rows.slice().sort((a, b) => String(b.recentAt || '').localeCompare(String(a.recentAt || '')));
-  const actionable = byRecency.filter(r => r.actionable);
-  const tasks = actionable.map((r, index) => ({ ...r, url: r.actionUrl, primary: index === 0 }));
-  const recent = byRecency.filter(r => r.recentAt).slice(0, 5);
-  const metrics = [
-    { label: '设计与修改', value: counts[Status.designing] + counts[Status.modifying], filter: '设计与修改', icon: '/assets/home-design-icon.png' },
-    { label: Status.pay, value: counts[Status.pay], filter: Status.pay, icon: '/assets/money.png' },
-    { label: Status.dispatch, value: counts[Status.dispatch], filter: Status.dispatch, icon: '/assets/contract.png' },
-    { label: '全部项目', value: counts['全部'], filter: '全部', icon: '/assets/folder.png' }
-  ];
-  return { rows, counts, tasks, taskCount: actionable.length, recent, metrics, filters: FILTERS.map(label => ({ label, count: counts[label] })) };
-}
-function paginate(list, keyword = '', filter = '全部', limit = 20) {
-  const query = String(keyword || '').trim().toLowerCase();
-  const filtered = (list || []).filter(c => c.commissionId).filter(c => {
-    const status = statusOf(c), n = stateOf(c);
-    const statusOk = filter === '全部' || (filter === '设计与修改' ? [Status.designing, Status.modifying].indexOf(status) >= 0 : status === filter);
-    if (!statusOk) return false;
-    if (!query) return true;
-    return [c.name, c.projectId, c.company, c.owner, c.city].join(' ').toLowerCase().includes(query);
-  }).map(c => {
-    const n = stateOf(c), status = statusOf(c);
-    const actionable = !!(n.actionable && ['complete', 'dispatch'].indexOf(n.view) >= 0);
-    return {
-      id: c.id, name: c.name, city: c.city, status, company: c.company || '', owner: c.owner || '',
-      tone: status === Status.dispatched || status === Status.dispatch ? 'done' : [Status.pay, Status.handover, Status.receive].indexOf(status) >= 0 ? 'waiting' : '',
-      detail: statusDetail(status, n),
-      url: url(c.commissionId, actionable ? n.view : 'progress')
-    };
-  });
-  const size = Math.max(20, Number(limit) || 20);
-  return { rows: filtered.slice(0, size), total: filtered.length, hasMore: filtered.length > size };
-}
-function dateLabel(date = today()) {
-  const value = new Date(date + 'T00:00:00');
-  return (value.getMonth() + 1) + '月' + value.getDate() + '日 周' + '日一二三四五六'[value.getDay()];
-}
 function errorMessage(err) {
   return (err && (err.message || err.msg)) || '网络异常，请稍后重试';
 }
 
-module.exports = { ACTIONS, FILTERS, FILTER_STATUSES, url, normalize, stateOf, actionFor, canDo, statusOf, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, formMoney, workbench, recentRows, paginate, dateLabel, errorMessage };
+module.exports = { ACTIONS, url, normalize, stateOf, actionFor, canDo, rowsFor, packageRows, formInit, fieldsFor, quoteOf, feeNotice, errorMessage };

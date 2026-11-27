@@ -1328,50 +1328,6 @@
     "transparent": false
   },
   {
-    "asset": "../pages/workflow/assets/biz-facade-reference.jpg",
-    "source": "05C_立面设计配置.jpg",
-    "crop": [
-      65,
-      482,
-      343,
-      695
-    ],
-    "transparent": false
-  },
-  {
-    "asset": "../pages/workflow/assets/biz-facade-1.jpg",
-    "source": "05D_立面候选选用.jpg",
-    "crop": [
-      74,
-      795,
-      779,
-      1148
-    ],
-    "transparent": false
-  },
-  {
-    "asset": "../pages/workflow/assets/biz-facade-2.jpg",
-    "source": "05D_立面候选选用.jpg",
-    "crop": [
-      74,
-      1252,
-      779,
-      1569
-    ],
-    "transparent": false
-  },
-  {
-    "asset": "../pages/workflow/assets/biz-facade-result.jpg",
-    "source": "06B_立面方案结果.jpg",
-    "crop": [
-      62,
-      517,
-      794,
-      1013
-    ],
-    "transparent": false
-  },
-  {
     "asset": "../pages/workflow/assets/biz-timeline-dot.jpg",
     "source": "15C_业务员正式设计进度.jpg",
     "crop": [

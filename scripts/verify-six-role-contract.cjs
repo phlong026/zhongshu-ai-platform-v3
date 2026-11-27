@@ -12,11 +12,13 @@ assert.equal(c.commissionId, detail.commissionId);
 assert.equal(c.request.basis.version, 3);
 assert.equal(c.fee.mode, 'AREA_FULL');
 assert.equal(P.canDo(c, 'complete', { role: 'hq-design-admin' }), false, 'empty server actions must fail closed');
-assert.equal(P.fieldsFor(c, 'submit', true).some(f => f.key === 'first'), false, 'AREA_FULL must not become historical split');
-assert.equal(P.formInit(c, 'submit').__pricingVersion, 2);
+assert.equal(P.canDo({...c,allowedActions:['commission-submit']}, 'submit'), false, 'an old backend cannot re-enable the removed submit form');
+assert.equal(P.fieldsFor(c, 'submit', true).length, 0);
+assert.deepEqual(P.formInit(c, 'submit'), {});
+assert.equal(c.fee.quote.pricingVersion, 2, 'historical fee version is still readable');
 const summary = P.normalize({ commission: { id: 'commission-summary', customerId: 'customer-summary', status: 'DESIGNING', customerName: 'TEST ONLY' }, commissionId: 'commission-summary', displayStatus: '设计中', allowedActions: ['design-complete'] });
-assert.equal(P.workbench([summary]).rows.length, 1);
-assert.match(P.workbench([summary]).rows[0].url, /commissionId=commission-summary/);
+assert.equal(summary.commissionId, 'commission-summary');
+assert.match(P.url(summary.commissionId), /commissionId=commission-summary/);
 const frozen = P.normalize({ ...detail, commission: { ...detail.commission, dispatchSeq: 2 }, dispatches: [{ dispatchSeq: 1, resultAssetId: 'old', drawingAssetId: 'old', reviewAssetId: 'old' }, { dispatchSeq: 2, resultAssetId: 'new', drawingAssetId: 'new', reviewAssetId: 'new', drawingVersion: 'V2' }], handovers: [{ version: 1, dispatchSeq: 1, resultFile: 'old-string', confirmationFile: '{"assetId":"123","name":"确认"}', status: 'RETURNED' }] });
 assert.equal(frozen.dispatch.resultFile.dispatchSeq, 2);
 assert.equal(typeof frozen.packet.resultFile, 'object');
@@ -35,17 +37,20 @@ vm.runInNewContext(fs.readFileSync(pagePath, 'utf8'), {
   Page: definition => { page = definition; }, console
 });
 page.data.form = { __mode: 'AREA_FULL', __budgetVersion: 3, __pricingVersion: 2, text: '需求', scope: '图纸', checked: true, attachment: { assetId: '9007199254740999', path: '/private/local.pdf' } };
-let body = page.commandPayload('commission-submit');
-assert.equal(body.confirmed, true);
-assert.equal(body.checked, undefined);
-assert.equal(body.feeRuleVersion, 2);
-assert.equal(body.attachmentAssetId, '9007199254740999');
-assert.equal(JSON.stringify(body).includes('/private'), false);
-page.data.form = { recipient: '业务', drawingVersion: 'V1', note: '渠道', checked: true };
-assert.throws(() => page.commandPayload('design-dispatch'), /三份/);
-for (const key of ['resultFile', 'drawingFile', 'reviewFile']) page.data.form[key] = { assetId: '9007199254740998' };
-body = page.commandPayload('design-dispatch');
-assert.equal(body.resultAssetId, '9007199254740998');
+assert.throws(() => page.commandPayload('commission-submit'), /旧委托新增已停用/);
+let body;
+for (const [view, action] of [['feedback', 'commission-feedback'], ['complete', 'design-complete'], ['dispatch', 'design-dispatch']]) {
+  assert.equal(P.canDo({...c,allowedActions:[action]}, view), false, 'an old backend cannot re-enable retired design editing');
+  assert.equal(P.fieldsFor(c, view, true).length, 0);
+  assert.deepEqual(P.formInit(c, view), {});
+  assert.throws(() => page.commandPayload(action), /旧设计办理已停用/);
+}
+page.data.form = { drawingVersion:'原施工图 V1', confirmationDate:'2020-01-01', received:true, confirmed:true, note:'原文件交底',
+  confirmationFile:{assetId:'9007199254740998'}, managerUserId:'9007199254740997', dispatchVersion:2 };
+body = page.commandPayload('packet-submit');
+assert.equal(body.confirmationAssetId, '9007199254740998');
+assert.equal(body.managerUserId, '9007199254740997');
+assert.equal(body.dispatchSeq, 2);
 assert.equal(body.confirmed, true);
 const receiptBody = require('../miniprogram/pages/admin/finance-desk/design-finance').receiptBody;
 const form = { amount: '1.23', receivedDate: '2020-01-01', transactionNo: 'TEST ONLY' };

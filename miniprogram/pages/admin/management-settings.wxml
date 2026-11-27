@@ -32,7 +32,7 @@
 <view class="owner-card"><view class="owner-heading"><text>报价规则</text></view>
 <view class="owner-readonly-row"><text class="owner-muted">价目表内报价</text><text>自动通过，无需逐单审批</text></view>
 <view class="owner-readonly-row"><text class="owner-muted">价目表外报价</text><text>需老板确认</text></view>
-<button class="owner-link" bindtap="openDesignPolicy">标准设计费用<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
+<button class="owner-link" bindtap="openDesignPolicy">历史设计费用规则<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
 </view>
 <view class="owner-card"><view class="owner-heading"><text>资金闸门</text></view>
 <view class="owner-readonly-row"><text class="owner-muted">钱没到不开工</text><text>开启：开工款收齐才可登记开工</text></view>

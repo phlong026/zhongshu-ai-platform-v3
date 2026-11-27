@@ -1,5 +1,5 @@
 /**
- * 加盟协同域 · 设计委托（M2 主链后段，对应后端 /franchise/design-policies、/franchise/commissions）。
+ * 历史设计委托读取、费用复核与原移交办理。
  */
 const http = require('../http');
 
@@ -8,43 +8,28 @@ function keyHeader(idempotencyKey) {
 }
 
 const policies = {
-  /** 本门店当前有效的标准设计费用 */
-  current: () => http.get('/franchise/design-policies/current'),
-  /** 保存标准设计费用（每次保存一个新版本） */
-  save: (data) => http.post('/franchise/design-policies', data)
+  /** 本门店原标准设计费用，只读 */
+  current: () => http.get('/franchise/design-policies/current')
 };
 
 const commissions = {
-  simulatePay: () => Promise.reject(new Error('实体费用请在外部付款后登记流水和凭证')),
   simulatedReceipt: id => http.get('/franchise/commissions/'+id+'/simulated-payment-receipt'),
   historicalSettlement: (id, data, idempotencyKey) =>
     http.post('/franchise/commissions/' + id + '/historical-settlement', data, keyHeader(idempotencyKey)),
   context: customerId => http.get('/franchise/customers/' + customerId + '/commission-context'),
   receivers: id => http.get('/franchise/commissions/' + id + '/handover-receivers'),
   downloadTicket: (id, seq, slot) => http.post('/franchise/commissions/' + id + '/dispatches/' + seq + '/files/' + slot + '/download-tickets'),
-  /** 提交 / 重提委托 */
-  submit: (customerId, data, idempotencyKey) =>
-    http.post('/franchise/customers/' + customerId + '/commission', data, keyHeader(idempotencyKey)),
   /** 分页列表 */
   page: (pageNo, pageSize, keyword, statuses) =>
     http.get('/franchise/commissions', Object.assign({ pageNo, pageSize }, keyword ? { keyword } : {}, statuses ? { statuses } : {})),
-  workbenchCounts: () => http.get('/franchise/commissions/workbench-counts'),
-  workbenchRecent: () => http.get('/franchise/commissions/workbench-recent'),
   /** 详情（含 allowedActions 与显示状态） */
   get: (id) => http.get('/franchise/commissions/' + id),
-  /** 老板审批费用 {approve, note} */
-  feeDecide: (id, data, idempotencyKey) =>
-    http.post('/franchise/commissions/' + id + '/fee-decision', data, keyHeader(idempotencyKey)),
-  /**
-   * 委托命令：design-complete / design-dispatch / commission-feedback /
-   * packet-submit / packet-return / packet-receive
-   */
+  /** 原移交命令：packet-submit / packet-return / packet-receive */
   command: (id, action, data, idempotencyKey) =>
     http.post('/franchise/commissions/' + id + '/commands/' + action, data, keyHeader(idempotencyKey))
 };
 
 const pricing = {
-  current: () => http.get('/franchise/design-pricing-policies/current'),
-  save: (data, idempotencyKey) => http.post('/franchise/design-pricing-policies', data, keyHeader(idempotencyKey))
+  current: () => http.get('/franchise/design-pricing-policies/current')
 };
 module.exports = { policies, pricing, commissions };

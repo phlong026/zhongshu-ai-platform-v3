@@ -71,7 +71,7 @@ function entries(a) {
     if (a.role === 'project-manager') return [{ text:'工程项目', url:'/pages/build/projects/index', icon:'/assets/account-shop.jpg' }];
   }
   if (require('../../utils/access').isBoss(a)) return [{ text: '我的团队', url: '/pages/admin/detail/index?view=team' }];
-  if (a.role === 'hq-design-admin' && a.orgType === 'headquarters') return [{ text: '设计费计价设置', url: '/pages/workflow/commission/index?view=pricing' }];
+  if (a.role === 'hq-design-admin' && a.orgType === 'headquarters') return [{ text: '历史设计计价规则', url: '/pages/workflow/commission/index?view=pricing' }];
   const team = a.api ? null : TEAM[a.role];
   if (['finance','finance-lead'].includes(a.role)) return (team ? [{ text: team[0], url: '/pages/admin/index?view=' + team[1] }] : []).concat([{ text:'项目回款提成', url:'/pages/admin/commission/index?from=finance-profile', icon:'/assets/management-receipt.jpg' }]);
   // the business lead also hands customers over between salespeople (single or batch) from here

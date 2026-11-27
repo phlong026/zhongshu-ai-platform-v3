@@ -5,8 +5,8 @@ function receipt(record){
  const c=(wx.getStorageSync(require('./storage-keys').business)?.customers||[]).find(c=>c.id===source.customerId&&c.designOrganizationId===a.companyId);
  if(!c)return null;
  const ready=T.condition(c,source.stage).ready;
- if(require('./sales-flow').is(c)){
-  const next=require('./sales-flow').next(c);
+ if(require('./commission-history').is(c)){
+  const next=require('./commission-history').next(c);
   return {title:'设计业务衔接',rows:[{type:'row',label:'本期核对结果',value:ready?'本期款项已足额核对':'本期款项尚未足额核对'},{type:'row',label:'当前办理岗位',value:next.owner},{type:'notice',value:next.state},{type:'notice',value:'待办随有效到账和线下办理结果自动更新；线下设计由设计行政安排。'}]};
  }
  const state=!ready?'本期款项尚未足额核对，设计待办继续等待':source.stage==='first'?c.assignment?'已指定对接设计师，进入设计办理':'正式设计已就绪，待总部设计负责人指定设计师':c.release?'本版正式成果已下发':'尾款条件已满足，待授权设计人员正式下发';
