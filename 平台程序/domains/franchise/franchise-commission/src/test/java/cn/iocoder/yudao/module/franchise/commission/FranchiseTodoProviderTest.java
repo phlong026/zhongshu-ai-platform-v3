@@ -73,7 +73,6 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     private PostSnapshot boss;
     private PostSnapshot engineer;
     private PostSnapshot finance;
-    private PostSnapshot designAdmin;
 
     @BeforeEach
     void organization() {
@@ -83,7 +82,7 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
         boss = fixture.post(store.orgId(), BOSS, null);
         engineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
         finance = fixture.post(store.orgId(), FINANCE, null);
-        designAdmin = fixture.post(fixture.headquarters(), DESIGN_ADMIN, null);
+        // 设计行政岗位已退役（模板与角色已删），不再有在岗任职；残留断言改用直接构造的身份
     }
 
     @Test
@@ -202,85 +201,28 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
     }
 
     @Test
-    void bossApprovesFeeWithAmountAndDesignAdminTakesOver() {
+    void legacyCommissionNoLongerProducesAnyCommissionTodos() {
         long customerId = customerWithBudget();
         var detail = as(salesA1, () -> commissions.submit(salesA1, customerId,
                 new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
                         new BigDecimal("400000"), "总部财务", 1, null, null, true), commandKey()));
         long id = detail.commission().getId();
 
-        // 老板看到带金额的可办理审批；设计行政看不到费用审批
-        List<TodoItem> bossTodos = todos(boss);
-        assertThat(bossTodos).filteredOn(t -> t.key().equals("franchise:fee-approve:" + id))
-                .singleElement().satisfies(t -> {
-                    assertThat(t.actionable()).isTrue();
-                    assertThat(t.amountCents()).isEqualTo(75_000_000L);
-                    assertThat(t.appPath()).isEqualTo(path("progress", id));
-                });
-        assertTodoPath(salesA1, "fee-pending:" + id, "progress", id, false);
-        assertThat(todos(designAdmin)).extracting(TodoItem::key).doesNotContain("franchise:fee-approve:" + id);
-
-        as(boss, () -> commissions.feeDecide(boss, id, new FeeDecisionCommand(true, "同意"), commandKey()));
-        as(finance, () -> seedFirst(id, 1, finance));
-
-        // 设计行政：首款就绪 → 确认设计完成
-        assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-complete:" + id + ":1");
-        assertTodoPath(designAdmin, "design-complete:" + id + ":1", "complete", id, true);
-        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), commandKey()));
-        assertTodoPath(salesA1, "tail-follow:" + id, "progress", id, true);
-        as(finance, () -> seedTailPaid(id, 1, finance));
-        as(finance, () -> seedTailReady(id, 1, finance));
-
-        // 设计行政：尾款就绪 → 下发成果；业务侧同步出现跟进尾款/移交待办
-        assertThat(todos(designAdmin)).extracting(TodoItem::key).contains("franchise:design-dispatch:" + id + ":1");
-        assertTodoPath(designAdmin, "design-dispatch:" + id + ":1", "dispatch", id, true);
-        as(designAdmin, () -> commissions.dispatch(designAdmin, id,
-                new DispatchCommand("成果交付", "总部设计行政", true,"TEST-V1",101L,102L,103L), commandKey()));
-        assertThat(todos(salesA1)).extracting(TodoItem::key).contains("franchise:handover-prepare:" + id);
-        assertTodoPath(salesA1, "handover-prepare:" + id, "handover", id, true);
+        // 设计岗位退役：LEGACY 委托的推进服务保留（存量数据只读），但不再产生任何委托待办触达岗位
+        for (PostSnapshot viewer : List.of(salesA1, boss, finance)) {
+            assertThat(todos(viewer)).extracting(TodoItem::key).doesNotContain(
+                    "franchise:fee-approve:" + id, "franchise:fee-pending:" + id,
+                    "franchise:design-complete:" + id, "franchise:design-dispatch:" + id,
+                    "franchise:tail-follow:" + id, "franchise:handover-prepare:" + id);
+        }
     }
 
-    @Test
-    void handoverShowsReviewForManagerOnly() {
-        long id = commissionDispatched();
-        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), commandKey()));
-
-        assertThat(todos(engineer)).extracting(TodoItem::key)
-                .contains("franchise:handover-review:" + id + ":1");
-        assertThat(todos(salesA1)).extracting(TodoItem::key)
-                .contains("franchise:handover-waiting:" + id + ":1");
-        assertTodoPath(engineer, "handover-review:" + id + ":1", "receive", id, true);
-        assertTodoPath(salesA1, "handover-waiting:" + id + ":1", "progress", id, false);
-        PostSnapshot otherEngineer = fixture.post(store.orgId(), ENGINEER, store.engineeringTeam());
-        assertThat(todos(otherEngineer)).extracting(TodoItem::key)
-                .doesNotContain("franchise:handover-review:" + id + ":1");
-
-        var engineerTodos = todos(engineer);
-        assertThat(engineerTodos.stream().filter(t -> t.key().startsWith("franchise:handover-review"))
-                .allMatch(TodoItem::actionable)).isTrue();
-
-        as(engineer, () -> handovers.receive(engineer, id, new DecisionCommand(null, true), commandKey()));
-        assertThat(todos(engineer)).extracting(TodoItem::key)
-                .doesNotContain("franchise:handover-review:" + id + ":1");
+    /** 模板与角色已随退役删除，测试内以直接构造的身份代表已退役的设计行政（仅走 service 层） */
+    private PostSnapshot designAdminDirect() {
+        return new PostSnapshot(fixture.headquarters(), 701L, 7L, "headquarters", DESIGN_ADMIN, null, false, java.util.Set.of());
     }
 
-    @Test
-    void returnedFeesAndPacketsKeepRealCommissionIdAndWritableView() {
-        long customerId = customerWithBudget();
-        long feeId = as(salesA1, () -> commissions.submit(salesA1, customerId,
-                new SubmitCommand("两层乡墅", "方案", null, new BigDecimal("750000"),
-                        new BigDecimal("400000"), "总部财务", 1, null, null, true), commandKey()))
-                .commission().getId();
-        assertThat(feeId).isNotEqualTo(customerId);
-        as(boss, () -> commissions.feeDecide(boss, feeId, new FeeDecisionCommand(false, "核对范围"), commandKey()));
-        assertTodoPath(salesA1, "fee-returned:" + feeId + ":1", "submit", feeId, true);
 
-        long packetId = commissionDispatched();
-        as(salesA1, () -> handovers.submit(salesA1, packetId, packet(engineer.userId()), commandKey()));
-        as(engineer, () -> handovers.returnPacket(engineer, packetId,
-                new DecisionCommand("补充交底", true), commandKey()));
-        assertTodoPath(salesA1, "handover-returned:" + packetId + ":1", "handover", packetId, true);
-    }
 
     @Test
     void pendingLeadsShowAsActionableOnlyForManagersAndBoss() {
@@ -301,43 +243,10 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
                 .singleElement().satisfies(TodoItem::actionable);
     }
 
-    @Test
-    void todoServiceSortsActionableFirstAndDeduplicates() {
-        long id = commissionDispatched();
-        as(salesA1, () -> handovers.submit(salesA1, id, packet(engineer.userId()), commandKey()));
-
-        var list = as(engineer, () -> todoService.list(engineer));
-        assertThat(list.items()).isNotEmpty();
-        assertThat(list.actionableCount()).isPositive();
-        // 可办理的排在不可办理的前面
-        boolean seenInactive = false;
-        for (TodoItem item : list.items()) {
-            if (!item.actionable()) {
-                seenInactive = true;
-            } else {
-                assertThat(seenInactive).as("actionable 待办应排在前面: " + item.key()).isFalse();
-            }
-        }
-        assertThat(list.failedDomains()).isEmpty();
-    }
 
     // ===================== 工具 =====================
 
     /** 走标准费用路径把委托推到已下发 */
-    private long commissionDispatched() {
-        long customerId = customerWithBudget();
-        as(boss, () -> policies.save(boss,
-                new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
-        var detail = as(salesA1, () -> commissions.submit(salesA1, customerId, submit(), commandKey()));
-        long id = detail.commission().getId();
-        as(finance, () -> seedFirst(id, 1, finance));
-        as(designAdmin, () -> commissions.complete(designAdmin, id, new CompleteCommand("完成", true), commandKey()));
-        as(finance, () -> seedTailPaid(id, 1, finance));
-        as(finance, () -> seedTailReady(id, 1, finance));
-        as(designAdmin, () -> commissions.dispatch(designAdmin, id,
-                new DispatchCommand("成果交付", "总部设计行政", true,"TEST-V1",101L,102L,103L), commandKey()));
-        return id;
-    }
 
     private long customerWithBudget() {
         CaptureResult captured = capture(salesA1);

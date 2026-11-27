@@ -310,34 +310,6 @@ class SixRoleCommissionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id IN (?,?)",Long.class,store.orgId(),design.orgId())).isEqualTo(receiptsBefore);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isEqualTo(1);
     }
-    @Test void oldClientPaymentMarkerCreatesOnlyFormalPayablesAndReplaysSafely() {
-        var store=fixture.store();
-        var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
-        var design=fixture.post(fixture.headquarters(),"hq-design-admin",null);
-        var policy=as(design,()->pricing.save(design,new DesignPricingService.Save(100,"方案图纸","总部设计",true),key()));
-        var controller=new cn.iocoder.yudao.module.franchise.commission.controller.admin.CommissionController(
-                commissions,handovers,currentPost);
-        for (boolean testOrganizations : new boolean[]{false,true}) {
-            simulations.configureSimulationOrganizations(testOrganizations?store.orgId()+","+design.orgId():"");
-            long customer=createCustomer(sales);
-            var budget=saveBudget(sales,customer);
-            var oldClient=new cn.iocoder.yudao.module.franchise.commission.controller.admin.CommissionController.SubmitReq(
-                    "完整需求","方案图纸",null,null,null,null,budget.getVersion(),null,null,true,
-                    "AREA_FULL",policy.version(),null,null,null,null,"SIMULATION");
-            String submitKey=key();
-            var first=as(sales,()->controller.submit(customer,oldClient,submitKey).getData());
-            var replay=as(sales,()->controller.submit(customer,oldClient,submitKey).getData());
-            long id=first.commissionId();
-            assertThat(replay.commissionId()).isEqualTo(id);
-            assertThat(first.simulatedPayment()).isNull();
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_commission_simulated_order WHERE commission_id=?",Long.class,id)).isZero();
-            assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE company_id=? AND source_type='design' AND source_ref=?",
-                    Long.class,store.orgId(),id+":1:FULL")).isEqualTo(20000L);
-            assertError(()->as(design,()->commissions.complete(design,id,new CommissionService.CompleteCommand("完成",true),key())),
-                    FIRST_PAYMENT_NOT_READY);
-        }
-    }
-
     @Test void historicalDeliveryRequiresPerOrderRealSettlementBeforeAccessAndHandover() {
         var store=fixture.store();
         var sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
