@@ -74,8 +74,16 @@ class DepartureContinuityIntegrationTest extends CommissionPgIntegrationTest {
     private PostSnapshot salesB;
     private PostSnapshot boss;
 
+
     @BeforeEach
     void organization() {
+        // 设计岗位退役（V20261127.1201）删除了模板行；LEGACY 委托推进回归仍需该岗位任职，恢复模板夹具，随 LEGACY 服务端退役批一并移除。
+        jdbc.update("""
+                INSERT INTO pf_post_template (role_code, domain, org_types, line, lead, inherits_role_code)
+                VALUES ('hq-designer','franchise','headquarters,store','design',FALSE,NULL),
+                       ('hq-design-lead','franchise','headquarters,store','design',TRUE,'hq-designer'),
+                       ('hq-design-admin','franchise','headquarters','design',FALSE,NULL)
+                ON CONFLICT DO NOTHING""");
         store = fixture.store();
         salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
         salesB = fixture.post(store.orgId(), SALES, store.salesTeamB());
