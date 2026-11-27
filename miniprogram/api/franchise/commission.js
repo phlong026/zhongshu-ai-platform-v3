@@ -17,6 +17,8 @@ const policies = {
 const commissions = {
   simulatePay: () => Promise.reject(new Error('实体费用请在外部付款后登记流水和凭证')),
   simulatedReceipt: id => http.get('/franchise/commissions/'+id+'/simulated-payment-receipt'),
+  historicalSettlement: (id, data, idempotencyKey) =>
+    http.post('/franchise/commissions/' + id + '/historical-settlement', data, keyHeader(idempotencyKey)),
   context: customerId => http.get('/franchise/customers/' + customerId + '/commission-context'),
   receivers: id => http.get('/franchise/commissions/' + id + '/handover-receivers'),
   downloadTicket: (id, seq, slot) => http.post('/franchise/commissions/' + id + '/dispatches/' + seq + '/files/' + slot + '/download-tickets'),

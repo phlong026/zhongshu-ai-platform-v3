@@ -22,6 +22,7 @@ Page({
   ...require('./payment-flow')({http,commissions:API.commissions,paymentView}), ...makeFormHandlers(),
   data: { projectLoading:false,projectReady:false,projectError:'',countsLoading:false,countsError:'',todosLoading:false,todosReady:false,todosError:'',recentLoading:false,recentReady:false,recentError:'',exporting:false,orderSheet:null,hasOrderSheet:false, designBrief:{},briefSections:[],briefSummary:'',orderCustomer:{},designBriefEnabled:false,submitPreview:false,briefStorageError:'',title: '设计委托', view: 'progress', customer: null, fields: [], form: {}, rows: [], tasks: [], taskCount: 0, metrics: [], recent: [], projectRows: [], projectFilters: [], projectCounts: {}, projectTotal: 0, projectHasMore: false, keyword: '', projectFilter: '全部', error: '', busy: false, primary: '', canReturn: false, canPrepareBudget:false,submitBlockedReason:'',budgetCard: false, budgetReady: false, budgetBasis: null, budgetNotice: '', pricingQuote: null, isComplete: false, platformStatus: 'loading', adminName: '', adminDate: '', preview: null, simulationPhase:'',simulationUncertain:false,simulationError:'',paymentNotice:'',paymentChoiceRequired:false,simulationAllowed:false,paymentMerchant:'' },
   onLoad(options) {
+    this.__settlementCommand = null;
     this.disposed = false; this.options = options || {}; this.customerId = options.customerId || ''; this.id = options.commissionId || options.id || '';
     if (!this.customerId && options.view === 'submit' && !options.commissionId) { this.customerId = this.id; this.id = ''; }
     this.__byCustomer = !!this.customerId;
@@ -45,6 +46,9 @@ Page({
   cmdKey(action) { this.__cmdKeys = this.__cmdKeys || {}; if (!this.__cmdKeys[action]) this.__cmdKeys[action] = commandKey(action); return this.__cmdKeys[action]; },
   dropCmdKey(action) { if (this.__cmdKeys) delete this.__cmdKeys[action]; },
   failState(message) {
+    this.__settlementCommand = null;
+    this.dropCmdKey('historical-settlement');
+    this.setData({settlementNote:'',settlementPending:false,busy:false});
     this.__recentRequest = this.__todosRequest = null;
     this.setData({recentLoading:false,recentReady:false,recentError:'',todosLoading:false,todosReady:false,todosError:''});
     this.__projectRequest = null; this.__countsRequest = null;
@@ -58,6 +62,8 @@ Page({
     if (!post) return this.failState('请先登录后端账号');
     const identity = String(post.postId) + ':' + http.sessionGeneration();
     if (this.__identity && this.__identity !== identity) {
+      this.__settlementCommand = null;
+      this.setData({settlementNote:'',settlementPending:false});
       this.__projectRequest = null; this.__list = []; this.__projectPage = 0; this.__projectLoaded = 0;
       this.__countsRequest = this.__todosRequest = this.__recentRequest = null;
       this.setData({projectRows:[],projectTotal:0,projectHasMore:false,projectLoading:false,projectReady:false,projectError:'',countsLoading:false,countsError:'',todosLoading:false,todosReady:false,todosError:'',recentLoading:false,recentReady:false,recentError:'',projectFilters:[],tasks:[],taskCount:0,metrics:[],recent:[]});
@@ -76,9 +82,63 @@ Page({
     return this.refreshCommission(alive, reset);
   },
   async refreshReceipt(alive){
-    this.setData({title:'历史模拟记录',view:'receipt',platformStatus:'loading',error:'',primary:'',fields:[],rows:[],designBriefEnabled:false,customer:null,paymentOrder:null});
-    try{const order=await API.commissions.simulatedReceipt(this.id);if(!alive()||this.disposed)return;this.setData({platformStatus:'ready',paymentOrder:paymentView(order),customer:{name:order.customerName}});}
-    catch(e){if(alive()&&!this.disposed)this.setData({platformStatus:'degraded',error:Presentation.errorMessage(e)});}
+    if(this.__settlementCommand&&this.settlementCurrent(this.__settlementCommand))return;
+    this.__settlementCommand=null;
+    const previous=this.data.paymentOrder;
+    this.setData({title:'历史模拟记录',view:'receipt',platformStatus:'loading',error:'',primary:'',fields:[],rows:[],designBriefEnabled:false,customer:null,paymentOrder:null,busy:false});
+    try{const order=await API.commissions.simulatedReceipt(this.id);if(!alive()||this.disposed)return;
+      if(String(order.commissionId)!==String(this.id))throw Error('历史记录与当前委托不一致，请重新进入');
+      const same=previous&&String(previous.commissionId)===String(order.commissionId)&&previous.submissionVersion===order.submissionVersion;
+      this.setData({platformStatus:'ready',paymentOrder:paymentView(order),customer:{name:order.customerName},settlementNote:same?this.data.settlementNote||'':'',settlementPending:false,
+        canViewHistoricalPayments:this.__post?.orgType==='store'&&['finance','finance-lead'].includes(this.__post.roleCode)});}
+    catch(e){if(alive()&&!this.disposed){
+      if(e?.postInvalid||[401,403,1111000000,1111000001].includes(Number(e?.code)))return this.failState(Presentation.errorMessage(e));
+      this.setData({platformStatus:'degraded',error:Presentation.errorMessage(e)});
+    }}
+  },
+  settlementInput(e){
+    if(this.data.busy||this.__settlementCommand)return;
+    this.setData({settlementNote:e.detail.value,error:''});
+  },
+  settlementCurrent(command){
+    const post=this.post();
+    return !this.disposed&&this.view==='receipt'&&this.__settlementCommand===command&&String(this.id)===command.id&&post
+      &&command.identity===String(post.postId)+':'+http.sessionGeneration();
+  },
+  async prepareHistoricalSettlement(){
+    if(this.data.busy||this.view!=='receipt')return;
+    let command=this.__settlementCommand;
+    if(!command){
+      const order=this.data.paymentOrder,post=this.post(),note=String(this.data.settlementNote||'').trim();
+      if(this.data.platformStatus!=='ready'||!order?.canPrepareHistoricalSettlement||!post
+          ||this.__identity!==String(post.postId)+':'+http.sessionGeneration())return;
+      if(!note||note.length>500)return this.setData({error:'请填写历史费用核对说明（500字以内）'});
+      command={id:String(this.id),identity:this.__identity,key:this.cmdKey('historical-settlement'),
+        body:{submissionVersion:order.submissionVersion,reviewNote:note}};
+      this.__settlementCommand=command;
+    }
+    if(!this.settlementCurrent(command))return this.refresh(false);
+    this.setData({busy:true,error:''});
+    try{
+      await API.commissions.historicalSettlement(command.id,command.body,command.key);
+      if(!this.settlementCurrent(command))return;
+      this.__settlementCommand=null;this.dropCmdKey('historical-settlement');
+      this.setData({busy:false,settlementPending:false,settlementNote:''});
+      wx.showToast({title:'历史费用已复核',icon:'success'});
+      return this.refresh(false);
+    }catch(e){
+      if(!this.settlementCurrent(command))return;
+      if(e?.postInvalid||[401,403,1111000000,1111000001].includes(Number(e?.code)))return this.failState(Presentation.errorMessage(e));
+      const uncertain=e&&(e.code===-1||e.code>=500&&e.code<600);
+      if(!uncertain){this.__settlementCommand=null;this.dropCmdKey('historical-settlement');}
+      this.setData({busy:false,settlementPending:!!uncertain,error:uncertain?'未收到复核确认，请重试原提交':Presentation.errorMessage(e)});
+    }
+  },
+  openHistoricalPayments(){
+    const post=this.post();
+    if(!this.data.busy&&this.data.paymentOrder?.historicalSettlementPrepared&&post?.orgType==='store'
+        &&['finance','finance-lead'].includes(post.roleCode)&&this.__identity===String(post.postId)+':'+http.sessionGeneration())
+      Nav.open('/pages/admin/finance-desk/index?view=design-fees');
   },
   async refreshRecent(parentAlive = () => true) {
     if (!this.workbenchActive() || this.view !== 'admin') return;
@@ -239,6 +299,7 @@ Page({
       : Presentation.stateOf(c);
     const action = Presentation.actionFor(view);
     const can = !this.historyOnly && !!action && Presentation.canDo(c, view, actor);
+    const canReturn = !this.historyOnly && view === 'receive' && c.allowedActions.includes('packet-return');
     const basis = c.request && c.request.basis;
     const currentQuote = c.fee && c.fee.quote;
     const budgetChanged = view === 'submit' && this.initialized && ((basis && this.data.form.__budgetVersion !== basis.version) || (currentQuote && this.data.form.__pricingVersion !== currentQuote.pricingVersion));
@@ -250,7 +311,7 @@ Page({
     const paymentChoiceRequired = view === 'submit' && (simulationWithdrawn || this.data.paymentChoiceRequired);
     if (paymentChoiceRequired) form = { ...form, testPayment: false, checked: false };
     this.initialized = true;
-    const fields = Presentation.fieldsFor(c, view, can);
+    const fields = Presentation.fieldsFor(c, view, can, canReturn);
     const rows = Presentation.rowsFor(c, n).filter(row=>!(Brief.snapshot(c.request)&&row.label==='设计需求'));
     if (view === 'handover' && can) {
       try {
@@ -282,7 +343,7 @@ Page({
       pricingQuote: Presentation.quoteOf(c),
       primary: can ? (view === 'submit' && !basis ? '先完成参考预算' : labels[view]) : this.nextView ? ('继续办理') : '',
       budgetCard:view==='submit',
-      canReturn: can && view === 'receive',
+      canReturn,
       isComplete: !!c.acceptance
     });
     this.prepareBrief(c,view,can);
@@ -565,7 +626,7 @@ Page({
   choosePayment(e){if(this.data.busy||this.data.simulationPhase||this.data.simulationUncertain)return;const value=e.currentTarget.dataset.channel;if(['WECHAT','ALIPAY'].includes(value)&&value!==this.data.paymentChannel){this.dropCmdKey('simulate-pay');this.setData({paymentChannel:value});}},
   simulatePayment(){return this.openSimulationPayment();},
   async returnPacket() {
-    if (this.data.busy || this.historyOnly) return;
+    if (this.data.busy || this.historyOnly || this.view !== 'receive' || !this.data.canReturn) return;
     const action = 'packet-return';
     this.setData({ busy: true, error: '' });
     const session = http.sessionGuard(), alive = () => session() && !this.disposed;
