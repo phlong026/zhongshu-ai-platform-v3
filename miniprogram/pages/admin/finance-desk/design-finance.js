@@ -33,6 +33,8 @@ function attach(page, api) {
         id: String(row.id), name: row.name || ('原单 ' + row.id), status: row.status,
         amountText: '¥' + yuan(tab === 'payables' ? row.remainingCents : row.amountCents), subtitle: row.sourceRef || '',
         dateText: row.dueDate || row.businessDate || row.receivedDate || '日期待核', detail: tab === 'payables' ? '累计应付 ¥' + yuan(row.totalCents) + ' · 已付 ¥' + yuan(row.paidCents) : '待登记原单',
+        sourceType:row.sourceType,projectId:row.projectId,bookId:row.bookId,deleted:row.deleted,
+        canAssign:tab==='payables'&&row.canAssign,
         canAdjust:!['design','reimbursement'].includes(row.sourceType),payableId: tab === 'payables' ? String(row.id) : '', canPay: tab === 'payables' && row.canPay }));
       this.setData({ rows, ready: true });
     } catch (e) { if (alive() && !this.__disposed){const patch={platformNotice:e.message||e.msg||'原单列表加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
