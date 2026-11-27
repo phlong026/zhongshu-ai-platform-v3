@@ -101,9 +101,12 @@ module.exports = function (page, api) {
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
     const book=this.data.bookResult;
-    const hasFullScope=Array.isArray(book?.reimbursementIds);
-    const ids=new Set((hasFullScope?book.reimbursementIds:(this.data.bookEntryRows||[]).filter(r=>r.type==='ADVANCE').map(r=>r.id)).map(String));
-    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>book&&ids.has(String(hasFullScope?r.id:r.origin_payment_id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+    if(!book){this.setData({bookEmployeeRows:[]});return;}
+    // Employee balances must come from the complete server-side scope, never the latest 500 cash rows.
+    // An older backend without reimbursementIds is explicitly marked incomplete by loadBookLedger;
+    // fail closed rather than silently presenting a partial list as the project's full employee balance.
+    const ids=new Set(Array.isArray(book.reimbursementIds)?book.reimbursementIds.map(String):[]);
+    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
   };
   page.changeBookFlowTab=function(e){this.setData({bookFlowTab:e.currentTarget.dataset.tab});this.filterBookEntries();};
   page.openBookEntry=function(e){const key=e.currentTarget.dataset.key;const entry=(this.data.bookEntryRows||[]).find(r=>r.key===key);if(entry)this.setData({bookEntryDetail:entry});};
