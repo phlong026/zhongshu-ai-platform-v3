@@ -320,7 +320,7 @@ public class CustomerService {
                 LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")));
     }
 
-    /** 当前岗位可办理、已保存参考预算的客户（供业务域判断是否该提交委托） */
+    /** 当前岗位可办理、已保存参考预算的客户。催办待办已随设计岗位退役下线，仅存量查询与测试使用。 */
     public List<CustomerDO> listWritableWithBudget(PostSnapshot post) {
         List<CustomerDO> writable = customerMapper.selectVisible(CustomerAccess.writableBy(post));
         Set<Long> withBudget = Set.copyOf(schemeMapper.selectCustomerIdsWithBudget(writable.stream().map(CustomerDO::getId).toList()));
