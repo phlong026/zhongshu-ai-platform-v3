@@ -1841,6 +1841,37 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     }
 
     @Test
+    void materialOverpaymentAfterCancellationCannotOffsetAnotherSuppliersDebt() {
+        as(engineer, () -> materialsService.terms(engineer,supplyId,
+                new EngMaterialService.TermsCommand("甲供货",BigDecimal.TEN,BigDecimal.ZERO,null,null,"原采购甲"),idem()));
+        long first=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,supplyId);
+        as(engineer, () -> materialsService.submitPlan(engineer,projectId,new EngMaterialService.PlanCommand(nodeId,
+                LocalDate.now(),List.of(new EngMaterialService.PlanLine("乙材料","","包",BigDecimal.ONE)),"独立供货"),idem()));
+        long secondSupply=jdbc.queryForObject("SELECT id FROM fr_eng_supply WHERE project_id=? AND id<>?",Long.class,projectId,supplyId);
+        as(engineer, () -> materialsService.terms(engineer,secondSupply,
+                new EngMaterialService.TermsCommand("乙供货",new BigDecimal("100"),BigDecimal.ZERO,null,null,"原采购乙"),idem()));
+        long second=jdbc.queryForObject("SELECT payable_id FROM fr_eng_supply WHERE id=?",Long.class,secondSupply);
+        var finance=fixture.post(store.orgId(),"finance",null);
+        as(engineer, () -> materialsService.adjust(engineer,materialId,
+                new EngMaterialService.AdjustCommand(BigDecimal.ZERO,"甲材料取消"),idem()));
+        long payment=paymentService.register(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                first,10000,LocalDate.now(),null,null));
+        financeWorkbench.adjustPayable(finance,first,idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.PayableAdjustment(0,"甲合同解除待退款",null));
+
+        var summary=as(engineer, () -> closuresService.settleSummary(engineer,projectId));
+        assertThat(summary).containsEntry("materialsTotalCents",10000L)
+                .containsEntry("materialsPaidCents",10000L).containsEntry("materialsRemainingCents",10000L);
+        assertThat(summary.get("materialsNote").toString()).contains("超过原应付","退款");
+        refundService.registerExpense(finance,idem(),new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(
+                payment,10000,"甲付款已原路退回",LocalDate.now(),null,null,null));
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer,projectId)))
+                .containsEntry("materialsPaidCents",0L).containsEntry("materialsRemainingCents",10000L)
+                .containsEntry("materialsNote","");
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?",Long.class,second)).isEqualTo(10000L);
+    }
+
+    @Test
     void invalidOriginalPayableCannotFallBackToOldMaterialProcurementCost() {
         as(engineer, () -> materialsService.terms(engineer, supplyId,
                 new EngMaterialService.TermsCommand("原供应商", BigDecimal.TEN, BigDecimal.ZERO, null, null, "原采购依据"), idem()));
