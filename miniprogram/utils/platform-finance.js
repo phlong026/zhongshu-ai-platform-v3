@@ -94,6 +94,11 @@ function metrics(receipts, payments, refunds, month) {
  * Σ(已核实付款 amount - pendingLink) - Σ(对应已核实支出退回)。
  * 与后端 EngineeringLedgerQueryAdapter / design settlement 的有效账口径一致；作废记录不参与。
  */
+function canAssignPayable(payable) {
+  return !!payable && payable.sourceType === 'manual' && payable.projectId == null
+    && payable.bookId == null && payable.status !== '已作废' && !payable.deleted;
+}
+
 function payableProgress(payables, payments, refunds) {
   if (!Array.isArray(payables)) throw new Error('应付数据不完整，请刷新重试');
   if (!Array.isArray(payments)) throw new Error('付款数据不完整，请刷新重试');
@@ -144,7 +149,7 @@ function payableProgress(payables, payments, refunds) {
     const paidCents = paidByPayable.get(String(payable.id)) || 0;
     const remainingCents = Math.max(0, totalCents - paidCents);
     return { ...payable, totalCents, paidCents, remainingCents,
-      canPay: payable.status === '进行中' && remainingCents > 0 };
+      canPay: payable.status === '进行中' && remainingCents > 0, canAssign: canAssignPayable(payable) };
   });
 }
 
@@ -211,7 +216,7 @@ function voidNoticeText(row) {
 }
 
 module.exports = {
-  pageMode, yuan, toCents, ledgerRows, metrics, payableProgress, shortcuts, filterSealedEntries, errorMessage,
+  pageMode, yuan, toCents, ledgerRows, metrics, payableProgress, canAssignPayable, shortcuts, filterSealedEntries, errorMessage,
   PAYMENT_VOID_ROLE, VOID_REASON_MAX, canVoidPayment, voidReasonError, voidNoticeText,
   SEALED
 };

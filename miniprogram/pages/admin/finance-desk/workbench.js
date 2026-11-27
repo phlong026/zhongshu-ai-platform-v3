@@ -83,7 +83,7 @@ module.exports = function (page, api) {
   page.openReceiptAllocation=function(e){this.wbKey=api.idemKey('allocate');this.setData({wbForm:{type:'allocation',name:'前期定金抵合同款',stageId:String(e.currentTarget.dataset.id)},wbError:''});};
   page.openFinanceSupplement=function(e){this.setData({bookEntryDetail:null});this.wbKey=api.idemKey('supplement');this.setData({wbForm:{type:'supplement',sourceType:e.currentTarget.dataset.kind,sourceId:String(e.currentTarget.dataset.id).replace(/^[rpf]-/,''),name:'补充原收付资料'},wbError:''});};
   page.recoverEmployee=function(e){const row=(this.data.reimbursementRows||[]).find(r=>r.id===String(e.currentTarget.dataset.id));if(!row||row.remaining>=0)return;this.wbKey=api.idemKey('employee-recover');this.setData({wbForm:{type:'recovery',payableId:row.id,name:'员工归还 · '+row.payer_name,amount:yuan(-row.remaining),date:date(),accountName:''},wbError:''});};
-  page.assignPayableBook=function(e){this.wbKey=api.idemKey('assign-book');this.setData({wbForm:{type:'assignbook',payableId:String(e.currentTarget.dataset.id),name:'补充账本归属'},wbError:''});};
+  page.assignPayableBook=function(e){const id=String(e.currentTarget.dataset.id),source=(this.__financeFacts?.payables||[]).find(row=>String(row.id)===id)||(this.data.rows||[]).find(row=>String(row.id)===id);if(!Money.canAssignPayable(source))return this.setData({wbError:'仅未归属的手工费用可补充账本，请核对原单'});this.wbKey=api.idemKey('assign-book');this.setData({wbForm:{type:'assignbook',payableId:id,name:'补充账本归属'},wbError:''});};
   page.openContractChange=function(e){
     if(this.data.wbBusy||this.data.busy||this.__disposed)return;
     const id=String(e.currentTarget.dataset.id);
