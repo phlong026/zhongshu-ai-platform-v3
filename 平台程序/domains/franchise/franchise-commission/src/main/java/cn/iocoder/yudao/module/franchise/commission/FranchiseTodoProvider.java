@@ -103,13 +103,7 @@ public class FranchiseTodoProvider implements TodoProvider {
             items.add(item("reconsult:" + customer.getId(), "「" + customer.getName() + "」流失客户再次咨询，待确认是否恢复",
                     "LOST", null, true, followupPage(customer), customer.getUpdateTime()));
         }
-        Set<Long> withCommission = Set.copyOf(commissions.listVisible(post).stream()
-                .map(CommissionDO::getCustomerId).toList());
-        customers.listWritableWithBudget(post).stream()
-                .filter(customer -> !withCommission.contains(customer.getId()))
-                .forEach(customer -> items.add(item("submit-commission:" + customer.getId(),
-                        "「" + customer.getName() + "」已存参考预算，待提交设计委托", "BUDGET_READY",
-                        null, true, COMMISSION_PAGE + "?view=submit&customerId=" + customer.getId(), customer.getUpdateTime())));
+        // 设计岗位退役后委托走外部委托登记（八步 05/06 步入口），不再按参考预算催办内部设计委托。
     }
 
     // ===================== 待关联客资 =====================

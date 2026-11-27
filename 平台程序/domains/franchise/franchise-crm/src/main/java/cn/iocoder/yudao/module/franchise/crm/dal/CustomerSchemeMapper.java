@@ -34,7 +34,7 @@ public interface CustomerSchemeMapper extends BaseMapperX<CustomerSchemeDO> {
                 .stream().map(CustomerSchemeDO::getDesignProjectId).distinct().toList();
     }
 
-    /** 这些客户中已保存过预算的客户编号 */
+    /** 这些客户中已保存过预算的客户编号（预算催办待办已退役，仅供存量查询） */
     default List<Long> selectCustomerIdsWithBudget(Collection<Long> customerIds) {
         if (customerIds.isEmpty()) {
             return List.of();

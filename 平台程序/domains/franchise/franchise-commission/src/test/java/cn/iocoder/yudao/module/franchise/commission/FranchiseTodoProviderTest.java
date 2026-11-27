@@ -94,13 +94,10 @@ class FranchiseTodoProviderTest extends CommissionPgIntegrationTest {
         assertThat(todos(salesA1)).extracting(TodoItem::key)
                 .contains("franchise:first-follow:" + customerId);
 
-        // 保存预算后出现「待提交设计委托」，提交后委托待办取代客户待办
+        // 设计岗位退役：保存参考预算不再催办「提交设计委托」（委托走八步 05/06 步的外部委托入口）
         as(salesA1, () -> customers.saveScheme(salesA1, customerId, budget(), null));
         assertThat(todos(salesA1)).extracting(TodoItem::key)
-                .contains("franchise:submit-commission:" + customerId);
-        assertThat(todos(salesA1)).filteredOn(t -> t.key().equals("franchise:submit-commission:" + customerId))
-                .singleElement().satisfies(t -> assertThat(t.appPath()).isEqualTo(
-                        "/pages/workflow/commission/index?view=submit&customerId=" + customerId));
+                .doesNotContain("franchise:submit-commission:" + customerId);
 
         as(boss, () -> policies.save(boss,
                 new DesignPolicyService.PolicyCommand(TOTAL, FIRST, "方案、施工图与交底", "总部财务"), null));
