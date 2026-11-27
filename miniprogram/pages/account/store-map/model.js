@@ -93,6 +93,15 @@ function mightCover(record, region, catalog) {
       || known.some(row => row.code === region.code));
 }
 
+// A province/city anchor indicates where to find the draft coverage record, not
+// verified coverage of its children. Never infer a county from a broad label.
+function upperCoverageScope(record, catalog) {
+  if (record.recordType !== 'COVERAGE' || districtCodes(record,catalog).length) return null;
+  const parent = [record.cityCode, ...record.regionCodes, record.provinceCode]
+    .map(code => catalog.byCode.get(code)).filter(Boolean);
+  return parent.find(row => row.level === 'city') || parent.find(row => row.level === 'province') || null;
+}
+
 function buildPickers(filters, catalog) {
   return axes.map(([key, title], index) => {
     const rows = catalog.rows.filter(row => (index === 0 || !!filters.province) && row.level === key
@@ -178,6 +187,19 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
   const confirmed = candidates.filter(row => viewport ? visibleIds.has(row.id)
     : districtCodes(row,catalog).some(code => contains(target,catalog.byCode.get(code))));
   const pending = viewport ? [] : candidates.filter(row => incomplete(row,catalog) && mightCover(row,target,catalog));
+  const areaLabels = new Map();
+  const upperById = new Map(candidates.map(row => [row.id,upperCoverageScope(row,catalog)]));
+  for (const row of pending) {
+    const upper = upperById.get(row.id);
+    if (!upper) continue;
+    const label = areaLabels.get(upper.code) || {code:upper.code,name:upper.name,count:0};
+    label.count++;
+    areaLabels.set(upper.code,label);
+  }
+  const focusedArea = target && (areaLabels.get(target.code) || areaLabels.get(target.cityCode)
+    || areaLabels.get(target.provinceCode));
+  const upperCoverageLabel = focusedArea ? focusedArea.name + ' · 区县待确认 ' + focusedArea.count + ' 条'
+    : areaLabels.size ? '另有 ' + [...areaLabels.values()].reduce((sum,row) => sum+row.count,0) + ' 条省市覆盖资料待确认区县' : '';
   const amounts = counts(confirmed), pendingCount = pending.length;
   const status = viewport && !bounds ? 'loading' : amounts.franchiseCount || amounts.coverageRecordCount ? 'registered' : pendingCount ? 'pending' : 'empty';
   const summary = { ...amounts, pendingCount, brandCount:new Set(confirmed.map(row => row.brandId)).size,
@@ -195,6 +217,7 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
   const resultRecords = keyword ? candidates : [...new Map([...confirmed,...pending].map(row => [row.id,row])).values()];
   const formatRow = row => ({...row,
     name:publicName(row), typeLabel:row.recordType === 'FRANCHISE' ? '加盟商' : '覆盖记录',
+    upperCoverageLabel:upperById.get(row.id)?.name || '',
     pending:incomplete(row,catalog),districtCount:districtCodes(row,catalog).length,
     districtNames:districtCodes(row,catalog).map(code => regionTitle(catalog.byCode.get(code))).join('；'),
     regionText:regionText(row) });
@@ -212,7 +235,7 @@ function mapView(snapshot, filters = {}, catalog, mode = 'region', bounds = null
   const regionCenters = target ? catalog.rows.filter(row => row.level === 'district' && contains(target,row) && hasPosition(row)) : [];
   const fitPoints = (keyword && markers.length ? markers : regionCenters.length ? regionCenters : markers)
     .map(({latitude,longitude}) => ({latitude,longitude}));
-  return { overview, summary, rows, pinnedRows, markers, points:validPoints, brandCounts, brands:[{id:'',name:'全部品牌'},...snapshot.brands],
+  return { overview, summary, upperCoverageLabel, rows, pinnedRows, markers, points:validPoints, brandCounts, brands:[{id:'',name:'全部品牌'},...snapshot.brands],
     pickers:buildPickers(filters,catalog), fitPoints,
     center:keyword && markers.length ? markers[0] : hasPosition(target || {}) ? target : fitPoints[0] || {latitude:35.9,longitude:104.2} };
 }
