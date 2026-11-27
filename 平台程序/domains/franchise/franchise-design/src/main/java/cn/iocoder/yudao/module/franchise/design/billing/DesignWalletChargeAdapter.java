@@ -78,6 +78,11 @@ public class DesignWalletChargeAdapter implements RemoteDesignChargePort {
     }
 
     @Override
+    public void assertBudgetAllowed(PostSnapshot actor) {
+        points.assertSubjectAllowed(actor.orgId(), actor.userId(), "budget_estimate");
+    }
+
+    @Override
     public PlatformPriceSnapshot quote(PostSnapshot actor, Operation operation, Object payload) {
         requireTransaction();
         if (!operation.paid() || !operation.payloadType().isInstance(payload)) {

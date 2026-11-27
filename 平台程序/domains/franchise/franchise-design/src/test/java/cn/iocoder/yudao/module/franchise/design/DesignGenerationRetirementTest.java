@@ -55,11 +55,10 @@ class DesignGenerationRetirementTest {
             retired(() -> flow.invoke(post,new DesignFlowCall("POST",path,Map.of(),Map.of(),"old-key")));
         }
     }
-    @Test void budgetQuotesRequireCompanyPermissionAndUseTheCompanyRate() {
+    @Test void budgetQuotesPreserveCompanyPermissionWithoutLookingUpARate() {
         var points=mock(OrgPointPort.class);
         var flow=new DesignFlowAccessService(mock(DesignAccessService.class),mock(RemoteDesignGateway.class),null,null,null,points);
-        var quote=new OrgPointPort.PriceQuote("budget_estimate",1,8,"company-v2");
-        when(points.quotePrice("budget_estimate",1)).thenReturn(quote);
+        var quote=new OrgPointPort.PriceQuote("budget_estimate",1,0,"budget-free-v1");
         assertThat(flow.quote(post,"budget_estimate",1)).isEqualTo(quote);
         verify(points).assertSubjectAllowed(post.orgId(),post.userId(),"budget_estimate");
         assertThatThrownBy(()->flow.quote(post,"budget_estimate",2)).isInstanceOf(IllegalArgumentException.class);
