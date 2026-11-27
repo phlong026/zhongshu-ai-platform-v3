@@ -38,7 +38,8 @@
  <view class="heading"><text>客户跟进</text><button class="link" bindtap="openCustomerFlow">{{flow.status==='LOST'||flow.status==='PAUSED'?'查看进度':'继续跟进'}} <image class="arrow" src="/assets/creation-chevron-muted.png"/></button></view>
  <block wx:if="{{flow}}">
   <view class="cw-prog-top"><text class="cw-prog-label">跟进进度</text><text class="cw-prog-score">{{flow.completedCount}}<text class="cw-prog-frac">/8</text><text class="cw-prog-sep"></text><text class="cw-prog-pct">{{flow.progressPercent}}%</text></text></view>
-  <view class="cw-prog-next"><text class="{{nextFollowLate?'cw-late':''}}">{{nextFollowText}}</text><text class="cw-prog-step">下一步 {{nextStepName}}</text></view>
+  <view class="cw-prog-next"><text class="{{nextFollowLate?'cw-late':''}}">{{nextFollowText}}</text><text class="cw-prog-step">当前 {{currentStepName}}</text></view>
+  <text wx:if="{{engineeringHint}}" class="muted">{{engineeringHint}}</text>
   <view class="cw-rail">
    <block wx:for="{{rail}}" wx:key="code">
     <view wx:if="{{index}}" class="cw-conn {{item.done?'cw-conn-done':''}}"></view>

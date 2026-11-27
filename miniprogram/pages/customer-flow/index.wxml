@@ -27,10 +27,10 @@
         </block>
       </view>
       <view class="journey-bottom">
-        <view wx:if="{{nextStepLabel}}" class="journey-next"><text>下一步</text><text>{{nextStepLabel}}</text></view>
-        <view wx:else class="journey-next"><text>{{workflow.completedCount===8?'八步流程已完成':'当前为最后待办步骤'}}</text></view>
+        <view class="journey-next"><text>当前</text><text>{{workflow.currentStepName}}</text></view>
         <button class="journey-link" bindtap="showJourney" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-expanded="{{journeyOpen}}">全部步骤 <text class="journey-chevron">›</text></button>
       </view>
+      <text wx:if="{{workflow.engineeringHint}}" class="journey-note">{{workflow.engineeringHint}}</text>
       <text wx:if="{{refreshing||!workflow.canWrite}}" class="flow-muted">{{refreshing?'正在更新…':'只读查看'}}</text>
     </view>
     <view class="flow-section-heading journey-stage-heading"><text>{{step.number}} · {{step.name}}</text><button class="flow-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回本步':'查看记录'}}</button></view>

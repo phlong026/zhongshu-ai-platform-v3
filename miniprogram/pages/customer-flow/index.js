@@ -23,7 +23,7 @@ Page({
   ...statusSheet.actions,
   data: { workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
     error: '', busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false,
-    uploadName: '', journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
+    uploadName: '', journeyOpen: false, showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
     quoteOptions: [], quotesLoading: false, quotesError: '',
     statusSheet: null, lostReasons: statusSheet.LOST_REASONS, todayStr: '' },
   onLoad(options = {}) { this.customerId = model.id(options.customerId); this.selectedCode = model.definition(options.step)?.code || '';
@@ -39,7 +39,7 @@ Page({
     this.setData({ workflow: null, step: null, form: null, fields: [], facts: [], loading: false, refreshing: false,
       visitSites: [], visitTimes: [], visitFeedback: [], visitSiteMore: false, visitSiteLoading: false, visitSiteError: '',
       busy: false, dirty: false, conflict: false, uncertain: false, uploading: false, uploadFailed: false, uploadRetryable: true, uploadRestartAllowed: false, uploadName: '',
-      journeyOpen: false, nextStepLabel: '', showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
+      journeyOpen: false, showHistory: false, records: [], historyLoading: false, historyError: '', historyMore: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', statusSheet: null, error });
   },
   validPost() {
@@ -87,11 +87,8 @@ Page({
     const form = draft ? clone(draft.form) : model.form(step, this.data.workflow.nextFollowOn);
     if (!draft) visitEntry.defaultDate(step, form);
     this._formRevision = draft ? draft.revision : this.data.workflow.revision;
-    const workflow = this.data.workflow;
-    const nextCode = workflow.currentStepCode === code ? workflow.nextStepCode : workflow.currentStepCode;
-    const nextStep = model.definition(nextCode) || workflow.steps.find(item => item.code !== code && !item.finished);
     this.setData({ step: { ...step, canReadEngineering: this.canReadEngineering() }, form, fields: model.fieldRows(code, form), facts: model.facts(step), dirty: !!draft,
-      nextStepLabel: nextStep?.name || '', conflict: !!draft && draft.revision !== workflow.revision, showHistory: false, activeRecord: null,
+      conflict: !!draft && draft.revision !== this.data.workflow.revision, showHistory: false, activeRecord: null,
       quoteOptions: [], quotesLoading: false, quotesError: '', error: '' });
     if (code === 'QUOTATION' && step.canWrite) this.loadQuotes();
     visitEntry.prepare(this, step, draft, auth.currentApiPost(), http.currentUserId?.(), api);

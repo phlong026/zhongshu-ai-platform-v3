@@ -109,8 +109,8 @@ Page({
   const PFc=this.__pf;
   const day=PFc.today(),next=PFc.toDate(view&&view.nextFollowOn),lost=view&&view.status==='LOST';
   const nextFollowText=lost?'已流失，不再进入待跟进':next?(next<day?'约定 '+next+' 跟进，已逾期 '+PFc.daysBetween(next,day)+' 天':next===day?'约定今天跟进':'下次跟进：'+next):'尚未约定下次跟进';
-  const rail=this.customerFollow().railView(view),nextStep=rail.find(row=>row.code===(view&&view.nextStepCode));
-  this.setData({flow:view||null,rail,nextStepName:nextStep?nextStep.name:'全部完成',canChange:!!(view&&view.canChangeStatus),nextFollowText,nextFollowLate:!!next&&next<day&&!lost,todayStr:day});
+  const rail=this.customerFollow().railView(view);
+  this.setData({flow:view||null,rail,...PFc.workflowProgress(view),canChange:!!(view&&view.canChangeStatus),nextFollowText,nextFollowLate:!!next&&next<day&&!lost,todayStr:day});
  },
  loadTimeline(gen,sessionGen,postKey,append=false){
   const PFc=this.__pf,pageNo=append?(this.__timelinePage||1)+1:1;

@@ -128,7 +128,8 @@ function customerRow(c, ctx) {
   return {
     id, name, initial: name.slice(0, 1),
     status: customerStatus(c),
-    stageName: lost || paused ? FLOW_STATE[flow.status] : (flow && flow.currentStepName) || customerStatus(c),
+    stageName: lost || paused ? FLOW_STATE[flow.status] : flow ? workflowProgress(flow).currentStepName : customerStatus(c),
+    engineeringHint: workflowProgress(flow).engineeringHint,
     workflow: flow || null,
     progress: flow ? (Number(flow.completedCount) || 0) + '/' + (Number(flow.totalSteps) || 8) + '步 · ' + (flow.progressPercent == null ? 0 : flow.progressPercent) + '%' : '',
     lost, paused, off: lost || paused, reconsulted: !!(flow && flow.reconsulted),
@@ -147,6 +148,26 @@ function customerRow(c, ctx) {
     ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
     view: 'customer'
   };
+}
+
+/** 列表、工作区与八步页共用服务端只读事实；选中的表单页不参与当前业务进度。 */
+function workflowProgress(flow) {
+  if (!flow) return { currentStepName: '待办理', engineeringHint: '' };
+  const currentStepName = CRM_ROLESTEPS[flow.currentStepCode] || (flow.completedCount === 8 ? '业务八步完成' : flow.currentStepName || '待办理');
+  const start = flow.start || (flow.steps || []).find(step => step.code === 'START');
+  const f = start?.fields || {};
+  let hint = '';
+  if (start?.status === 'COMPLETED') hint = '已实际开工';
+  else if (f.projectId) hint = f.actualStartAt ? '已登记开工日期，开工凭据待核对'
+    : f.commissionStatus === 'ACCEPTED' ? '工程已接收，待实际开工' : '主工程已建档，待实际开工';
+  else if (f.commissionStatus === 'ACCEPTED') hint = '工程已接收，但缺少关联主工程';
+  else if (f.commissionStatus === 'HANDOVER_SUBMITTED') hint = f.handoverStatus === 'PENDING' ? '已移交，待指定工程人员接收' : '移交资料待核对';
+  else if (f.commissionStatus === 'HANDOVER_RETURNED') hint = f.handoverStatus === 'RETURNED' ? '移交已退回，待补齐重提' : '移交资料待核对';
+  else if (f.commissionStatus === 'EXTERNAL_PENDING') hint = '待登记外部成果';
+  else if (['EXTERNAL_READY', 'DISPATCHED'].includes(f.commissionStatus)) hint = f.contractSigned === false ? '待提交工程移交，缺正式施工合同' : '待提交工程移交';
+  else if (f.commissionId) hint = '历史委托待核对';
+  const version = Number(f.handoverVersion);
+  return { currentStepName, engineeringHint: hint + (hint && Number.isInteger(version) && version > 0 ? ' · 移交 V' + version : '') };
 }
 
 /** 行排序：rank 升序 → sortKey 字典序 → id 字符串字典序稳定兜底 */
@@ -490,7 +511,7 @@ function errorMessage(err, action) {
 
 module.exports = {
   CRM_ROLES, pageMode, can, collectError, toDate, dateToArray, today, daysBetween, maskPhone, statusText,
-  customerRow, sortRows, tabFilter, loadSummaryRows, homeSummary, latestSchemeSize, detailView,
+  customerRow, workflowProgress, sortRows, tabFilter, loadSummaryRows, homeSummary, latestSchemeSize, detailView,
   commandKey, capturePayload, updatePayload, addressPayload, addressError, transferPayload,
   validPhone, within, errorMessage,
   // P2 交易流（契约=docs/backend-parity/12）
