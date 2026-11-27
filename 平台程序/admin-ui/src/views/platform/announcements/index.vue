@@ -42,9 +42,12 @@
       </el-form>
 
       <el-alert v-if="listError" :title="listError" type="error" :closable="false" show-icon>
-        <template #default
-          ><el-button link type="primary" @click="load">重新加载</el-button></template
-        >
+        <template #default>
+          <el-button v-if="needsPost" link type="primary" @click="openPostPicker"
+            >选择工作身份</el-button
+          >
+          <el-button v-else link type="primary" @click="load">重新加载</el-button>
+        </template>
       </el-alert>
       <p v-if="ready && !canWrite" class="read-only-note"
         >当前工作身份可查看公告，发布和修改由总部管理员处理。</p
@@ -115,6 +118,24 @@
         @current-change="load"
       />
     </section>
+
+    <el-dialog v-model="postPickerOpen" title="选择公告工作身份" width="min(560px, 94vw)">
+      <div v-loading="postPickerBusy">
+        <el-alert v-if="postPickerError" :title="postPickerError" type="error" :closable="false" />
+        <el-button
+          v-for="post in postChoices"
+          :key="post.postId"
+          :disabled="postPickerBusy"
+          @click="choosePost(post)"
+        >
+          {{ post.orgName }} · {{ roleLabel(post.roleCode) }}
+        </el-button>
+        <el-empty
+          v-if="!postPickerBusy && !postPickerError && !postChoices.length"
+          description="暂无可用的总部公告任职，请联系管理员配置"
+        />
+      </div>
+    </el-dialog>
 
     <el-dialog
       v-model="editorOpen"
@@ -263,9 +284,12 @@ import {
 import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import {
   currentPostId,
+  isHeadquartersAnnouncementPost,
   PENDING_ANNOUNCEMENT_CREATE_KEY,
-  postGeneration
+  postGeneration,
+  type StaffPost
 } from '@/utils/platformIdentity'
+import { roleLabel } from '@/utils/platformRoles'
 import { usePlatformIdentityStore } from '@/store/modules/platformIdentity'
 import { useUserStore } from '@/store/modules/user'
 import {
@@ -290,6 +314,12 @@ const rows = ref<AnnouncementRow[]>([])
 const total = ref(0)
 const loading = ref(false)
 const listError = ref('')
+const needsPost = ref(false)
+const postPickerOpen = ref(false)
+const postPickerBusy = ref(false)
+const postPickerError = ref('')
+const postChoices = ref<StaffPost[]>([])
+const postErrors = [403, 1103000000, 1103000001, 1103000002, 1103000003]
 const query = reactive<AnnouncementQuery>({
   pageNo: 1,
   pageSize: 20,
@@ -406,6 +436,7 @@ const load = async () => {
   const sequence = ++listSequence
   loading.value = true
   listError.value = ''
+  needsPost.value = false
   const params = { ...query, keyword: query.keyword.trim() }
   try {
     const [choices, page] = await Promise.all([announcementOptions(), listAnnouncements(params)])
@@ -421,10 +452,43 @@ const load = async () => {
     if (!current(captured) || sequence !== listSequence) return
     rows.value = []
     total.value = 0
-    if ([401, 403].includes(errorStatus(error))) clearPrivateState()
+    const code = errorStatus(error)
+    needsPost.value = postErrors.includes(code)
+    if (code === 401 || needsPost.value) clearPrivateState()
     listError.value = errorMessage(error, '公告加载失败，请重试。')
   } finally {
     if (current(captured) && sequence === listSequence) loading.value = false
+  }
+}
+
+const openPostPicker = async () => {
+  if (postPickerBusy.value) return
+  const captured = scope()
+  postPickerOpen.value = true
+  postPickerBusy.value = true
+  postPickerError.value = ''
+  postChoices.value = []
+  try {
+    const posts = await identity.loadPosts()
+    if (current(captured)) postChoices.value = posts.filter(isHeadquartersAnnouncementPost)
+  } catch {
+    if (current(captured)) postPickerError.value = '工作身份加载失败，请关闭后重试。'
+  } finally {
+    postPickerBusy.value = false
+  }
+}
+
+const choosePost = async (post: StaffPost) => {
+  if (postPickerBusy.value || !postChoices.value.some((choice) => choice.postId === post.postId))
+    return
+  postPickerBusy.value = true
+  postPickerError.value = ''
+  try {
+    if (await identity.selectPost(post.postId, false)) postPickerOpen.value = false
+  } catch {
+    postPickerError.value = '工作身份切换失败，请重试。'
+  } finally {
+    postPickerBusy.value = false
   }
 }
 
