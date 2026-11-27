@@ -53,14 +53,14 @@ test('应付列表按原单权限显示操作，按钮保留单据长 ID',()=>{
  const {render}=require('./role-page-runtime.cjs');
  const resolve=require('node:path').resolve;
  const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children)]);
- const rows=[{id:'9007199254740993',name:'水泥',canPay:true,canAdjust:true},{id:'9007199254740995',name:'中砂',canPay:false,canAdjust:false,commissionHold:true}];
+ const rows=[{id:'9007199254740993',name:'水泥',canPay:true,canAdjust:true,canAssign:false},{id:'9007199254740995',name:'中砂',canPay:false,canAdjust:false,canAssign:true,commissionHold:true}];
   const data={ready:true,view:'flows',flowTab:'payables',journeyEnabled:false,registerType:'',wbForm:null,designReceiptForm:null,platformApiMode:true,platformFinance:{status:'ready'},rows};
   const nodes=flatten(render(resolve('miniprogram/pages/admin/finance-desk/index.wxml'),data));
   const cards=nodes.filter(n=>String(n.attrs?.class||'').split(' ').includes('fin-flow-row'));assert.equal(cards.length,2);
   for(let i=0;i<2;i++){
    const buttons=flatten(cards[i].children).filter(n=>n.tag==='button'&&n.attrs['data-id']);
    assert.deepEqual(buttons.map(n=>n.attrs['data-id']),Array(buttons.length).fill(rows[i].id));
-   assert.ok(buttons.some(n=>n.attrs.bindtap==='assignPayableBook'));
+   assert.equal(buttons.some(n=>n.attrs.bindtap==='assignPayableBook'),rows[i].canAssign);
    assert.equal(buttons.some(n=>n.attrs.bindtap==='openPayableAdjustment'),rows[i].canAdjust);
    assert.equal(buttons.some(n=>n.attrs.bindtap==='paySourceRow'),rows[i].canPay);
   }
@@ -246,3 +246,22 @@ for(const type of ['refund','expense-refund']) {
   assert.equal(page.data.paymentPending,false);assert.equal(page.data.registerBusy,false);assert.equal(storage.size,0);
  });
 }
+
+
+test('only unassigned manual expenses expose book assignment and the original handler refuses stale source rows',()=>{
+ const originals=[
+  {id:'9007199254740999',sourceType:'manual',status:'进行中',totalCents:100},
+  {id:'engineer',stage:'engineering',sourceType:null,status:'进行中',projectId:'91',totalCents:100},
+  {id:'linked',sourceType:'manual',status:'进行中',projectId:'91',totalCents:100},
+  {id:'book',sourceType:'manual',status:'进行中',bookId:'92',totalCents:100},
+  {id:'design',sourceType:'design',status:'进行中',totalCents:100},
+  {id:'void',sourceType:'manual',status:'已作废',totalCents:100}
+ ];
+ assert.deepEqual(J.payableRows({payables:originals},[],[]).map(q=>q.canAssign),[true,false,false,false,false,false]);
+ const page={__financeFacts:{payables:originals},data:{wbForm:null},setData(patch){Object.assign(this.data,patch);}};
+ require('../miniprogram/pages/admin/finance-desk/workbench')(page,{idemKey:()=> 'original-key'});
+ const tap=id=>({currentTarget:{dataset:{id}}});
+ for(const q of originals.slice(1)){page.assignPayableBook(tap(q.id));assert.equal(page.data.wbForm,null);}
+ page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm.payableId,originals[0].id);
+ page.data.wbForm=null;originals[0].projectId='91';page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm,null);
+});

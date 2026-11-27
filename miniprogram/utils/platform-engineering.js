@@ -57,6 +57,12 @@ function homeStats(cards, available = true) {
 const NODE_VIEW = { PENDING: '待开工', IN_PROGRESS: '施工中', DONE: '已完成' };
 function nodeStatusView(s) { return NODE_VIEW[s] || s || ''; }
 
+/** Actual start needs its one planned date; later construction ranges may be filled when known. */
+function startPlanReady(nodes) {
+  const starts = (nodes || []).filter(node => node.milestone === 'start');
+  return starts.length === 1 && !!starts[0].start && starts[0].start === starts[0].end;
+}
+
 /** 节点视图（含 TOPPING 里程碑标记与日期归一；record 页 nodeRows 形状） */
 function nodeRows(nodes) {
   return (nodes || []).map(n => ({
@@ -149,7 +155,7 @@ function errorText(err) {
   const code = err && err.code;
   const map = {
     1115000000: '当前身份无权办理本工程操作',
-    1115000002: '施工计划日期缺失或重叠，请核对',
+    1115000002: '施工计划不合法，请核对原节点及起止日期',
     1115000003: '节点操作前置不满足（撤回/更正条件）',
     1115000004: '材料操作不合法（调整越界或已付款锁定）',
     1115000005: '收货流水号已登记',
@@ -174,7 +180,7 @@ function projectView(detail) {
     id: String(detail.id), projectId: String(detail.id),
     name: detail.name, customer: detail.customer || '', city: detail.city || '',
     phone: detail.phone || '', area: detail.area, floors: detail.floors,
-    sourceType: detail.sourceType, drawingVersion: detail.drawingVersion || '',
+    sourceType: detail.sourceType, parentProjectId: detail.parentProjectId==null?'':String(detail.parentProjectId), drawingVersion: detail.drawingVersion || '',
     managerId: detail.managerUserId, manager: detail.managerName || (detail.managerUserId ? '已指派工程人员' : '待指派'),
     archived: !!closure.archivedAt, delivery: closure.deliveredAt ? {
       date: dateOf(closure.deliveredAt), recipient: closure.recipient || '', note: closure.deliverNote || '',
@@ -207,7 +213,7 @@ function projectView(detail) {
 module.exports = {
   api, online, dateOf, timestampDate, centsText, statusView, statusMatches, homeStats, nodeRows, nodeStatusView,
   stagesView, plansView, settleView, errorText, projectView,
-  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError,
+  uploadVoucher, loadProject, pageData, recordView, perform, listCards, VOUCHER_ACTIONS, threeStageSumError, startPlanReady,
   idemFingerprint
 };
 
@@ -563,7 +569,7 @@ function recordView(bundle, ctx) {
   const actor = key => d.timelineActors?.[key] || '经办人未留存';
   const view = opts.view || 'overview';
   // M07-T02 三期：base（基础完成后期款）随 BASE_DONE 收款入口进入
-  const stage = opts.stage || 'start';
+  const stage = opts.stage || '';
   const today = opts.today || '';
   const base = '/pages/build/record/index?id=' + encodeURIComponent(String(d.id)) + '&view=';
   const p = data.p;
@@ -592,6 +598,8 @@ function recordView(bundle, ctx) {
   const own = !!opts.writeRole && (!opts.userId || [String(d.managerUserId),String(d.assignedEngineerUserId)].includes(String(opts.userId)));
   const financeRole = !!opts.financeRole; // M07-T04 批次#36：在线收款登记（856 collect 码=finance 系）
   const delivery = p.delivery, settlement = p.settlement, archived = p.archived;
+  const expenseTermsAllowed = row => !!row && row.status === 'REGISTERED' && !row.payableId
+    && (!archived || row.canCompleteTerms === true);
   const toppingReached = nodes.some(n => n.milestone === 'topping' && n.status === '已完成');
   const part = data.installments.find(i => i.stage === stage || i.key === stage);
 
@@ -632,7 +640,7 @@ function recordView(bundle, ctx) {
     }
   }
 
-  if (part) form.stage = part.key;
+  form.stage = part ? part.key : stage;
   let fields = [], actions = [];
   if (view === 'collection') {
     // M07-T04 批次#36/R1 P1-4：在线收款登记恢复（finance 系岗——856 collect 码；封顶门禁后端裁决）
@@ -662,7 +670,7 @@ function recordView(bundle, ctx) {
     else fields = [];
   } else if (view === 'start') {
     // R1 P1-4：实际开工记录恢复（own；开工后后端拒绝修改）
-    if (own && !archived && !p.actualStart && d.preparedAt && nodes.every(n=>n.start&&n.end) && data.installments.some(i=>i.stage==='start'&&i.settled)) {
+    if (own && !archived && !p.actualStart && d.preparedAt && startPlanReady(nodes) && data.installments.some(i=>i.stage==='start'&&i.settled)) {
       fields = [viewField('date', '实际开工日期', 'date'), viewField('note', '现场情况', 'textarea'),
         viewField('file', '开工凭据（jpg/png/pdf）', 'file')];
       actions = [{ action: 'start', label: '记录实际开工' }];
@@ -739,7 +747,8 @@ function recordView(bundle, ctx) {
     // 直接项目费用四动作（登记即计成本/挂应付/修订/取消）——费用清单由 record 页预拉（opts.expenses）
     form.purposeCode = form.purposeCode || 'LABOR';
     const mode = opts.expenseMode || 'register';
-    if (own && !archived) {
+    const target = (opts.expenses || []).find(row => String(row.expenseId) === String(form.expenseId || ''));
+    if (own && (mode === 'terms' ? expenseTermsAllowed(target) : !archived)) {
       if (mode === 'terms') {
         fields = [viewField('supplier', '收款方（供应商）'), viewField('basis', '费用凭据（名称或编号）')];
         actions = [{ action: 'expense-terms', label: '挂接应付' }];
@@ -763,7 +772,7 @@ function recordView(bundle, ctx) {
     .map(([label, v]) => ({ label, url: base + v }));
   const next = archived ? null
     : !d.preparedAt ? { title: '填写开工准备与施工计划', url: base + 'prepare' }
-    : !p.actualStart && nodes.some(n=>!n.start || !n.end) ? {title:'补全施工计划日期',url:base+'project'}
+    : !p.actualStart && !startPlanReady(nodes) ? {title:'填写计划开工日期',url:base+'project'}
     : !p.actualStart && data.installments.some(i=>i.stage==='start'&&!i.settled) ? {title:'跟进签约后期款',url:base+'collection&stage=start'}
     : !p.actualStart ? {title:'记录实际开工',url:base+'start'}
     : !delivery && current ? { title: current.name + '待记录', url: base + 'node&nodeId=' + encodeURIComponent(current.id) }
@@ -792,7 +801,7 @@ function recordView(bundle, ctx) {
       purposeText:({LABOR:'劳务',TRAVEL:'差旅',OTHER:'其它'})[e.purpose]||e.purpose||'',
       amountText:e.amountCents==null?'—':(e.amountCents/100).toFixed(2),
       statusText:e.status==='CANCELLED'?'已取消':(e.payableId?'已挂应付':'已登记'),
-      canTerms:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId,
+      canTerms:own&&expenseTermsAllowed(e),
       canRevise:own&&!archived&&e.status!=='CANCELLED',
       canCancel:own&&!archived&&e.status!=='CANCELLED'&&!e.payableId
     })),
@@ -852,3 +861,4 @@ function recordView(bundle, ctx) {
     demo: false
   };
 }
+

@@ -126,7 +126,7 @@ test('no payment remains payable, full linked payment closes it, and unrelated f
   const PF = platformFinance();
   const payable = [{ id: '9007199254740991', status: '进行中', totalCents: 21000 }];
   assert.deepEqual(PF.payableProgress(payable, [], [])[0], {
-    ...payable[0], paidCents: 0, remainingCents: 21000, canPay: true
+    ...payable[0], paidCents: 0, remainingCents: 21000, canPay: true, canAssign: false
   });
   const full = PF.payableProgress(payable, [
     { id: 'right', payableId: payable[0].id, status: '已核实', amountCents: 21000 },

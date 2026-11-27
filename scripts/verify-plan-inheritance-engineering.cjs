@@ -113,6 +113,39 @@ test('按各个开工前节点净实收判断门槛，其他节点超收不能�
   data = h.view(); assert.equal(data.actions.length, 0); assert.match(data.startBlocked, /开工材料款/);
 });
 
+test('必要准备和开工计划就绪即可开工，远期日期可留空，旧 START 零号节点原样提交', async () => {
+  for (const startIndex of [0, 1]) {
+    const h = harness('prepare');
+    h.bundle.detail.nodes[0].nodeIndex = startIndex;
+    h.bundle.detail.nodes[1].startDate = null; h.bundle.detail.nodes[1].endDate = null;
+    h.bundle.collections.stages[1].confirmedCents = 3000;
+    await h.open();
+    await h.page.perform(tap('prepare'));
+    const saved = h.calls.find(c => c[0] === 'prepare');
+    assert.ok(saved, h.page.data.error);
+    assert.equal(saved[2].nodes[0].nodeIndex, startIndex);
+    assert.equal(saved[2].nodes[1].startDate, null); assert.equal(saved[2].nodes[1].endDate, null);
+    assert.deepEqual(clone(h.view('start').actions.map(row => row.action)), ['start']);
+    h.bundle.detail.nodes[0].startDate = null; h.bundle.detail.nodes[0].endDate = null;
+    const blocked = h.view('start');
+    assert.equal(blocked.actions.length, 0); assert.match(blocked.startBlocked, /计划开工/);
+  }
+});
+
+test('并行计划仍保留原节点编号，半对日期及倒置日期不得保存', async () => {
+  const h = harness('prepare');
+  h.bundle.detail.nodes[1].startDate = h.bundle.detail.nodes[0].startDate;
+  await h.open();
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1);
+  h.page.data.form.nodes[1].end = '';
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1); assert.match(h.page.data.error, /起止日期/);
+  h.page.data.form.nodes[1].end = '2026-11-20';
+  await h.page.perform(tap('prepare'));
+  assert.equal(h.calls.filter(c => c[0] === 'prepare').length, 1); assert.match(h.page.data.error, /起止日期/);
+});
+
 test('未约定开工前期款不强造首款门槛，付款计划变更必须重新准备，混合版本不能提交', () => {
   const h = harness('start'); h.payment.paymentPlan.stages.forEach(r => r.trigger = 'ON_FINISH');
   assert.equal(h.view().actions[0].action, 'start');
@@ -396,6 +429,26 @@ test('未触发施工条件的节点不得催收，旧基础/封顶深链仍指�
   h.bundle.collections.stages = [{ stage:'BASE_DONE',label:'原基础期款',expectedCents:100,confirmedCents:0,remainingCents:100 }];
   h.page.stage = 'base'; await h.page.refreshOnline(true); assert.equal(h.page.data.form.stage,'BASE_DONE');
   await h.page.perform(tap('dunning')); assert.equal(h.calls.find(c=>c[0]==='dunning')[2],'BASE_DONE');
+});
+
+test('旧收款链接缺少期次时打开原款项列表，明确期次保持原链接', () => {
+  const h = harness('collection'); h.page.refresh = () => {};
+  h.page.onLoad({id:'100',view:'collection'});
+  assert.equal(h.page.data.view,'payments'); assert.equal(h.page.stage,'');
+  h.page.onLoad({id:'100',view:'collection',stage:'CAP_DONE'});
+  assert.equal(h.page.data.view,'collection'); assert.equal(h.page.stage,'CAP_DONE');
+  h.page.onLoad({id:'100',view:'collection',stage:'STAGE_900719925474099992'});
+  assert.equal(h.page.stage,'STAGE_900719925474099992');
+});
+
+test('期次失效或缺失不能沿用旧表单首款，刷新后只允许原节点重选', () => {
+  const h = harness('collection');
+  h.bundle.collections.stages = [{stage:'SIGN_AFTER',expectedCents:100,confirmedCents:0,remainingCents:100}];
+  for (const stage of ['', 'STAGE_RETIRED']) {
+    const data = h.view('collection',{stage,initialized:true,form:{stage:'SIGN_AFTER',nodes:[]}});
+    assert.equal(data.form.stage,stage); assert.equal(data.actions.length,0); assert.equal(data.fields.length,0);
+    assert.match(data.partLabel,/不存在.*刷新/);
+  }
 });
 
 test('工程负责人按期申报部分到账，回执丢失时沿用同一原件、请求及业务键', async () => {

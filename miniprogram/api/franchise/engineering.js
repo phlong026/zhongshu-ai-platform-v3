@@ -12,7 +12,7 @@ const idem = (key, action) => (key
   : { 'Idempotency-Key': 'eng-' + action + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e8) });
 
 const projects = {
-  /** 手工新建/增项（查重=同组织未归档项目名唯一 1_115_000_008）{name,customer,city,phone?,floors?,area?,parentProjectId?} */
+  /** 按已签正式合同新建或核对原工程 {name,customer,city,phone,floors?,area?}；reused 表示继续原档案 */
   supportsContractFiling: () => http.get('/franchise/engineering/projects/contract-filing'),
   create: (data, key) => http.post('/franchise/engineering/projects/contract-filing', data, idem(key, 'create')),
   /** 列表（?status=；工程岗仅本人，财务线全量） */
@@ -42,7 +42,7 @@ const plan = {
   prepare: (id, data, key) => http.post('/franchise/engineering/' + id + '/prepare', data, idem(key, 'prepare')),
   /** 实际开工（START 期累计已核算门禁 1_115_000_007） */
   start: (id, data, key) => http.post('/franchise/engineering/' + id + '/start', data, idem(key, 'start')),
-  /** 保存计划（整体提交；日期齐全+不重叠 002；已完成节点跳过） */
+  /** 保存计划（保留原节点；远期日期可后补、可并行；已完成记录不改） */
   save: (id, nodes, key) => http.put('/franchise/engineering/' + id + '/plan', { nodes }, idem(key, 'plan')),
   /** 整体改期（◆顺移算法+材料 required_date 随移+版本快照） */
   reschedule: (id, data, key) => http.post('/franchise/engineering/' + id + '/plan/reschedule', data, idem(key, 'shift')),
