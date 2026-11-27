@@ -56,6 +56,49 @@ public class CommissionController {
         this.currentPost = currentPost;
     }
 
+    public record SubmitReq(String text, String scope, String attachment, java.math.BigDecimal total,
+                            java.math.BigDecimal first, String recipient, Integer budgetVersion,
+                            Integer planVersion, Integer facadeVersion, boolean confirmed,
+                            String mode,Integer feeRuleVersion,Long totalCents,Long firstCents,Long attachmentAssetId,java.util.Map<String,Object> designBrief,String paymentMode) {
+    }
+
+    public record SimulatedPayReq(String channel,boolean confirmed) { }
+    @PostMapping("/commissions/{commissionId}/simulated-payment")
+    public CommonResult<CommissionDetail> simulatePay(@PathVariable long commissionId,@RequestBody SimulatedPayReq req,@RequestHeader("Idempotency-Key") String key){
+        return success(CommissionDetail.of(commissionService.simulatePay(currentPost.require(),commissionId,new CommissionService.SimulatePayCommand(req.channel(),req.confirmed()),key)));
+    }
+    @GetMapping("/commissions/{commissionId}/simulated-payment-receipt")
+    public CommonResult<cn.iocoder.yudao.module.franchise.commission.CommissionSimulatedPayments.Order> simulatedReceipt(@PathVariable long commissionId){return success(commissionService.paymentReceipt(currentPost.require(),commissionId));}
+    @PostMapping("/commissions/{id}/historical-settlement")
+    @Operation(summary = "发起历史模拟委托的正式财务结算")
+    @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<Boolean> prepareHistoricalSettlement(@PathVariable long id,
+            @RequestBody CommissionService.HistoricalSettlementCommand command,
+            @RequestHeader(IDEMPOTENCY_HEADER) String key) {
+        commissionService.prepareHistoricalSettlement(currentPost.require(), id, command, key);
+        return success(true);
+    }
+
+    public record FeeDecisionReq(boolean approve, String note) {
+    }
+
+    public record CompleteReq(String note, boolean confirmed) {
+    }
+
+    public record DispatchReq(String note,String recipient,String drawingVersion,Long resultAssetId,
+                              Long drawingAssetId,Long reviewAssetId,boolean confirmed) {
+    }
+
+    public record FeedbackReq(String note) {
+    }
+
+    public record PacketReq(int dispatchSeq,Long confirmationAssetId,LocalDate confirmationDate,
+                            String note, long managerUserId, boolean confirmed) {
+    }
+
+    public record DecisionReq(String reason, boolean confirmed) {
+    }
+
     public record BudgetView(int version,java.math.BigDecimal width,java.math.BigDecimal depth,Integer floors,
                              java.math.BigDecimal area,String payload) { }
     public record ContextResp(long customerId,Long commissionId,BudgetView latestBudget,
@@ -67,6 +110,17 @@ public class CommissionController {
         var view=budget==null?null:new BudgetView(budget.getVersion(),budget.getWidth(),budget.getDepth(),budget.getFloors(),budget.getArea(),budget.getPayload());
         return success(new ContextResp(c.customerId(),c.commissionId(),view,c.feeOffer(),
                 c.commission()==null?null:CommissionDetail.of(c.commission()),c.allowedActions(),c.customerName(),c.city(),c.canPrepareBudget(),c.customerInfo(),c.schemeBasis()));
+    }
+
+    @PostMapping("/customers/{customerId}/commission")
+    @Operation(summary = "提交 / 重提设计委托：费用与当前有效标准一致直接进入设计，否则发起老板审批")
+    @PreAuthorize("@post.has('franchise:commission:submit')")
+    public CommonResult<CommissionDetail> submit(@PathVariable long customerId, @Valid @RequestBody SubmitReq req,
+                                       @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(CommissionDetail.of(commissionService.submit(currentPost.require(), customerId,
+                new SubmitCommand(req.text(), req.scope(), req.attachment(), req.totalCents()==null?req.total():java.math.BigDecimal.valueOf(req.totalCents(),2),
+                        req.firstCents()==null?req.first():java.math.BigDecimal.valueOf(req.firstCents(),2), req.recipient(),
+                        req.budgetVersion(), req.planVersion(), req.facadeVersion(), req.confirmed(),req.mode(),req.feeRuleVersion(),req.attachmentAssetId(),req.designBrief(),req.paymentMode()), key)));
     }
 
     public record CommissionSummary(Commission commission,long commissionId,String displayStatus,java.util.List<String> allowedActions) { }
@@ -105,6 +159,40 @@ public class CommissionController {
         return success(handoverService.receivers(currentPost.require(),id));
     }
 
+    @PostMapping("/commissions/{id}/fee-decision")
+    @Operation(summary = "老板审批委托费用（批准进入设计，退回待修改重提）")
+    @PreAuthorize("@post.has('franchise:commission:fee-decide')")
+    public CommonResult<CommissionDetail> feeDecide(@PathVariable long id, @Valid @RequestBody FeeDecisionReq req,
+                                          @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        return success(CommissionDetail.of(commissionService.feeDecide(currentPost.require(), id,
+                new FeeDecisionCommand(req.approve(), req.note()), key)));
+    }
+
+    @PostMapping("/commissions/{id}/commands/{action}")
+    @Operation(summary = "办理委托与设计交付", description = "design-complete / design-dispatch / commission-feedback / packet-submit / packet-return / packet-receive")
+    @PreAuthorize("@post.has('franchise:commission:submit') or @post.has('franchise:commission:design') "
+            + "or @post.has('franchise:commission:receive')")
+    public CommonResult<CommissionDetail> command(@PathVariable long id, @PathVariable String action,
+                                        @RequestBody java.util.Map<String, Object> body,
+                                        @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String key) {
+        var post = currentPost.require();
+        Detail result = switch (action) {
+            case "design-complete" -> commissionService.complete(post, id,
+                    new CompleteCommand(text(body), bool(body, "confirmed")), key);
+            case "design-dispatch" -> commissionService.dispatch(post, id,
+                    new DispatchCommand(text(body), str(body, "recipient"), bool(body, "confirmed"),str(body,"drawingVersion"),
+                            number(body,"resultAssetId"),number(body,"drawingAssetId"),number(body,"reviewAssetId")), key);
+            case "commission-feedback" -> commissionService.feedback(post, id, new FeedbackCommand(text(body)), key);
+            case "packet-submit" -> handoverService.submit(post, id, packet(body), key);
+            case "packet-return" -> handoverService.returnPacket(post, id,
+                    new DecisionCommand(str(body, "reason"), false), key);
+            case "packet-receive" -> handoverService.receive(post, id,
+                    new DecisionCommand(null, bool(body, "confirmed"), bool(body, "confirmManagerTransfer")), key);
+            default -> throw exception(COMMISSION_STATE_INVALID);
+        };
+        return success(CommissionDetail.of(result));
+    }
+
     private static String text(java.util.Map<String, Object> body) {
         return str(body, "note");
     }
@@ -121,5 +209,16 @@ public class CommissionController {
         Object value=body.get(key);return value==null?null:Long.valueOf(String.valueOf(value));
     }
 
+    private static PacketCommand packet(java.util.Map<String, Object> body) {
+        Object date = body.get("confirmationDate");
+        return new PacketCommand(
+                body.get("dispatchSeq") == null ? 0 : Integer.parseInt(String.valueOf(body.get("dispatchSeq"))),
+                str(body, "resultFile"), str(body, "drawingFile"), str(body, "reviewFile"),
+                str(body, "confirmationFile"), str(body, "drawingVersion"),
+                date == null ? null : LocalDate.parse(String.valueOf(date)),
+                str(body, "note"),
+                body.get("managerUserId") == null ? 0 : Long.parseLong(String.valueOf(body.get("managerUserId"))),
+                bool(body, "confirmed"),number(body,"confirmationAssetId"));
+    }
 
 }
