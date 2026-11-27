@@ -200,7 +200,7 @@ module.exports=function(page,api){
   if(!row)return;
   this.rememberEntryOrigin();this.__declarationFormAlive=http.sessionGuard();
   this.setData({journeyDeclaration:{...row,name:row.name||(row.customer_name||'业主')+' · '+contractStageName(row,this.data.financialStages),amountText:row.amountText||V.money(row.amount_cents),date:row.date||day(row.received_date)},
-    declarationForm:{accountName:row.account_name||'',method:row.method||''},declarationPending:false,workbenchError:'',registerType:'',wbForm:null,journeyResult:null});
+    declarationForm:{accountName:row.account_name||'',method:row.requires_method_confirmation===false?(row.method||''):''},declarationPending:false,workbenchError:'',registerType:'',wbForm:null,journeyResult:null});
   wx.pageScrollTo({scrollTop:0,duration:0});
  };
  page.collectJourneyStage=function(e){const r=(this.data.financialStages||[]).find(s=>String(s.id)===String(e.currentTarget.dataset.id));if(!r)return;this.openWorkbenchEntry(event('receipt'));const scope=r.project_id?'project:'+r.project_id:'contract:'+r.contract_id;const book=(this.data.workbenchBooks||[]).find(b=>b.scope===scope);this.setData({'wbForm.scope':scope,'wbForm.scopeLabel':book?.name||r.customer_name+' · 合同款','wbForm.stageId':String(r.id),'wbForm.stageLabel':(r.stageLabel||J.stageName(r.stage)),'wbForm.name':(r.stageLabel||J.stageName(r.stage)),'wbForm.counterparty':r.customer_name,'wbForm.category':'合同回款'});this.syncJourneyForm();};
