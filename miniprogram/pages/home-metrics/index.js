@@ -1,6 +1,7 @@
 const sourceUrl=require('./source-url');
 const Home=require('../../utils/home-metrics'),http=require('../../api/http'),auth=require('../../api/auth');
 const nav=require('../../utils/page-navigation');
+const apiScope=require('../../utils/api-scope');
 Page({
  data:{title:'业务明细',period:'',monthly:false,rows:[],total:0,loading:false,error:'',more:false,selected:null,note:'',saving:false},
  onLoad(o={}){this.role=o.role;this.key=o.metric;this.setData({canRegisterVisit:this.role==='business'&&['sales','sales-lead'].includes((auth.currentApiPost()||{}).roleCode),key:this.key,title:Home.labels[this.key]||'业务明细',period:/^\d{4}-(0[1-9]|1[0-2])$/.test(o.period||'')?o.period:Home.currentPeriod()});},
@@ -19,10 +20,15 @@ Page({
  more(){this.load(true);},retry(){this.load();},month(e){this.setData({period:e.detail.value});this.load();},
  async open(e){const row=this.data.rows.find(r=>r.key===e.currentTarget.dataset.key);if(!row)return;
   if(row.source_type!=='budget'){if(row.url)nav.open(row.url);return;}
-  const alive=http.requestGuard('home-budget');try{const detail=await require('../../api/franchise/crm').customers.get(row.customer_id);if(!alive()||this.__disposed)return;
-   const budget=(detail.schemes||[]).find(b=>String(b.id)===String(row.source_id));if(!budget){wx.showToast({title:'预算版本已变化，请刷新',icon:'none'});return this.load();}
-   const writable=['sales','sales-lead'].includes((auth.currentApiPost()||{}).roleCode);this.__confirmationKey='budget-confirm-'+Date.now()+'-'+Math.random().toString(16).slice(2,10);
-   this.setData({selected:{...row,budget,totalText:Home.money(Number(budget.totalCents||0),false).value,writable},note:'',confirmError:''});
+  const guard=http.requestGuard('home-budget'),scope=apiScope(),generation=this.__generation;
+  const alive=()=>guard()&&!this.__disposed&&scope===apiScope()&&generation===this.__generation;
+  try{const detail=await require('../../api/franchise/crm').customers.get(row.customer_id);if(!alive())return;
+   const budgets=(detail.schemes||[]).filter(b=>b.kind==='BUDGET'&&String(b.customerId)===String(row.customer_id));
+   const budget=String(detail.customer?.id)===String(row.customer_id)&&budgets.find(b=>String(b.id)===String(row.source_id));if(!budget){wx.showToast({title:'预算原单不匹配，请刷新',icon:'none'});return;}
+   const latest=!budgets.some(b=>Number(b.version)>Number(budget.version));
+   const writable=latest&&!budget.confirmedAt&&['sales','sales-lead'].includes((auth.currentApiPost()||{}).roleCode);this.__confirmationKey='budget-confirm-'+Date.now()+'-'+Math.random().toString(16).slice(2,10);
+   const readonlyNote=budget.confirmedAt?'本版已记录参考预算确认。':!latest?'历史版本仅供查看，请在最新版本登记确认。':'请由负责该客户的业务同事登记确认。';
+   this.setData({selected:{...row,url:sourceUrl({...row,version:budget.version},this.role,this.key,this.data.period),budget,totalText:budget.totalCents==null?'未记录完整总额':'¥'+Home.money(Number(budget.totalCents),false).value,writable,readonlyNote},note:'',confirmError:''});
   }catch(e){if(alive())wx.showToast({title:e.message||'预算加载失败',icon:'none'});}
  },
  note(e){this.setData({note:e.detail.value});},close(){if(!this.data.saving)this.setData({selected:null});},noop(){},openBudget(){const s=this.data.selected;if(s&&s.url)nav.open(s.url);},
