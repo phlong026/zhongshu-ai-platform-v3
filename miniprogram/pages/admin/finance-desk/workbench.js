@@ -11,19 +11,19 @@ module.exports = function (page, api) {
   page.loadWorkbench = async function () {
     this.__messageWorkbenchReady=false;
     const alive = this.financeReadGuard?this.financeReadGuard('fin-workbench'):http.requestGuard('fin-workbench');
-    this.setData({ workbenchError: '' });
+    this.setData({ workbenchError: '', bookEmployeeFactsLoading:true });
     try {
       const [books, reimbursements, staff, declarations, stages, receipts,commission] = await Promise.all([http.get(base + '/books'), http.get(base + '/reimbursements'), http.get(base + '/staff'),http.get('/franchise/sales/collection-declarations'),http.get('/franchise/sales/financial-stages'),api.receipts(),http.get('/franchise/performance/commission/rows').catch(()=>null)]);
       if (!alive() || this.__disposed) return;
       const rows = reimbursements.map(r => ({ ...r, pay_date:financeDay(r.pay_date), id: r.payable_id, remaining: Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0),
         absoluteAmount:yuan(Math.abs(Number(r.eligible_cents)-Number(r.reimbursed_cents)+Number(r.recovered_cents||0))),amount: yuan(Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0)), paidText: yuan(r.reimbursed_cents) }));
-      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
+      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, bookEmployeeFactsLoading:false, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
         'deskHome.focus': rows.filter(r => r.remaining !== 0).map(r => ({ id: r.id, name: r.payer_name + ' · '+r.stage,
           amount: '¥' + BookView.money(r.remaining), status: r.remaining < 0 ? '员工应归还公司' : Number(r.reimbursed_cents) > 0 ? '部分报销' : '待报销', url: '/pages/admin/finance-desk/index?view=reimbursements' })) });
       this.__commissionStages=commission===null?null:commission.flatMap(r=>r.stages||[]);
       this.__messageWorkbenchReady=true;
       if(this.refreshJourney)this.refreshJourney();if (this.data.view === 'projects') this.loadFinanceProjects();if(this.data.view==='book'&&this.data.bookEntryRows)this.updateBookEmployees();
-    } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
+    } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败',bookEmployeeFactsLoading:false};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.returnCollectionDeclaration=function(e){
     if(this.data.wbBusy||this.data.declarationPending)return;
@@ -101,12 +101,18 @@ module.exports = function (page, api) {
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
     const book=this.data.bookResult;
-    if(!book){this.setData({bookEmployeeRows:[]});return;}
+    if(!book){this.setData({bookEmployeeRows:[],bookEmployeeDetailsMissing:false});return;}
     // Employee balances must come from the complete server-side scope, never the latest 500 cash rows.
     // An older backend without reimbursementIds is explicitly marked incomplete by loadBookLedger;
     // fail closed rather than silently presenting a partial list as the project's full employee balance.
     const ids=new Set(Array.isArray(book.reimbursementIds)?book.reimbursementIds.map(String):[]);
-    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+    const rows=(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id)));
+    const bookEmployeeDetailsMissing=new Set(rows.map(r=>String(r.id))).size!==ids.size;
+    this.setData({bookEmployeeDetailsMissing,bookEmployeeRows:bookEmployeeDetailsMissing?[]:rows.map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+  };
+  page.retryBookEmployees=function(){
+    if(this.data.bookLoading||this.data.bookEmployeeFactsLoading)return;
+    return Promise.all([this.loadBookLedger(),this.loadWorkbench()]);
   };
   page.changeBookFlowTab=function(e){this.setData({bookFlowTab:e.currentTarget.dataset.tab});this.filterBookEntries();};
   page.openBookEntry=function(e){const key=e.currentTarget.dataset.key;const entry=(this.data.bookEntryRows||[]).find(r=>r.key===key);if(entry)this.setData({bookEntryDetail:entry});};

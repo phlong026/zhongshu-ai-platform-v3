@@ -263,3 +263,36 @@ test('employee balances fail closed when the backend omits complete scoped IDs',
  assert(!hasText('员工往来完整范围暂不可用'));assert(!findRetry());
  assert(hasText('暂无员工往来'));
 });
+
+for(const scenario of ['slow','failure','partial'])test(`project employee balances never report empty before scoped details are ready (${scenario})`, async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.data.bookFlowTab='employee';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const facts=employeeFacts.slice(0,2), ids=facts.map(r=>r.payable_id),books=[{scope:'project:11',name:'项目A'}];
+ let resolveDetails, detailCalls=0, ledgerCalls=0;
+ h.http.get=async (url)=>{
+  if(url.endsWith('/ledger')){ledgerCalls++;return employeeLedger('project:11',ids);}
+  if(url.endsWith('/books'))return books;
+  if(!url.endsWith('/reimbursements'))return [];
+  if(++detailCalls>1)return structuredClone(facts);
+  if(scenario==='failure')throw Error('weak network');
+  if(scenario==='partial')return structuredClone(facts.slice(0,1));
+  return new Promise(resolve=>{resolveDetails=resolve;});
+ };
+ const loading=h.page.loadWorkbench();await h.page.loadBookLedger();
+ const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]), redraw=()=>flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
+ const hasText=value=>redraw().map(n=>n.text||'').join('').includes(value);
+ assert(!hasText('暂无员工往来'),'a nonempty scope cannot be treated as no balances');
+ assert.equal(h.page.data.bookEmployeeRows.length,0,'do not present a partial list as complete');
+ if(scenario==='slow'){
+  assert(hasText('正在读取员工往来'));
+  assert(!redraw().some(n=>n.attrs?.bindtap==='retryBookEmployees'));
+  resolveDetails(structuredClone(facts));await loading;
+ }else{
+  await loading;
+  assert(hasText('员工往来明细暂未读全'));
+  const retry=redraw().find(n=>n.tag==='button'&&n.attrs.bindtap==='retryBookEmployees');assert(retry);
+  await h.page[retry.attrs.bindtap]();
+  assert.equal(detailCalls,2);assert.equal(ledgerCalls,2);
+ }
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),ids);
+ assert(!hasText('暂无员工往来')&&!hasText('员工往来明细暂未读全'));
+});
