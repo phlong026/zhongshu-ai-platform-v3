@@ -12,7 +12,7 @@
     >
       <el-tabs v-model="mode" @tab-change="changeMode">
         <el-tab-pane label="已开通组织" name="directory" :disabled="submitting">
-          <OrgDirectory v-if="mode === 'directory'" @create="mode = 'franchise'" />
+          <OrgDirectory v-if="mode === 'directory'" @create="startFranchiseOnboarding" />
         </el-tab-pane>
         <el-tab-pane label="加盟商名录" name="franchise-directory" :disabled="submitting">
           <FranchiseDirectoryPanel
@@ -28,8 +28,8 @@
             class="onboard-source"
             @change="clearCredentialResult"
           >
-            <el-radio-button value="directory">从名录选择</el-radio-button>
-            <el-radio-button value="manual">管理员手动填写</el-radio-button>
+            <el-radio-button value="directory">先查加盟商名录</el-radio-button>
+            <el-radio-button value="manual">名录无记录，手动开户</el-radio-button>
           </el-radio-group>
           <DirectoryAccountForm
             v-if="mode === 'franchise' && onboardSource === 'directory'"
@@ -308,7 +308,7 @@ import {
 defineOptions({ name: 'PlatformOrgOnboard' })
 
 const mode = ref('directory')
-const onboardSource = ref('manual')
+const onboardSource = ref('directory')
 const initialDirectoryRecord = ref<DirectoryItem | null>(null)
 const submitting = ref(false)
 const franchiseFormRef = ref<FormInstance>()
@@ -520,14 +520,24 @@ async function submitLegacy() {
   }
 }
 
+function startFranchiseOnboarding() {
+  initialDirectoryRecord.value = null
+  onboardSource.value = 'directory'
+  mode.value = 'franchise'
+}
+
 function changeMode() {
+  if (mode.value !== 'franchise') {
+    initialDirectoryRecord.value = null
+    onboardSource.value = 'directory'
+  }
   clearCredentialResult()
   previewGuard.invalidate()
   submitGuard.invalidate()
 }
 
 function openDirectoryAccount(record: DirectoryItem) {
-  if (submitting.value) return
+  if (submitting.value || record.recordType !== 'FRANCHISE' || record.linkedOrgId) return
   clearCredentialResult()
   initialDirectoryRecord.value = record
   onboardSource.value = 'directory'
