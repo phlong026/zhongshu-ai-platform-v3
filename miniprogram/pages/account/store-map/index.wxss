@@ -156,3 +156,5 @@
   .summary-store > view { gap: 7rpx; }
   .summary-store .summary-brand { font-size: 19rpx; }
 }
+
+.area-coverage-label{margin:12rpx 0;padding:12rpx 18rpx;border-radius:12rpx;background:#f6eee3;color:#714a2e;font-size:23rpx;line-height:1.5}
