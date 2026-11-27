@@ -4,9 +4,8 @@ const PF=require('../../utils/platform-crm'),http=require('../../api/http');
 const V=require('./views');
 // 与 utils/platform-design 的 DESIGN_ROLES 保持一致，仅用于控制客户跟进页的设计入口展示。
 const DESIGN_ROLES=['sales','sales-lead','hq-design-admin'];
-Object.assign(V.titles,{'money-review':'老板金额审批','task-access':'任务动作授权'});
 Page({
- data:{view:'customers',title:'我的客户',customer:null,contentSources:[],form:{},sections:[],modal:'',keyword:'',filter:'全部',filters:['全部','待跟进','跟进中','已到店'],filteredCustomers:[],caseTab:0,selectedPlan:0,floor:0,activeCustomerTab:0,showAllProgressRecords:false,requirements:['三代同住','4间卧室','一层老人房'],foundationOptions:['独立基础','条形基础','桩基础'],structureOptions:['框架结构','砖混结构'],roofOptions:['坡屋顶','平屋顶'],styleOptions:['全部风格','新中式','现代简约'],orientationOptions:['南','东','西','北'],resolutionOptions:['2K','4K'],countOptions:['1','2','4'],aspectOptions:['横图','竖图'],methodOptions:['电话','微信','到店'],nextOptions:['电话联系','微信联系','到店沟通'],sourceOptions:['视频号咨询','抖音咨询','朋友介绍','到店咨询','其他'],provinceOptions:['湖北省','广东省','浙江省','其他'],cityOptions:['武汉市','宜昌市','襄阳市','黄冈市','麻城市','红安县','武穴市','蕲春县','罗田县','英山县','黄梅县','团风县','浠水县','其他'],managerOptions:['李经理','王经理'],platformMode:false,platformStatus:'',platformError:'',requirementsStatus:'',requirementsError:'',customerTabs:['概况','跟进','项目进度'],showSizeBlock:false,todayStr:'',requirementStyles:['现代简约','新中式'],error:'',busy:false,preview:null,designFlow:false,selectingCustomer:false,facadeStyleOptions:['新中式','现代简约'],flow:null,rail:[],nextFollowText:'',nextFollowLate:false,canChange:false,timeline:[],timelineTotal:0,timelineMore:false,timelineError:''},
+ data:{"view":"customers","title":"我的客户","customer":null,"contentSources":[],"form":{},"sections":[],"modal":"","keyword":"","filter":"全部","filters":["全部","待跟进","跟进中","已到店"],"filteredCustomers":[],"activeCustomerTab":0,"showAllProgressRecords":false,"foundationOptions":["独立基础","条形基础","桩基础"],"structureOptions":["框架结构","砖混结构"],"roofOptions":["坡屋顶","平屋顶"],"sourceOptions":["视频号咨询","抖音咨询","朋友介绍","到店咨询","其他"],"platformMode":true,"platformStatus":"","platformError":"","requirementsStatus":"","requirementsError":"","customerTabs":["概况","跟进","项目进度"],"showSizeBlock":false,"todayStr":"","requirementStyles":["现代简约","新中式"],"error":"","busy":false,"selectingCustomer":false,"flow":null,"rail":[],"nextFollowText":"","nextFollowLate":false,"canChange":false,"timeline":[],"timelineTotal":0,"timelineMore":false,"timelineError":""},
  onLoad(options={}){this.initFormKeyboard();this.options=options;this.__post=null;this.__postKey='';this.__cmdKeys={};
   const post=(()=>{try{const auth=require('../../api/auth');return http.token()?auth.currentApiPost():null;}catch(e){return null;}})();
   if(PF.pageMode(http.token(),post)!=='api'){// 纯 API 态门禁：无平台会话不进本地演示，回登录页
@@ -49,7 +48,7 @@ Page({
   // 加载统一由 onShow→refresh 触发（onLoad→onShow 连续生命周期，避免重复请求）
   if(options.modal&&view==='customers')this.openModal(options.modal);
  },
- platformBlocked(v){this.setData({platformMode:true,view:'customers',title:'我的客户',blocked:{message:'「'+(V.titles[v]||v)+'」功能随阶段 2/3 接入后开放',target:'customers',label:'返回客户列表'},customer:null,sections:[],form:{},modal:'',error:''});},
+ platformBlocked(v){this.setData({platformMode:true,view:'customers',title:'我的客户',blocked:{message:'「'+(V.titles[v]||v)+'」旧入口已停用，请从客户列表继续办理',target:'customers',label:'返回客户列表'},customer:null,sections:[],form:{},modal:'',error:''});},
  platformCommand(action){this.__cmdKeys=this.__cmdKeys||{};if(!this.__cmdKeys[action])this.__cmdKeys[action]=PF.commandKey(action);return this.__cmdKeys[action];},
  platformDropCommand(action){if(this.__cmdKeys)delete this.__cmdKeys[action];},
  loadPlatformList(){
@@ -653,15 +652,10 @@ Page({
  openDesignTool(e){
   const tool=e.currentTarget.dataset.tool;
   if(!['inspiration','budget','commission'].includes(tool))return;
-  if(!this.data.platformMode){
-   const demo={inspiration:'inspiration',budget:'budget',commission:'request'};
-   return this.openView(demo[tool],false,null);
-  }
   if(tool==='commission')return this.openView('commission',false,null);
   const routes={inspiration:'/design-migration/pages/library/index',budget:'/design-migration/pages/budget/quick'};
   if(routes[tool])require('../../utils/page-navigation').open(routes[tool]+(this.id?(routes[tool].includes('?')?'&':'?')+'customerId='+encodeURIComponent(this.id):''));
  },
- navTap(e){const url=e.currentTarget.dataset.url;if(url)require('../../utils/page-navigation').open(url);},
  openView(view,replace=false,id,record=''){if(view==='commission')return require('../../utils/page-navigation').open('/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id||this.id||''));if(view==='ai-facade')view='facade-config';if(!['customers','customer','arrival','transfer','requirement','budget','contract','delivery','progress'].includes(view)){require('../../utils/page-navigation').open('/pages/workflow/explore/index');return wx.showToast({title:'请在设计页办理',icon:'none'});}if(view==='arrival')view='customer';const target=id||this.id||'';if(view==='customers'&&!target)return this.platformBlocked('customers');return require('../../utils/page-navigation').open('/pages/workflow/index?view='+view+(view!=='customers'?'&id='+encodeURIComponent(target):''),{replace});},
  openModal(name){if(this.data.busy)return;this.__customerWrite=null;this.setData({customerRetry:''});this.prepareFormSheet();this.__cmdKeys={};if(name==='register')return this.setData({form:{name:'',phone:'',source:'',summary:'',province:'',city:'',district:'',town:'',village:'',regionCode:'',addressDetail:''},modal:'register',error:''});if(name==='edit'){const c=this.data.customer;if(!c)return;return this.setData({form:{name:c.name,phone:c.phone,wechat:c.wechat,source:c.source,...PF.addressPayload(c),summary:c.summary},modal:'edit',error:''});}if(name==='follow')return this.openCustomerFlow();return this.setData({modal:'',error:''});},
  initFormKeyboard(){
@@ -722,20 +716,13 @@ Page({
   this.saveDraft();
  },
  pick(e){if(this.__customerWrite)return;const {key,options}=e.currentTarget.dataset;const values=e.currentTarget.dataset.values||this.data[options];this.setData({['form.'+key]:values?values[Number(e.detail.value)]:e.detail.value,error:''});this.saveDraft();},
- date(e){this.setData({['form.'+e.currentTarget.dataset.key]:e.detail.value,error:''});this.saveDraft();},
- select(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:e.currentTarget.dataset.value,error:''});if(key==='collabRole'){this.setData({'form.collaborator':'','form.collabAction':''});this.refresh(false);}this.saveDraft();},
  toggle(e){const key=e.currentTarget.dataset.key;this.setData({['form.'+key]:!this.data.form[key],error:''});this.saveDraft();},
- exteriorChange(e){this.setData({['form.exterior.'+e.currentTarget.dataset.key]:e.detail.value});this.saveDraft();},
  saveDraft(){// API 态：草稿不落本地存储；表单变更即作废命令快照/标记上次报价
   this.__formEditGen=(this.__formEditGen||0)+1;this.__cmdKeys={};if(this.data.view==='budget'&&this.data.budgetResult&&!this.data.budgetResult.stale)this.setData({'budgetResult.stale':true});},
  customerTab(e){const i=Number(e.currentTarget.dataset.index);if(i===2){this.openView('progress',true);return;}if(this.data.view==='progress'){require('../../utils/page-navigation').open('/pages/workflow/index?view=customer&id='+encodeURIComponent(this.id)+(i?'&tab='+i:''),{replace:true});return;}this.options.tab=i;this.setData({activeCustomerTab:i});},
   toggleProgressRecords(){const show=!this.data.showAllProgressRecords;this.setData({showAllProgressRecords:show,progressRecordLimit:20,visibleProgressRecords:show?(this.data.progressInfo?.records||[]).slice(0,20):[]});},
   loadMoreProgressRecords(){const limit=(this.data.progressRecordLimit||20)+20;this.setData({progressRecordLimit:limit,visibleProgressRecords:(this.data.progressInfo?.records||[]).slice(0,limit)});},
- planSelect(e){this.setData({selectedPlan:Number(e.currentTarget.dataset.index)});},
- floorTab(e){this.setData({floor:Number(e.currentTarget.dataset.index)});},
  fail,
- closePreview(){this.setData({preview:null});},
- previewImage(e){wx.previewImage({urls:[e.currentTarget.dataset.src],current:e.currentTarget.dataset.src});},
  submit(){if(this.data.busy)return;const v=this.data.view;
   if(v==='transfer')return this.platformSubmitTransfer();
   if(v==='requirement')return this.platformSubmitRequirement();

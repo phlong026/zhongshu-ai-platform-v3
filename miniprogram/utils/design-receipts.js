@@ -31,7 +31,7 @@ function sources(customer, stage, order) {
 
 function current(customer) {
   const order = customer.serviceOrders?.at(-1);
-  return customer.businessFlow?.type === PROTOCOL && order && order.requestVersion === customer.request?.version && customer.businessFlow.requestVersion === customer.request?.version && require('./sales-flow').feeApproved(customer);
+  return customer.businessFlow?.type === PROTOCOL && order && order.requestVersion === customer.request?.version && customer.businessFlow.requestVersion === customer.request?.version && require('./commission-history').feeApproved(customer);
 }
 
 function transfers(companyId) {
@@ -83,7 +83,7 @@ function register(book, id, form) {
   X.assert(/^\d+(\.\d{1,2})?$/.test(String(form.amount)) && Number.isSafeInteger(amount) && amount > 0 && amount <= fresh.amount, '实际到账金额须大于0、最多两位小数且不能超过本笔剩余金额');
   const date = form.date;
   X.assert(/^\d{4}-\d{2}-\d{2}$/.test(date || '') && !Number.isNaN(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date && date <= require('./account').localDate(), '请填写有效的实际到账日期，不能晚于今天');
-  X.assert(require('./sales-flow').file(form.file) && form.checked === true && String(form.transaction || '').trim(), '请补齐银行到账凭据、流水并确认已核对实际到账');
+  X.assert(require('./commission-history').file(form.file) && form.checked === true && String(form.transaction || '').trim(), '请补齐银行到账凭据、流水并确认已核对实际到账');
   const transaction = form.transaction.trim();
   X.assert(!book.receipts.some(item => item.id !== id && (item.bankTransaction || item.transaction) === transaction), '本组织银行到账流水已登记，不能重复确认');
   Object.assign(row, {

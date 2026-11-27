@@ -13,15 +13,12 @@ const expected = {
   growth: 'zhongshu-growth-v1',
   studio: 'zhongshu-studio',
   creationDraft: 'zhongshu-creation-draft',
+  creationExtractPrefix: 'zhongshu-creation-extract-v1:',
   videoDraft: 'zhongshu-video-draft',
   financeView: 'zhongshu-finance-view-v1',
   ownerGoals: 'zhongshu-owner-goals-v1',
-  salesDemo: 'zhongshu-sales-demo-v1',
-  regionMigration: 'zhongshu-region-hubei-v1',
-  collaborationClient: 'zhongshu-collaboration-client-v1',
   localRecords: 'zhongshu-local-records',
   savedDesign: 'zhongshu-saved-design',
-  managementSimulationClient: 'zhongshu-management-simulation-client-v1',
   engineeringDraft: 'zhongshu-engineering-new-draft',
   engineeringRecentPrefix: 'zhongshu-engineering-recent:',
   materialProjectPrefix: 'zhongshu-material-project:',
@@ -33,7 +30,7 @@ assert.deepEqual(keys, expected, '存储键词典必须保持既有持久化字�
 
 const deferred = new Set();
 const files = fs.readdirSync(utils)
-  .filter(file => file.endsWith('.js') && file !== 'storage-keys.js' && !deferred.has(file) && !file.startsWith('commission'));
+  .filter(file => file.endsWith('.js') && file !== 'storage-keys.js' && !deferred.has(file) && (!file.startsWith('commission') || file === 'commission-history.js'));
 const duplicates = [];
 for (const file of files) {
   const source = fs.readFileSync(path.join(utils, file), 'utf8');
@@ -78,6 +75,6 @@ assert.throws(() => operationMoney.cents('1.234'), /金额须有效/);
 
 console.log(`PASS 存储键 ${Object.keys(expected).length} 项单源，金额解析语义保持`);
 
-for (const file of ['miniprogram/utils/sales-flow.js', 'miniprogram/pages/admin/model.js', 'miniprogram/pages/build/model.js']) {
+for (const file of ['miniprogram/utils/commission-history.js', 'miniprogram/pages/admin/model.js', 'miniprogram/utils/engineering-records.js']) {
   assert(!fs.readFileSync(path.join(root, file), 'utf8').includes('return Math.round(Number(value)*100);'), file + ' 复用金额解析');
 }

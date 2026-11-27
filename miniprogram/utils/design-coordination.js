@@ -11,7 +11,7 @@ function basis(c){
 function receipt(c){return (c.designReceipts||[]).find(r=>r.version===c.release?.version&&r.signature===c.release?.signature)||null;}
 function confirmed(c){return !!(c.release&&c.confirmation&&c.confirmation.version===c.release.version&&(!first(c)||receipt(c)));}
 function next(c){
- if(require('./sales-flow').is(c)){const s=require('./sales-flow').next(c);return {...s,view:'delivery',actionable:false};}
+ if(require('./commission-history').is(c)){const s=require('./commission-history').next(c);return {...s,view:'delivery',actionable:false};}
  const result=(state,owner,view,label,actionable=false)=>({state,owner,view,label,actionable});
  if(!c.request)return result('待发起设计委托','业务人员','request','发起设计委托',true);
  if(c.request.status==='returned')return result('设计资料待补充','业务人员','request','补齐资料并重新提交',true);

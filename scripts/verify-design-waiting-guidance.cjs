@@ -3,7 +3,7 @@ const assert = require('assert/strict');
 global.wx = { getStorageSync() { return {}; } };
 
 const Receipts = require('../miniprogram/utils/design-receipts');
-const SalesFlow = require('../miniprogram/utils/sales-flow');
+const SalesFlow = require('../miniprogram/utils/commission-history');
 const DesignDesk = require('../miniprogram/utils/design-admin-workbench');
 const CommercialApproval = require('../miniprogram/utils/commercial-approval');
 

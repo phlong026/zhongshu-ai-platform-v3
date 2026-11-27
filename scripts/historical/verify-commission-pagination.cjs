@@ -1,3 +1,7 @@
+// Historical design-admin workbench only (retired by BIZ-T14). Not a current acceptance gate.
+// To reproduce: point ZS_LEGACY_WORKTREE_ROOT at a clean e9cd1313 checkout with its locked dependencies.
+if (!process.env.ZS_LEGACY_WORKTREE_ROOT) throw Error('Historical check: set ZS_LEGACY_WORKTREE_ROOT to the pre-T14 e9cd1313 worktree');
+process.chdir(process.env.ZS_LEGACY_WORKTREE_ROOT);
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const {createRequire}=require('node:module');
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
@@ -59,7 +63,7 @@ test('failed next page keeps the same page available to retry',async()=>{
 
 const recentRecord=(id='9007199254741229',kind='DISPATCH',name='客户237')=>({commissionId:id,customerName:name,kind,handledAt:'2026-11-22T10:00:00Z'});
 function rendered(page){
- const {render}=require('./role-page-runtime.cjs');
+ const {render}=require('../role-page-runtime.cjs');
  const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
  return flat(render(path.resolve('miniprogram/pages/workflow/commission/index.wxml'),page.data));
 }

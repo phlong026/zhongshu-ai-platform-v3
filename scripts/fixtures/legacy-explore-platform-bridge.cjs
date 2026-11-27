@@ -1,3 +1,4 @@
+// Historical integration-test fixture only. The live explore route redirects to design-migration.
 /**
  * explore 页平台（API）态桥接层（阶段 1 · P3）：灵感库/AI 平面/AI 立面/快速预算/回写。
  * 注入式 attach(page, deps)（finance-desk platform-actions 先例）；契约=docs/backend-parity/13 §三/§四/§五。
@@ -543,7 +544,7 @@ module.exports = function attach(page, deps) {
         fs.readFile({ filePath: f.tempFilePath, success: rd => {
           const bytes = rd.data;
           // sha256：走 finance.js 的工具（与工程凭据链同一实现）
-          const finance = require('../../../api/finance');
+          const finance = require('../../miniprogram/api/finance');
           let mimeType;
           try {
             // 立面参考图只收 JPG/PNG；识别不出的格式（HEIC/WebP/GIF…）本地直接拒绝，不浪费一次票据与上传
@@ -737,7 +738,7 @@ module.exports = function attach(page, deps) {
     if (kind === 'budget' && !this.__platEstimateId) return this.platFail('请先完成预算测算');
     const gen = ++this.__platGen, sg = this.__http.sessionGeneration();
     this.setData({ busy: true });
-    require('../../../api/franchise/crm.js').customers.page(1, 50).then(res => {
+    require('../../miniprogram/api/franchise/crm.js').customers.page(1, 50).then(res => {
       if (this.platStale(gen, sg)) return;
       const rows = (res && res.list || []).map(c => ({ id: String(c.id), name: c.name, city: c.city }));
       this.setData({ busy: false, saveCustomers: rows, sheet: true });

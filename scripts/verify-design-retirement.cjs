@@ -1,6 +1,37 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const policy=require('../miniprogram/utils/design-retirement');
 function load(file,requireFn,extra={}){const box={module:{exports:{}},require:requireFn,...extra};vm.runInNewContext(fs.readFileSync(file,'utf8'),box);return box.module.exports;}
+test('old workflow AI links show a safe customer destination without running a retired form',()=>{
+ const file=path.resolve('miniprogram/pages/workflow/index.js'),real=require('node:module').createRequire(file);
+ let definition;const routes=[],calls=[];
+ const http={token:()=> 'session',sessionGeneration:()=>1,get:(...args)=>calls.push(args),post:(...args)=>calls.push(args)};
+ const post={postId:'11',userId:'22',orgId:'33',orgType:'store',roleCode:'sales'};
+ load(file,id=>id==='../../api/http'?http:id==='../../api/auth'?{currentApiPost:()=>post}:id==='../../utils/page-navigation'?{open:url=>routes.push(url)}:real(id),{Page:p=>definition=p,wx:{}});
+ const {render}=require('./role-page-runtime.cjs');
+ const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children||[])).join('');
+ for(const view of ['ai-config','ai-results','result','facade-config','facade-candidates','facade-result','inspiration','case-plan']){
+  const page={...definition,data:structuredClone(definition.data),setData:patch=>Object.assign(page.data,patch)};
+  page.onLoad({view,id:'90071992547409973'});
+  assert.equal(page.data.view,'customers');assert.equal(page.data.customer,null);
+  const copy=text(render(file.replace(/\.js$/,'.wxml'),page.data));
+  assert.match(copy,/旧入口已停用/);assert.match(copy,/返回客户列表/);
+  assert.doesNotMatch(copy,/生成方案|生成立面|完成配置/);
+  page.go({currentTarget:{dataset:{view:page.data.blocked.target}}});
+  assert.equal(routes.pop(),'/pages/workflow/index?view=customers');
+ }
+ assert.deepEqual(calls,[]);
+});
+
+test('historical commission readers cannot commit local retired workflow commands',()=>{
+ const history=require('../miniprogram/utils/commission-history');
+ const rules=require('../miniprogram/utils/business-rules-v2');
+ const before={id:'historical-customer',businessFlow:{type:'sales-offline-v1',events:[]}},snapshot=structuredClone(before);
+ for(const action of history.actions)assert.throws(()=>rules.validate(before,{...before,name:'changed'},action),/在线原单/);
+ assert.deepEqual(before,snapshot);
+ assert.equal(typeof history.packageRows,'function');assert.equal(typeof history.paymentAuthorization,'function');
+ assert.equal(history.run,undefined);assert.equal(history.transition,undefined);assert.equal(history.savePolicy,undefined);
+});
+
 test('AI drawing writes stop before transport while budget projects, estimates, versions and cancellation stay available',async()=>{
  const calls=[];const http={post:(...a)=>{calls.push(a);return Promise.resolve({});},get:(...a)=>{calls.push(a);return Promise.resolve({});}};
  const api=load('miniprogram/api/franchise/design.js',id=>id.includes('design-retirement')?policy:http);

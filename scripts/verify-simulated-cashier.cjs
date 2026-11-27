@@ -1,15 +1,20 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const make=require('../miniprogram/pages/workflow/commission/payment-flow');
-test('all stale cashier handlers reject without paying, reading or changing historical status',async()=>{
- const calls=[];const p={...make({commissions:{simulatePay:()=>calls.push('write'),simulatedReceipt:()=>calls.push('read')}}),action:'commission-simulate-pay',data:{paymentOrder:{status:'PENDING'}},setData(patch){Object.assign(this.data,patch);}};
- for(const name of ['openSimulationPayment','confirmSimulationPayment','retrySimulationPayment','checkSimulationPayment']){await p[name]();assert.equal(p.data.paymentOrder.status,'PENDING');assert.equal(p.data.primary,'');assert.match(p.data.paymentNotice,/外部付款/);}
- assert.deepEqual(calls,[]);
+test('the current page contains no retired cashier handlers and cannot construct a simulation command',()=>{
+ let page;
+ vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/workflow/commission/index'),'utf8'),{
+  Page:value=>page=value,require:id=>id.endsWith('/view-container')?{makeFormHandlers:()=>({})}:{}
+ });
+ for(const name of ['openSimulationPayment','confirmSimulationPayment','retrySimulationPayment','checkSimulationPayment'])assert.equal(page[name],undefined);
+ assert.throws(()=>page.commandPayload('commission-simulate-pay'),/旧设计办理已停用/);
 });
 test('the transport cannot send the retired physical payment request but preserves history lookup',async()=>{
  let exports;const calls=[];
  const box={module:{exports:{}},require:id=>id.endsWith('/http')?{post:(...x)=>calls.push(['POST',...x]),get:(...x)=>{calls.push(['GET',...x]);return Promise.resolve({status:'PAID'});}}:{},console};
  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/api/franchise/commission'),'utf8'),box);exports=box.module.exports;
- await assert.rejects(exports.commissions.simulatePay('7',{},'old-key'),/外部付款/);
+ assert.equal(exports.commissions.simulatePay,undefined);
+ assert.equal(exports.commissions.feeDecide,undefined);
+ assert.equal(exports.policies.save,undefined);
+ assert.equal(exports.pricing.save,undefined);
  await exports.commissions.simulatedReceipt('7');assert.equal(calls.length,1);assert.equal(calls[0][0],'GET');assert.match(calls[0][1],/simulated-payment-receipt$/);
 });
 test('active commission templates contain no cashier or simulation opt-in',()=>{

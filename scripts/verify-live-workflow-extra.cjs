@@ -126,7 +126,6 @@ const commission = loadPage('miniprogram/pages/workflow/commission/index.js', {
   '../../../api/franchise/commission': commissionApi,
   './presentation': require(path.join(root,'miniprogram/pages/workflow/commission/presentation.js')),
   './design-brief': require(path.join(root,'miniprogram/pages/workflow/commission/design-brief.js')),
-  './payment-flow': require(path.join(root,'miniprogram/pages/workflow/commission/payment-flow.js')),
   '../../../utils/organization': { apiContext: post => ({ role: post.roleCode, orgType: post.orgType, name: post.name || '' }) },
   '../../../utils/view-container': { makeFormHandlers: () => ({}) }
 }, { redirectTo: options => redirects.push(options.url) });
@@ -151,13 +150,19 @@ const missingId = commissionPage({ view: 'progress' }, { postId: '1', orgId: 'st
 assert.equal(missingId.data.error, '缺少委托或客户编号，请从客户或项目列表进入', '显式详情视图缺 id 必须显示受控错误');
 assert.equal(detailGets, 0, '显式详情视图缺 id 不得请求 API');
 
-for (const view of ['admin', 'projects', 'policy', 'pricing']) {
+for (const view of ['policy', 'pricing']) {
   const headquarters = view !== 'policy';
   const page = commissionPage({ view }, headquarters
     ? { postId: view, orgId: 'hq', orgType: 'headquarters', roleCode: 'hq-design-admin' }
     : { postId: view, orgId: 'store-1', orgType: 'store', roleCode: 'boss' });
   assert.notEqual(page.data.error, '缺少委托或客户编号，请从客户或项目列表进入', view + ' 无 id 合法入口不得被详情门禁拦截');
   assert.equal(detailGets, 0, view + ' 无 id 合法入口不得误发详情请求');
+}
+
+for (const view of ['admin','projects']) {
+  const retired = commissionPage({view}, {postId:'sales',orgId:'store-1',orgType:'store',roleCode:'sales'});
+  assert.match(retired.data.error,/旧设计工作台已停用/);
+  assert.equal(detailGets,0,'retired workbench must not request arbitrary commission details');
 }
 
 commissionPage({ view: 'progress', id: 'commission-9' }, { postId: '1', orgId: 'store-1', orgType: 'store', roleCode: 'boss' });
