@@ -1879,6 +1879,88 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource private EngExpenseService expensesService;
 
     @Test
+    void archivedOriginalExpenseCanCompleteTermsAndPayOnceWithoutReopeningConstruction() {
+        var expense = as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("归档前劳务", "LABOR", new BigDecimal("1000"), "原费用"), idem()));
+        long expenseId = Long.parseLong((String) expense.get("expenseId"));
+        archiveExpenseProject();
+        var closure = jdbc.queryForMap("SELECT * FROM fr_eng_closure WHERE project_id=?", projectId);
+        var nodes = jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", projectId);
+        var versions = jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version", projectId);
+        var original = jdbc.queryForMap("SELECT name,purpose,amount_cents,status,note,create_time FROM fr_eng_expense WHERE id=?", expenseId);
+        String key = idem();
+        var terms = new EngExpenseService.TermsCommand("原劳务班组", "原费用结算凭据");
+        var saved = as(engineer, () -> expensesService.terms(engineer, expenseId, terms, key));
+        assertThat(as(engineer, () -> expensesService.terms(engineer, expenseId, terms, key))).isEqualTo(saved);
+        long payableId = Long.parseLong((String) saved.get("payableId"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?", Integer.class, projectId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='eng-expense-terms'", Integer.class, projectId)).isOne();
+        assertThat(as(engineer, () -> expensesService.listByProject(engineer, projectId)).get(0))
+                .containsEntry("canCompleteTerms", false);
+        var finance = fixture.post(store.orgId(), "finance", null);
+        var firstPayment = new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                payableId, 40000, java.time.LocalDate.now(), null, null);
+        String paymentKey = idem();
+        long paid = paymentService.register(finance, paymentKey, firstPayment);
+        assertThat(paymentService.register(finance, paymentKey, firstPayment)).isEqualTo(paid);
+        paymentService.register(finance, idem(), new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                payableId, 60000, java.time.LocalDate.now(), null, null));
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("expensesTotalCents", 100000L).containsEntry("expensesPaidCents", 100000L)
+                .containsEntry("expensesRemainingCents", 0L);
+        assertThatThrownBy(() -> as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("归档后新费用", "OTHER", BigDecimal.TEN, ""), idem())))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(engineer, () -> expensesService.revise(engineer, expenseId, BigDecimal.TEN, "修改施工成本", idem())))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> as(engineer, () -> { expensesService.cancel(engineer, expenseId, "取消施工成本", idem()); return null; }))
+                .isInstanceOf(ServiceException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_expense WHERE project_id=?", Integer.class, projectId)).isOne();
+        assertThat(jdbc.queryForObject("SELECT status FROM fr_eng_project WHERE id=?", String.class, projectId)).isEqualTo("ARCHIVED");
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_eng_closure WHERE project_id=?", projectId)).isEqualTo(closure);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_node WHERE project_id=? ORDER BY node_index", projectId)).isEqualTo(nodes);
+        assertThat(jdbc.queryForList("SELECT * FROM fr_eng_plan_version WHERE project_id=? ORDER BY version", projectId)).isEqualTo(versions);
+        assertThat(jdbc.queryForMap("SELECT name,purpose,amount_cents,status,note,create_time FROM fr_eng_expense WHERE id=?", expenseId)).isEqualTo(original);
+    }
+
+    @Test
+    void archivedTermsRejectCancelledLateAndUnauthorizedExpenseRows() {
+        var ids = new java.util.ArrayList<Long>();
+        for (String name : java.util.List.of("归档前原单", "已取消原单", "异常晚建单")) {
+            var row = as(engineer, () -> expensesService.register(engineer, projectId,
+                    new EngExpenseService.RegisterCommand(name, "OTHER", BigDecimal.TEN, ""), idem()));
+            ids.add(Long.parseLong((String) row.get("expenseId")));
+        }
+        as(engineer, () -> { expensesService.cancel(engineer, ids.get(1), "误录", idem()); return null; });
+        archiveExpenseProject();
+        jdbc.update("UPDATE fr_eng_expense SET create_time=(SELECT archived_at+interval '1 second' FROM fr_eng_closure WHERE project_id=?) WHERE id=?", projectId, ids.get(2));
+        var terms = new EngExpenseService.TermsCommand("收款方", "原凭据");
+        for (long invalid : ids.subList(1, 3)) {
+            assertThatThrownBy(() -> as(engineer, () -> expensesService.terms(engineer, invalid, terms, idem())))
+                    .isInstanceOf(ServiceException.class);
+        }
+        var colleague = fixture.post(store.orgId(), "engineer", store.engineeringTeam());
+        var otherStore = fixture.store();
+        var outsider = fixture.post(otherStore.orgId(), "engineer", otherStore.engineeringTeam());
+        for (var unauthorized : java.util.List.of(colleague, outsider)) {
+            assertThatThrownBy(() -> as(unauthorized, () -> expensesService.terms(unauthorized, ids.get(0), terms, idem())))
+                    .isInstanceOf(ServiceException.class);
+        }
+        var rows = as(engineer, () -> expensesService.listByProject(engineer, projectId));
+        assertThat(rows.stream().filter(row -> Boolean.TRUE.equals(row.get("canCompleteTerms"))).map(row -> row.get("expenseId")).toList())
+                .containsExactly(Long.toString(ids.get(0)));
+        assertThat(as(colleague, () -> expensesService.listByProject(colleague, projectId)))
+                .allMatch(row -> !row.containsKey("canCompleteTerms"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE project_id=?", Integer.class, projectId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_expense WHERE project_id=? AND payable_id IS NOT NULL", Integer.class, projectId)).isZero();
+    }
+
+    private void archiveExpenseProject() {
+        jdbc.update("UPDATE fr_eng_closure SET delivered_at=CURRENT_DATE,recipient='业主',file_asset_id=1,settled_at=CURRENT_DATE,archived_at=now(),archived_by=? WHERE project_id=?", engineer.userId(), projectId);
+        jdbc.update("UPDATE fr_eng_project SET status='ARCHIVED' WHERE id=?", projectId);
+    }
+
+    @Test
     void revisingAnUnpaidExpenseSynchronizesItsExactPayableAndProjectSettlement() {
         var expense = as(engineer, () -> expensesService.register(engineer, projectId,
                 new EngExpenseService.RegisterCommand("劳务", "LABOR", new BigDecimal("1000"), ""), idem()));
