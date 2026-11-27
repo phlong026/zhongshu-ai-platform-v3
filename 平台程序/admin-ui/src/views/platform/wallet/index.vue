@@ -4,7 +4,7 @@
       <div>
         <h1 class="zs-page-title">{{ section?.title || '历史平台钱包' }}</h1>
         <div class="zs-page-subtitle"
-          >历史钱包运营记录，不代表当前公司积分池余额；金额以分计，设计调用成本以微元计</div
+          >历史钱包运营记录，不代表当前公司积分池余额；金额以分计</div
         >
       </div>
     </div>
@@ -17,9 +17,6 @@
           <el-button type="primary" :loading="loading" @click="search">查询</el-button>
           <el-button v-if="resource === 'plans' && canPlanWrite" @click="openPlan()"
             >新增套餐</el-button
-          >
-          <el-button v-if="resource === 'design-prices' && canPriceWrite" @click="openPrice()"
-            >新增价目</el-button
           >
         </el-form-item>
       </el-form>
@@ -45,36 +42,29 @@
           <template #default="{ row }">{{ displayValue(column[0], row[column[0]]) }}</template>
         </el-table-column>
         <el-table-column
-          v-if="!['plans', 'design-prices', 'anomalies'].includes(resource)"
+          v-if="!['plans', 'anomalies'].includes(resource)"
           label="操作"
           width="80"
           fixed="right"
         >
           <template #default="{ row }"
-            ><el-button link type="primary" @click="costDetail = row">详情</el-button></template
+            ><el-button link type="primary" @click="detailRow = row">详情</el-button></template
           >
         </el-table-column>
         <el-table-column
-          v-if="resource === 'plans' || resource === 'design-prices' || resource === 'anomalies'"
+          v-if="resource === 'plans' || resource === 'anomalies'"
           label="操作"
           fixed="right"
           width="210"
         >
           <template #default="{ row }">
-            <el-button link type="primary" @click="costDetail = row">详情</el-button>
+            <el-button link type="primary" @click="detailRow = row">详情</el-button>
             <el-button
               v-if="resource === 'plans' && canPlanWrite"
               type="primary"
               link
               @click="openPlan(row)"
               >编辑套餐</el-button
-            >
-            <el-button
-              v-if="resource === 'design-prices' && canPriceWrite"
-              type="primary"
-              link
-              @click="openPrice(row)"
-              >发布新版本</el-button
             >
             <el-button
               v-if="resource === 'anomalies'"
@@ -98,19 +88,18 @@
       />
     </div>
     <el-drawer
-      :model-value="!!costDetail"
+      :model-value="!!detailRow"
       :title="`${section?.title || '记录'}详情`"
       size="min(860px, 100vw)"
       destroy-on-close
-      @close="costDetail = undefined"
+      @close="detailRow = undefined"
     >
-      <dl v-if="costDetail" class="cost-detail-grid">
+      <dl v-if="detailRow" class="record-detail-grid">
         <div
           v-for="column in section?.columns"
           :key="column[0]"
           :class="{
-            'cost-detail-wide': [
-              'operation',
+            'record-detail-wide': [
               'beforeJson',
               'afterJson',
               'reason',
@@ -121,9 +110,9 @@
           <dt>{{ column[1] }}</dt
           ><dd>
             <pre v-if="['beforeJson', 'afterJson'].includes(column[0])">{{
-              prettyRecord(costDetail[column[0]])
+              prettyRecord(detailRow[column[0]])
             }}</pre
-            ><template v-else>{{ displayValue(column[0], costDetail[column[0]]) }}</template></dd
+            ><template v-else>{{ displayValue(column[0], detailRow[column[0]]) }}</template></dd
           >
         </div>
       </dl>
@@ -173,74 +162,6 @@
       <template #footer
         ><el-button :disabled="saving" @click="planVisible = false">取消</el-button
         ><el-button type="primary" :loading="saving" @click="savePlan">保存</el-button></template
-      >
-    </el-dialog>
-    <el-dialog
-      v-model="priceVisible"
-      :title="editingPriceId ? '发布设计价格新版本' : '新增设计价目'"
-      width="580px"
-      :close-on-click-modal="false"
-      :show-close="!saving"
-    >
-      <el-alert
-        title="变更仅影响后续新报价，已生成的报价保持原版本。"
-        type="info"
-        :closable="false"
-      />
-      <el-alert v-if="editError" :title="editError" type="error" :closable="false" />
-      <el-form label-width="140px" :disabled="saving" @submit.prevent="savePrice">
-        <el-form-item label="当前版本">{{ priceForm.expectedVersion || '新建' }}</el-form-item>
-        <el-form-item label="设计能力"
-          ><el-select
-            v-model="priceForm.operation"
-            :disabled="!!editingPriceId"
-            @change="changePriceOperation"
-            ><el-option
-              v-for="operation in priceOperations"
-              :key="operation.value"
-              :value="operation.value"
-              :label="operation.label" /></el-select
-        ></el-form-item>
-        <el-form-item v-if="generationPrice" label="分辨率"
-          ><el-select v-model="priceForm.resolution" :disabled="!!editingPriceId"
-            ><el-option label="2K" value="2K" /><el-option label="4K" value="4K" /></el-select
-        ></el-form-item>
-        <template v-if="generationPrice">
-          <el-form-item label="提示词点数"
-            ><el-input-number
-              v-model="priceForm.promptPoints"
-              :min="0"
-              :max="maxInteger"
-              :precision="0"
-          /></el-form-item>
-          <el-form-item label="每图点数"
-            ><el-input-number
-              v-model="priceForm.imagePoints"
-              :min="0"
-              :max="maxInteger"
-              :precision="0"
-          /></el-form-item>
-          <el-form-item label="最多图片数"
-            ><el-input-number v-model="priceForm.maxImageUnits" :min="1" :max="8" :precision="0"
-          /></el-form-item>
-        </template>
-        <el-form-item v-else label="每次调用点数"
-          ><el-input-number
-            v-model="priceForm.usagePoints"
-            :min="0"
-            :max="maxInteger"
-            :precision="0"
-        /></el-form-item>
-        <el-form-item label="启用此版本"><el-switch v-model="priceForm.active" /></el-form-item>
-        <el-form-item label="变更原因"
-          ><el-input v-model="priceForm.reason" type="textarea" maxlength="512" show-word-limit
-        /></el-form-item>
-      </el-form>
-      <template #footer
-        ><el-button :disabled="saving" @click="priceVisible = false">取消</el-button
-        ><el-button type="primary" :loading="saving" @click="savePrice"
-          >发布版本</el-button
-        ></template
       >
     </el-dialog>
     <el-dialog
@@ -299,19 +220,13 @@ import {
   getRechargeOrders,
   getLedger,
   getAnomalies,
-  getDesignPrices,
-  getDesignCosts,
   getAudit,
   createRechargePlan,
   updateRechargePlan,
-  createDesignPrice,
-  updateDesignPrice,
   getAnomalyReviews,
   reviewAnomaly,
   type PlanRow,
   type PlanChange,
-  type DesignPriceRow,
-  type DesignPriceChange,
   type AnomalyReview,
   type OperationsQuery,
   type OperationsPage
@@ -401,41 +316,6 @@ const sections: Record<
     ]
   }
 }
-sections['design-prices'] = {
-  title: '历史设计能力定价',
-  permission: 'platform:design:price:query',
-  query: getDesignPrices,
-  columns: [
-    ['id', '价目编号'],
-    ['operation', '设计能力'],
-    ['resolution', '分辨率'],
-    ['version', '版本'],
-    ['promptPoints', '提示词点数'],
-    ['imagePoints', '每图点数'],
-    ['usagePoints', '每次调用点数'],
-    ['maxImageUnits', '最多图片数'],
-    ['active', '当前启用']
-  ]
-}
-sections['design-costs'] = {
-  title: '设计调用成本',
-  permission: 'platform:design:cost:query',
-  query: getDesignCosts,
-  columns: [
-    ['id', '命令编号'],
-    ['orgId', '组织编号'],
-    ['operation', '设计能力'],
-    ['status', '命令状态'],
-    ['priceVersion', '报价版本'],
-    ['chargedPoints', '已收点数'],
-    ['refundedPoints', '已退点数'],
-    ['costState', '成本事实'],
-    ['chargedCostMicros', '累计成本（微元）'],
-    ['settlementVersion', '结算版本'],
-    ['audited', '调用已审计'],
-    ['createTime', '创建时间']
-  ]
-}
 sections.audit = {
   title: '配置审计',
   permission: 'platform:ops:audit:query',
@@ -454,22 +334,10 @@ sections.audit = {
   ]
 }
 const displayValue = (field: string, value: unknown) => {
-  if (value === null || value === undefined)
-    return field.endsWith('CostMicros') ? '未取得成本事实' : '—'
+  if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? '是' : '否'
   if (field.endsWith('Time') || field.endsWith('At')) return adminDateTime(value)
-  if (field === 'operation') {
-    const operations: Record<string, string> = {
-      FLOW_BUDGET: '快速预算',
-      FLOW_WRITE: '方案资料保存',
-      FLOW_ELEVATION_JOB: 'AI 立面方案',
-      FLOW_FLAT_JOB: 'AI 平面方案'
-    }
-    return operations[String(value)] || String(value)
-  }
   const labels: Record<string, string> = {
-    UNAVAILABLE: '未取得成本事实',
-    RECORDED: '已有成本事实',
     ACTIVE: '已启用',
     DISABLED: '已停用',
     CREATED: '已创建',
@@ -485,32 +353,21 @@ const displayValue = (field: string, value: unknown) => {
     SENT: '已发送',
     REJECTED: '已拒绝'
   }
-  return ['status', 'creditState', 'costState'].includes(field)
+  return ['status', 'creditState'].includes(field)
     ? labels[String(value)] || String(value)
     : String(value)
 }
 const rowKey = (row: { id: string; version?: number }) => `${row.id}:${row.version || ''}`
 const resource = computed(() => route.path.split('/').pop() || '')
 const organizationFilter = computed(
-  () => !['plans', 'design-prices', 'audit'].includes(resource.value)
+  () => !['plans', 'audit'].includes(resource.value)
 )
 const section = computed(() => sections[resource.value])
-const costDetail = ref<Record<string, unknown>>()
-const costListFields = new Set([
-  'id',
-  'orgId',
-  'operation',
-  'status',
-  'costState',
-  'chargedCostMicros',
-  'createTime'
-])
+const detailRow = ref<Record<string, unknown>>()
 const visibleColumns = computed(() =>
-  resource.value === 'design-costs'
-    ? section.value.columns.filter(([field]) => costListFields.has(field))
-    : resource.value === 'audit'
-      ? section.value.columns.filter(([field]) => auditListFields.has(field))
-      : section.value?.columns || []
+  resource.value === 'audit'
+    ? section.value.columns.filter(([field]) => auditListFields.has(field))
+    : section.value?.columns || []
 )
 const auditListFields = new Set(['id', 'resourceType', 'action', 'actorId', 'reason', 'createTime'])
 const prettyRecord = (value: unknown) => {
@@ -522,17 +379,16 @@ const prettyRecord = (value: unknown) => {
   }
 }
 const numericColumn = (field: string) =>
-  /(?:Points|Fen|Micros|After)$/.test(field) || field === 'delta'
+  /(?:Points|Fen|After)$/.test(field) || field === 'delta'
 const columnWidth = (field: string) => {
   if (field.endsWith('Time') || field.endsWith('At')) return 180
-  if (field === 'id') return resource.value === 'design-costs' ? 110 : 190
-  if (['orgId', 'version', 'settlementVersion', 'resourceVersion'].includes(field)) return 110
+  if (field === 'id') return 190
+  if (['orgId', 'version', 'resourceVersion'].includes(field)) return 110
   if (field.endsWith('Id')) return 190
   if (field === 'action') return 100
-  if (field === 'operation') return 180
   if (['name', 'reason', 'detail', 'beforeJson', 'afterJson'].includes(field)) return 240
-  if (numericColumn(field) || field === 'costState') return 170
-  if (['status', 'active', 'audited'].includes(field)) return 100
+  if (numericColumn(field)) return 170
+  if (field === 'status') return 100
   return 150
 }
 const rows = ref<unknown[]>([])
@@ -577,12 +433,9 @@ const search = () => {
 }
 const maxInteger = Number.MAX_SAFE_INTEGER
 const canPlanWrite = computed(() => checkPermi(['platform:wallet:plan:update']))
-const canPriceWrite = computed(() => checkPermi(['platform:design:price:update']))
 const canReview = computed(() => checkPermi(['platform:wallet:anomaly:review']))
 const planVisible = ref(false)
-const priceVisible = ref(false)
 const editingPlanId = ref('')
-const editingPriceId = ref('')
 const saving = ref(false)
 const editError = ref('')
 const emptyPlan = (): PlanChange & { wxProductId: string } => ({
@@ -597,37 +450,6 @@ const emptyPlan = (): PlanChange & { wxProductId: string } => ({
   reason: ''
 })
 const planForm = ref(emptyPlan())
-const priceOperations = [
-  { value: 'CREATE_FLAT_JOB', label: '平面设计' },
-  { value: 'CREATE_ELEVATION_JOB', label: '立面设计' },
-  { value: 'CREATE_REVISION_REQUEST', label: '设计修改' },
-  { value: 'NOTE_POLISH', label: '需求润色' },
-  { value: 'CREATE_BUDGET_ESTIMATE', label: '快速预算' }
-]
-const emptyPrice = (): DesignPriceChange => ({
-  expectedVersion: 0,
-  operation: 'CREATE_FLAT_JOB',
-  resolution: '2K',
-  promptPoints: 0,
-  imagePoints: 0,
-  usagePoints: 0,
-  maxImageUnits: 1,
-  active: false,
-  reason: ''
-})
-const priceForm = ref(emptyPrice())
-const generationPrice = computed(() =>
-  ['CREATE_FLAT_JOB', 'CREATE_ELEVATION_JOB', 'CREATE_REVISION_REQUEST'].includes(
-    priceForm.value.operation
-  )
-)
-const changePriceOperation = () => {
-  priceForm.value.resolution = generationPrice.value ? '2K' : ''
-  priceForm.value.promptPoints = 0
-  priceForm.value.imagePoints = 0
-  priceForm.value.usagePoints = 0
-  priceForm.value.maxImageUnits = generationPrice.value ? 1 : 0
-}
 const openPlan = (row?: PlanRow) => {
   if (!canPlanWrite.value || saving.value) return
   editingPlanId.value = row?.id || ''
@@ -646,25 +468,6 @@ const openPlan = (row?: PlanRow) => {
     : emptyPlan()
   editError.value = ''
   planVisible.value = true
-}
-const openPrice = (row?: DesignPriceRow) => {
-  if (!canPriceWrite.value || saving.value) return
-  editingPriceId.value = row?.id || ''
-  priceForm.value = row
-    ? {
-        expectedVersion: row.version,
-        operation: row.operation,
-        resolution: row.resolution,
-        promptPoints: row.promptPoints,
-        imagePoints: row.imagePoints,
-        usagePoints: row.usagePoints,
-        maxImageUnits: row.maxImageUnits,
-        active: row.active,
-        reason: ''
-      }
-    : emptyPrice()
-  editError.value = ''
-  priceVisible.value = true
 }
 const failureMessage = (failure: unknown) =>
   failure instanceof Error ? failure.message : '操作失败，请刷新确认记录后重试。'
@@ -693,41 +496,6 @@ const savePlan = async () => {
     else await createRechargePlan({ ...form })
     if (current !== generation) return
     planVisible.value = false
-    await load()
-  } catch (failure) {
-    if (current === generation) editError.value = failureMessage(failure)
-  } finally {
-    saving.value = false
-  }
-}
-const savePrice = async () => {
-  if (!canPriceWrite.value) {
-    editError.value = '没有设计定价维护权限。'
-    return
-  }
-  if (saving.value) return
-  const form = priceForm.value
-  if (
-    !form.reason.trim() ||
-    ![
-      form.expectedVersion,
-      form.promptPoints,
-      form.imagePoints,
-      form.usagePoints,
-      form.maxImageUnits
-    ].every(Number.isSafeInteger)
-  ) {
-    editError.value = '请填写变更原因及有效整数。'
-    return
-  }
-  saving.value = true
-  editError.value = ''
-  const current = generation
-  try {
-    if (editingPriceId.value) await updateDesignPrice(editingPriceId.value, { ...form })
-    else await createDesignPrice({ ...form })
-    if (current !== generation) return
-    priceVisible.value = false
     await load()
   } catch (failure) {
     if (current === generation) editError.value = failureMessage(failure)
@@ -802,9 +570,8 @@ watch(
   () => route.path,
   () => {
     orgId.value = ''
-    costDetail.value = undefined
+    detailRow.value = undefined
     planVisible.value = false
-    priceVisible.value = false
     reviewVisible.value = false
     reviewGeneration++
     void search()
@@ -819,32 +586,32 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.cost-detail-grid {
+.record-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 24px;
   margin: 0;
 }
 
-.cost-detail-grid > div {
+.record-detail-grid > div {
   min-width: 0;
   padding: 14px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.cost-detail-grid dt {
+.record-detail-grid dt {
   margin-bottom: 6px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
 }
 
-.cost-detail-grid dd {
+.record-detail-grid dd {
   margin: 0;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
 
-.cost-detail-grid pre {
+.record-detail-grid pre {
   padding: 12px;
   margin: 0;
   font-size: 13px;
@@ -853,12 +620,12 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
-.cost-detail-wide {
+.record-detail-wide {
   grid-column: 1 / -1;
 }
 
 @media (width <= 600px) {
-  .cost-detail-grid {
+  .record-detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

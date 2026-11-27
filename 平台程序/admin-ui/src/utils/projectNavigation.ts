@@ -111,8 +111,6 @@ const platformPermissions: Record<string, string> = {
   orders: 'platform:wallet:order:query',
   ledger: 'platform:wallet:ledger:query',
   anomalies: 'platform:wallet:anomaly:query',
-  'design-prices': 'platform:design:price:query',
-  'design-costs': 'platform:design:cost:query',
   audit: 'platform:ops:audit:query'
 }
 
@@ -186,7 +184,7 @@ export function buildStaffMenus(
       ? [{
           path: '/platform-announcements',
           name: 'StaffAnnouncementsEntry',
-          meta: { title: '公司公告', icon: 'ep:notification' }
+          meta: { title: '公告管理', icon: 'ep:notification' }
         }]
       : [])
   ]
@@ -232,19 +230,20 @@ export function groupPlatformNavigation(routes: AppRouteRecordRaw[]): AppRouteRe
   visit(routes)
   const groups = [
     { key: 'organization', title: '组织与权限', icon: 'ep:user-filled', paths: ['/platform-org/onboard', '/system/user', '/system/role', '/system/dept'] },
-    { key: 'announcements', title: '公司公告', icon: 'ep:notification', paths: ['/platform-announcements'] },
     { key: 'training', title: '课程培训', icon: 'ep:reading', paths: ['/training/courses', '/training/materials'] },
     { key: 'operations', title: '运营与积分', icon: 'ep:coin', paths: ['/platform-task-ops', '/platform-ops/wallets', '/platform-ops/orders', '/platform-ops/ledger', '/platform-ops/anomalies'] },
-    { key: 'pricing', title: '定价与套餐', icon: 'ep:price-tag', paths: ['/platform-pricing', '/platform-ops/plans', '/platform-ops/design-prices'] },
-    { key: 'system', title: '系统与审计', icon: 'ep:setting', paths: ['/infra/config', '/infra/file/file', '/infra/file/file-config', '/system/log/operate-log', '/system/log/login-log', '/platform-ops/audit', '/infra/log/api-access-log', '/infra/log/api-error-log', '/platform-ops/design-costs'] }
+    { key: 'pricing', title: '定价与套餐', icon: 'ep:price-tag', paths: ['/platform-pricing', '/platform-ops/plans'] },
+    { key: 'system', title: '系统与审计', icon: 'ep:setting', paths: ['/infra/config', '/infra/file/file', '/infra/file/file-config', '/system/log/operate-log', '/system/log/login-log', '/platform-ops/audit', '/infra/log/api-access-log', '/infra/log/api-error-log'] }
   ]
-  const used = new Set<string>(['/index'])
+  const used = new Set<string>(['/index', '/platform-announcements'])
   const result = groups.flatMap(group => {
     const children = group.paths.flatMap(path => { const route = leaves.find(r => r.path === path); if (!route) return []; used.add(path); return [route] })
     return children.length ? [{ path: `/navigation-${group.key}`, name: `PlatformNavigation${capitalize(group.key)}`, meta: { title: group.title, icon: group.icon, alwaysShow: true }, children }] : []
   })
   const other = leaves.filter(route => !used.has(route.path))
   if (other.length) result.push({ path: '/navigation-other', name: 'PlatformNavigationOther', meta: { title: '其他功能', icon: 'ep:more-filled', alwaysShow: true }, children: other })
-  const home = leaves.find(route => route.path === '/index')
-  return [...(home ? [home] : []), ...result]
+  const primary = ['/index', '/platform-announcements'].flatMap((path) =>
+    leaves.filter((route) => route.path === path)
+  )
+  return [...primary, ...result]
 }

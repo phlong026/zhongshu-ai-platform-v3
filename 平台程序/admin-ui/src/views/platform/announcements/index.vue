@@ -312,12 +312,13 @@ let active = true
 let loadedScope = ''
 let listSequence = 0
 let detailSequence = 0
+const actorId = () => identity.currentPost?.userId ?? user.getUser.id
 const scope = () =>
   JSON.stringify([
     Boolean(getAccessToken()),
     getTenantId(),
     getVisitTenantId(),
-    user.getUser.id,
+    actorId(),
     currentPostId(),
     postGeneration()
   ])
@@ -325,7 +326,7 @@ const current = (captured: string) => active && captured === scope()
 
 // 页面刷新会重新确认同一岗位并更新 generation；存储身份不记录 token，只认同账号、租户与岗位。
 const recoveryScope = () => {
-  const actor = user.getUser.id
+  const actor = actorId()
   const post = currentPostId()
   return getAccessToken() && actor && post
     ? JSON.stringify([getTenantId(), getVisitTenantId(), String(actor), post])

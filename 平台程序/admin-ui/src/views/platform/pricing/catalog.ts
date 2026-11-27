@@ -5,8 +5,7 @@ export const categories = [
   { key: 'all', label: '全部能力' },
   { key: 'video', label: '视频生成' },
   { key: 'character', label: '数字人与声音' },
-  { key: 'copy', label: '文案与语音' },
-  { key: 'design', label: '设计与预算' }
+  { key: 'copy', label: '文案与语音' }
 ] as const
 
 const details: Record<string, { category: string; label?: string; description: string }> = {
@@ -30,12 +29,12 @@ const details: Record<string, { category: string; label?: string; description: s
   link_resolution: { category: 'copy', description: '从视频分享链接解析和提取文案' },
   copy: { category: 'copy', description: '文案改写与二次创作' },
   asr: { category: 'copy', description: '上传音视频的语音转写，当前按次计费' },
-  note_polish: { category: 'copy', description: '笔记及营销文案润色' },
-  ai_flat: { category: 'design', description: 'AI 平面方案生成，当前按次计费' },
-  ai_elevation: { category: 'design', description: 'AI 立面方案生成，当前按次计费' },
-  budget_estimate: { category: 'design', description: '快速预算调用费，不包含材料和施工报价' },
-  ai_prompt: { category: 'design', description: '设计提示词调用' }
+  note_polish: { category: 'copy', description: '笔记及营销文案润色' }
 }
+
+const retiredSubjects = new Set(['ai_flat', 'ai_elevation', 'budget_estimate', 'ai_prompt'])
+
+export const isActivePricingSubject = (subject: string) => !retiredSubjects.has(subject)
 
 export interface PricingItem extends SubjectPrice {
   category: string
@@ -45,13 +44,15 @@ export interface PricingItem extends SubjectPrice {
 
 // 未随服务发布的能力保留可见入口，不编造价格，也不向旧服务发布未知科目。
 export function buildCatalog(rows: SubjectPrice[]): PricingItem[] {
-  const result = rows.map((row) => ({
-    ...row,
-    label: details[row.subject]?.label || row.label,
-    category: details[row.subject]?.category || 'other',
-    description: details[row.subject]?.description || '使用服务端提供的计费规则',
-    available: true
-  }))
+  const result = rows
+    .filter((row) => isActivePricingSubject(row.subject))
+    .map((row) => ({
+      ...row,
+      label: details[row.subject]?.label || row.label,
+      category: details[row.subject]?.category || 'other',
+      description: details[row.subject]?.description || '使用服务端提供的计费规则',
+      available: true
+    }))
   for (const subject of ['avatar_clone', 'voice_clone']) {
     if (result.some((row) => row.subject === subject)) continue
     result.push({
@@ -101,20 +102,8 @@ export const priceLinks = [
     permission: 'platform:wallet:plan:query'
   },
   {
-    title: '历史设计价目',
-    description: '按设计操作、分辨率、提示词及图片数量维护。与公司积分池价格独立。',
-    path: '/platform-ops/design-prices',
-    permission: 'platform:design:price:query'
-  },
-  {
-    title: '设计调用成本',
-    description: '查看已记录的服务调用成本和结算数据。',
-    path: '/platform-ops/design-costs',
-    permission: 'platform:design:cost:query'
-  },
-  {
     title: '配置审计',
-    description: '查询历史钱包套餐及设计价目的变更记录。AI 积分调价在本页查看。',
+    description: '查询历史运营配置变更。当前能力的积分调价可在“调价记录”查看。',
     path: '/platform-ops/audit',
     permission: 'platform:ops:audit:query'
   }

@@ -22,6 +22,7 @@ export interface CurrentPostContext {
 const POSTS_KEY = 'platform-staff-posts'
 const POST_ID_KEY = 'platform-current-post-id'
 const CONTEXT_KEY = 'platform-current-post-context'
+export const ANNOUNCEMENTS_PATH = '/platform-announcements'
 export const PENDING_ANNOUNCEMENT_CREATE_KEY = 'platform-pending-announcement-create'
 const GENERATION_KEY = 'platform-post-generation'
 const PORTAL_MODE_KEY = 'platform-portal-mode'
@@ -112,6 +113,7 @@ export const canReadHeadquartersAnnouncements = (
  * 员工 Web 选岗后的落地页（identity 切换与短信登录共用，P2-1）。
  *
  * 角色优先（权限无法区分 boss 与 finance，两者都有 operate+fin）：
+ * - 有权限的总部公告直达链接和总部管理员 → 公告管理
  * - boss / owner → /fr/dashboard（老板首屏看经营）
  * - finance / finance-lead → /fr/finance（财务首屏看核对）
  * 其余角色按权限兜底，保证 roleCode 不在映射表时仍有落地页：
@@ -121,9 +123,17 @@ export const canReadHeadquartersAnnouncements = (
  * - 否则留在 /fr/identity
  */
 export const resolveStaffLandingPath = (
-  roleCode: string | null | undefined,
-  can: (permission: string) => boolean
+  post: Pick<StaffPost, 'orgType' | 'roleCode'> | null | undefined,
+  can: (permission: string) => boolean,
+  redirect?: unknown
 ): string => {
+  const roleCode = post?.roleCode
+  if (
+    (roleCode === 'hq-admin' || redirect === ANNOUNCEMENTS_PATH) &&
+    canReadHeadquartersAnnouncements(post, can)
+  ) {
+    return ANNOUNCEMENTS_PATH
+  }
   if (roleCode === 'boss' || roleCode === 'owner') return '/fr/dashboard'
   if (roleCode === 'finance' || roleCode === 'finance-lead') return '/fr/finance'
   if (can('franchise:performance:operate')) return '/fr/dashboard'

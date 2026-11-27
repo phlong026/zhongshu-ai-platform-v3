@@ -158,7 +158,7 @@ const selectPost = async (postId: PlatformId) => {
   if (!context) return
   await permissionStore.generateRoutes()
   await router.replace(
-    resolveStaffLandingPath(context.post.roleCode, (permission) => identity.can(permission))
+    resolveStaffLandingPath(context.post, identity.can, router.currentRoute.value.query.redirect)
   )
 }
 

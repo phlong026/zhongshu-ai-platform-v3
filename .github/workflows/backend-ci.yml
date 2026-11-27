@@ -144,6 +144,7 @@ jobs:
         run: |
           node --test src/clone-upload/transfer.test.mjs
           node --test tests/platform-staff-workspace.test.js tests/staff-import.test.js tests/staff-import-submit.test.js tests/store-staff-account.test.js tests/franchise-directory.test.js tests/franchise-onboard.test.js tests/platform-announcements.test.js
+          node --test tests/platform-home.test.js tests/platform-operations.test.js tests/pricing-center.test.js tests/staff-landing.test.js
           VITE_BASE_PATH=/admin/ npm run build:prod
           test -s dist/clone-upload.html
       - name: Play uploaded video and audio in a fresh web view

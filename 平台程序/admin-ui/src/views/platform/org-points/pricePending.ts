@@ -80,14 +80,21 @@ export const savePricePending = (storage: Storage, scope: PriceScope, frozen: Fr
   return pending
 }
 
-export const findPricePending = (storage: Storage, tenantId: string, actorId: string) => {
+export const findPricePending = (
+  storage: Storage,
+  tenantId: string,
+  actorId: string,
+  includeSubject: (subject: string) => boolean = () => true
+) => {
   const scope = { tenantId, actorId }
   const expectedPrefix = prefix(scope)
   for (let index = 0; index < storage.length; index++) {
     const key = storage.key(index)
     if (!key || !key.startsWith(expectedPrefix)) continue
     const raw = storage.getItem(key)
-    if (raw !== null) return decode(raw, scope)
+    if (raw === null) continue
+    const pending = decode(raw, scope)
+    if (includeSubject(pending.frozen.subject)) return pending
   }
   return null
 }
