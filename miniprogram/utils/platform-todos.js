@@ -7,7 +7,6 @@ const LABELS = {
   'first-follow': '待首次跟进',
   'visit': '约定跟进到期',
   'reconsult': '流失客户再次咨询', 'stale': '超期未跟进',
-  'submit-commission': '预算待委托',
   'lead-link': '客资待关联',
   'fee-approve': '委托费用待审批',
   'fee-pending': '委托费用审批中',

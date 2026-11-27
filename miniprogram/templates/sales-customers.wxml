@@ -2,7 +2,7 @@
   <view class="workbench-header"><brand-header wx:if="{{isBossView}}" back="{{true}}" divider="{{true}}" title="客户" /><brand-header wx:else divider="{{true}}" title="客户" /></view>
   <view class="content">
     <view class="section customer-overview">
-      <view class="section-heading"><text class="section-title">{{intent==='commission'?'选择委托客户':isBossView?'本店客户':isLead?'客户管理':'我的客户'}}</text><button wx:if="{{canRegister}}" class="primary" bindtap="register">＋ 登记客户</button></view>
+      <view class="section-heading"><text class="section-title">{{intent==='entrust'?'选择委托客户':isBossView?'本店客户':isLead?'客户管理':'我的客户'}}</text><button wx:if="{{canRegister}}" class="primary" bindtap="register">＋ 登记客户</button></view>
       <view class="sales-search customer-search"><image src="/assets/search.png" mode="aspectFit" /><input placeholder="搜索姓名、手机号或地区" value="{{keyword}}" bindinput="search" confirm-type="search" /></view>
       <view class="customer-work-filters customer-tabs"><button wx:for="{{tabs}}" wx:key="key" class="customer-day-button {{tab===item.key?'active':''}}" data-tab="{{item.key}}" bindtap="selectTab"><text>{{item.label}}</text><view wx:if="{{item.dot}}" class="sales-stat-dot" aria-label="有逾期跟进"/></button></view>
       <view class="customer-sync-state" aria-live="polite"><text wx:if="{{platformRefreshing}}">正在更新…</text><button wx:elif="{{platformStatus==='ready'&&platformError}}" bindtap="retryPlatform">更新未完成，点击重试</button></view>
@@ -11,7 +11,7 @@
         <view class="customer-row-copy">
           <view class="customer-row-heading"><text>{{item.name}}</text><text class="sales-badge {{item.lost?'customer-badge-lost':item.paused?'customer-badge-paused':''}}">{{item.stageName}}</text><text class="customer-cue {{item.cueTone}}">{{item.cue}}</text></view>
           <text class="hint">{{item.brief}}<text wx:if="{{item.progress}}"> · {{item.progress}}</text></text>
-          <view class="customer-row-foot"><text class="customer-next {{item.off?'customer-next-quiet':item.cueTone}}">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{intent==='commission'&&canRegister?'提交委托':item.action}}</button></view>
+          <view class="customer-row-foot"><text class="customer-next {{item.off?'customer-next-quiet':item.cueTone}}">{{item.detail}}</text><button wx:if="{{item.hasPhone}}" class="customer-call" data-id="{{item.id}}" catchtap="call" aria-label="拨打{{item.name}}电话"><image src="/assets/phone.png" mode="aspectFit" /></button><button class="outline customer-action" data-id="{{item.id}}" catchtap="act">{{intent==='entrust'&&canRegister?'外部委托':item.action}}</button></view>
         </view>
       </view>
       <view wx:if="{{platformMode&&platformStatus==='loading'}}" class="sales-empty">正在加载客户…</view>

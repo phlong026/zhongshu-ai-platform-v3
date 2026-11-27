@@ -190,7 +190,7 @@ const enabledRoles = [
   ['store', 'project-manager', '/pages/build/home/index'],
   ['store', 'finance', '/pages/admin/finance-desk/index'],
   ['store', 'finance-lead', '/pages/admin/finance-desk/index'],
-  ['headquarters', 'hq-design-admin', '/pages/workflow/commission/index?view=admin'],
+  ['headquarters', 'hq-design-admin', '/pages/business/index'],
   ['headquarters', 'hq-admin', '/pages/headquarters/index?section=overview'],
   ['headquarters', 'finance', '/pages/headquarters/index?section=finance'],
   ['headquarters', 'finance-lead', '/pages/headquarters/index?section=finance'],
@@ -223,12 +223,13 @@ assert.notEqual(navigation[0]?.url, '/pages/build/home/index', 'sales is not rou
 reset(post('hq-design-admin', { orgType: 'headquarters' }));
 seedLocalRole('engineer');
 pageOf(definitions.business).onShow();
-assert.deepEqual(navigation[0], { kind: 'reLaunch', url: '/pages/workflow/commission/index?view=admin' });
+assert.notEqual(navigation[0]?.url, '/pages/workflow/commission/index?view=admin', 'design admin no longer routes to the legacy commission workbench');
 
 reset(post('engineer'));
 seedLocalRole('hq-design-admin', 'headquarters');
 pageOf(definitions.business).onShow();
 assert.notEqual(navigation[0]?.url, '/pages/workflow/commission/index?view=admin', 'API engineer overrides stale local design role');
+assert.notEqual(navigation[0]?.url, '/pages/headquarters/index', 'stale local design role cannot route the API engineer to headquarters');
 
 // Finance defaults depend on the API post; explicit route options still win.
 reset(post('finance', { orgType: 'store' }));

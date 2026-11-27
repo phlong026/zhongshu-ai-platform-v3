@@ -7,7 +7,7 @@ const EMPTY_API={due:'今天的跟进都办完了',appointments:'暂无预约跟
 module.exports=()=>({
  data:{keyword:'',tab:'all',tabs:[],customers:[],filteredCustomers:[],visibleCustomers:[],pageSize:10,platformMode:false,platformStatus:'',platformError:'',platformRefreshing:false,authError:false},
  onLoad(o={}){this.applyEntryIntent(o);},
- applyEntryIntent(o={},refresh=false){this.cancelSearch();this.setData({intent:o.intent==='commission'?'commission':'',...(TABS.some(([key])=>key===o.focus)?{tab:o.focus,keyword:'',pageSize:10}:{})});if(refresh)return this.loadPlatformList();},
+ applyEntryIntent(o={},refresh=false){this.cancelSearch();this.setData({intent:o.intent==='entrust'||o.intent==='commission'?'entrust':'',...(TABS.some(([key])=>key===o.focus)?{tab:o.focus,keyword:'',pageSize:10}:{})});if(refresh)return this.loadPlatformList();},
  onHide(){this.__loadGen=(this.__loadGen||0)+1;this.__listFlight=null;this.cancelSearch();this.setData({platformRefreshing:false});},
  onUnload(){this.__unloaded=true;this.cancelSearch();},
  cancelSearch(){if(this.__searchTimer){clearTimeout(this.__searchTimer);this.__searchTimer=null;}},
@@ -137,9 +137,9 @@ module.exports=()=>({
  },
  register(){if(this.data.canRegister)wx.navigateTo({url:'/pages/workflow/index?view=customers&modal=register'});},
  open(e){const id=e.currentTarget.dataset.id;
-  if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:this.data.intent==='commission'&&this.data.canRegister?'/pages/workflow/commission/index?view=submit&customerId='+encodeURIComponent(id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
+  if(this.data.customers.some(c=>String(c.id)===String(id)))wx.navigateTo({url:this.data.intent==='entrust'&&this.data.canRegister?'/pages/external-entrust/index?customerId='+encodeURIComponent(id):'/pages/workflow/index?view=customer&id='+encodeURIComponent(id)});},
  act(e){const row=this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id));
-  if(row){if(this.data.intent==='commission'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.lost?row.url:(row.flowUrl||row.url)});}},
+  if(row){if(this.data.intent==='entrust'&&this.data.canRegister)return this.open(e);wx.navigateTo({url:row.lost?row.url:(row.flowUrl||row.url)});}},
  call(e){const dial=(this.data.customers.find(c=>String(c.id)===String(e.currentTarget.dataset.id))||{}).dial;
   if(!/^1\d{10}$/.test(dial||''))return wx.showToast({title:'该号码不可拨打',icon:'none'});wx.makePhoneCall({phoneNumber:dial,fail(){}});},
 });

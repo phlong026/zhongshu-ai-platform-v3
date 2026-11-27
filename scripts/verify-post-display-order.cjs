@@ -92,7 +92,7 @@ assert.deepEqual(sixPosts, sixSnapshot, '账户页生成展示选项也不得重
 
 page.selectApiPost({ currentTarget: { dataset: { postId: '2121620216580415490' } } });
 assert.deepEqual(switched, ['2121620216580415490'], '切换必须传回原始 postId，不传排序索引');
-assert.equal(entered.at(-1), '/pages/workflow/commission/index?view=admin');
+assert.equal(entered.at(-1), '/pages/business/index', '设计行政切换后落到通用业务工作台（旧委托工作台已退役）');
 
 console.log('PASS 六岗位按业务、工程、财务、门店老板、设计行政、总部财务展示');
 console.log('PASS 总部运营仅参与展示排序，未知岗位稳定置后');
