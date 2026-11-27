@@ -67,8 +67,8 @@ module.exports = function (page, api) {
   };
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
-    const ids=new Set((this.data.bookEntryRows||[]).filter(r=>r.type==='ADVANCE').map(r=>String(r.id)));
-    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.origin_payment_id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+    const ids=new Set((this.data.bookResult?.reimbursementIds||[]).map(String));
+    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
   };
   page.changeBookFlowTab=function(e){this.setData({bookFlowTab:e.currentTarget.dataset.tab});this.filterBookEntries();};
   page.openBookEntry=function(e){const key=e.currentTarget.dataset.key;const entry=(this.data.bookEntryRows||[]).find(r=>r.key===key);if(entry)this.setData({bookEntryDetail:entry});};
