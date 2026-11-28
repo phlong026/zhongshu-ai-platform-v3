@@ -80,6 +80,29 @@ class SaleReceiptCorrectionIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_refund WHERE receipt_id=?",Long.class,receipt)).isEqualTo(1);
     }
 
+    @Test void receiptCorrectionCannotMoveCollectionPastTheEarliestEffectiveRefund() {
+        var c=contract();var stages=stageIds(c);long receipt=collect(stages.get(0),40000);
+        LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        LocalDate first=today.minusDays(6), second=today.minusDays(3);
+        jdbc.update("UPDATE fr_fin_receipt SET received_date=? WHERE id=?",first.minusDays(2),receipt);
+        String refundSql="INSERT INTO fr_fin_refund(id,company_id,receipt_id,amount_cents,status,reason,operator_user_id,date) VALUES(?,?,?,5000,?,'原单退款',?,?)";
+        long firstId=IdWorker.getId(), secondId=IdWorker.getId(), voidId=IdWorker.getId();
+        jdbc.update(refundSql,firstId,company,receipt,"已核实",finance.userId(),first);
+        jdbc.update(refundSql,secondId,company,receipt,"已核实",finance.userId(),second);
+        jdbc.update(refundSql,voidId,company,receipt,"已核实",finance.userId(),first.minusDays(1));
+        jdbc.update("UPDATE fr_fin_refund SET status='已作废',void_by_user_id=?,void_reason='核对后作废',voided_at=CURRENT_TIMESTAMP WHERE id=?",finance.userId(),voidId);
+        var original=jdbc.queryForMap("SELECT amount_cents,received_date,revision_version FROM fr_fin_receipt WHERE id=?",receipt);
+        var originalRefunds=jdbc.queryForList("SELECT id,date,amount_cents,status FROM fr_fin_refund WHERE receipt_id=? ORDER BY id",receipt);
+        var late=new SaleReceiptCorrectionService.Correction(1,40000L,first.plusDays(1),stages.get(0),"日期核对");
+        assertThatThrownBy(()->as(finance,()->corrections.correct(finance,receipt,late,key())))
+                .hasMessageContaining("不能晚于这笔收款最早的有效退款日期");
+        assertThat(jdbc.queryForMap("SELECT amount_cents,received_date,revision_version FROM fr_fin_receipt WHERE id=?",receipt)).isEqualTo(original);
+        var sameDay=new SaleReceiptCorrectionService.Correction(1,40000L,first,stages.get(0),"核对同日实际收款");
+        assertThat(as(finance,()->corrections.correct(finance,receipt,sameDay,key()))).containsEntry("revisionVersion",2);
+        assertThat(as(finance,()->corrections.detail(finance,receipt))).containsEntry("receivedDate",first.toString());
+        assertThat(jdbc.queryForList("SELECT id,date,amount_cents,status FROM fr_fin_refund WHERE receipt_id=? ORDER BY id",receipt)).isEqualTo(originalRefunds);
+    }
+
     @Test void confirmedDeclarationRemainsOriginalEvidenceAndReplaysTheSameCorrectedReceipt() {
         var stages=stageIds(contract());
         var claim=new SaleContractService.CollectCommand(40000,"bank",key(),LocalDate.now());

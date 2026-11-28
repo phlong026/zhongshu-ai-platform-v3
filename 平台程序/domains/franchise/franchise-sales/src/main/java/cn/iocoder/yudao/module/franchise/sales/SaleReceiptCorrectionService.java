@@ -37,6 +37,8 @@ public class SaleReceiptCorrectionService {
     public record Correction(Integer baseRevisionVersion, Long amountCents, LocalDate receivedDate,
                              Long stageId, String reason) { }
 
+    private record RefundFacts(long amountCents, LocalDate firstDate) { }
+
     @Transactional(rollbackFor = Exception.class)
     public Map<String,Object> registrationResult(PostSnapshot actor, long receiptId, String key) {
         requireFinance(actor);
@@ -112,11 +114,16 @@ public class SaleReceiptCorrectionService {
                 || !Objects.equals(receipt.get("customer_id"), contracts.get(0).get("customer_id"))) throw exception(REFERENCE_INVALID);
         int revision = ((Number)receipt.get("revision_version")).intValue();
         if (revision != change.baseRevisionVersion()) throw PaymentPlanRules.invalid("原收款已被修改，请刷新核对后重试");
-        long refunded = jdbc.queryForObject("""
-                SELECT COALESCE(sum(amount_cents),0) FROM fr_fin_refund
+        // Read the amount and first effective refund date from the same snapshot after locking the receipt.
+        var refunds = jdbc.queryForObject("""
+                SELECT COALESCE(sum(amount_cents),0) AS total, MIN(date) AS first_date FROM fr_fin_refund
                 WHERE receipt_id=? AND company_id=? AND status='已核实' AND replaced_by_id IS NULL
-                """, Long.class, receiptId, actor.orgId());
+                """, (rs, row) -> new RefundFacts(rs.getLong("total"), rs.getObject("first_date", LocalDate.class)),
+                receiptId, actor.orgId());
+        long refunded = refunds.amountCents();
         if (change.amountCents() < refunded) throw PaymentPlanRules.invalid("更正金额不能少于这笔收款已经退回的金额");
+        if (refunds.firstDate() != null && change.receivedDate().isAfter(refunds.firstDate()))
+            throw PaymentPlanRules.invalid("更正后的收款日期不能晚于这笔收款最早的有效退款日期");
         long existingNet = net(change.stageId());
         long ownNet = oldStageId == change.stageId() ? ((Number)receipt.get("amount_cents")).longValue() - refunded : 0;
         if (existingNet - ownNet + change.amountCents() - refunded > ((Number)target.get("amount_cents")).longValue())
