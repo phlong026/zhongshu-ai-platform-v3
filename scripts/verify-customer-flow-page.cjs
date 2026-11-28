@@ -689,6 +689,23 @@ test('灵感选择回传保留其他填写，切岗后的选择回传被拒绝',
   assert.equal(h.page.data.form.fields.referenceCaseId, '');
 });
 
+test('客户列表仅剩开工待办时以 currentStepCode 显示开工大吉，不把 nextStepCode=null 当作全部完成', () => {
+  const crm = require('../miniprogram/utils/platform-crm');
+  const row = crm.customerRow({
+    id: '900719925474099999', name: '待开工客户', createTime: 0, lastFollowAt: 1,
+    workflow: {
+      status: 'ACTIVE', completedCount: 7, totalSteps: 8, progressPercent: 87.5,
+      currentStepCode: 'START', nextStepCode: null,
+      start: { status: 'TODO', fields: { projectId: '77', commissionStatus: 'ACCEPTED' } }
+    }
+  }, { canWrite: true, today: '2026-11-27' });
+  assert.equal(row.stageName, '开工大吉');
+  assert.equal(row.progress, '7/8步 · 87.5%');
+  assert.equal(row.engineeringHint, '工程已接收，待实际开工');
+  assert.equal(row.off, false);
+  assert.notEqual(row.stageName, '业务八步完成');
+});
+
 test('客户列表使用批量内联摘要，下次跟进日期读客户表，按钮统一进八步页', () => {
   const crm = require('../miniprogram/utils/platform-crm');
   const row = crm.customerRow({ id: '900719925474099999', name: '客户', createTime: 0, lastFollowAt: 1, nextVisitDate: [2026, 12, 1],

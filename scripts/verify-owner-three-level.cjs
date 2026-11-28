@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 const customer = {
@@ -44,7 +45,7 @@ const snapshot = {
   projectRows:[], focus:[{key:'engineering-late',risk:false}], approvals:[], reviews:[], staff:[], team:[], goals:{}
 };
 
-const model = require('../miniprogram/pages/admin/owner-business').business(snapshot);
+const model = require('./fixtures/legacy-admin/owner-business').business(snapshot);
 assert.deepEqual(model.levels.map(level=>level.key), ['company','business','engineering'], '经营页必须按公司、业务、工程三层组织');
 assert.equal(model.levels[2].cards[0].key, 'materials', '工程层第一张卡必须是材料事实');
 assert.equal(model.levels[2].cards[0].value, '1');
@@ -59,7 +60,7 @@ assert(model.alerts.every(alert=>alert.url && alert.url.startsWith('/pages/')), 
 assert.deepEqual(model.headline.map(item=>item.label), ['本月有效回款','项目预计毛利','经营预警']);
 assert.equal(model.headline[2].value, '待完善', '任一核心预警证据缺失时首屏不得汇总为零');
 
-const known = require('../miniprogram/pages/admin/owner-business').business({
+const known = require('./fixtures/legacy-admin/owner-business').business({
   ...snapshot,
   operating:{
     cash:100000,

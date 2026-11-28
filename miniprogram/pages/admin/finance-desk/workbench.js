@@ -151,15 +151,15 @@ module.exports = function (page, api) {
     this._registerSeq=(this._registerSeq||0)+1;this.registerIdem=null;
     this.setData({ registerType:'',registerForm:{},registerError:'',bookEntryDetail:null, wbForm: { type, scope: this.data.view === 'book' ? (this.data.bookScope || '') : '',scopeLabel:this.data.view==='book'?this.data.bookName:'', date: date(), category: type === 'receipt' ? '其他收款' : '其他费用', accountName: '' }, wbError: '' });
   };
-  page.wbInput = function (e) { if(this.data.wbBusy)return;const field=e.currentTarget.dataset.field;this.setData({ ['wbForm.' + field]: field==='fundingType'?['COMPANY','EMPLOYEE'][Number(e.detail.value)]:e.detail.value }); };
+  page.wbInput = function (e) { if(this.data.wbBusy||this.data.paymentPending)return;const field=e.currentTarget.dataset.field;this.setData({ ['wbForm.' + field]: field==='fundingType'?['COMPANY','EMPLOYEE'][Number(e.detail.value)]:e.detail.value }); };
   page.wbPick = function (e) {
-    if(this.data.wbBusy)return;const field = e.currentTarget.dataset.field;if(field==='receiptId'){const row=(this.data.allocationReceipts||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.receiptId':row.id,'wbForm.receiptLabel':row.label});return;}if(field==='stageId'){const row=(this.data.financialStages||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.stageId':row.id,'wbForm.stageLabel':row.label});return;}const rows = field === 'scope' ? this.data.wbForm?.type==='linkbook'?this.data.wbForm.projectChoices:this.data.workbenchBooks : this.data.workbenchStaff;
+    if(this.data.wbBusy||this.data.paymentPending)return;const field = e.currentTarget.dataset.field;if(field==='receiptId'){const row=(this.data.allocationReceipts||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.receiptId':row.id,'wbForm.receiptLabel':row.label});return;}if(field==='stageId'){const row=(this.data.financialStages||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.stageId':row.id,'wbForm.stageLabel':row.label});return;}const rows = field === 'scope' ? this.data.wbForm?.type==='linkbook'?this.data.wbForm.projectChoices:this.data.workbenchBooks : this.data.workbenchStaff;
     const row = (rows || [])[Number(e.detail.value)]; if (!row) return;
     this.setData({ ['wbForm.' + field]: field === 'scope' ? row.scope : row.id, ['wbForm.' + field + 'Label']: row.name });
   };
-  page.cancelWorkbench = function () { if (this.data.wbBusy) return; this.wbGeneration = (this.wbGeneration || 0) + 1; this.setData({ wbForm: null, wbError: '' }); };
+  page.cancelWorkbench = function () { if (this.data.wbBusy||this.data.paymentPending) return; this.wbGeneration = (this.wbGeneration || 0) + 1; this.setData({ wbForm: null, wbError: '' }); };
   page.wbVoucher = function () {
-    if (this.data.wbBusy || !this.data.wbForm) return;
+    if (this.data.wbBusy || this.data.paymentPending || !this.data.wbForm) return;
     const session = http.sessionGuard(), generation = this.wbGeneration;
     const selection = this.__voucherSelection = (this.__voucherSelection || 0) + 1;
     const context = () => { const f = this.data.wbForm || {}; return JSON.stringify([f.type,f.scope,f.id,f.recordId,f.sourceType,f.sourceId,f.payableId,f.stageId,f.receiptId]); };
@@ -170,8 +170,11 @@ module.exports = function (page, api) {
     }).catch(error => { if (alive()) this.setData({ wbError: error.message }); });
   };
   page.submitWorkbench = async function () {
-    if (this.data.wbBusy || !this.data.wbForm) return;
+    if (this.data.wbBusy || this.data.paymentPending || !this.data.wbForm) return;
     const f = { ...this.data.wbForm }, aliveSession = http.sessionGuard(), generation = this.wbGeneration;
+    if (f.type==='receipt'&&f.stageId&&!['finance','finance-lead'].includes(auth.currentApiPost()?.roleCode)) {
+      return this.setData({wbError:'请由财务核实并登记实际收款'});
+    }
     if (f.payrollRecordId) {
       const post = auth.currentApiPost(), route = this.options || {};
       if (String(post?.orgId) !== route.payrollCompany || String(post?.postId) !== route.payrollPost ||
@@ -226,7 +229,13 @@ module.exports = function (page, api) {
           amountCents: body.amountCents, date: body.date, accountName: body.accountName, transactionNo: body.transactionNo,
           voucherFileId: body.voucherFileId }, this.wbKey, f, 'payroll-payment');
       }
-      const result=f.type==='receipt'&&f.stageId?await http.post('/franchise/sales/stages/'+encodeURIComponent(f.stageId)+'/collect',{amountCents:body.amountCents,method:'other',transactionNo:body.transactionNo,receivedDate:body.date,voucherFileId:body.voucherFileId,accountName:body.accountName},{'Idempotency-Key':this.wbKey}):await http.post(endpoint.startsWith('/franchise/')?endpoint:base + endpoint, body, { 'Idempotency-Key': this.wbKey });
+      if (f.type==='receipt'&&f.stageId) {
+        return await this.dispatchPreparedPayment({stageId:String(f.stageId),amountCents:body.amountCents,method:'other',
+          transactionNo:body.transactionNo,receivedDate:body.date,voucherFileId:body.voucherFileId,accountName:body.accountName},
+          this.wbKey,f,'stage-collection');
+      }
+      if (endpoint==='/entries') return await this.dispatchPreparedPayment(body,this.wbKey,f,'workbench-entry');
+      const result=await http.post(endpoint.startsWith('/franchise/')?endpoint:base + endpoint, body, { 'Idempotency-Key': this.wbKey });
       if (!alive()) return;
       if(f.type==='linkbook'){this.options={...this.options,bookScope:f.scope};this.setData({bookScope:f.scope,canLinkBook:false});}
       if(this.financeEntrySaved)this.financeEntrySaved(f.type,f,result);

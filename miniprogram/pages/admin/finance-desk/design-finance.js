@@ -3,8 +3,27 @@ const {day:financeDay}=require('../../../utils/finance-date');
 const http = require('../../../api/http');
 const Money = require('../../../utils/money');
 const Finance = require('../../../utils/platform-finance');
+const LedgerValue = require('../accounting/model');
 const today = () => require('../../../utils/account').localDate();
 const yuan = cents => ((Number(cents) || 0) / 100).toFixed(2);
+const ledgerLabels = { PAYABLE: '费用', CONFIRMED_ENGINEERING_COST: '已确认工程费用（未挂应付）', PAYMENT: '付款',
+  ADVANCE: '员工垫付', RECEIPT: '收款', REFUND: '客户退款', EXPENSE_REFUND: '支出退回公司',
+  EMPLOYEE_REFUND: '垫付退回员工', RECEIVABLE: '合同应收', PENDING_RECEIPT: '待核实收款' };
+const ledgerNames = { FULL: '设计费', FIRST: '设计首款', TAIL: '设计尾款', engineering: '材料采购', engineering_expense: '工程费用' };
+function projectLedgerRow(row, index) {
+  const originalExpenseId = row.type === 'CONFIRMED_ENGINEERING_COST' ? LedgerValue.id(row.originalExpenseId) : '';
+  const id = LedgerValue.id(row.recordId || originalExpenseId || row.id), details = row.details || {};
+  const label = ledgerLabels[row.type] || '账目记录', amount = LedgerValue.money(row.amountCents), date = financeDay(row.occurredOn);
+  const income = ['RECEIPT', 'EXPENSE_REFUND', 'EMPLOYEE_REFUND'].includes(row.type);
+  const sign = income ? '+' : ['PAYMENT', 'REFUND', 'ADVANCE'].includes(row.type) ? '−' : '';
+  return { ...row, id, originalExpenseId, key: row.type + ':' + (id || 'unresolved-' + index), label, typeLabel: label,
+    name: ledgerNames[details.name] || details.name || label, amount, amountText: amount, date, dateText: date,
+    tone: income ? 'income' : 'expense', sign, counterparty: details.counterparty || '',
+    account_name: details.accountName || '', transaction_no: details.transactionNo || '',
+    voucher_file_id: LedgerValue.id(details.voucherFileId), note: details.note || '',
+    sourceLabel: ({ LABOR: '人工', TRAVEL: '差旅', OTHER: '其他' })[details.category] || details.category || label,
+    statusText: ({ PENDING: '待收款', OPEN: '待收款', PARTIAL: '部分到账', SETTLED: '已收齐' })[row.status] || row.status };
+}
 
 function receiptBody(row, payment, form) {
   const amountCents = Money.parseCents(form.amount);
@@ -128,14 +147,14 @@ function attach(page, api) {
     if (!this.id) return this.setData({ ledgerProjectError: '缺少工程项目编号' });
     const id = String(this.id), alive = http.requestGuard('project-ledger');
     const pageNo = append ? (this.projectLedgerPage || 1) + 1 : 1;
-    this.setData({ ledgerProjectError: '', ledgerProjectLoading: true });
+    this.setData({ ledgerProjectError: '', ledgerProjectLoading: true, ...(!append ? { bookEntryDetail: null } : {}) });
     this.setData({ id });
     try {
       const result = await api.projectLedger(id, pageNo, 20);
       if (!alive() || this.__disposed || String(this.id) !== id || (this.canLoadProjectLedger && !this.canLoadProjectLedger())) return;
       this.projectLedgerPage = pageNo;
       const s=result.summary;
-      const entries=result.entries.list.map(r=>({...r,key:r.type+':'+(r.type==='CONFIRMED_ENGINEERING_COST'&&r.originalExpenseId||r.id),originalExpenseId:r.type==='CONFIRMED_ENGINEERING_COST'&&/^\d+$/.test(String(r.originalExpenseId||''))?String(r.originalExpenseId):'',typeLabel:({RECEIVABLE:'合同应收',PAYABLE:'费用',CONFIRMED_ENGINEERING_COST:'已确认工程费用（未挂应付）',PAYMENT:'付款',ADVANCE:'员工垫付',RECEIPT:'收款',REFUND:'退款',EXPENSE_REFUND:'支出退回'})[r.type]||'费用',amountText:BookView.money(r.amountCents),dateText:financeDay(r.occurredOn),tone:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'income':'expense',sign:['RECEIPT','EXPENSE_REFUND'].includes(r.type)?'+':['PAYMENT','REFUND','ADVANCE'].includes(r.type)?'−':''}));
+      const entries = result.entries.list.map((row, index) => projectLedgerRow(row, (pageNo - 1) * 20 + index));
       const metrics = [
         {key:'received',label:'累计收款',value:BookView.money(s.receivedCents)},
         {key:'paid',label:'累计付款',value:BookView.money(s.paidCents)}
@@ -155,6 +174,28 @@ function attach(page, api) {
     } catch (e) { if (alive() && !this.__disposed && (!this.canLoadProjectLedger || this.canLoadProjectLedger())) this.setData({ ledgerProjectLoading: false, ledgerProjectError: e.message || e.msg || '项目账加载失败' }); }
   };
   page.moreProjectLedger = function () { if ((this.data.projectLedgerEntries || []).length < this.data.projectLedgerTotal) this.loadProjectLedger(true); };
+  page.openProjectLedgerEntry = function (event) {
+    if (!this.data.projectLedgerReadOnly || this.__financeHidden || this.data.ledgerProjectError || !this.canLoadProjectLedger?.()) return;
+    const row = (this.data.projectLedgerEntries || []).find(entry => entry.key === event.currentTarget.dataset.key);
+    if (row?.id) this.setData({ bookEntryDetail: row });
+  };
+  // Boss pages attach only these read actions; finance workbench installs its own handlers later.
+  page.closeBookEntry = function () { this.setData({ bookEntryDetail: null }); };
+  page.openBookVoucher = async function () {
+    const entry = this.data.bookEntryDetail;
+    const alive = () => this.data.projectLedgerReadOnly && !this.__financeHidden && !this.data.ledgerProjectError
+      && this.canLoadProjectLedger?.() && this.data.bookEntryDetail === entry
+      && (this.data.projectLedgerEntries || []).some(row => row.key === entry?.key && row.voucher_file_id === entry.voucher_file_id);
+    if (!entry?.voucher_file_id || !alive()) return;
+    try {
+      const ticket = await http.post('/franchise/assets/' + encodeURIComponent(entry.voucher_file_id) + '/download-tickets');
+      if (!alive()) return;
+      const file = await require('../../../utils/b-asset-download').downloadTicketFile({ http, downloadUrl: ticket.downloadUrl, alive, label: '凭据' });
+      if (!alive()) return;
+      if (/^image\//i.test(file.contentType)) wx.previewImage({ urls: [file.tempFilePath] });
+      else wx.openDocument({ filePath: file.tempFilePath, fileType: 'pdf', showMenu: true, fail: () => { if (alive()) wx.showToast({ title: '凭据打开失败', icon: 'none' }); } });
+    } catch (error) { if (alive()) wx.showToast({ title: error.message || '凭据加载失败', icon: 'none' }); }
+  };
 }
 module.exports = attach;
 module.exports.receiptBody = receiptBody;

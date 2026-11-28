@@ -1,8 +1,9 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 const Account = require('../miniprogram/utils/account');
 const Finance = require('../miniprogram/utils/finance-source');
-const Management = require('../miniprogram/pages/admin/model');
+const Management = require('./fixtures/legacy-admin/model');
 
 function restore(rows) {
   wx.getStorageInfoSync().keys.forEach(key => wx.removeStorageSync(key));

@@ -1,8 +1,9 @@
-const A = require('../../utils/account');
-const N = require('../../utils/organization');
-const X = require('../../utils/access');
+// Historical local admin fixture; never import from miniprogram production code.
+const A = require('../../../miniprogram/utils/account');
+const N = require('../../../miniprogram/utils/organization');
+const X = require('../../../miniprogram/utils/access');
 
-const clone = require('../../utils/clone');
+const clone = require('../../../miniprogram/utils/clone');
 const ACTIONS = ['management-company', 'management-assignments', 'approval-settings'];
 const ASSIGNMENTS = [
   { id: 'sales', label: '业务默认经办人', role: 'sales', orgTypes: ['store'] },

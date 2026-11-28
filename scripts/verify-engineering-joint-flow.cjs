@@ -225,13 +225,14 @@ test('zero or fully collected installments never offer a new collection or dunni
     'collect'
   );
 });
-test('legacy project links select a project before loading detail and retain node context when present', () => {
+test('legacy project links preserve their destination through login and a failed navigation retry', () => {
   let page;
+  let online = true, failNext = false, homeCalls = 0;
   const urls = [];
   vm.runInNewContext(fs.readFileSync('miniprogram/pages/build/index.js', 'utf8'), {
-    Page: (p) => (page = p),
-    require: () => ({ online: () => true }),
-    wx: { redirectTo: (o) => urls.push(o.url) }
+    Page: (p) => (page = { ...p, setData(patch) { Object.assign(this.data, patch); } }),
+    require: (name) => name.endsWith('/page-navigation') ? { home: () => homeCalls++ } : { online: () => online },
+    wx: { redirectTo: (o) => { urls.push(o.url); if (failNext) { failNext = false; o.fail(); } } }
   });
   page.onLoad({ view: 'projects' });
   page.onLoad({ view: 'materials' });
@@ -243,6 +244,20 @@ test('legacy project links select a project before loading detail and retain nod
     '/pages/build/record/index?view=project&id=123',
     '/pages/build/record/index?view=node&id=123&nodeId=456'
   ]);
+  online = false;
+  failNext = true;
+  page.onLoad({ view: 'collection', id: '123', stage: 'stage:789', planId: '321', homeSupply: '654' });
+  const destination = '/pages/build/record/index?view=collection&id=123&stage=stage%3A789&planId=321&homeSupply=654';
+  assert.equal(new URL(urls.at(-1), 'https://local').searchParams.get('return'), destination);
+  assert.equal(page.data.failed, true);
+  page.openDestination();
+  assert.equal(urls.at(-1), urls.at(-2));
+  assert.equal(page.data.failed, false);
+  online = true;
+  page.openDestination();
+  assert.equal(urls.at(-1), destination);
+  page.home();
+  assert.equal(homeCalls, 1);
 });
 test('partial receipts, electronic briefing and archived preparation are represented truthfully', () => {
   const { P } = harness(),
