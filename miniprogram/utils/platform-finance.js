@@ -95,8 +95,12 @@ function metrics(receipts, payments, refunds, month) {
  * 与后端 EngineeringLedgerQueryAdapter / design settlement 的有效账口径一致；作废记录不参与。
  */
 function canAssignPayable(payable) {
-  return !!payable && payable.sourceType === 'manual' && payable.projectId == null
-    && payable.bookId == null && payable.status !== '已作废' && !payable.deleted;
+  const sourceType = payable && (payable.sourceType ?? payable.source_type);
+  const sourceRef = payable && (payable.sourceRef ?? payable.source_ref);
+  const status = payable && payable.status;
+  // Manual entries can be initially assigned or corrected; the server rejects any upstream engineering source.
+  return !!payable && sourceType === 'manual' && (sourceRef == null || sourceRef === '')
+    && status !== '已作废' && !payable.deleted;
 }
 
 function payableProgress(payables, payments, refunds) {
