@@ -5,6 +5,7 @@ const kinds = {
   'payroll-payment': { label: '薪酬付款', source: 'payrollRecordId', result: 'id' },
   'workbench-entry': { label: '收支', result: 'id', path: 'workbench/entries' },
   'stage-collection': { label: '合同收款', source: 'stageId', result: 'receiptId' },
+  'receipt-correction': { label: '收款更正', source: 'receiptId', result: 'receiptId', call: 'correctContractReceipt' },
   refund: { label: '退款', source: 'receiptId', result: 'refundId', call: 'registerRefund', path: 'refunds' },
   'expense-refund': { label: '支出退回', source: 'paymentId', result: 'refundId', call: 'registerExpenseRefund', path: 'expense-refunds' }
 };
@@ -16,7 +17,8 @@ const workbenchForm = entry => payroll(entry) || workbench(entry) || stageCollec
 const validSource = entry => workbench(entry)
   ? ['receipt', 'expense', 'payable'].includes(entry.body?.type) && /^(company|(project|book):[0-9]+)$/.test(entry.body?.scope || '')
   : !!entry.body?.[kind(entry).source];
-const path = entry => stageCollection(entry) ? '/franchise/sales/stages/' + encodeURIComponent(entry.body.stageId) + '/collect' : payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
+const path = entry => entry.type === 'receipt-correction' ? '/franchise/sales/receipts/' + encodeURIComponent(entry.body.receiptId) + '/correction' :
+  stageCollection(entry) ? '/franchise/sales/stages/' + encodeURIComponent(entry.body.stageId) + '/collect' : payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
   '/franchise/finance/' + kind(entry).path;
 
 module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
@@ -45,12 +47,13 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     page.setData({ registerType: '', registerForm: {}, registerBusy: false, paymentPending: false,
       paymentRetry: false, registerError: '', paymentNotice: kind(entry).label + '已登记，单号 ' + id });
     if (workbenchForm(entry)) page.setData({ wbForm: null, wbError: '' });
+    if (entry.type === 'receipt-correction') page.setData({ revisionForm: null, revisionBusy: false });
     page.financeEntrySaved?.(workbench(entry) ? entry.body.type : stageCollection(entry) ? 'receipt' : payroll(entry) ? 'expense' : entry.type || 'payment', entry.form, result);
     page.loadPlatformFinance(true);
     page.loadWorkbench?.();
     page.loadDesignFees?.();
     page.refreshFinanceTasks?.();
-    if ((workbench(entry) || stageCollection(entry)) && page.data.view === 'book') page.loadBookLedger?.();
+    if ((workbench(entry) || stageCollection(entry) || entry.type === 'receipt-correction') && page.data.view === 'book') page.loadBookLedger?.();
     return true;
   };
   const reject = (key, entry) => {

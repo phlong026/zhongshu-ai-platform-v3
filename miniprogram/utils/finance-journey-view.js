@@ -34,7 +34,7 @@ function cashRows(facts,books,stages,role){
    sourceLabel:q.category||(q.stage?stageName(q.stage):q.sourceType==='business'?'合同回款':type==='RECEIPT'?'其他收款':refundDir==='client'?'客户退款':'其他费用'),
    account_name:raw.accountName||'',transaction_no:raw.transactionNo||'',voucher_file_id:raw.voucherFileId,statusText:receiptRefund||'已登记',funding_type:raw.fundingType||'COMPANY',
    canRefund:['receipt','payment'].includes(sourceKind)&&Number(raw.amountCents)>returned,refundableCents:Math.max(0,Number(raw.amountCents)-returned),
-   canRevise:sourceKind==='receipt'&&q.sourceType==='manual',canVoid:PF.canVoidPayment(role,sourceKind,raw.status),canCorrect:sourceKind==='refund'&&role==='finance-lead',category:type==='RECEIPT'?'收款':type==='PAYMENT'?'付款':refundDir==='expense'?'支出退回':'退款'});
+   canRevise:sourceKind==='receipt'&&['finance','finance-lead'].includes(role)&&['manual','business'].includes(q.sourceType),canVoid:PF.canVoidPayment(role,sourceKind,raw.status),canCorrect:sourceKind==='refund'&&role==='finance-lead',category:type==='RECEIPT'?'收款':type==='PAYMENT'?'付款':refundDir==='expense'?'支出退回':'退款'});
  };
  for(const r of facts.receipts||[])if(r.status==='已登记')add(r,'RECEIPT','receipt',r.receivedDate,'+',r.name||'收款',r);
  for(const p of facts.payments||[])if(p.status==='已核实'&&p.fundingType!=='EMPLOYEE'){

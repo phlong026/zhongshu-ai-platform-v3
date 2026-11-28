@@ -150,7 +150,7 @@ async function main() {
   assert.equal(todoRefreshes, 1, '老板首页 onShow 拉取平台待办');
   assert.equal(ownerPage.data.desk.name, '测试老板');
   assert.equal(ownerPage.data.desk.company, '测试门店');
-  assert.equal(ownerPage.data.desk.home.six[0].value, '12,345');
+  assert.equal(ownerPage.platSummary, null, '首页概览由 home-overview 自取，不再加载未显示的旧六宫格汇总');
   assert.equal(ownerPage.data.platformTodos.status, 'ready');
   ownerPage.month({ detail: { value: '2026-10' } });
   assert.equal(ownerPage.platPeriod, '2026-10');

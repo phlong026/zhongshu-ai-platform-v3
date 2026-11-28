@@ -23,7 +23,7 @@
  <text wx:if="{{wbError&&!journeyErrorField}}" class="journey-error">{{wbError}}</text>
  <button class="fin-primary" bindtap="submitJourneyEntry" loading="{{wbBusy||registerBusy}}" disabled="{{wbBusy||registerBusy||paymentPending}}">{{wbForm.type==='receipt'?'确认登记收款':wbForm.type==='payable'?'保存待付费用':'登记付款'}}</button>
 </view>
-<template wx:elif="{{registerType==='revision'}}" is="receiptRevision" data="{{compactHeader:true,revisionForm:revisionForm,revisionBusy:revisionBusy,revisionHistory:revisionHistory,registerError:registerError}}"/>
+<template wx:elif="{{registerType==='revision'}}" is="receiptRevision" data="{{compactHeader:true,revisionForm:revisionForm,revisionBusy:revisionBusy,revisionHistory:revisionHistory,registerError:registerError,registerBusy:registerBusy,paymentPending:paymentPending}}"/>
 <view wx:elif="{{registerType==='payment'||registerType==='refund'||registerType==='expense-refund'}}" class="fin-card journey-form">
 
  <block wx:if="{{registerType==='payment'}}">

@@ -84,6 +84,10 @@ test('访客从服务和培训进入登录，按当前岗位恢复有效站内�
     [store, services, services], [store, selection, selection], [store, map, map],
     [store, training, training], [store, training+'?entry=academy', training+'?entry=academy'],
     [finance, map, map], [finance, services, '/pages/admin/index'],
+    [store, '/pages/build/projects/index?destination=materials', '/pages/build/projects/index?destination=materials'],
+    [store, '/pages/build/record/index?view=collection&id=123&stage=stage%3A789', '/pages/build/record/index?view=collection&id=123&stage=stage%3A789'],
+    [finance, '/pages/build/record/index?view=overview&id=123', '/pages/admin/index'],
+    [store, '/pages/build/record/index-extra?id=123', '/pages/admin/index'],
     [store, services+'&extra=1', '/pages/admin/index'], [store, 'https://fixture.invalid', '/pages/admin/index']
   ]) {
     const env = createPage({ currentPost:post, http:{ currentPostId:()=>post.postId } });
