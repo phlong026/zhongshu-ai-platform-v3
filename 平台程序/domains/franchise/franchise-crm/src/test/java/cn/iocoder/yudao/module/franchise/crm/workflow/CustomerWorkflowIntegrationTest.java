@@ -559,9 +559,9 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
             assertThat(List.of(leftResult, rightResult).stream().filter(ServiceException.class::isInstance).count()).isEqualTo(1);
             assertThat(count("fr_customer_workflow", leftCustomer) + count("fr_customer_workflow", rightCustomer)).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow_step WHERE attachments @> CAST(? AS jsonb)",
-                    Long.class, "[{\\\"assetId\\\":\\\"9001\\\"}]")).isEqualTo(1);
+                    Long.class, "[{\"assetId\":\"9001\"}]")).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow_step WHERE attachments @> CAST(? AS jsonb)",
-                    Long.class, "[{\\\"assetId\\\":\\\"9002\\\"}]")).isEqualTo(1);
+                    Long.class, "[{\"assetId\":\"9002\"}]")).isEqualTo(1);
         } finally {
             executor.shutdownNow();
         }
