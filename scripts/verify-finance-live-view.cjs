@@ -14,3 +14,46 @@ test('book search and scope filters keep company/project/early books distinct',(
  const books=[{scope:'company',name:'公司日常账',status:'公司日常'},{scope:'project:1',name:'张先生乡墅',status:'PENDING_START'},{scope:'book:2',name:'李先生前期',status:'前期账本'}];
  assert.equal(V.books(books,'张','all')[0].statusText,'待开工');assert.equal(V.books(books,'张','company').length,0);assert.equal(V.books(books,'','book').length,1);
 });
+
+test('original design fee route reads only exact version and cannot consume a late response after a post change', async () => {
+  const vm=require('node:vm'), fs=require('node:fs');
+  const attach=(p,api)=>{
+    const module={exports:{}};
+    vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/design-finance.js','utf8'),{module,require:()=>({})});
+    module.exports(p,api);
+  };
+  const financeWxml=fs.readFileSync('miniprogram/pages/admin/finance-desk/index.wxml','utf8');
+  assert.match(financeWxml, /<brand-header back hide-home fixed account-font title="原设计费用"\/>/,
+    'the historical fee subpage must provide a back button without a redundant workbench button');
+  const id='9007199254740993', sent=[], page={
+    data:{view:'design-fees',designFeeOriginalAllowed:true}, options:{commissionId:id,submissionVersion:'2'},
+    canViewOriginalDesignFees(){return this.allowed;}, allowed:true,
+    financeReadGuard(){return ()=>this.allowed;},setData(p){Object.assign(this.data,p);}
+  };
+  let response={list:[{commissionId:id,submissionVersion:2,stage:'FIRST',payableId:'9007199254740995',expectedCents:10000}]};
+  attach(page,{async originalDesignFees(...args){sent.push(args);return await response;}});
+  await page.loadOriginalDesignFees();
+  assert.deepEqual(sent[0],[id,'2']);
+  assert.equal(page.data.designFeeRows.length,1);
+  assert.equal(page.data.designFeeRows[0].payableId,'9007199254740995');
+  assert.equal(page.data.designFeeRows[0].stageLabel,'首款');
+  response={list:[{commissionId:id,submissionVersion:1,stage:'FIRST',payableId:'9007199254740995'}]};
+  await page.loadOriginalDesignFees();
+  assert.equal(page.data.designFeeStatus,'error');
+  assert.equal(page.data.designFeeRows.length,0);
+  response={list:[]};
+  await page.loadOriginalDesignFees();
+  assert.equal(page.data.designFeeStatus,'ready');
+  assert.equal(page.data.designFeeRows.length,0);
+  let resolve;
+  response=new Promise(r=>{resolve=r;});
+  const stale=page.loadOriginalDesignFees();
+  page.allowed=false;
+  resolve({list:[{commissionId:id,submissionVersion:2,stage:'TAIL',payableId:'99'}]});
+  await stale;
+  assert.equal(page.data.designFeeRows.length,0);
+  const count=sent.length;
+  await page.loadOriginalDesignFees();
+  assert.equal(sent.length,count);
+  assert.equal(page.data.designFeeOriginalAllowed,false);
+});

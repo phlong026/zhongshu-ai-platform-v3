@@ -99,6 +99,9 @@ function bankFlows() {
 function projectAccount(projectId) {
   return http.get('/franchise/finance/project-accounts/' + projectId);
 }
+function originalDesignFees(commissionId, submissionVersion) {
+  return http.get('/franchise/finance/design-fees/original', { commissionId, submissionVersion });
+}
 function designFees(pageNo = 1, pageSize = 20) {
   return http.get('/franchise/finance/design-fees', { pageNo, pageSize });
 }
@@ -336,6 +339,6 @@ module.exports = {
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   voidRefund, reconciliation,
   voidPayment,
-  confirmBank, bankFlows, projectAccount, designFees, projectLedger, projects,
+  confirmBank, bankFlows, projectAccount, designFees, originalDesignFees, projectLedger, projects,
   uploadVoucher, reviseReceipt, revisions, contractReceiptCorrection, correctContractReceipt, sha256Hex, readFileBase64, guessMime, sniffMime, voucherMime, voucherRejectText
 };

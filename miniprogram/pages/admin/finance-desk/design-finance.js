@@ -76,6 +76,25 @@ function attach(page, api) {
     } catch (e) { if (alive() && !this.__disposed) this.setData({ financeProjectLoading: false, financeProjectError: e.message || e.msg || '项目列表加载失败' }); }
   };
   page.moreFinanceProjects = function () { if ((this.data.financeProjects || []).length < this.data.financeProjectTotal) this.loadFinanceProjects(true); };
+  page.loadOriginalDesignFees = async function () {
+    if(!this.canViewOriginalDesignFees()){
+      this.setData({designFeeRows:[],designFeeOriginalAllowed:false,designFeeStatus:'error',designFeeError:'当前工作身份已变化，请返回原委托'});
+      return;
+    }
+    const commissionId=String(this.options.commissionId),submissionVersion=String(this.options.submissionVersion);
+    const alive=this.financeReadGuard('original-design-fees');
+    this.setData({designFeeRows:[],designFeeError:'',designFeeStatus:'loading'});
+    try{
+      const result=await api.originalDesignFees(commissionId,submissionVersion);
+      if(!alive()||!this.canViewOriginalDesignFees())return;
+      if(!Array.isArray(result?.list)||result.list.some(row=>String(row.commissionId)!==commissionId||
+          String(row.submissionVersion)!==submissionVersion||!['FULL','FIRST','TAIL'].includes(row.stage)))
+        throw Error('返回内容与原委托版本不一致，请返回重试');
+      const rows=result.list.map(row=>({ key:String(row.payableId),payableId:String(row.payableId),stageLabel:({FULL:'全额',FIRST:'首款',TAIL:'尾款'})[row.stage],
+        expectedText:yuan(row.expectedCents),paidText:yuan(row.storePaidNetCents),receivedText:yuan(row.hqReceivedNetCents) }));
+      this.setData({designFeeRows:rows,designFeeStatus:'ready'});
+    }catch(e){if(alive())this.setData({designFeeRows:[],designFeeStatus:'error',designFeeError:e?.message||e?.msg||'原设计费用暂时无法查看，请重试'});}
+  };
   page.loadDesignFees = async function (append = false) {
     append = append === true;
     const alive = (this.financeReadGuard?this.financeReadGuard('design-fees'):http.requestGuard('design-fees'));

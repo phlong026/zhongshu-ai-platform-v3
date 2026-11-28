@@ -130,9 +130,11 @@ Page({
   },
   openHistoricalPayments(){
     const post=this.post();
-    if(!this.data.busy&&this.data.paymentOrder?.historicalSettlementPrepared&&post?.orgType==='store'
-        &&['finance','finance-lead'].includes(post.roleCode)&&this.__identity===String(post.postId)+':'+http.sessionGeneration())
-      Nav.open('/pages/admin/finance-desk/index?view=design-fees');
+    const order=this.data.paymentOrder, id=String(order?.commissionId??''), version=String(order?.submissionVersion??'');
+    if(!this.data.busy&&this.view==='receipt'&&id===String(this.id)&&/^[1-9]\d{0,18}$/.test(id)&&/^[1-9]\d{0,9}$/.test(version)
+        &&post?.orgType==='store'&&['finance','finance-lead'].includes(post.roleCode)
+        &&this.__identity===String(post.postId)+':'+http.sessionGeneration())
+      Nav.open('/pages/admin/finance-desk/index?view=design-fees&commissionId='+encodeURIComponent(id)+'&submissionVersion='+encodeURIComponent(version));
   },
   // 原费用规则只读；历史单金额继续使用各自冻结的费用版本。
   async refreshRules(alive) {

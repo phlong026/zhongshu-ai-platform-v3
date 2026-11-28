@@ -1286,6 +1286,7 @@ PR #195 已合并。专项回归脚本已接入标准检查链，Frontend CI、B
 | FIN-03A / R01 弱网更正恢复 | 退款/支出退回作废成功但回执丢失后可沿原单继续；手工费用、合同收款可恢复冻结请求并核验原单。 | [#171](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/171)、[#400](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/400)、[#401](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/401) | 已合并；不得重复登记真实收付款。 |
 | F05 凭证与老板原账方向 | 统一退款/支出退回凭证核验；老板账本区分退给员工与公司实际入账。 | [#391](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/391)、[#402](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/402) | 已合并；待财务真实凭证抽样。 |
 | L02 历史模拟设计费转正式分期结算 | 历史财务审核按冻结版本创建 FULL 或 FIRST/TAIL 正式应付；实际付款和总部核收仍由财务线下登记；只读审计覆盖未分类订单、缺失提交、退款净额和核收来源。 | [#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 代码和 PostgreSQL 回归通过；生产历史盘点尚未执行。 |
+| L02 原委托设计费精确只读查询 | 直接按原委托及提交版本读取 FULL/FIRST/TAIL，保留长编号；不依赖首屏列表、不按同额猜测、不产生财务写入，无记录不显示零金额。 | [#422](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/422)、[#423](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/423) | 前后端已合并、专项与CI/配对通过；生产原单抽样仍归 R02。 |
 | L04 旧本地设计费模拟收银清理 | 删除本地计价/订单/模拟支付写路径及退役测试命令；保留服务端历史回执的只读兼容适配器。 | [#414](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/414) | 前端 CI 与配对发布验证通过；未修改历史数据库记录。 |
 
 ## M07 当前结论与剩余门槛
@@ -1293,5 +1294,11 @@ PR #195 已合并。专项回归脚本已接入标准检查链，Frontend CI、B
 1. 代码层的 F01/F02/F03-H/F03-M/F04/FIN-03A/F05/L02/L04 已分别合并；原 M07 不能再按“全部待开发”执行。
 2. R02 历史模拟设计费审计 SQL 已具备 FULL/FIRST/TAIL 和未分类订单盘点能力，但尚未连接生产只读数据库。执行前需确认测试组织 ID、只读账号和受控执行窗口；结果需逐笔核对合同、付款、核收、退款及凭证。
 3. 不得自动将模拟订单改成已付款，不得自动补造收款或付款流水；缺应付可按历史财务审核流程建立正式应付，但必须保持实际资金事实由财务登记。
-4. 当前 main 与 backend-main 最新提交的精确配对验证由 docs PR #419 触发，待其 CI 完成；各功能 PR 自身的 CI/配对回执已单独通过。
+4. #419 的当前文档 head 配对后端 `63b78fe24076f3425e5c2302c65aa8aaa2bb7419`，产品前端基线为 `2b36e7723d7928acca177ac472c17be1545a6a53`；准确head的CI、配对和合并后双主线回执登记在 [#419](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/419) 的专项评审及合并记录，不以旧head或取消的运行替代。
 5. 真实部署版本、生产数据库迁移、历史存量抽样、财务岗位真机验收均未由本轮 GitHub CI 代替。
+
+## 四模块顺序与编号边界
+
+后续仍按工程→业务→财务→老板推进；最新逐项状态、BIZ-T09已确认矩阵、BIZ-A34/A35/A61回归及剩余环境验收集中维护在[业务与工程总表第8.6—8.7节](V3-business-engineering-remediation-20261127.md#closeout-20261128)，不重复开发已合并能力。BIZ-T09由#409/#410/#424完成，BIZ-A61由#421补齐。
+
+财务/老板审计中的“老板B02”是原账类型与只读凭据，已由#388/#389/#402合并；本路线图的B02是正式薪酬公式、计提与退款规则，两者含义不同。原B02、B04公共费用分摊仍按既有决定暂缓，B06生产部署、三店账号与真机排期仍由用户安排，不能因原账追溯完成而一起关闭。

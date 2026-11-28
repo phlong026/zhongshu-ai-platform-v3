@@ -6,7 +6,21 @@
 <view class="fin-page">
  <view wx:if="{{paymentNotice}}" class="journey-source"><text>{{paymentNotice}}</text><button wx:if="{{paymentPending}}" disabled="{{!paymentRetry}}" bindtap="retryPendingPayment">核验原单并重试</button></view>
 
- <block wx:if="{{view==='profile'&&ready}}"><template is="profile" data="{{loggedIn,name,identityOrganization,identityRole,learningAvailable,learningLoading,learningError,courseId,profileLoading,profileError,avatar,unread,announcementTitle,progress,courseImage,courseTitle,entries,showStoreServices,showAdminMap,showStoreMap,ownerProfile,managementEntries,nested:true}}"/></block>
+ <block wx:if="{{view==='design-fees'}}">
+  <brand-header back hide-home fixed account-font title="原设计费用"/>
+  <view class="fin-content"><view class="fin-card">
+   <text wx:if="{{designFeeOriginalLabel}}" class="fin-name">{{designFeeOriginalLabel}}</text>
+   <text class="fin-muted">只查看本版本已有记录，不做历史复核或付款。</text>
+   <text wx:if="{{designFeeStatus==='loading'}}" class="fin-muted">正在查找原记录…</text>
+   <text wx:if="{{designFeeError}}" class="fin-error">{{designFeeError}}</text>
+   <button wx:if="{{designFeeError&&designFeeOriginalAllowed}}" class="fin-text" bindtap="loadOriginalDesignFees">重试</button>
+   <view wx:for="{{designFeeRows}}" wx:key="key" class="fin-flow-row">
+    <text class="fin-name">{{item.stageLabel}} · 原单 {{item.payableId}}</text><text class="fin-muted">应付 ¥{{item.expectedText}} · 门店净付 ¥{{item.paidText}} · 平台净收 ¥{{item.receivedText}}</text>
+   </view>
+   <text wx:if="{{designFeeStatus==='ready'&&!designFeeRows.length}}" class="fin-muted">当前版本暂无可查看的原设计费用记录</text>
+  </view></view>
+ </block>
+ <block wx:elif="{{view==='profile'&&ready}}"><template is="profile" data="{{loggedIn,name,identityOrganization,identityRole,learningAvailable,learningLoading,learningError,courseId,profileLoading,profileError,avatar,unread,announcementTitle,progress,courseImage,courseTitle,entries,showStoreServices,showAdminMap,showStoreMap,ownerProfile,managementEntries,nested:true}}"/></block>
  <block wx:elif="{{view==='desk'&&ready}}"><template is="financeHome" data="{{desk:deskHome,platformFinance:platformFinance,platformTodos:platformTodos,financeRefreshing:financeRefreshing}}"/></block>
  <block wx:else>
  <brand-header id="finance-page-header" wx:if="{{journeyDeclaration||journeyEnabled&&(wbForm||registerType||journeyResult||designReceiptForm)}}" action account-font title="{{journeyResult?'登记结果':journeyDeclaration?'核实业主到账':designReceiptForm?'核实设计款到账':wbForm?journeyEntryTitles[wbForm.type]:registerType==='payment'&&registerForm.reimbursement?'办理报销':journeyEntryTitles[registerType]}}" return-label="{{journeyReturnLabel||'返回上一页'}}" busy="{{wbBusy||registerBusy||revisionBusy||designReceiptBusy||busy||declarationPending}}" bind:return="returnFinanceEntry"/>
