@@ -493,6 +493,21 @@ public class SaleContractService {
         return collect(post, stageId, cmd, idempotencyKey, null);
     }
 
+    /** 财务直接收款的原键核验；与登记共用命令锁，不把未提交的原单误报为未登记。 */
+    @Transactional
+    public Map<String,String> collectionRegistrationResult(PostSnapshot post,long stageId,String key) {
+        if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode()))throw exception(REFERENCE_INVALID);
+        String token=collectionToken(key);
+        jdbcTemplate.queryForMap("SELECT pg_advisory_xact_lock(?)",
+                FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("franchise",post.userId()),token));
+        var ids=jdbcTemplate.queryForList("""
+            SELECT aggregate_id FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fr-sale-stage'
+              AND command='sale-stage-collect' AND org_id=? AND actor_user_id=? AND actor_post_id=? AND idempotency_key=?
+              AND payload::jsonb->>'stageId'=? AND payload::jsonb->>'declarationId' IS NULL
+            """,Long.class,post.orgId(),post.userId(),post.postId(),"franchise:"+post.userId()+":"+token,Long.toString(stageId));
+        return ids.isEmpty()?Map.of("state","NOT_REGISTERED"):Map.of("receiptId",Long.toString(ids.get(0)));
+    }
+
     private Map<String, Object> collect(PostSnapshot post, long stageId, CollectCommand cmd, String idempotencyKey, Long declarationId) {
         if(!java.util.Set.of("finance","finance-lead").contains(post.roleCode())) return declareCollection(post,stageId,cmd,idempotencyKey);
         String token = collectionToken(idempotencyKey);

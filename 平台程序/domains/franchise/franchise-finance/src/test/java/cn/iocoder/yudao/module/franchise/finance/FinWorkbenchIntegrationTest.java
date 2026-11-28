@@ -133,6 +133,38 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(((Number)((Map<?,?>)workbench.ledger(post.orgId(),"project:"+otherProject).get("summary")).get("committed_cents")).longValue()).isEqualTo(8000);
   assertThatThrownBy(()->workbench.ledger(post.orgId()+10000,"project:"+project)).isInstanceOf(RuntimeException.class);
  }
+ @Test void manualEntryResultWaitsForCommitAndStaysWithItsOriginalPost() throws Exception {
+  var anotherPost=new PostSnapshot(post.postId()+1,post.userId(),post.orgId(),post.orgType(),post.roleCode(),post.teamId(),post.lead(),post.managedTeamIds());
+  for(String type:List.of("receipt","expense","payable")){
+   String key="result-"+type;
+   assertThat(workbench.registrationResult(post,key)).containsEntry("state","NOT_REGISTERED");
+   var cmd=new FinWorkbenchService.EntryCommand("company",type,"原手工收付","其他",10000,LocalDate.now(),"往来方","公司银行",null,null);
+   long id=workbench.register(post,key,cmd);
+   assertThat(workbench.registrationResult(post,key)).containsEntry("id",Long.toString(id));
+   assertThat(workbench.registrationResult(anotherPost,key)).containsEntry("state","NOT_REGISTERED");
+   assertThat(workbench.register(post,key,cmd)).isEqualTo(id);
+  }
+  workbench.createBook(post,"book-only-result",new FinWorkbenchService.BookCommand("前期账本"));
+  assertThat(workbench.registrationResult(post,"book-only-result")).containsEntry("state","NOT_REGISTERED");
+  var written=new java.util.concurrent.CountDownLatch(1);var commit=new java.util.concurrent.CountDownLatch(1);
+  var pool=Executors.newFixedThreadPool(2);
+  try {
+   var registration=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx->{
+    long id=workbench.register(post,"in-flight-result",new FinWorkbenchService.EntryCommand("company","expense","处理中原付款","其他",25000,LocalDate.now(),"原收款方","银行",null,null));
+    written.countDown();
+    try{if(!commit.await(8,TimeUnit.SECONDS))throw new AssertionError("commit was not released");}
+    catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new RuntimeException(interrupted);}
+    return id;
+   }));
+   assertThat(written.await(8,TimeUnit.SECONDS)).isTrue();
+   var lookup=pool.submit(()->workbench.registrationResult(post,"in-flight-result"));
+   org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).until(()->Boolean.TRUE.equals(jdbc.queryForObject(
+       "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted)",Boolean.class)));
+   assertThat(lookup.isDone()).isFalse();commit.countDown();
+   long id=registration.get(10,TimeUnit.SECONDS);
+   assertThat(lookup.get(10,TimeUnit.SECONDS)).containsEntry("id",Long.toString(id));
+  } finally {commit.countDown();pool.shutdownNow();}
+ }
  @Test void manualEntryIsAtomicIdempotentAndScoped(){
   long book=workbench.createBook(post,"book-a",new FinWorkbenchService.BookCommand("张先生建房"));
   var cmd=new FinWorkbenchService.EntryCommand("book:"+book,"expense","现场运输","运输",86000,LocalDate.now(),"运输商","公司银行","运输-"+book,null);
