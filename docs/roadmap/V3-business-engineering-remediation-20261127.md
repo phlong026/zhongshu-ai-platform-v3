@@ -126,7 +126,7 @@
 | BIZ-I10 · P2 | 再次咨询日期规则与实现冲突。代码把未来预约改今天、保留逾期日期；局部注释描述相反，最终业务口径需明确。 | 规则冲突；待统一规则 | BIZ-T09、BIZ-T16 | [BIZ-SRC14](#biz-src14):292–329；现有集成测试只覆盖空日期。 |
 | BIZ-I11 · P2 | 第七步显示名未按用户指定统一。用户指定合同签约，当前前后端与11月26日路线图显示施工签约。 | 需求版本差异；待统一显示口径 | BIZ-T10、BIZ-T16 | [BIZ-SRC17](#biz-src17)、[BIZ-SRC21](#biz-src21)；原用户报告与本次确认采用合同签约。 |
 | BIZ-I12 · P1发布门槛 | 迁移清单未跟上当前制品。原审计清单159份、实际162份，漏981/1023/1104；#314合并后同口径实际164份，清单仍159份，另漏1200/1201。属于交付校验缺口，不能据此断言线上数据库升级失败。 | 迁移交付缺口；待整改；当前漏5份正向SQL | BIZ-T11、BIZ-T12、BIZ-T18 | [BIZ-SRC18](#biz-src18)、[BIZ-SRC19](#biz-src19)、[BIZ-SRC44](#biz-src44) |
-| BIZ-I13 · P2 | 设计岗位退役代码已合并，存量与发布收尾未闭环。#314/#315已合并，三岗目录、继承及迁移已有实现；还需核对在途单承接、旧会话失权、迁移与恢复。不能重复开发已经合并的退役功能。 | 岗位退役遗留；代码部分已合并；剩余待整改和环境验收 | BIZ-T12、BIZ-T13 | [BIZ-SRC20](#biz-src20)、[BIZ-SRC41](#biz-src41)、[BIZ-SRC42](#biz-src42)、[BIZ-SRC45](#biz-src45) |
+| BIZ-I13 · P2 | 设计岗位退役、恢复及在途单承接代码已分别合并：#314/#315完成岗位退役，#331 修复多租户备份驱动恢复。当前没有新的静态代码缺口；真实备份、目标环境恢复、旧会话失权和历史在途单逐笔承接仍待验收。 | 代码已完成；生产/目标环境收尾待验收 | BIZ-T12、BIZ-T13 | [#314](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/314)、[#315](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/315)、[#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) |
 | BIZ-I14 · P2 | 不可达旧页面 死方法 兼容写口缺退出清单。旧AI/demo模板、旧模型共享函数、旧催办及跟进兼容仍混在活跃代码中。 | 代码清理遗留；待分批清理 | BIZ-T14、BIZ-T15 | [BIZ-SRC03](#biz-src03)、[BIZ-SRC12](#biz-src12)、[BIZ-SRC15](#biz-src15)、[BIZ-SRC20](#biz-src20)、[BIZ-SRC32](#biz-src32)；listWritableWithBudget、stageConfirmed无生产调用。 |
 | BIZ-I15 · P3 | 现行文档仍描述AI设计和预算扣点。开发和验收可能继续按已取消能力或旧计费规则判断。 | 文档技术债；待更新 | BIZ-T16 | [BIZ-SRC21](#biz-src21)、[BIZ-SRC22](#biz-src22)–[BIZ-SRC26](#biz-src26)；新预算budget-free-v1已免积分，内容克隆仍使用积分。 |
 | BIZ-R01 · P2 | 普通附件与专用设计槽位分批加锁曾在真实 PostgreSQL 复现反向锁死。#392 已把同次保存的全部资产 ID 合并、去重、统一升序加锁，并用显式 advisory lock 阻塞/排队测试复现与验证修复。 | 死锁代码风险已修复；A60/A62 已由 #392 覆盖；A61 同客户复用与同键并发回归由 #421 补齐中 | BIZ-T17 | [#392](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/392)、[#421](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/421) |
@@ -509,7 +509,7 @@
 | 外部委托提示 | BIZ-T03负责首页统计；BIZ-T19负责当前状态和入口。 | 共用现有委托/包事实及范围，不新增手动状态。 |
 | 旧施工交付 | ENG-E06收敛旧写口；BIZ-T14/T15只登记清理结果。 | 同一旧路由/服务仅清一次，历史表和已应用迁移保留。 |
 | 旧工程视图 | ENG-S03负责工程壳与死模板；BIZ-T14负责总引用核对。 | 仍被老板/财务消费的helpers先保留或迁出。 |
-| 岗位退役与旧单 | BIZ-T13验证封新与每单承接；BIZ-T12完成恢复和环境收尾。 | 当前撤岗代码已合并，不重复做；进一步停写前不能留下不可办理存量。 |
+| 岗位退役与旧单 | BIZ-T13 新 LEGACY 写入已由 #342/#343 关闭，历史结算由 #413/#418 补齐；BIZ-T12 恢复脚本多租户代码风险由 #331 修复。 | 不重复开发；剩余真实备份、目标环境恢复、旧会话失权及历史在途单逐笔承接。 |
 
 <a id="cleanup"></a>
 ## 五 旧代码与冗余清理清单
@@ -522,7 +522,7 @@
 | C02 | sales-flow和旧委托submit/admin/projects工作台；迁出共享后删除 | 迁出仍使用辅助函数和历史入口，再删旧办理模型 | T13处置存量，明确旧深链落点；无活跃消费者依赖旧模型，历史可读 | BIZ-T14 |
 | C03 | 前端server历史Node demo；退出现行启动路径 | 从生产/常用开发发布命令解除依赖，测试夹具需要时独立保留 | 确认真实生产为B Java平台；启动构建不依赖历史demo；git保留历史 | BIZ-T14 |
 | C04 | listWritableWithBudget、selectCustomerIdsWithBudget、stageConfirmed；可删无生产引用方法 | 全仓引用与反射/配置核查后删除旧催办和门禁死方法 | 保留对应主业务共享查询；编译与相关主链通过，无等价旧分支残留 | BIZ-T15 |
-| C05 | 旧CommissionService.submit新增LEGACY；先停新写再退出 | 沿用#317先封旧新增；历史结算和不能转换的移交中单必须有承接，再退役对应端点 | 逐单状态/动作核对及财务工程承接；旧LEGACY不能新增，外部注册正常，无孤立审批/应付，历史原单完整 | BIZ-T13、BIZ-T15 |
+| C05 | 旧 CommissionService.submit 新增 LEGACY | #342/#343 已关闭新 LEGACY 写入；原幂等键只读回放，历史结算/移交沿原单继续 | 逐单核对状态、动作、财务事实和工程承接；生产历史清册与外部注册验收仍待真实数据 | BIZ-T13、BIZ-T15 |
 | C06 | 设计三岗任职模板角色导航；已合并后收尾 | #314/#315已有代码，补迁移清单、恢复正确性和存量承接，不重复实现 | T11/T13及最终环境验收；不可新授，旧身份失权，历史可追溯 | BIZ-T12 |
 | C07 | 旧follows写口、旧schemes包装、旧参数兼容；兼容期后退出 | 记录支持截止版本、调用量和退出标准后关闭 | 旧端观测和恢复原请求路径；没有无依据永久兼容；新端正常、历史可读 | BIZ-T07、BIZ-T15 |
 | C08 | budget-confirmation、saveSchemeInternal；保留当前调用 | 先修语义和准确原单路由，不直接删除 | 参考预算真实UI/正式报价/快速预算适配器仍依赖；新旧预算资料可查，不误完成正式报价 | BIZ-T05、BIZ-T07、BIZ-T15 |
@@ -678,10 +678,10 @@
 
 | 编号及任务 | 场景与操作 | 验收通过标准 | 必要证据 | 结果 |
 | --- | --- | --- | --- | --- |
-| BIZ-A46 / BIZ-T13 | 新建LEGACY拒绝：合法旧请求对无委托客户提交。 | 退役提示；委托/submission/审批/应付计数均不增加。 | 请求响应、原单/事件数量及页面结果 | □ 未执行 |
-| BIZ-A47 / BIZ-T13 | 历史原键与外部注册：已有旧成功请求重试；另客户新外部注册。 | 原结果可追溯，不新建旧单；外部链正常。 | 请求响应、原单/事件数量及页面结果 | □ 未执行 |
-| BIZ-A48 / BIZ-T13 | 在途逐状态处置：按可转换、移交已提交、已接收及需历史结算复核核对旧单；用撤岗后实际身份执行剩余动作。 | 可转换按原规则一次转换；不可转换单有受限承接或已办结历史证据；复核前置不悬空；已接收不重建，真实资金不抹账，allowedActions与实际端点一致。 | 状态清册、承接记录、金额/附件前后比对 | □ 未执行 |
-| BIZ-A49 / BIZ-T13 | 旧提交与外部并发：同一客户同时旧submit和外部register。 | 只有一个有效外部聚合；无新LEGACY与孤立审批应付。 | 请求响应、原单/事件数量及页面结果 | □ 未执行 |
+| BIZ-A46 / BIZ-T13 | 新建 LEGACY 拒绝：旧提交请求对无委托客户提交。 | #342 的 PostgreSQL 集成测试确认拒绝，委托/submission/审批/应付不增加。 | CommissionIntegrationTest.retiredSubmissionCannotCreateCommissionApprovalOrPayable | ☑ #342 代码回归通过；生产环境待验 |
+| BIZ-A47 / BIZ-T13 | 历史原键与外部注册：已有旧成功请求重试；另客户走新外部注册。 | 原结果精确回读不新建旧单；外部注册只创建一个外部聚合。 | CommissionIntegrationTest.originalSuccessfulSubmissionReplaysWithoutWritingAndStillChecksCustomerAndBody；ExternalCommissionPgIntegrationTest.retiredSubmissionAndExternalRegistrationOnlyCreateOneExternalAggregate | ☑ #342/#343 代码回归通过；生产环境待验 |
+| BIZ-A48 / BIZ-T13 | 在途逐状态处置：可转换、移交已提交、已接收及需历史结算复核。 | 隔离 PostgreSQL 覆盖旧单转换、退回/接收、已接收不重建工程、历史模拟结算前置；生产逐笔清册与岗位会话验收仍待执行。 | CommissionIntegrationTest、ExternalCommissionPgIntegrationTest、#413/#418 历史分期回归 | ☑ 代码/隔离 PG 回归通过；生产逐单验收待执行 |
+| BIZ-A49 / BIZ-T13 | 旧提交与外部并发：同一客户并发旧 submit 与 external register。 | 外部集成测试覆盖同键并发只创建一个版本、旧提交与外部注册仅一个外部聚合；无新 LEGACY 和孤立审批应付。 | ExternalCommissionPgIntegrationTest.sameKeyConcurrentRegistrationCommitsOneVersionAndChangedKeyContentCannotReplay、retiredSubmissionAndExternalRegistrationOnlyCreateOneExternalAggregate | ☑ #342/#343 代码回归通过；生产环境待验 |
 
 #### 代码清理与现行文档
 
@@ -1033,7 +1033,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | BIZ-T10 | 八步显示名称 | 已合并 | [#337](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/337)、[#338](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/338) | 现行名称为“合同签约”“开工大吉”，稳定步骤代码与正式合同/真实开工判定保留。 |
 | BIZ-T11 | 当前制品迁移清单 | 已合并 | [#326](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/326) | 自动核对源码及打包制品迁移集合；旧报告 159/164 份仅代表当时版本，不能代替当前制品清单。 |
 | BIZ-T12 | 设计岗退役恢复 | 代码已合并，真实环境待验 | [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) | 保留原任职历史，恢复沿原备份及租户；真实退役前备份、目标恢复与旧会话失权仍须环境证据。 |
-| BIZ-T13 | 停止 LEGACY 新增及存量承接 | 已合并 | [#317](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/317)、[#342](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/342)、[#343](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/343) | 旧新增和重复写路径关闭；存量移交、退回、原工程及真实历史结算仍沿原单。 |
+| BIZ-T13 | 停止 LEGACY 新增及存量承接 | 代码已合并；生产历史存量待盘点 | [#342](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/342)、[#343](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/343)、[#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 新 LEGACY 写入关闭；历史原单受限办理；FULL/FIRST/TAIL 正式应付和未分类历史审计代码已完成。 |
 | BIZ-T14 | 不可达旧前端与生产包清理 | 已合并 | [#369](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/369)、[#397](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/397) | 已清理不可达模板、旧工作台及历史 demo 启动路径；本轮 L04 已将仍被历史脚本使用的旧本地写模块移到测试夹具。 |
 | BIZ-T15 | 后端死方法及兼容接口退出 | 死方法已合并，兼容退役未关闭 | [#393](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/393) | 删除无生产调用的 listWritableWithBudget、selectCustomerIdsWithBudget、stageConfirmed；47 项 PG 通过。保留的兼容接口尚未取得旧端退出、支持截止版本和实际零调用证据。 |
 | BIZ-T16 | 现行文档口径与本轮台账 | 现行口径已合并，本次文档修订及回执见对应PR | [#366](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/366)、[#286](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/286) | 免费新预算、内容积分、历史付费恢复和八步/工程边界沿既有规则；本次在原 PR286 更新实际状态。 |
