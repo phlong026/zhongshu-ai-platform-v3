@@ -65,8 +65,8 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         query.eqIfPresent(CustomerDO::getOwnerUserId, ownerUserId);
         if (followFilter != null) {
             switch (followFilter) {
-                // 今日待跟进：进行中或暂缓的客户，尚未跟进过，或约定的下次跟进日期已到（含今天）。已流失不再提醒。
-                case DUE -> query.apply("NOT " + LOST).and(q -> q.isNull(CustomerDO::getLastFollowAt)
+                // 今日待跟进：仅正常跟进客户，尚未跟进过或约定日期已到（含今天）；暂缓和流失均不进入到期催办。
+                case DUE -> query.apply("NOT " + LOST + " AND NOT " + PAUSED).and(q -> q.isNull(CustomerDO::getLastFollowAt)
                         .or().le(CustomerDO::getNextVisitDate, today)).orderByAsc(CustomerDO::getNextVisitDate);
                 case APPOINTMENTS -> query.apply("NOT " + LOST).gt(CustomerDO::getNextVisitDate, today).orderByAsc(CustomerDO::getNextVisitDate);
                 // 已到店：店面讲解或旧实际接待具有发生日期；空草稿不代表实际到店，资料是否补齐不改变已记录的事实。
@@ -88,18 +88,19 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
     String VISITED_STEP = "EXISTS (SELECT 1 FROM fr_customer_workflow_step s JOIN fr_customer_workflow w ON w.id = s.workflow_id"
             + " AND w.company_id = s.company_id WHERE w.customer_id = fr_customer.id AND w.company_id = fr_customer.company_id"
             + " AND s.step_code = 'INTRODUCTION' AND s.occurred_on IS NOT NULL)";
-    /** 流程已暂停（暂缓）：到再联系日期才回到待跟进。 */
+    /** 流程已暂停（暂缓）：保留原再联系日期，但不自动回到待跟进或进入到期催办。 */
     String PAUSED = "EXISTS (SELECT 1 FROM fr_customer_workflow w WHERE w.customer_id = fr_customer.id"
             + " AND w.company_id = fr_customer.company_id AND w.status = 'PAUSED')";
 
     /**
-     * 当前可见客户的跟进汇总，口径与 followFilter 同源：今日待跟进 = 未流失且（尚未跟进，或约定的下次跟进日期已到）；
-     * 预约跟进 = 未流失且日期晚于今天；跟进中 = 跟进过且未流失、未暂缓。可见范围沿用同一个 visibility 条件。
+     * 当前可见客户的跟进汇总，口径与 followFilter 同源：今日待跟进/逾期只统计未流失、未暂缓客户；
+     * 预约跟进统计未流失且日期晚于今天的客户（含暂缓客户保留的未来再联系日期）；
+     * 跟进中 = 跟进过且未流失、未暂缓。可见范围沿用同一个 visibility 条件。
      */
     @org.apache.ibatis.annotations.Select("SELECT count(*) AS \"total\","
-            + " count(*) FILTER (WHERE NOT " + LOST + " AND (last_follow_at IS NULL OR next_visit_date <= #{today})) AS \"due\","
+            + " count(*) FILTER (WHERE NOT " + LOST + " AND NOT " + PAUSED + " AND (last_follow_at IS NULL OR next_visit_date <= #{today})) AS \"due\","
             + " count(*) FILTER (WHERE NOT " + LOST + " AND next_visit_date > #{today}) AS \"appointments\","
-            + " count(*) FILTER (WHERE NOT " + LOST + " AND next_visit_date < #{today}) AS \"overdue\","
+            + " count(*) FILTER (WHERE NOT " + LOST + " AND NOT " + PAUSED + " AND next_visit_date < #{today}) AS \"overdue\","
             + " count(*) FILTER (WHERE last_follow_at IS NOT NULL AND NOT " + LOST + " AND NOT " + PAUSED + ") AS \"following\","
             + " count(*) FILTER (WHERE " + LOST + ") AS \"lost\","
             + " count(*) FILTER (WHERE " + PAUSED + ") AS \"paused\""
@@ -131,16 +132,17 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         return selectOne(new LambdaQueryWrapperX<CustomerDO>().eq(CustomerDO::getId, id).last("FOR UPDATE"));
     }
 
-    /** 约定的下次跟进日期已到（含今天）的客户；已流失的不再提醒。 */
+    /** 正常跟进客户的约定日期已到（含今天）；暂缓和流失客户不进入到期提醒。 */
     default List<CustomerDO> selectDueVisits(Consumer<LambdaQueryWrapperX<CustomerDO>> visibility, LocalDate today) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();
         visibility.accept(query);
-        return selectList(query.apply("NOT " + LOST).le(CustomerDO::getNextVisitDate, today).orderByAsc(CustomerDO::getNextVisitDate));
+        return selectList(query.apply("NOT " + LOST + " AND NOT " + PAUSED)
+                .le(CustomerDO::getNextVisitDate, today).orderByAsc(CustomerDO::getNextVisitDate));
     }
 
     /**
-     * 超期未跟进，用于提醒业务负责人：新客户登记满两天仍没有任何跟进记录；
-     * 或最近一次跟进已超过 15 天，且没有约定下次跟进日期（约了日期的由到期待办提醒）。
+     * 超期未跟进，用于提醒业务负责人：正常跟进的新客户登记满两天仍没有任何跟进记录；
+     * 或最近一次跟进已超过 15 天，且没有约定下次跟进日期。暂缓、流失客户不进入该提醒。
      */
     default List<CustomerDO> selectStale(Consumer<LambdaQueryWrapperX<CustomerDO>> visibility, LocalDate today) {
         LambdaQueryWrapperX<CustomerDO> query = new LambdaQueryWrapperX<>();
@@ -148,7 +150,7 @@ public interface CustomerMapper extends BaseMapperX<CustomerDO> {
         var zone = java.time.ZoneId.of("Asia/Shanghai");
         var registeredBefore = today.minusDays(2).atStartOfDay(zone).toOffsetDateTime();
         var followedBefore = today.minusDays(15).atStartOfDay(zone).toOffsetDateTime();
-        query.apply("NOT " + LOST).and(q -> q
+        query.apply("NOT " + LOST + " AND NOT " + PAUSED).and(q -> q
                 .and(n -> n.isNull(CustomerDO::getLastFollowAt).le(CustomerDO::getCreateTime, registeredBefore))
                 .or(f -> f.le(CustomerDO::getLastFollowAt, followedBefore).isNull(CustomerDO::getNextVisitDate)));
         return selectList(query.orderByAsc(CustomerDO::getUpdateTime).orderByAsc(CustomerDO::getId));
