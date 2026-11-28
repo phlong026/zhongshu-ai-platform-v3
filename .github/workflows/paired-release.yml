@@ -55,9 +55,9 @@ jobs:
   verify-pair:
     needs: resolve-pair
     # Executor source is immutable and independent of the selected business backend.
-    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@6ac765aca82833dc22d5e82815b708a0928ec997
+    uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@b541e8721d704c977a7662fd5037aa92163b3ca8
     with:
-      executor_sha: 6ac765aca82833dc22d5e82815b708a0928ec997
+      executor_sha: b541e8721d704c977a7662fd5037aa92163b3ca8
       frontend_sha: ${{ needs.resolve-pair.outputs.frontend_sha }}
       backend_sha: ${{ needs.resolve-pair.outputs.backend_sha }}
       require_external_handover: ${{ needs.resolve-pair.outputs.require_external_handover == 'true' }}
