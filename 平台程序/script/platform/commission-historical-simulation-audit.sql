@@ -84,8 +84,7 @@ stages AS (
 ),
 scoped AS (
     SELECT s.*, s.commission_id||':'||s.submission_version||':'||s.settlement_stage AS source_ref,
-           CASE WHEN s.settlement_stage='TAIL' THEN s.dispatch_seq IS NOT NULL
-                ELSE s.reviewed_for_settlement END AS payable_expected
+           s.reviewed_for_settlement AS payable_expected
     FROM stages s
 ),
 facts AS (
