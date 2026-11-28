@@ -153,7 +153,7 @@ class DesignFeeSettlementIntegrationTest extends FranchisePgIntegrationTest {
             jdbc.execute("CREATE TEMP TABLE fr_eng_project(id bigint,company_id bigint,source_commission_id bigint,sale_contract_id bigint,name text,status text,create_time timestamptz DEFAULT now()) ON COMMIT DROP");
             jdbc.execute("CREATE TEMP TABLE fr_sale_stage_receipt(company_id bigint,contract_id bigint,receipt_id bigint,stage_id bigint) ON COMMIT DROP");
             jdbc.execute("CREATE TEMP TABLE fr_eng_collection(company_id bigint,project_id bigint,receipt_id bigint) ON COMMIT DROP");
-            jdbc.execute("CREATE TEMP TABLE fr_eng_expense(id bigint,company_id bigint,project_id bigint,amount_cents bigint,payable_id bigint,status varchar(16),create_time timestamptz) ON COMMIT DROP");
+            jdbc.execute("CREATE TEMP TABLE fr_eng_expense(id bigint,company_id bigint,project_id bigint,name text,purpose text,note text,amount_cents bigint,payable_id bigint,status varchar(16),create_time timestamptz) ON COMMIT DROP");
             jdbc.execute("CREATE TEMP TABLE fr_sale_contract(id bigint,company_id bigint,status text,deleted boolean DEFAULT false,signed_date date) ON COMMIT DROP");
             jdbc.execute("CREATE TEMP TABLE fr_sale_payment_stage(id bigint,company_id bigint,contract_id bigint,stage text,amount_cents bigint,status text,deleted boolean DEFAULT false) ON COMMIT DROP");
             jdbc.update("INSERT INTO fr_eng_project(id,company_id,source_commission_id,sale_contract_id,name,status) VALUES(50501,?,5050,888,'test','IN_PROGRESS')",storeOrg);
