@@ -218,6 +218,28 @@ class FinancePageHttpContractTest {
     }
 
     @Test
+    void projectLedgerEvidencePreservesExactStringsUnderExistingReadPermission() {
+        context.run(ctx -> {
+            var ledger=ctx.getBean(cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.class);
+            var details=new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Details("原费用","运输","运输商","公司账户","原流水","9007199254740995","原说明");
+            var row=new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Row(9007199254740993L,"PAYMENT",java.time.LocalDate.of(2026,11,28),1000,null,"已核实",null,"9007199254740993",details);
+            when(ledger.page(FINANCE.orgId(),9L,1,10)).thenReturn(new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Ledger(
+                    new cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Summary(0,0,0,1000,0,1000),
+                    new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(row),1L),"项目"));
+            for(String role:List.of("boss","owner")) {
+                currentPost.use(new PostSnapshot(21L,7L,FINANCE.orgId(),"store",role,null,false,Set.of()));
+                assertThatThrownBy(()->mvc(ctx).perform(get("/franchise/finance/projects/9/ledger"))).hasRootCauseInstanceOf(AccessDeniedException.class);
+                when(directory.roleHasPermission(role,"franchise:fin:query")).thenReturn(true);
+                mvc(ctx).perform(get("/franchise/finance/projects/9/ledger")).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.entries.list[0].recordId").value("9007199254740993"))
+                        .andExpect(jsonPath("$.data.entries.list[0].type").value("PAYMENT"))
+                        .andExpect(jsonPath("$.data.entries.list[0].details.voucherFileId").value("9007199254740995"))
+                        .andExpect(jsonPath("$.data.entries.list[0].details.counterparty").value("运输商"));
+            }
+        });
+    }
+
+    @Test
     void legacyProjectAccountIncludesContractReceiptsFromUnifiedLedger() {
         context.run(ctx -> {
             var old=ctx.getBean(FinProjectAccountService.class);

@@ -88,7 +88,9 @@ public class FinRefundService {
         if(cmd.amountCents()<=0) throw exception(REFUND_EXCEED_BALANCE);
         BusinessDateGuard.requireValid(cmd.date()); // M08-T05/R04
         designLocks.receipt(cmd.receiptId());
-        if(designLocks.designReceipt(cmd.receiptId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
+        // Optional evidence uses the same organization/type/status guard for every source.
+        // Validate before locking cash rows, preserving the design stage -> receipt lock order.
+        receiptService.requireVoucherAsset(post,cmd.voucherFileId());
         FinReceiptDO receipt = receiptMapper.lockById(cmd.receiptId());
         if (receipt == null) {
             throw exception(RECEIPT_NOT_FOUND);
@@ -161,7 +163,7 @@ public class FinRefundService {
         if(cmd.amountCents()<=0) throw exception(EXPENSE_REFUND_EXCEED);
         BusinessDateGuard.requireValid(cmd.date());
         designLocks.payment(cmd.paymentId());
-        if(designLocks.designPayment(cmd.paymentId())) receiptService.requireVoucherAsset(post,cmd.voucherFileId());
+        receiptService.requireVoucherAsset(post,cmd.voucherFileId());
         payableMapper.lockBillsForPayment(post.orgId(), cmd.paymentId());
         FinPaymentDO payment = paymentMapper.lockById(cmd.paymentId());
         if (payment == null) throw exception(PAYMENT_NOT_FOUND_EXPENSE);
