@@ -291,10 +291,13 @@ test('名称搜索跨所选县找出全范围记录，点击跨县加盟商定�
   page.searchInput({detail:{value:'验收记录one'}});page.searchName();
   assert.deepEqual(page.data.rows.map(row=>row.id),['one']);
   assert.equal(page.data.markers.length,2);
+  assert.ok(page.data.markers.every(marker=>marker.customCallout.display==='BYCLICK' && marker.width>1));
+  assert.ok(page.data.callouts.every(row=>!row.showCount));
   assert.equal(page.data.summary.status,'empty','行政区结论仍属于明确选中的新洲区');
   page.toggleRecord({currentTarget:{dataset:{id:'one'}}});
   await (await (await runtime.currentPage()).$('map')).trigger('updated',{});
   assert.equal(page.data.expandedId,'one');assert.equal(page.data.callouts.filter(row=>row.selected).length,2);
+  assert.ok(page.data.markers.every(marker=>marker.customCallout.display==='ALWAYS'));
   assert.equal(page.data.rows[0].districtCount,2);assert.match(page.data.focusNote,/2 个覆盖区县/);
   assert.deepEqual(fits.at(-1).points,[{longitude:114.313961,latitude:30.349045},{longitude:114.374025,latitude:30.874155}]);
   assert.equal(page.data.latitude,30.349045);
@@ -350,8 +353,9 @@ test('点县气泡后展开唯一门店，视野刷新时列表和已展开项�
   page.changeMode({currentTarget:{dataset:{mode:'viewport'}}});
   viewports[0].success(bounds);
   const screen=await runtime.currentPage();
-  await (await screen.$('.county-callout[data-marker-id="2"]')).tap();
+  await (await screen.$('map')).trigger('markertap',{markerId:2});
   assert.deepEqual(page.data.rows.map(row=>row.id),['only']);
+  assert.equal(page.data.markers.find(marker=>marker.id===2).customCallout.display,'ALWAYS');
   const scrolls=[]; wx.pageScrollTo=options=>scrolls.push(options);
   await (await screen.$('.store')).tap();
   assert.deepEqual(scrolls,[],'只移动地图镜头，页面不从展开的资料跳走');

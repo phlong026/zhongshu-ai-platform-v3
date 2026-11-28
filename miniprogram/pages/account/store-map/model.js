@@ -160,11 +160,12 @@ function groupMarkers(points, snapshot, catalog, selectedRecordId, selectedPoint
     const pinText = amount.franchiseCount
       ? amount.franchiseCount + (snapshot.admin ? '' : '家')
       : amount.coverageRecordCount + '条';
+    const display = selected || groups.size === 1 ? 'ALWAYS' : 'BYCLICK';
     const pinColor = snapshot.admin && !mixed ? first.color : '#a56a2d';
     return {id:index + 1,key,latitude:group.latitude,longitude:group.longitude,storeIds:[...group.recordIds],
-      heading,brands,selected,pinText,pinColor,iconPath:'/pages/account/store-map/pin.jpg',width:1,height:1,zIndex:selected ? 10 : 1,
-      customCallout:{display:'ALWAYS',anchorY:0},
-      callout:{content:(heading || (mixed ? '多品牌' : first.brandName)) + '\n' + detail,display:'ALWAYS',
+      heading,brands,selected,pinText,pinColor,iconPath:'/pages/account/store-map/pin.jpg',width:groups.size === 1 ? 1 : 20,height:groups.size === 1 ? 1 : 25,zIndex:selected ? 10 : 1,
+      customCallout:{display,anchorY:0},
+      callout:{content:(heading || (mixed ? '多品牌' : first.brandName)) + '\n' + detail,display,
         color:'#ffffff',bgColor:mixed ? '#89512a' : first.color,borderRadius:8,padding:7,fontSize:11}};
   });
 }

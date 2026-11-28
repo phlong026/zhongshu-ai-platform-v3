@@ -56,7 +56,7 @@ Page({
     }
     this.mapPoints = view.points;
     this.markerKeys = new Map(view.markers.map(marker => [marker.id,marker.key]));
-    const callouts = view.markers.map(({id,heading,brands,selected,pinText,pinColor}) => ({id,heading,brands,selected,pinText,pinColor}));
+    const callouts = view.markers.map(({id,heading,brands,selected,pinText,pinColor,customCallout}) => ({id,heading,brands,selected,pinText,pinColor,showCount:customCallout.display === 'ALWAYS'}));
     const markers = view.markers.map(({key,storeIds,heading,brands,selected,pinText,pinColor,...marker}) => marker);
     const patch = {markers,callouts,pickers:view.pickers,brands:view.brands,brandCounts:view.brandCounts,
       overview:view.overview,summary:view.summary,upperCoverageLabel:view.upperCoverageLabel,selectedBrand:this.filters.brand || '',

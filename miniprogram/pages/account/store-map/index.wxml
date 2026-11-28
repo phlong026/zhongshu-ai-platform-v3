@@ -1,7 +1,7 @@
 <brand-header title="{{admin?'加盟商地图':'门店地图'}}" back="{{true}}" hide-home="{{true}}"/>
 <view class="map-page">
   <view wx:if="{{loading}}" class="map-message">正在读取地图与地区资料…</view>
-  <view wx:elif="{{error}}" class="map-message"><text>{{error}}</text><button bindtap="load">重新加载</button></view>
+  <view wx:elif="{{error}}" class="map-message map-load-error"><text class="load-title">门店地图暂未加载</text><text>{{error}}</text><button bindtap="load">重新加载</button></view>
   <block wx:else>
     <view class="map-search">
       <image src="/assets/search.png" mode="aspectFit"/>
@@ -13,6 +13,32 @@
         <image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>{{item.label}}</text><image class="result-chevron" src="/assets/creation-chevron.png" mode="aspectFit"/>
       </button>
       <button class="name-search" bindtap="searchName">按门店名称、地址或地区查询“{{query}}”</button>
+    </view>
+    <map id="stores" class="map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" markers="{{markers}}" bindupdated="fitMarkers" bindregionchange="onRegionChange" bindmarkertap="selectMarker" bindcallouttap="selectMarker" enable-zoom="{{true}}" enable-scroll="{{true}}" show-scale="{{true}}">
+      <cover-view slot="callout">
+        <cover-view wx:for="{{callouts}}" wx:key="id" marker-id="{{item.id}}" data-marker-id="{{item.id}}" bindtap="selectMarker" class="county-callout">
+          <cover-view wx:if="{{item.selected}}" class="callout-detail">
+            <cover-view class="callout-title">{{item.heading}}</cover-view>
+            <cover-view wx:for="{{item.brands}}" wx:for-item="brand" wx:key="id" class="callout-brand">
+              <cover-view class="callout-dot" style="background-color:{{brand.color}}"/>
+              <cover-view class="callout-name">{{brand.name}}</cover-view><cover-view class="callout-count">{{brand.detail}}</cover-view>
+            </cover-view>
+          </cover-view>
+          <cover-view wx:if="{{item.showCount}}" class="pin-count" style="background-color:{{item.pinColor}}">{{item.pinText}}</cover-view>
+        </cover-view>
+      </cover-view>
+      <cover-view class="zoom-actions">
+        <cover-view class="zoom-button" data-delta="1" bindtap="zoom" aria-label="放大地图">＋</cover-view>
+        <cover-view class="zoom-button zoom-out" data-delta="-1" bindtap="zoom" aria-label="缩小地图">−</cover-view>
+      </cover-view>
+    </map>
+    <view class="map-options">
+      <view class="count-tabs">
+        <button class="{{mode==='region'?'active':''}}" data-mode="region" bindtap="changeMode">行政区域</button>
+        <button class="{{mode==='viewport'?'active':''}}" data-mode="viewport" bindtap="changeMode">地图视野</button>
+      </view>
+      <text class="summary-note">{{mode==='region'?'按所选行政区域统计，拖动地图不改变区域数据':'按地图视野统计，不随名称搜索变化；同一加盟商跨县只计一次'}}</text>
+      <text class="summary-note">地图点位按区县中心展示</text>
     </view>
     <view class="map-overview">
       <view class="overview-item">
@@ -39,24 +65,6 @@
         </picker>
       </view>
     </view>
-    <map id="stores" class="map" latitude="{{latitude}}" longitude="{{longitude}}" scale="{{scale}}" markers="{{markers}}" bindupdated="fitMarkers" bindregionchange="onRegionChange" bindmarkertap="selectMarker" bindcallouttap="selectMarker" enable-zoom="{{true}}" enable-scroll="{{true}}">
-      <cover-view slot="callout">
-        <cover-view wx:for="{{callouts}}" wx:key="id" marker-id="{{item.id}}" data-marker-id="{{item.id}}" bindtap="selectMarker" class="county-callout">
-          <cover-view wx:if="{{item.selected}}" class="callout-detail">
-            <cover-view class="callout-title">{{item.heading}}</cover-view>
-            <cover-view wx:for="{{item.brands}}" wx:for-item="brand" wx:key="id" class="callout-brand">
-              <cover-view class="callout-dot" style="background-color:{{brand.color}}"/>
-              <cover-view class="callout-name">{{brand.name}}</cover-view><cover-view class="callout-count">{{brand.detail}}</cover-view>
-            </cover-view>
-          </cover-view>
-          <cover-view class="pin-count" style="background-color:{{item.pinColor}}">{{item.pinText}}</cover-view>
-        </cover-view>
-      </cover-view>
-      <cover-view class="zoom-actions">
-        <cover-view class="zoom-button" data-delta="1" bindtap="zoom" aria-label="放大地图">＋</cover-view>
-        <cover-view class="zoom-button zoom-out" data-delta="-1" bindtap="zoom" aria-label="缩小地图">−</cover-view>
-      </cover-view>
-    </map>
     <view wx:if="{{upperCoverageLabel}}" class="area-coverage-label">{{upperCoverageLabel}} · 不计入加盟商家数</view>
     <view wx:if="{{admin&&brandCounts.length&&(mode==='region'||(!viewportLoading&&!viewportError&&summary.status!=='loading'))}}" class="map-legend">
       <view wx:for="{{brandCounts}}" wx:key="id" class="legend-item"><text class="dot" style="background:{{item.color}}"/><text>{{item.name}} ({{item.franchiseCount}})</text></view>
@@ -111,13 +119,6 @@
       <button wx:if="{{total>rows.length}}" class="more" bindtap="more">查看更多记录</button>
     </view>
     </block>
-    <view class="map-options">
-      <view class="count-tabs">
-        <button class="{{mode==='region'?'active':''}}" data-mode="region" bindtap="changeMode">按行政区域统计</button>
-        <button class="{{mode==='viewport'?'active':''}}" data-mode="viewport" bindtap="changeMode">按地图视野统计</button>
-      </view>
-      <text class="summary-note">{{mode==='region'?'按所选行政区域统计，拖动地图不改变区域数据':'按地图视野统计，不随名称搜索变化；同一加盟商跨县只计一次'}}</text>
-      <text class="summary-note">地图点位按区县中心展示</text>
-    </view>
+
   </block>
 </view>

@@ -33,7 +33,7 @@
 .search-result > text { flex: 1; line-height: 38rpx; }
 .search-result .result-chevron { width: 12rpx; height: 18rpx; }
 .name-search { width: 100%; min-height: 70rpx; text-align: left; }
-.map-overview { display: flex; flex-wrap: wrap; align-items: center; padding: 14rpx 6rpx; }
+.map-overview { display: flex; flex-wrap: wrap; align-items: center; margin-top: 12rpx; padding: 14rpx 6rpx; }
 .overview-item { display: flex; align-items: center; justify-content: center; gap: 16rpx; width: 50%; min-width: 0; }
 .overview-item + .overview-item { border-left: 1rpx solid #ede2d6; }
 .metric-icon, .record-icon, .summary-icon {
@@ -63,7 +63,7 @@
 .regions-admin .region-field { gap: 5rpx; }
 .regions-admin .picker-label, .regions-admin .picker-value { font-size: 21rpx; }
 .regions-admin .picker-value { padding-right: 7rpx; padding-left: 7rpx; }
-.map { display: block; width: 100%; height: 410rpx; min-height: 195px; border-radius: 18rpx; overflow: hidden; background: #f0ece5; }
+.map { display: block; width: 100%; height: 580rpx; min-height: 250px; max-height: 370px; border-radius: 18rpx; overflow: hidden; background: #f0ece5; }
 .zoom-actions { position: absolute; right: 14rpx; bottom: 36rpx; width: 66rpx; border: 1rpx solid #e9ded1; border-radius: 13rpx; background: #fff; color: #30231c; text-align: center; }
 .zoom-button { width: 66rpx; height: 62rpx; color: #30231c; font-size: 40rpx; font-weight: 600; line-height: 62rpx; text-align: center; }
 .zoom-out { border-top: 1rpx solid #eee6dd; }
@@ -139,13 +139,15 @@
 .record-detail, .record-coverage { display: block; margin-top: 5rpx; color: var(--zs-text-3); font-size: 21rpx; line-height: 30rpx; }
 .record-chevron { flex: none; width: 12rpx; height: 20rpx; }
 .record-chevron.expanded { transform: rotate(90deg); }
-.map-options { margin-top: 20rpx; }
+.map-options { margin-top: 12rpx; }
 .count-tabs { display: flex; gap: 3rpx; padding: 4rpx; border-radius: 12rpx; background: #f1e9df; }
 .count-tabs button { flex: 1; min-height: 60rpx; border-radius: 8rpx; color: var(--zs-text-2); font-size: 23rpx; line-height: 60rpx; }
 .count-tabs .active { background: var(--zs-card); color: var(--zs-brand-press); font-weight: 650; }
 .summary-note { margin: 4rpx 3rpx 0; }
 .map-message { padding: 40rpx 18rpx; text-align: center; color: var(--zs-text-3); font-size: 25rpx; line-height: 39rpx; }
 .map-message > text { display: block; }
+.map-load-error { margin-top: 28rpx; border-radius: 20rpx; background: var(--zs-card); }
+.load-title { margin-bottom: 8rpx; color: #32251e; font-size: 30rpx; font-weight: 700; }
 .more, .map-message button { margin: 11rpx auto 0; padding: 12rpx; color: var(--zs-brand-press); font-size: 24rpx; }
 @media (max-width: 350px) {
   .map-page { padding-left: 20rpx; padding-right: 20rpx; }
