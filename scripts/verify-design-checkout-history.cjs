@@ -24,7 +24,7 @@ test('historical checkout compatibility exposes read-only facts and no write com
 test('all remaining historical read models use the read-only adapter, never the retired writer', () => {
   const files = [
     'commission-history.js','design-admin-workbench.js','design-notifications.js',
-    'design-receipts.js','finance-desk.js','finance-ledger.js'
+    'design-receipts.js','finance-desk.js','finance-ledger.js','finance-source.js'
   ];
   for (const file of files) {
     const source = fs.readFileSync(path.resolve('miniprogram/utils',file),'utf8');
