@@ -102,15 +102,16 @@ facts AS (
      AND p.source_type='design' AND p.source_ref=s.source_ref
     LEFT JOIN LATERAL (
         SELECT count(*) AS payment_count,
-               COALESCE(sum(m.amount_cents-COALESCE(m.pending_link_cents,0)-COALESCE((
-                   SELECT sum(f.amount_cents) FROM fr_fin_refund f
-                   WHERE f.payment_id=m.id AND f.status='已核实'
-               ),0)),0) AS net_cents
+               COALESCE(sum(CASE WHEN m.status='已核实' THEN
+                   m.amount_cents-COALESCE(m.pending_link_cents,0)-COALESCE((
+                       SELECT sum(f.amount_cents) FROM fr_fin_refund f
+                       WHERE f.payment_id=m.id AND f.status='已核实'
+                   ),0) ELSE 0 END),0) AS net_cents
         FROM fr_fin_payment m
-        WHERE m.payable_id=p.id AND m.status='已核实'
+        WHERE m.payable_id=p.id
     ) paid ON true
     LEFT JOIN LATERAL (
-        SELECT count(*) AS receipt_count, COALESCE(sum(o.net),0) AS net_cents,
+        SELECT COALESCE(sum(o.source_receipt_count),0) AS receipt_count, COALESCE(sum(o.net),0) AS net_cents,
                NOT COALESCE(bool_or(o.net>0 AND (
                    p.id IS NULL OR m.status IS DISTINCT FROM '已核实'
                    OR m.company_id IS DISTINCT FROM s.company_id
@@ -122,13 +123,15 @@ facts AS (
                )),false) AS origins_valid
         FROM (
             SELECT r.origin_payment_id,
-                   sum(r.amount_cents-COALESCE((
-                       SELECT sum(f.amount_cents) FROM fr_fin_refund f
-                       WHERE f.receipt_id=r.id AND f.status='已核实'
-                   ),0)) AS net
+                   count(*) AS source_receipt_count,
+                   sum(CASE WHEN r.status='已登记' THEN
+                       r.amount_cents-COALESCE((
+                           SELECT sum(f.amount_cents) FROM fr_fin_refund f
+                           WHERE f.receipt_id=r.id AND f.status='已核实'
+                       ),0) ELSE 0 END) AS net
             FROM fr_fin_receipt r
             WHERE r.company_id=s.design_org_id AND r.source_type='design'
-              AND r.source_ref=s.source_ref AND r.status='已登记'
+              AND r.source_ref=s.source_ref
             GROUP BY r.origin_payment_id
         ) o
         LEFT JOIN fr_fin_payment m ON m.id=o.origin_payment_id
