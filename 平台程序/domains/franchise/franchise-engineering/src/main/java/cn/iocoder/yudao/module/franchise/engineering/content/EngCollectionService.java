@@ -143,37 +143,57 @@ public class EngCollectionService {
         var project=projectService.requireProject(post,projectId);
         if (!canViewProjectAmounts(post,project)) return List.of();
         return jdbcTemplate.queryForList("""
-                SELECT d.id::text AS id,s.stage,d.amount_cents AS "amountCents",d.received_date::text AS "receivedDate",
-                    d.transaction_no AS "transactionNo",d.status,d.return_reason AS "returnReason",d.receipt_id::text AS "receiptId"
+                SELECT d.id::text AS id,COALESCE(current_stage.stage,s.stage) AS stage,
+                    COALESCE(r.amount_cents,d.amount_cents) AS "amountCents",
+                    COALESCE(r.received_date,d.received_date)::text AS "receivedDate",
+                    d.transaction_no AS "transactionNo",d.status,d.return_reason AS "returnReason",d.receipt_id::text AS "receiptId",
+                    s.stage AS "originalStage",d.amount_cents AS "originalAmountCents",d.received_date::text AS "originalReceivedDate"
                 FROM fr_sale_collection_declaration d JOIN fr_sale_payment_stage s ON s.id=d.stage_id AND s.company_id=d.company_id
+                LEFT JOIN fr_fin_receipt r ON r.id=d.receipt_id AND r.company_id=d.company_id
+                LEFT JOIN fr_sale_stage_receipt sr ON sr.receipt_id=r.id AND sr.company_id=d.company_id
+                LEFT JOIN fr_sale_payment_stage current_stage ON current_stage.id=sr.stage_id
+                    AND current_stage.company_id=sr.company_id AND current_stage.contract_id=sr.contract_id
                 WHERE d.company_id=? AND EXISTS (
                     SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.aggregate_type='fr-eng-project'
                     AND e.command='eng-collection-declare' AND e.org_id=d.company_id AND e.aggregate_id=d.id
                     AND e.payload::jsonb->>'projectId'=?)
-                ORDER BY d.received_date DESC,d.id DESC
+                ORDER BY COALESCE(r.received_date,d.received_date) DESC,d.id DESC
                 """,post.orgId(),Long.toString(projectId));
     }
 
     public List<Map<String, Object>> list(PostSnapshot post, long projectId) {
         FrEngProjectDO project = projectService.requireProject(post, projectId);
         boolean full = canViewProjectAmounts(post,project);
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (FrEngCollectionDO c : collections.selectByProject(post.orgId(), projectId)) {
+        // 原工程留痕用于幂等和追溯；列表当前金额、日期、归属期次以财务原收据为准。
+        return jdbcTemplate.query("""
+                SELECT c.*,COALESCE(s.stage,c.stage) AS current_stage,
+                    COALESCE(r.amount_cents,c.amount_cents) AS current_amount_cents,
+                    COALESCE(r.received_date,c.occurred_at) AS current_date
+                FROM fr_eng_collection c
+                LEFT JOIN fr_fin_receipt r ON r.id=c.receipt_id AND r.company_id=c.company_id
+                LEFT JOIN fr_sale_stage_receipt sr ON sr.receipt_id=r.id AND sr.company_id=c.company_id
+                LEFT JOIN fr_sale_payment_stage s ON s.id=sr.stage_id AND s.company_id=sr.company_id AND s.contract_id=sr.contract_id
+                WHERE c.company_id=? AND c.project_id=?
+                ORDER BY COALESCE(r.received_date,c.occurred_at),c.id
+                """, (rs, n) -> {
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", c.getId());
-            row.put("stage", c.getStage());
-            row.put("purpose", c.getPurpose());
-            row.put("occurredAt", c.getOccurredAt());
-            row.put("registrarUserId", c.getRegistrarUserId());
+            String stage = rs.getString("current_stage");
+            row.put("id", rs.getLong("id"));
+            row.put("stage", stage);
+            row.put("purpose", stage.equals(rs.getString("stage")) ? rs.getString("purpose") : purposeOf(stage));
+            row.put("occurredAt", rs.getObject("current_date", LocalDate.class));
+            row.put("registrarUserId", rs.getLong("registrar_user_id"));
             if (full) {
-                row.put("transactionNo", c.getTransactionNo());
-                row.put("amountCents", c.getAmountCents());
-                row.put("fileAssetId", c.getFileAssetId());
-                row.put("receiptId", c.getReceiptId());
+                row.put("transactionNo", rs.getString("transaction_no"));
+                row.put("amountCents", rs.getLong("current_amount_cents"));
+                row.put("fileAssetId", rs.getObject("file_asset_id", Long.class));
+                row.put("receiptId", rs.getObject("receipt_id", Long.class));
+                row.put("originalStage", rs.getString("stage"));
+                row.put("originalAmountCents", rs.getLong("amount_cents"));
+                row.put("originalOccurredAt", rs.getObject("occurred_at", LocalDate.class));
             }
-            rows.add(row);
-        }
-        return rows;
+            return row;
+        }, post.orgId(), projectId);
     }
 
     // ===================== 登记（TOPPING 前置在收款侧 + 累计门禁 + 写通） =====================

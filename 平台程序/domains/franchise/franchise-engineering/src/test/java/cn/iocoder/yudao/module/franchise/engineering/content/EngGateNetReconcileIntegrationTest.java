@@ -67,6 +67,8 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
                     org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING")))).thenReturn(true);
             org.mockito.Mockito.when(port.validateReference(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.franchise.api.AssetAccessPort.Actor.class),
                     org.mockito.ArgumentMatchers.eq(9003L), org.mockito.ArgumentMatchers.eq(java.util.Set.of("ENG_SITE_PHOTO", "ENG_DRAWING", "FIN_VOUCHER")))).thenReturn(true);
+            org.mockito.Mockito.when(port.isOwnAcceptedUpload(org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.eq(9002L), org.mockito.ArgumentMatchers.eq("FIN_VOUCHER"))).thenReturn(true);
             return port;
         }
 
@@ -309,6 +311,53 @@ class EngGateNetReconcileIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(jdbc.queryForList("SELECT id,trigger_type,trigger_node_index,plan_version,amount_cents FROM fr_sale_payment_stage WHERE contract_id=? ORDER BY sequence", contract.getId()))
                 .isEqualTo(payment);
         return new ReceivedTemplate(project, customer, contract.getId(), commission, name);
+    }
+
+    @Test
+    void receiptCorrectionsProjectCurrentFactsWithoutChangingOriginalEngineeringInputs() {
+        LocalDate originalDate = LocalDate.now().minusDays(3), correctedDate = originalDate.plusDays(1);
+        String directKey = idem(), declarationKey = idem();
+        var directCommand = new EngCollectionService.CollectCommand(SIGN_AFTER, new BigDecimal("100"), txn(), originalDate, 9002L);
+        var direct = as(finance, () -> collectionService.register(finance, projectId, directCommand, directKey));
+        long directReceipt = ((Number) direct.get("receiptId")).longValue();
+        var declarationCommand = new EngCollectionService.CollectCommand(SIGN_AFTER, new BigDecimal("200"), txn(),
+                originalDate, 9002L, signStageId, 1L);
+        var declaration = as(engineer, () -> collectionService.register(engineer, projectId, declarationCommand, declarationKey));
+        long declarationId = ((Number) declaration.get("declarationId")).longValue();
+        assertThat(as(engineer, () -> collectionService.declarations(engineer, projectId))).singleElement().satisfies(row ->
+                assertThat(row).containsEntry("status", "PENDING").containsEntry("amountCents", 20000L)
+                        .containsEntry("receivedDate", originalDate.toString()).containsEntry("stage", SIGN_AFTER));
+        var confirmed = as(finance, () -> contracts.confirmDeclaration(finance, declarationId,
+                new SaleContractService.DeclarationConfirmation("实际收款账户", "bank"), idem()));
+        long declaredReceipt = ((Number) confirmed.get("receiptId")).longValue();
+        var originalCollection = jdbc.queryForMap("SELECT * FROM fr_eng_collection WHERE id=?", direct.get("collectionId"));
+        var originalDeclaration = jdbc.queryForMap("SELECT * FROM fr_sale_collection_declaration WHERE id=?", declarationId);
+        long contract = jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE id=?", Long.class, projectId);
+        long correctedStage = stageRowOf(contract, "BASE_DONE");
+        // The correction command changes only these financial facts. The engineering snapshots remain evidence.
+        for (var correction : Map.of(directReceipt, 12000L, declaredReceipt, 25000L).entrySet()) {
+            jdbc.update("UPDATE fr_fin_receipt SET amount_cents=?,received_date=?,revision_version=revision_version+1 WHERE id=?",
+                    correction.getValue(), correctedDate, correction.getKey());
+            jdbc.update("UPDATE fr_sale_stage_receipt SET amount_cents=?,stage_id=? WHERE receipt_id=?",
+                    correction.getValue(), correctedStage, correction.getKey());
+        }
+
+        assertThat(as(engineer, () -> collectionService.list(engineer, projectId))).singleElement().satisfies(row ->
+                assertThat(row).containsEntry("amountCents", 12000L).containsEntry("stage", "BASE_DONE")
+                        .containsEntry("occurredAt", correctedDate).containsEntry("originalAmountCents", 10000L)
+                        .containsEntry("originalStage", SIGN_AFTER).containsEntry("originalOccurredAt", originalDate));
+        assertThat(as(engineer, () -> collectionService.declarations(engineer, projectId))).singleElement().satisfies(row ->
+                assertThat(row).containsEntry("amountCents", 25000L).containsEntry("stage", "BASE_DONE")
+                        .containsEntry("receivedDate", correctedDate.toString()).containsEntry("originalAmountCents", 20000L)
+                        .containsEntry("originalStage", SIGN_AFTER).containsEntry("originalReceivedDate", originalDate.toString()));
+        assertThat(as(engineer, () -> collectionService.summary(engineer, projectId)))
+                .anySatisfy(row -> assertThat(row).containsEntry("stage", "BASE_DONE").containsEntry("confirmedCents", 37000L));
+        assertThat(as(finance, () -> collectionService.register(finance, projectId, directCommand, directKey)))
+                .containsEntry("collectionId", direct.get("collectionId")).containsEntry("replayed", true);
+        assertThat(as(engineer, () -> collectionService.register(engineer, projectId, declarationCommand, declarationKey)))
+                .containsEntry("declarationId", declarationId).containsEntry("replayed", true);
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_eng_collection WHERE id=?", direct.get("collectionId"))).isEqualTo(originalCollection);
+        assertThat(jdbc.queryForMap("SELECT * FROM fr_sale_collection_declaration WHERE id=?", declarationId)).isEqualTo(originalDeclaration);
     }
 
     @Test
