@@ -555,8 +555,15 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
 
             Object leftResult = leftFuture.get(15, TimeUnit.SECONDS);
             Object rightResult = rightFuture.get(15, TimeUnit.SECONDS);
-            assertThat(List.of(leftResult, rightResult).stream().filter(View.class::isInstance).count()).isEqualTo(1);
-            assertThat(List.of(leftResult, rightResult).stream().filter(ServiceException.class::isInstance).count()).isEqualTo(1);
+            var results = List.of(leftResult, rightResult);
+            assertThat(results.stream().filter(View.class::isInstance).count()).isEqualTo(1);
+            assertThat(results.stream().filter(ServiceException.class::isInstance).count()).isEqualTo(1);
+            var saved = (View) results.stream().filter(View.class::isInstance).findFirst().orElseThrow();
+            assertThat(saved.steps().get(0).attachments()).extracting(Attachment::assetId)
+                    .containsExactlyInAnyOrder("9001", "9002");
+            var rejected = (ServiceException) results.stream().filter(ServiceException.class::isInstance).findFirst().orElseThrow();
+            assertThat(rejected.getCode()).isEqualTo(400);
+            assertThat(rejected.getMessage()).contains("已归属其他客户");
             assertThat(count("fr_customer_workflow", leftCustomer) + count("fr_customer_workflow", rightCustomer)).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow_step WHERE attachments @> CAST(? AS jsonb)",
                     Long.class, "[{\"assetId\":\"9001\"}]")).isEqualTo(1);
