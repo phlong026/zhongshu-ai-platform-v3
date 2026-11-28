@@ -52,4 +52,4 @@
  <button class="fin-primary" bindtap="submitJourneyRegister" loading="{{registerBusy}}" disabled="{{registerBusy}}">{{registerForm.reimbursement?'确认登记报销':registerType==='payment'?'登记付款':'登记退款'}}</button>
  </block>
 </view>
-<block wx:else><template is="workbench" data="{{compactHeader:true,view:'form',wbForm:wbForm,wbBusy:wbBusy,paymentPending:paymentPending,wbError:wbError,workbenchBooks:workbenchBooks,financialStages:financialStages,allocationReceipts:allocationReceipts,workbenchStaff:workbenchStaff}}"/></block>
+<block wx:else><template is="workbench" data="{{compactHeader:true,view:'form',wbForm:wbForm,wbBusy:wbBusy,paymentPending:paymentPending,wbError:wbError,workbenchBooks:workbenchBooks,financialStages:financialStages,allocationReceipts:allocationReceipts,allocationReceiptsLoading:allocationReceiptsLoading,allocationReceiptsError:allocationReceiptsError,allocationReceiptHint:allocationReceiptHint,workbenchStaff:workbenchStaff}}"/></block>
