@@ -97,17 +97,17 @@ function customerRow(c, ctx) {
   const name = c.name || '';
   const phoneText = c.phone ? maskPhone(c.phone) : (c.wechat || '暂无联系方式');
   const searchText = [c.name, c.phone, c.province, c.city, c.district, c.town, c.village, c.addressDetail].filter(Boolean).join(' ');
-  // 已流失不再提醒；暂缓的客户到再联系日期才回到待跟进，之前按日期排在后面。
+  // 已流失和暂缓均不进入到期催办；暂缓客户仅展示原再联系日期，不因日期到期自动恢复。
   const lost = !!flow && flow.status === 'LOST';
   const paused = !!flow && flow.status === 'PAUSED';
-  const waiting = paused && !!appointment && appointment > day;
   let cue, cueTone = '', rank, sortKey;
   if (lost) {
     cue = flow.reconsulted ? '再次咨询' : (flow.statusReason || FLOW_STATE.LOST);
     cueTone = flow.reconsulted ? 'tone-warning' : 'customer-cue-muted';
     rank = 5; sortKey = (flow.reconsulted ? '0' : '9') + String(c.lastFollowAt || 0);
-  } else if (waiting) {
-    cue = shortDate(appointment) + ' 再联系'; cueTone = 'customer-cue-muted'; rank = 5; sortKey = '8' + appointment;
+  } else if (paused) {
+    cue = '暂缓'; cueTone = 'customer-cue-muted'; rank = 5;
+    sortKey = appointment ? '8' + appointment : '9' + String(c.lastFollowAt || c.createTime || 0);
   } else if (appointment && appointment < day) {
     cue = '逾期 ' + daysBetween(appointment, day) + ' 天'; cueTone = 'tone-danger'; rank = 0; sortKey = appointment;
   } else if (appointment && appointment === day) {
@@ -121,7 +121,7 @@ function customerRow(c, ctx) {
     cue = n > 0 ? n + ' 天未跟进' : '今天已跟进'; cueTone = 'customer-cue-muted'; rank = 4; sortKey = String(c.lastFollowAt || 0);
   }
   const detail = lost ? '已流失' + (flow.statusReason ? ' · ' + flow.statusReason : '') + '，可恢复'
-    : waiting ? '暂缓 · ' + shortDate(appointment) + ' 再联系'
+    : paused ? '暂缓' + (appointment ? ' · 原定 ' + shortDate(appointment) + ' 再联系' : ' · 未设置再联系日期')
     : appointment ? '下次：' + shortDate(appointment) + ' 跟进'
     : fresh ? '待首次跟进' : '上次：' + shortDate(lastDate);
   const id = String(c.id);
@@ -179,12 +179,12 @@ function sortRows(rows) {
 
 /**
  * 首页汇总使用与客户列表查询一致的上海业务日期。
- * 口径与后端 followFilter 同源：已流失不进任何跟进分栏；暂缓的客户到再联系日期才回到待跟进。
+ * 口径与后端 followFilter 同源：已流失和暂缓不进到期催办；暂缓客户的未来原日期仍可在预约跟进中查看。
  */
 function tabFilter(rows, tab, ctx) {
   const day = (ctx && ctx.today) || today();
   if (tab === 'visited') return rows.filter(r => r.hasVisit);
-  if (tab === 'due') return rows.filter(r => !r.lost && (r.fresh || (r.appointment && r.appointment <= day)));
+  if (tab === 'due') return rows.filter(r => !r.lost && !r.paused && (r.fresh || (r.appointment && r.appointment <= day)));
   if (tab === 'appointments') return rows.filter(r => !r.lost && r.appointment && r.appointment > day);
   return rows;
 }
@@ -231,7 +231,7 @@ function homeSummary(customers, commissions, post, day) {
   return {
     rows, monthRows, commission, due, upcoming,
     following: rows.filter(row => row.status === '跟进中' && !row.off),
-    overdue: rows.filter(row => !row.lost && row.appointment && row.appointment < day),
+    overdue: rows.filter(row => !row.lost && !row.paused && row.appointment && row.appointment < day),
     metrics: [
       { key: 'due', label: '今日待跟进', value: due.length, unit: '人' },
       { key: 'appointments', label: '预约跟进', value: upcoming.length, unit: '人' },

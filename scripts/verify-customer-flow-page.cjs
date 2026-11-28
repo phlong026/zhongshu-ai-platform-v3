@@ -717,13 +717,13 @@ test('客户列表使用批量内联摘要，下次跟进日期读客户表，�
   assert.match(row.url, /pages\/workflow\/index\?view=customer/); assert.doesNotMatch(row.url, /modal=follow/);
 });
 
-test('流失与暂缓的客户置灰，不进待跟进和预约跟进；再次咨询的流失客户突出显示', () => {
+test('流失与暂缓的客户置灰且不进到期催办；暂缓未来日期仍可查看；再次咨询的流失客户突出显示', () => {
   const crm = require('../miniprogram/utils/platform-crm');
   const day = '2026-11-26';
   const lost = crm.customerRow({ id: '1', name: '刘先生', lastFollowAt: 1, workflow: { status: 'LOST', statusReason: '选了同行', completedCount: 4, totalSteps: 8, progressPercent: 50 } }, { today: day });
   assert.equal(lost.stageName, '已流失'); assert.equal(lost.cue, '选了同行'); assert.equal(lost.off, true); assert.equal(lost.action, '查看 / 恢复');
   const paused = crm.customerRow({ id: '2', name: '陈先生', lastFollowAt: 1, nextVisitDate: [2027, 3, 15], workflow: { status: 'PAUSED', completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
-  assert.equal(paused.stageName, '暂缓'); assert.equal(paused.cue, '03-15 再联系'); assert.equal(paused.off, true);
+  assert.equal(paused.stageName, '暂缓'); assert.equal(paused.cue, '暂缓'); assert.equal(paused.detail, '暂缓 · 原定 03-15 再联系'); assert.equal(paused.off, true);
   const again = crm.customerRow({ id: '3', name: '周先生', lastFollowAt: 1, workflow: { status: 'LOST', reconsulted: true, completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
   assert.equal(again.cue, '再次咨询'); assert.equal(again.cueTone, 'tone-warning');
   const overdue = crm.customerRow({ id: '4', name: '钱女士', lastFollowAt: 1, nextVisitDate: [2026, 11, 24], workflow: { status: 'ACTIVE', completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
