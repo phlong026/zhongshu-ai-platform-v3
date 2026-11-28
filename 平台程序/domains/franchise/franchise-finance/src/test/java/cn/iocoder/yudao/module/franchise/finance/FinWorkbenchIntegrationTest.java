@@ -274,6 +274,18 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
    assertThat((List<Map<String,Object>>)workbench.ledger(post.orgId(),scope).get("entries"))
        .noneMatch(row->Long.toString(receipt).equals(row.get("id")));
   }
+  // A later explicit correction moves the same receipt out of the previous project, not just the payments.
+  var correction=new FinWorkbenchService.Assignment("project:"+other,"核对凭证后改到正确项目");
+  workbench.assignPayable(post,payable,"recover-before-assign-correct",correction);
+  workbench.assignPayable(post,payable,"recover-before-assign-correct",correction);
+  assertThat(jdbc.queryForMap(fields,receipt)).isEqualTo(original);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(other);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=? AND source_ref=?",Long.class,post.orgId(),"employee-recovery:"+debt)).isEqualTo(1L);
+  var correctedLedger=workbench.ledger(post.orgId(),"project:"+other);
+  assertThat((List<Map<String,Object>>)correctedLedger.get("entries")).filteredOn(row->Long.toString(receipt).equals(row.get("id"))).hasSize(1);
+  assertThat(((Number)((Map<String,Object>)correctedLedger.get("summary")).get("received_cents")).longValue()).isEqualTo(2000);
+  assertThat(((Number)((Map<String,Object>)workbench.ledger(post.orgId(),"project:"+project).get("summary")).get("received_cents")).longValue()).isZero();
+
  }
  private long assignmentProject(String name){
   long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
