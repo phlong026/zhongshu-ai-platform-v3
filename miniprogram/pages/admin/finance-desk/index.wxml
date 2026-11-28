@@ -7,7 +7,7 @@
  <view wx:if="{{paymentNotice}}" class="journey-source"><text>{{paymentNotice}}</text><button wx:if="{{paymentPending}}" disabled="{{!paymentRetry}}" bindtap="retryPendingPayment">核验原单并重试</button></view>
 
  <block wx:if="{{view==='design-fees'}}">
-  <brand-header branded fixed divider account-font title="原设计费用"/>
+  <brand-header back hide-home fixed account-font title="原设计费用"/>
   <view class="fin-content"><view class="fin-card">
    <text wx:if="{{designFeeOriginalLabel}}" class="fin-name">{{designFeeOriginalLabel}}</text>
    <text class="fin-muted">只查看本版本已有记录，不做历史复核或付款。</text>

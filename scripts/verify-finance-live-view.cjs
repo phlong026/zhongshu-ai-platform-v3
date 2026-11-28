@@ -22,6 +22,9 @@ test('original design fee route reads only exact version and cannot consume a la
     vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/design-finance.js','utf8'),{module,require:()=>({})});
     module.exports(p,api);
   };
+  const financeWxml=fs.readFileSync('miniprogram/pages/admin/finance-desk/index.wxml','utf8');
+  assert.match(financeWxml, /<brand-header back hide-home fixed account-font title="原设计费用"\/>/,
+    'the historical fee subpage must provide a back button without a redundant workbench button');
   const id='9007199254740993', sent=[], page={
     data:{view:'design-fees',designFeeOriginalAllowed:true}, options:{commissionId:id,submissionVersion:'2'},
     canViewOriginalDesignFees(){return this.allowed;}, allowed:true,
