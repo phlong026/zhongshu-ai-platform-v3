@@ -59,6 +59,23 @@ test('only same-customer and same-project manual receipts or valid unassigned pr
   assert.equal(result.items.find(row => row.id === 'preliminary-book').originLabel, '前期账本 · 前期设计定金账');
 });
 
+test('another contract allocation excludes only the affected book, not a same-contract allocation', () => {
+  const cleanBook = { ...preBook, scope: 'book:9007199254741098', book_id: '9007199254741098', name: '其他未占用账本' };
+  const old = (bookId, allocatedContract) => receipt('9007199254741211', {
+    bookId, sourceType: 'business', sourceRef: 'sale-allocation:' + allocatedContract + ':9007199254741311:9007199254741211'
+  });
+  const pending = [
+    receipt('pending-same-book', { bookId: preBookId }),
+    receipt('pending-clean-book', { bookId: cleanBook.book_id }),
+    receipt('pending-no-book')
+  ];
+  const books = [targetProject, preBook, cleanBook];
+  const other = run([old(preBookId, otherProject.sale_contract_id), ...pending], [], books);
+  assert.deepEqual(other.items.map(row => row.id).sort(), ['pending-clean-book', 'pending-no-book']);
+  const same = run([old(preBookId, contractId), ...pending], [], books);
+  assert.deepEqual(same.items.map(row => row.id).sort(), ['pending-clean-book', 'pending-no-book', 'pending-same-book']);
+});
+
 test('verified refunds reduce the available amount; fully refunded and over-stage amounts are excluded', () => {
   const rows = [
     receipt('partial', { amountCents: 50000 }),
