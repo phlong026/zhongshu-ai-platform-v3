@@ -1,10 +1,11 @@
-const A = require('../../utils/account');
-const C = require('../../utils/commission-attribution');
-const F = require('../../utils/finance-source');
-const N = require('../../utils/organization');
-const X = require('../../utils/access');
+// Historical local admin fixture; never import from miniprogram production code.
+const A = require('../../../miniprogram/utils/account');
+const C = require('../../../miniprogram/utils/commission-attribution');
+const F = require('../../../miniprogram/utils/finance-source');
+const N = require('../../../miniprogram/utils/organization');
+const X = require('../../../miniprogram/utils/access');
 
-const clone = require('../../utils/clone');
+const clone = require('../../../miniprogram/utils/clone');
 const DEPARTMENTS = [
   { id: 'business', label: '业务', roles: ['sales', 'sales-lead', 'hq-operations', 'hq-operations-lead', 'hq-design-admin'], primary: 'commissionAmount', metrics: [
     ['commissionAmount', '设计委托金额', '元'], ['collectionsAmount', '项目实际回款', '元'], ['effectiveCustomers', '有效跟进客户', '个'],

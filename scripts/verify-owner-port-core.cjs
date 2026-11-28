@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 const storage = {
@@ -9,8 +10,8 @@ global.wx = {
   setStorageSync(key, value) { storage[key] = value; }
 };
 
-const Home = require('../miniprogram/pages/admin/owner-home');
-const Business = require('../miniprogram/pages/admin/owner-business');
+const Home = require('./fixtures/legacy-admin/owner-home');
+const Business = require('./fixtures/legacy-admin/owner-business');
 const Customer = require('../miniprogram/utils/business');
 
 const customers = [
@@ -38,4 +39,4 @@ assert.equal(business.payable.rows[0].key, 'ap:approved');
 const performance = Business.performance({ ...snapshot, goals: { collections: 20000, effective: 3, staff: {} } });
 assert.deepEqual(performance.targets.map(row => row.label), ['设计委托金额', '回款金额', '有效客户', '工程节点']);
 
-console.log('PASS 老板四栏核心语义：设计委托、七阶段、审批后应付、扩展目标');
+console.log('PASS 历史夹具（非当前线上验收）：老板四栏核心语义：设计委托、七阶段、审批后应付、扩展目标');

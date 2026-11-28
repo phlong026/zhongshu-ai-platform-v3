@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -75,6 +76,6 @@ assert.throws(() => operationMoney.cents('1.234'), /金额须有效/);
 
 console.log(`PASS 存储键 ${Object.keys(expected).length} 项单源，金额解析语义保持`);
 
-for (const file of ['miniprogram/utils/commission-history.js', 'miniprogram/pages/admin/model.js', 'miniprogram/utils/engineering-records.js']) {
+for (const file of ['miniprogram/utils/commission-history.js', 'scripts/fixtures/legacy-admin/model.js', 'miniprogram/utils/engineering-records.js']) {
   assert(!fs.readFileSync(path.join(root, file), 'utf8').includes('return Math.round(Number(value)*100);'), file + ' 复用金额解析');
 }

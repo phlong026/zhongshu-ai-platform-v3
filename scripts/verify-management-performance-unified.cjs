@@ -1,6 +1,7 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
-const Performance = require('../miniprogram/pages/admin/owner-performance');
+const Performance = require('./fixtures/legacy-admin/owner-performance');
 
 const period = '2026-10';
 const staff = [
@@ -97,4 +98,4 @@ const emptyGoals = { ...snapshot, goals: { version:0, staff:{}, departmentGoals:
 const emptyForm = Performance.formFor(emptyGoals);
 const renderedForm = Performance.settingsFor({ ...emptyGoals, goals:{ ...emptyGoals.goals, ...emptyForm } });
 assert.equal(renderedForm.departments[0].metrics[0].value, '', '未设置目标不能在二次派生表单中变成零');
-console.log(JSON.stringify({ result: 'passed', checks: 11 }));
+console.log(JSON.stringify({ result: 'passed', evidenceScope: 'historical-local-model', currentOnlineAcceptance: false, checks: 11 }));

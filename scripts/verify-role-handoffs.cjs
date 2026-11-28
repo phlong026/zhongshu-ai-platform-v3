@@ -1,7 +1,8 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 // Runs against the real WeChat simulator. All fixtures and writes are local and restored.
 const fs=require('fs'),path=require('path'),assert=require('assert/strict'),auto=require('miniprogram-automator');
 global.wx={getStorageSync:()=>undefined};
-const A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),M=require('../miniprogram/pages/admin/model');
+const A=require('../miniprogram/utils/account'),B=require('../miniprogram/utils/business'),M=require('./fixtures/legacy-admin/model');
 const {stateAt,demoFile:file}=require('./business-fixtures.cjs');
 const out=path.resolve('qa/role-handoff-20261018'),shots=path.join(out,'screenshots');fs.mkdirSync(shots,{recursive:true});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));

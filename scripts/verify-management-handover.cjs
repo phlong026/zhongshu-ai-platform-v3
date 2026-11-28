@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -33,7 +34,7 @@ function login(staffId, role, company = companyId) {
 }
 
 const Handover = require('../miniprogram/utils/management-handover');
-const Home = require('../miniprogram/pages/admin/owner-home');
+const Home = require('./fixtures/legacy-admin/owner-home');
 const form = { checked:true, reason:'客户近期更换服务安排，需明确转交后续责任' };
 const projectWork = { id:'engineering-work:engineering-1', kind:'project-responsibility', engineeringId:'engineering-1', projectId:'project-2', customer:'李先生', name:'工程项目负责', stage:'待开工', owner:'engineer-1', author:'engineer-1' };
 const state = { companyId, staff:clone(staff), work:[clone(work), clone(projectWork)], transfers:[], events:[], managementHandoverFlags:{} };
@@ -100,4 +101,4 @@ const otherState = { ...clone(state), companyId:'other-company' };
 login('boss-1','boss');
 assert.throws(() => Handover.apply(otherState,'handover-mark',work.id,form), /组织|公司/);
 
-console.log('PASS 管理责任明确标记：标记待办、真实转交关闭、重标开启及角色组织隔离');
+console.log('PASS 历史夹具（非当前线上验收）：管理责任明确标记：标记待办、真实转交关闭、重标开启及角色组织隔离');

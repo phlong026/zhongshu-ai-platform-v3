@@ -1,11 +1,12 @@
+// Historical local admin fixture; never import from miniprogram production code.
 // Boss 经营 and 绩效 views only aggregate current V3 source records.
-const A = require('../../utils/account');
-const X = require('../../utils/access');
-const N = require('../../utils/organization');
-const F = require('../../utils/finance-source');
-const P = require('../../utils/performance');
-const R = require('../../utils/operating-report');
-const Engineering = require('../../utils/engineering-records');
+const A = require('../../../miniprogram/utils/account');
+const X = require('../../../miniprogram/utils/access');
+const N = require('../../../miniprogram/utils/organization');
+const F = require('../../../miniprogram/utils/finance-source');
+const P = require('../../../miniprogram/utils/performance');
+const R = require('../../../miniprogram/utils/operating-report');
+const Engineering = require('../../../miniprogram/utils/engineering-records');
 const W = require('./owner-model');
 
 const DAY = 86400000;
