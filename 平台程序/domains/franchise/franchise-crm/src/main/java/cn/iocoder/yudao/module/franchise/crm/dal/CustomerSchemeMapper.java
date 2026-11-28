@@ -4,7 +4,6 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -32,18 +31,6 @@ public interface CustomerSchemeMapper extends BaseMapperX<CustomerSchemeDO> {
                 .isNotNull(CustomerSchemeDO::getDesignProjectId)
                 .select(CustomerSchemeDO::getDesignProjectId))
                 .stream().map(CustomerSchemeDO::getDesignProjectId).distinct().toList();
-    }
-
-    /** 这些客户中已保存过预算的客户编号（预算催办待办已退役，仅供存量查询） */
-    default List<Long> selectCustomerIdsWithBudget(Collection<Long> customerIds) {
-        if (customerIds.isEmpty()) {
-            return List.of();
-        }
-        return selectList(new LambdaQueryWrapperX<CustomerSchemeDO>()
-                .in(CustomerSchemeDO::getCustomerId, customerIds)
-                .eq(CustomerSchemeDO::getKind, CustomerSchemeDO.KIND_BUDGET)
-                .select(CustomerSchemeDO::getCustomerId))
-                .stream().map(CustomerSchemeDO::getCustomerId).distinct().toList();
     }
 
 }

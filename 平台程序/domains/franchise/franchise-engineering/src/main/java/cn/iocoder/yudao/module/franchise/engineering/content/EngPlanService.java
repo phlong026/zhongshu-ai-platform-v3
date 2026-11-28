@@ -389,11 +389,6 @@ public class EngPlanService {
                 .findFirst().orElseThrow(() -> exception(ENGINEERING_INPUT_INVALID, "请等待合同及两期收款约定确认"));
     }
 
-    long stageConfirmed(PostSnapshot post, long projectId, String stage) {
-        return collections.selectByProject(post.orgId(), projectId).stream()
-                .filter(c -> stage.equals(c.getStage())).mapToLong(FrEngCollectionDO::getAmountCents).sum();
-    }
-
     // ===================== 保存计划（整体提交；已完成节点跳过） =====================
 
     @Transactional(rollbackFor = Exception.class)
