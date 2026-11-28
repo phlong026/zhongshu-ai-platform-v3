@@ -130,7 +130,7 @@
 | BIZ-I14 · P2 | 不可达旧页面 死方法 兼容写口缺退出清单。旧AI/demo模板、旧模型共享函数、旧催办及跟进兼容仍混在活跃代码中。 | 代码清理遗留；待分批清理 | BIZ-T14、BIZ-T15 | [BIZ-SRC03](#biz-src03)、[BIZ-SRC12](#biz-src12)、[BIZ-SRC15](#biz-src15)、[BIZ-SRC20](#biz-src20)、[BIZ-SRC32](#biz-src32)；listWritableWithBudget、stageConfirmed无生产调用。 |
 | BIZ-I15 · P3 | 现行文档仍描述AI设计和预算扣点。开发和验收可能继续按已取消能力或旧计费规则判断。 | 文档技术债；待更新 | BIZ-T16 | [BIZ-SRC21](#biz-src21)、[BIZ-SRC22](#biz-src22)–[BIZ-SRC26](#biz-src26)；新预算budget-free-v1已免积分，内容克隆仍使用积分。 |
 | BIZ-R01 · P2待验证 | 两类附件分批锁定可能反序死锁。双客户同时反向绑定未归属资产A/B时可能形成锁环；尚未运行PG复现。 | 并发风险；待并发验证 | BIZ-T17 | [BIZ-SRC14](#biz-src14):123–125、[BIZ-SRC30](#biz-src30):69–123。 |
-| BIZ-R02 · P1恢复门槛 | 已合并退役迁移的恢复脚本存在多租户风险。#314合并后的system undo仍未在角色INSERT中写tenant_id，并将固定810009—810011跨租户复用；可能恢复到默认租户或发生主键冲突，尚无生产回滚故障证据。 | 静态确认的恢复脚本风险；代码风险仍在；待修复及隔离恢复演练 | BIZ-T12 | [BIZ-SRC33](#biz-src33)、[BIZ-SRC36](#biz-src36)、[BIZ-SRC42](#biz-src42) |
+| BIZ-R02 · P1恢复门槛 | 原退役岗位恢复脚本曾以固定角色种子恢复，存在跨租户/主键冲突风险；已由 #331 改为从已核验退役前备份恢复原 ID、tenant_id、菜单与用户绑定，缺备份或身份冲突整组拒绝。未发现生产回滚故障证据。 | 代码风险已修复；隔离 PostgreSQL 恢复矩阵通过；真实目标环境备份与恢复仍待验 | BIZ-T12 | 历史风险见 [BIZ-SRC33](#biz-src33)；修复与测试见 [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) |
 | BIZ-R03 · 验收门槛 | 生产版本映射和全岗位真机验收未形成证据。已确认精确配对CI通过，但不能替代目标环境发布回执、真实岗位和存量数据验收。 | 环境证据缺口；待补验收证据 | BIZ-T18 | 前端CI45934075775、后端CI45936429760、配对45936429711日志绑定两个冻结SHA。 |
 | BIZ-I16 · P2 | 仅剩开工待办时误显示全部完成。真实工作区handler收到currentStepCode=START、nextStepCode=null、completedCount=7时，显示7/8却提示“下一步 全部完成”。客户列表已有当前步骤和x/8，但移交子状态散落在下钻页。 | 已复现显示缺陷及投影不一致；已复现；待最小修复 | BIZ-T19、BIZ-T18 | [BIZ-SRC47](#biz-src47)、[BIZ-SRC48](#biz-src48)、[BIZ-SRC29](#biz-src29) |
 
@@ -156,7 +156,7 @@
 
 ### 3.3 已有进展与仍未形成的证据
 
-- #314和#315的岗位退役代码已合并；本轮仅处理T12剩余问题及环境验收。当前恢复脚本风险仍存在，不能因PR合并直接关闭。
+- #314/#315的岗位退役代码已合并；恢复脚本多租户风险已由 #331 修复并通过真实 PostgreSQL 隔离测试。BIZ-T12 仍需退役前可信备份、目标环境恢复、旧会话失权及在途单承接证据；不能把隔离测试记为生产恢复。
 - #317最新提交已恢复此前删除的旧Controller端点，当前对主线的净改动是收敛LEGACY待办及调整测试，服务端封新尚未完成。移交已提交/已接收不在现有转换白名单，历史结算也有前置；这些作为后续停写的存量承接门槛，不能再描述成当前PR已经删除入口造成的回归。相关读模型动作须随最终停写边界同步。
 - 原业务审计已有96项相关前端检查、11项包约束检查；原工程报告记录82项已有脚本检查。两份检查存在重叠，不能相加为独立用例总数。
 - 已有固定版本CI和配对演练证据只覆盖对应版本及既有用例；本轮新增发现的真实handler反例仍需修复。原状态提交、同名转交、500笔外员工往来和7/8显示反例不等于真机生产复现。
@@ -282,8 +282,8 @@
 <a id="biz-t12"></a>
 #### BIZ-T12 完成已合并设计岗退役的恢复及环境收尾
 
-- **现状与范围：** BIZ-I13、BIZ-R02；现有PR314后端与PR315前端。状态：部分代码已合并；恢复修复与环境验收待完成。
-- **整改方案：** #314/#315已合并，不再重复实现。补齐T11清单、T13在途承接；若目标环境已启用退役，优先核对受影响旧单并沿原单恢复承接。按部署前真实tenant/role/menu备份修复恢复脚本并演练，无法用现有undo正确恢复的部分采用经验证的备份恢复。核对旧身份、缓存和入口；不得自动复活已撤任职。
+- **现状与范围：** BIZ-I13、BIZ-R02；#314/#315完成岗位退役，#331完成真实备份驱动的多租户恢复修复。状态：代码与隔离 PostgreSQL 验证已完成；生产备份、目标恢复、旧会话和存量承接仍待环境验收。
+- **整改方案：** #314/#315/#331已合并，不再重复实现岗位退役或恢复脚本。#331 的 undo 仅接受同一会话中加载的退役前快照，逐项校验 role/tenant/menu/user 关系、身份冲突及重复恢复，并且不恢复 pf_staff_post 任职。剩余只做目标环境备份核验、隔离目标恢复和旧身份/缓存/入口验收；不得自动复活已撤任职。
 - **最小改动边界：** 复用已合并#314/#315，修剩余恢复问题和环境验收；不重复撤岗，不扩展组织体系。
 - **完成标准：** 三岗不可新授，其他岗位不受影响；存量每单有现任承接人和可执行路径；旧身份不能写、授权历史可读；多租户和单非0租户恢复正确，角色ID及绑定不串租户；目标环境配对验收有证据。
 - **关联与顺序：** BIZ-T11、BIZ-T13是环境关闭门槛；现有代码已合并，不能倒写成尚未撤岗。已有工作：#314后端、#315前端已合并；恢复缺口另开最小修复PR。
@@ -826,7 +826,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 <a id="biz-src32"></a>
 - **BIZ-SRC32 [旧前端销售模型和兼容引用](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/5e54cfe6a3da7438dddb8cf3a29daf0a2cb4d30a/miniprogram/utils/sales-flow.js)：** miniprogram/utils/sales-flow.js。先迁出仍使用的函数，再删除独占旧流程。
 <a id="biz-src33"></a>
-- **BIZ-SRC33 [已合并退役迁移的system恢复脚本](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/7fd7fdec669916a671aca05bd65e18b81361dc69/平台程序/domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise-system/V20261127.1201__undo_retire_design_posts.sql#L2)：** 平台程序/domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise-system/V20261127.1201__undo_retire_design_posts.sql；原定位2–10行。当前版本仍未写tenant_id，仍使用跨租户固定角色ID。
+- **BIZ-SRC33 [原始恢复脚本审计快照](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/7fd7fdec669916a671aca05bd65e18b81361dc69/平台程序/domains/franchise/franchise-org/src/main/resources/db/migration-undo/franchise-system/V20261127.1201__undo_retire_design_posts.sql#L2)：** 该链接固定到 #314 初始审计版本，证明当时曾使用固定种子 ID。后续 [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) 已替换为从核验备份恢复原 ID 与 tenant_id；当前 undo 通过两租户、自定义绑定、固定旧 ID 被其他角色占用、缺备份及冲突回滚测试。
 <a id="biz-src34"></a>
 - **BIZ-SRC34 [当前前端测试的伪API覆盖](https://github.com/phlong026/zhongshu-ai-platform-v3/blob/5e54cfe6a3da7438dddb8cf3a29daf0a2cb4d30a/scripts/verify-customer-flow-page.cjs#L27)：** scripts/verify-customer-flow-page.cjs；原定位27–31行。测试需连接真实page/api/status-sheet，只mock HTTP边界。
 <a id="biz-src35"></a>
@@ -950,7 +950,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | 任务 | 负责人 | 状态 | 前端PR与最终SHA | 后端PR与最终SHA | 专项评审 | 验收编号与证据 | 剩余问题 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | BIZ-Txx / ENG-Exx | 待分配 | 待整改 | 按实际填写 | 按实际填写 | 评审人及结论 | 结果、执行人、环境/时间及链接 | 无 / 具体缺口 |
-| BIZ-T12既有实现 | 沿用既有PR | 部分代码已合并；收尾待办 | [#315](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/315) / 2c76fe2284ff6e4746baa4e473799ade861efec0 | [#314](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/314) / 7fd7fdec669916a671aca05bd65e18b81361dc69 | 恢复及存量承接仍需专项评审 | BIZ-A42—A45未执行本轮环境验收 | 恢复脚本、清单、旧单承接 |
+| BIZ-T12既有实现 | 沿用既有PR | 岗位退役与恢复代码已合并；目标环境收尾待验 | [#315](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/315) / 2c76fe2284ff6e4746baa4e473799ade861efec0 | [#314](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/314) / 7fd7fdec669916a671aca05bd65e18b81361dc69；恢复修复 [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) / abc0b15612d1b5ec24c427824513e313f6072267 | DesignPostRetirementPgIntegrationTest 覆盖两种迁移入口、多租户真实 ID、绑定、重复恢复及冲突拒绝；隔离 PG 通过 | 退役前备份与目标环境恢复、旧会话失权、在途单承接仍待环境验收 |
 | BIZ-T13既有工作 | 沿用既有PR | 进行中；目前仅旧待办收敛 | 按需要配对 | [#317](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/317) / 96a5980cc3c50474f00ab1c45a6d6cb9634a8794（核查head） | 服务端封新、存量不可转换状态及历史结算前置待收口 | BIZ-A46—A49未执行 | 旧写端点保留；尚未合并，不能记已修复 |
 | BIZ-T16 | 文档任务分支 | 本地修订；待专项评审与合并 | 本提交，最终PR/SHA按合并回执补充 | 无实现代码修改 | 待独立评审 | BIZ-A58/A59：见8.5节；原93项验收状态不代勾 | 全轮最终SHA、CI、配对/目标环境与真机证据由BIZ-T18追加 |
 
@@ -1109,6 +1109,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | BIZ-T12、BIZ-T18、BIZ-R03及财务R02 | 真实历史数据、退役前备份及目标恢复、旧会话失权、目标环境版本/部署回执、同客同工程各岗位和微信真机验收 | 已有代码、隔离PG、前端及CI证据分别保留；缺项保持未验，不记部署或现场验收完成。 |
 
 本轮未执行生产部署、生产数据库迁移或真实资金操作；既有历史版本的验收记录也不替代当前目标环境验收。ENG-E08/E11 按第1.1节继续排除，不列作本轮代码整改阻断。
+**BIZ-R02 关闭代码风险的专项证据（#331）。** 原始 BIZ-SRC33 是固定到 #314 初始版本的历史快照，不代表当前 undo。#331 已合并 DesignPostRetirementCompatibility、1211 兼容迁移及两份基于临时备份表的 undo；DesignPostRetirementPgIntegrationTest 使用真实 PostgreSQL 17，覆盖单租户/多租户、真实自定义 ID、固定旧 ID 被其他岗位占用、重复恢复、缺失备份、跨租户绑定、角色/菜单冲突、回滚原子性及已撤任职不复活。PR #331 的 Backend CI 和配对发布验证均通过。目标环境真实备份和恢复仍未执行，因此只关闭代码风险，不关闭 BIZ-T12 环境验收。
 #### 8.7.6 2026-11-28 财务后续合并与当前执行边界
 
 本节更新至 2026-11-28 当前两条主线：小程序 main=9ad1229285d6d5d016c1cc8b52a297c5709909d2，后端 backend-main=0eb974b96a82936be99030bc5a8b78b004da98a1。两条主线独立推进，不能将其中一条的 CI 结果替代另一条。
