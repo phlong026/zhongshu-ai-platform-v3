@@ -1,9 +1,10 @@
 -- Historical simulated design-fee settlement audit (read-only).
 -- Run with:
---   psql -v test_org_ids='{}' -v include_test_pairs=false \
+--   psql -v test_org_ids='{}' -v include_test_pairs=true \
 --     -f script/platform/commission-historical-simulation-audit.sql
 -- test_org_ids is a PostgreSQL bigint array of known test organizations.
--- include_test_pairs=true includes pairs where BOTH store and HQ are test organizations.
+-- Full inventory includes test pairs and marks them with test_org_pair; only explicit false filters them out.
+-- Missing or unrecognized submissions get a separate unclassified line, never an inferred amount or balance.
 -- This query does not modify simulated orders, payables, payments, receipts or command events.
 \set ON_ERROR_STOP on
 \if :{?test_org_ids}
@@ -13,7 +14,7 @@
 \endif
 \if :{?include_test_pairs}
 \else
-  \set include_test_pairs false
+  \set include_test_pairs true
 \endif
 
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
@@ -27,6 +28,7 @@ orders AS (
            s.order_number, s.amount_cents AS simulation_amount_cents, s.status AS simulation_status,
            s.channel AS simulation_channel, s.paid_at AS simulation_paid_at,
            c.submission_version AS current_submission_version, c.status AS commission_status,
+           (sub.commission_id IS NOT NULL) AS submission_found,
            sub.mode AS submission_mode, sub.total_cents AS submission_total_cents,
            sub.first_cents AS submission_first_cents,
            (s.submission_version=c.submission_version) AS current_version,
@@ -52,7 +54,7 @@ orders AS (
            ) AS reviewed_for_settlement
     FROM fr_commission_simulated_order s
     JOIN fr_commission c ON c.id=s.commission_id AND c.company_id=s.company_id
-    JOIN fr_commission_submission sub
+    LEFT JOIN fr_commission_submission sub
       ON sub.commission_id=s.commission_id AND sub.version=s.submission_version
     CROSS JOIN config cfg
     LEFT JOIN LATERAL (
@@ -81,10 +83,14 @@ stages AS (
     SELECT o.*, 'TAIL'::text AS settlement_stage,
            o.submission_total_cents-o.submission_first_cents AS expected_cents
     FROM orders o WHERE o.submission_mode='LEGACY_SPLIT'
+    UNION ALL
+    SELECT o.*, 'UNCLASSIFIED'::text AS settlement_stage, NULL::bigint AS expected_cents
+    FROM orders o WHERE o.submission_mode IS NULL OR o.submission_mode NOT IN ('AREA_FULL','LEGACY_SPLIT')
 ),
 scoped AS (
-    SELECT s.*, s.commission_id||':'||s.submission_version||':'||s.settlement_stage AS source_ref,
-           s.reviewed_for_settlement AS payable_expected
+    SELECT s.*, CASE WHEN s.settlement_stage<>'UNCLASSIFIED'
+                THEN s.commission_id||':'||s.submission_version||':'||s.settlement_stage END AS source_ref,
+           CASE WHEN s.settlement_stage<>'UNCLASSIFIED' THEN s.reviewed_for_settlement END AS payable_expected
     FROM stages s
 ),
 facts AS (
@@ -143,10 +149,15 @@ SELECT company_id, design_org_id, commission_id, submission_version, current_sub
        (simulation_amount_cents=submission_total_cents) AS simulation_matches_submission_total,
        delivery_state, handover_state, dispatch_seq,
        reviewed_for_settlement, payable_expected, formal_payable_id,
-       store_payment_count, store_paid_net_cents, hq_receipt_count, hq_received_net_cents,
-       hq_payment_origins_valid,
-       (store_payment_count=0 AND hq_receipt_count=0) AS no_actual_finance_records,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN store_payment_count END AS store_payment_count,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN store_paid_net_cents END AS store_paid_net_cents,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN hq_receipt_count END AS hq_receipt_count,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN hq_received_net_cents END AS hq_received_net_cents,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN hq_payment_origins_valid END AS hq_payment_origins_valid,
+       CASE WHEN settlement_stage<>'UNCLASSIFIED' THEN store_payment_count=0 AND hq_receipt_count=0 END AS no_actual_finance_records,
        CASE
+         WHEN NOT submission_found THEN '缺提交版本，需人工核查'
+         WHEN settlement_stage='UNCLASSIFIED' THEN '未知结算方式，需人工核查'
          WHEN expected_cents<=0 THEN '无有效应收金额，需核对提交版本'
          WHEN NOT current_version THEN '历史旧版本，禁止自动迁移'
          WHEN NOT payable_expected THEN '尚未到生成该期正式应付的节点'
