@@ -223,6 +223,39 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE company_id=? AND source_type='reimbursement' AND source_ref=?",Long.class,post.orgId(),Long.toString(payment))).isEqualTo(target);
   assertError(()->workbench.assignPayable(post,payable,"move-assigned",new FinWorkbenchService.Assignment("project:"+other,"重新搬账")),FIN_SOURCE_FORBIDDEN);
  }
+ @Test void assigningAnExpenseAfterEmployeeRecoveryCarriesOnlyTheOriginalReceipt(){
+  long project=assignmentProject("后补工程"),other=assignmentProject("无关工程");
+  LocalDate day=LocalDate.now();
+  long advance=workbench.register(post,"recover-before-assign-advance",new FinWorkbenchService.EntryCommand(
+      "company","expense","代垫交通","差旅",10000,day,"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"经办人"));
+  long payable=jdbc.queryForObject("SELECT payable_id FROM fr_fin_payment WHERE id=?",Long.class,advance);
+  long debt=Long.parseLong(reimbursementId(advance));
+  payments.register(post,"recover-before-assign-reimburse",new FinPaymentService.PaymentCommand(debt,4000,day,null,null));
+  refunds.registerExpense(post,"recover-before-assign-supplier-refund",new FinRefundService.ExpenseRefundCommand(
+      advance,8000,"供应商退给员工",day,null,null,null,"EMPLOYEE"));
+  long receipt=workbench.recoverEmployee(post,debt,"recover-before-assign",new FinWorkbenchService.Recovery(2000,day,"公司账户","return-original",null));
+  String fields="SELECT id,amount_cents,received_date,transaction_no,voucher_file_id,account_name FROM fr_fin_receipt WHERE id=?";
+  var original=jdbc.queryForMap(fields,receipt);
+  assertThat((List<Map<String,Object>>)workbench.ledger(post.orgId(),"company").get("entries"))
+      .filteredOn(row->Long.toString(receipt).equals(row.get("id"))).hasSize(1);
+
+  var assignment=new FinWorkbenchService.Assignment("project:"+project,"补齐原费用项目");
+  workbench.assignPayable(post,payable,"recover-before-assign-move",assignment);
+  workbench.assignPayable(post,payable,"recover-before-assign-move",assignment);
+  assertThat(jdbc.queryForMap(fields,receipt)).isEqualTo(original);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(project);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=? AND source_ref=?",Long.class,post.orgId(),"employee-recovery:"+debt)).isEqualTo(1L);
+  var ledger=workbench.ledger(post.orgId(),"project:"+project);
+  assertThat((List<Map<String,Object>>)ledger.get("entries")).filteredOn(row->Long.toString(receipt).equals(row.get("id")))
+      .singleElement().satisfies(row->assertThat(row).containsEntry("type","RECEIPT").containsEntry("amount_cents",2000L));
+  assertThat(((Number)((Map<String,Object>)ledger.get("summary")).get("received_cents")).longValue()).isEqualTo(2000);
+  assertThat(workbench.reimbursements(post.orgId())).filteredOn(row->Long.toString(debt).equals(row.get("payable_id")))
+      .singleElement().satisfies(row->assertThat(remaining(row)).isZero());
+  for(String scope:List.of("company","project:"+other)){
+   assertThat((List<Map<String,Object>>)workbench.ledger(post.orgId(),scope).get("entries"))
+       .noneMatch(row->Long.toString(receipt).equals(row.get("id")));
+  }
+ }
  private long assignmentProject(String name){
   long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",id,post.orgId(),name);return id;
