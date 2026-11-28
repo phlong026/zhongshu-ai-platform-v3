@@ -1070,7 +1070,10 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | --- | --- | --- | --- | --- |
 | 财务 F01 | 定金抵扣原项目及合同范围 | 已合并 | [#390](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/390) | 核对原定金、合同、项目及账本归属，34 项 PG 通过。 |
 | 财务 F02 | 合同收款原单纠错 | 已合并 | [#394](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/394)、[#395](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/395)、[#396](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/396)、[#405](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/405) | 沿原收据和期次更正金额、日期、期次；原工程镜像/申报保留输入留痕。工程当前列表投影更正后的财务事实，原键重放不改写。 |
-| 财务 F03 | 工程原应付改归属 | 此前已合并 | [#353](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/353)、[#354](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/354) | 与 ENG-E04 为同一修复；不能把同项再次列为未完成。 |
+| 财务 F03-H（历史编号） | 工程原应付改归属 | 已合并 | [#353](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/353)、[#354](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/354) | 原工程材料/费用应付不可脱离原工程移动；与 ENG-E04 为同一修复。为避免与本轮手工费用纠错重号，历史编号仅作追溯。 |
+| 财务 F03-M | 无上游来源的手工费用错误归属更正 | 已合并 | [#411](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/411)、[#412](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/412)、[#415](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/415)、[#416](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/416)、[#417](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/417) | 仅无上游来源的手工应付可更正；同步原付款、员工垫付/归还收据；更正时显示原归属；后端校验过期归属，防止并发覆盖。工程原单、非手工来源、作废记录继续拒绝。 |
+| 财务 L02 | 历史模拟设计费分期结算与只读盘点 | 代码已合并，生产历史数据待只读执行 | [#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 审核历史 LEGACY_SPLIT 委托时在同一事务创建 FIRST/TAIL 两期正式应付；不自动生成实际付款或核收。只读审计覆盖 FULL/FIRST/TAIL、缺提交/未知模式、退款净额和核收来源。生产数据尚未读取，不能标记历史存量处置完成。 |
+| 财务 L04 | 旧本地设计费模拟收银写路径清理 | 已合并 | [#414](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/414) | 删除旧本地写入型 checkout；保留七个历史读模型通过 design-checkout-history.js 读取旧回执，不暴露报价保存、订单创建或模拟支付写能力；移除无效退役测试命令。 |
 | 财务 F04 | 前期账本来源与工程接续 | 已合并 | [#403](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/403)、[#404](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/404) | 前期账明确来源客户、选填同客户委托，真实工程建档/移交和先工程后建账双向接续；唯一匹配工程且唯一待接续账本才自动关联；多工程需明确选择，原单归属冲突拒绝关联、留待核对，已抵扣收款核原合同。独立后端78项PG通过、3项既有配对明确跳过；后续与R01组合70项PG全部执行通过。前端先前组合99项及独立复核8项通过，最终含#402的候选组合100/100通过、0跳过。来源查询隐藏后返回的loading恢复问题已修；跳过不计通过。 |
 | 财务 F05 | 退款与支出退回凭证核验 | 已合并 | [#391](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/391) | 统一校验已填写凭证的组织、类型和验收状态，21 项 PG 通过。 |
 | 老板 B01 | 核算下钻原项目账本 | 已合并 | [#383](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/383) | 核算结果进入同一原项目的只读账本，不丢原账上下文。 |
@@ -1106,3 +1109,18 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | BIZ-T12、BIZ-T18、BIZ-R03及财务R02 | 真实历史数据、退役前备份及目标恢复、旧会话失权、目标环境版本/部署回执、同客同工程各岗位和微信真机验收 | 已有代码、隔离PG、前端及CI证据分别保留；缺项保持未验，不记部署或现场验收完成。 |
 
 本轮未执行生产部署、生产数据库迁移或真实资金操作；既有历史版本的验收记录也不替代当前目标环境验收。ENG-E08/E11 按第1.1节继续排除，不列作本轮代码整改阻断。
+#### 8.7.6 2026-11-28 财务后续合并与当前执行边界
+
+本节更新至 2026-11-28 当前两条主线：小程序 main=9ad1229285d6d5d016c1cc8b52a297c5709909d2，后端 backend-main=0eb974b96a82936be99030bc5a8b78b004da98a1。两条主线独立推进，不能将其中一条的 CI 结果替代另一条。
+
+| 批次 | 合并内容 | 最终 PR | 远端验证 |
+|---|---|---|---|
+| F03-M 手工费用归属更正 | 后端允许真正手工应付补充/更正归属，事务同步原付款、员工垫付和归还收据；前端回显原归属、要求更正依据；后端拒绝过期归属覆盖。 | [#411](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/411)、[#412](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/412)、[#415](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/415)、[#416](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/416)、[#417](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/417) | 后端 CI、前端 CI、配对发布验证均通过；#415/#417 后端配对均通过，#416 前端配对通过。 |
+| L02 历史模拟设计费 | 历史财务审核按冻结提交版本建立正式 FULL 或 FIRST/TAIL 应付；只读审计补齐未分类订单、缺失提交版本、实际付款/核收/退款及来源校验。 | [#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 后端 CI 与配对发布验证通过。审计 SQL 仍须在生产只读连接上执行；隔离测试不能替代生产数据盘点。 |
+| L04 旧本地 checkout 清理 | 移除本地报价/模拟支付写路径和退役测试；七个历史读模型改用只读兼容适配器，服务端历史回执保留。 | [#414](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/414) | 前端 CI、配对发布验证通过。配对时前端 1f41db05319a8262786aa295a65caf2617cc480a 与后端 4cdcfc3eff789713226fd508f1814c6ef598f979。 |
+
+**编号约定。** 旧总表中的财务 F03 指工程原应付归属（ENG-E04/#353/#354），本轮手工费用纠错统一标记 F03-M；两者是不同的财务事实，不可混为同一接口或同一验收。
+
+**生产 R02 下一步。** 当前 L02 代码已经提供只读盘点脚本 平台程序/script/platform/commission-historical-simulation-audit.sql。生产执行前必须由运维提供只读数据库连接/受控执行环境，并确认测试组织 ID 列表；默认包含所有组织并显式标记测试组织，不自动过滤历史样本。执行后按纯模拟候选、已产生真实收付、来源异常、缺应付、缺提交/未知结算模式、历史旧版本分类，逐笔核对原合同、原凭证和退款。未经业务/财务复核不得自动迁移、删除或补造流水。
+
+**当前不能标记完成的事项。** 生产历史数据盘点、部署版本回执、真实旧客户端零调用窗口、旧岗位会话失权、目标环境与微信真机验收仍未取得；BIZ-T09 再次咨询日期及 ENG-R01 DATE 尾款仍需要业务/真实合同依据。上述事项不得用 CI 全绿或隔离 PostgreSQL 测试替代。
