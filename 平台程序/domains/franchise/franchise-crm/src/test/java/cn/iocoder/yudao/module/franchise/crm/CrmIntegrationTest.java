@@ -364,7 +364,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
                 internal(budget(BigDecimal.ZERO)))), SCHEME_INVALID);
         assertError(() -> as(salesA1, () -> customers.saveSchemeInternal(salesA1, id,
                 internal(new SchemeCommand("QUOTE", "报价", null, null, null, null, null, null)))), SCHEME_INVALID);
-        assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).doesNotContain(id);
+        assertThat(as(salesA1, () -> customers.get(salesA1, id)).schemes()).isEmpty();
 
         as(salesA1, () -> customers.saveSchemeInternal(salesA1, id, internal(budget(new BigDecimal("12.5")))));
         CustomerSchemeDO second = as(salesA1, () -> customers.saveSchemeInternal(salesA1, id, internal(budget(new BigDecimal("13")))));
@@ -374,8 +374,8 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(second.getVersion()).isEqualTo(2);
         assertThat(plan.getVersion()).isEqualTo(1);
         assertThat(as(salesA1, () -> customers.latestScheme(id, CustomerSchemeDO.KIND_BUDGET)).getWidth()).isEqualByComparingTo("13");
-        assertThat(as(salesA1, () -> customers.listWritableWithBudget(salesA1))).extracting(CustomerDO::getId).contains(id);
-        assertThat(as(salesA2, () -> customers.listWritableWithBudget(salesA2))).extracting(CustomerDO::getId).doesNotContain(id);
+        assertThat(as(salesA1, () -> customers.get(salesA1, id)).schemes()).filteredOn(scheme -> CustomerSchemeDO.KIND_BUDGET.equals(scheme.getKind())).hasSize(2);
+        assertError(() -> as(salesA2, () -> customers.get(salesA2, id)), CUSTOMER_NOT_FOUND);
     }
 
     @Test

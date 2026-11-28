@@ -68,12 +68,20 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
 
     /** Called inside the workflow write transaction before adding references; serializes competing first attachments. */
     public void requireAttachable(PostSnapshot post, long customerId, List<Attachment> attachments) {
+        requireAttachable(post, customerId, attachments, List.of());
+    }
+
+    /** 普通附件和专用槽位必须一起排序，不能各自排序后分批加锁。 */
+    public void requireAttachable(PostSnapshot post, long customerId, List<Attachment> attachments, List<Long> slotAssets) {
         long tenant = CustomerWorkflowReadService.tenant();
-        for (long asset : attachments.stream().mapToLong(attachment -> Long.parseLong(attachment.assetId())).sorted().toArray()) {
+        var assetIds = new java.util.TreeSet<>(slotAssets);
+        attachments.forEach(attachment -> assetIds.add(Long.parseLong(attachment.assetId())));
+        for (long asset : assetIds) {
             long lock = FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("fr-workflow-asset", tenant), Long.toString(asset));
             jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, lock);
             if (owners(tenant, post.orgId(), asset).stream().anyMatch(customer -> customer.getId() != customerId))
-                throw CustomerWorkflowRules.invalid("该附件已归属其他客户，请为当前客户重新上传");
+                throw CustomerWorkflowRules.invalid(slotAssets.contains(asset)
+                        ? "该资料已归属其他客户，请为当前客户重新上传" : "该附件已归属其他客户，请为当前客户重新上传");
         }
     }
 
@@ -111,15 +119,6 @@ public class CustomerWorkflowAssetPolicy implements AssetVisibilityPort, Custome
                 """, Boolean.class, tenant, company, customerId, code, json, tenant, company, customerId, code, json,
                 tenant, company, customerId, code, slot, slot, tenant, company, customerId, code, slot, slot);
         if (!Boolean.TRUE.equals(exists)) throw exception(RESOURCE_FORBIDDEN);
-    }
-
-    /** fields 槽位引用在保存前与附件走同一约束：串行竞争，并拒绝已归属其他客户的资产。 */
-    public void requireSlotAttachable(PostSnapshot post, long customerId, long assetId) {
-        long tenant = CustomerWorkflowReadService.tenant();
-        long lock = FranchiseCommandKeys.lockKey(new FranchiseCommandKeys.PostKeyScope("fr-workflow-asset", tenant), Long.toString(assetId));
-        jdbc.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, lock);
-        if (owners(tenant, post.orgId(), assetId).stream().anyMatch(customer -> customer.getId() != customerId))
-            throw CustomerWorkflowRules.invalid("该资料已归属其他客户，请为当前客户重新上传");
     }
 
     private List<CustomerDO> owners(long tenant, long company, long asset) {

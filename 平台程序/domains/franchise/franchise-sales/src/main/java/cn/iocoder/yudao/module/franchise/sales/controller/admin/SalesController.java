@@ -295,6 +295,13 @@ public class SalesController {
                 req.amountCents(), req.method(), req.transactionNo(), req.receivedDate(),req.voucherFileId(),req.accountName()), idem));
     }
 
+    @GetMapping("/stages/{stageId}/collect/registration-result")
+    @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<Map<String,String>> collectionRegistrationResult(@PathVariable("stageId") long stageId,
+            @RequestParam("key") String key) {
+        return success(contracts.collectionRegistrationResult(post(),stageId,key));
+    }
+
     @GetMapping("/contracts/{contractId}/stage-summary")
     @Operation(summary = "三期收付统一视图（M06-T04 契约冻结：各期约定额/累计分笔/余额）")
     @PreAuthorize("@post.has('franchise:sale:query')")

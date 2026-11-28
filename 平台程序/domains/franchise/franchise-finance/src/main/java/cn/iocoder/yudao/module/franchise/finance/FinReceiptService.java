@@ -144,9 +144,10 @@ public class FinReceiptService {
      *   基-1 切换随 COS 批字节通道（14 文档 D-基1-2 完整执行延后登记）；两者皆 miss → VOUCHER_INVALID_FIN。
      */
     void requireVoucherAsset(PostSnapshot post, Long voucherFileId) {
-        if (voucherFileId == null || voucherFileId <= 0) {
+        if (voucherFileId == null) {
             return;
         }
+        if (voucherFileId <= 0) throw exception(VOUCHER_INVALID_FIN);
         requireVoucherAsset(post, voucherFileId, assets, voucherFileMapper, serviceAccounts);
     }
 

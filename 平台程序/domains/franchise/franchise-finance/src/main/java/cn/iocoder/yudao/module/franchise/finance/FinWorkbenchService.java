@@ -190,6 +190,15 @@ public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.ap
         return scope(org,value);
     }
     @Transactional
+    public Map<String,String> registrationResult(PostSnapshot post,String key) {
+        key=commands.requireIdempotencyKey(key);lock(post,key);
+        var ids=jdbc.queryForList("""
+            SELECT aggregate_id FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-workbench-entry'
+              AND command='fin-workbench-register' AND org_id=? AND actor_user_id=? AND actor_post_id=? AND idempotency_key=?
+            """,Long.class,post.orgId(),post.userId(),post.postId(),"franchise:"+post.userId()+":"+key);
+        return ids.isEmpty()?Map.of("state","NOT_REGISTERED"):Map.of("id",Long.toString(ids.get(0)));
+    }
+    @Transactional
     public long register(PostSnapshot post,String key,EntryCommand cmd) {
         key=commands.requireIdempotencyKey(key);lock(post,key);
         var replay=commands.replayed(post,key,cmd);if(replay.isPresent())return replay.get().getAggregateId();

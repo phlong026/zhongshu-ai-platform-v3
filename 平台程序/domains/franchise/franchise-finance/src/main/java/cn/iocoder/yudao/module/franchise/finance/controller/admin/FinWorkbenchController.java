@@ -35,4 +35,6 @@ public class FinWorkbenchController {
     public CommonResult<?> assign(@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@RequestBody FinWorkbenchService.Assignment cmd){service.assignPayable(current.require(),id,key,cmd);return success(true);}
     @PostMapping("/entries") @PreAuthorize("@post.has('franchise:fin:register')")
     public CommonResult<?> register(@RequestHeader("Idempotency-Key") String key,@RequestBody FinWorkbenchService.EntryCommand cmd){return success(Map.of("id",String.valueOf(service.register(current.require(),key,cmd))));}
+    @GetMapping("/entries/registration-result") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> registrationResult(@RequestParam("key") String key){return success(service.registrationResult(current.require(),key));}
 }

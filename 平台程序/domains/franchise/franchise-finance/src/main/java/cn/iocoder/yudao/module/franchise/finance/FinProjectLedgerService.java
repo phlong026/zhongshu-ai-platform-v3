@@ -13,7 +13,10 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
 public class FinProjectLedgerService {
     private final JdbcTemplate jdbc;
     public FinProjectLedgerService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
-    public record Row(long id,String type,LocalDate occurredOn,long amountCents,String sourceRef,String status,String originalExpenseId) {}
+    public record Details(String name,String category,String counterparty,String accountName,
+                          String transactionNo,String voucherFileId,String note) {}
+    public record Row(long id,String type,LocalDate occurredOn,long amountCents,String sourceRef,String status,
+                      String originalExpenseId,String recordId,Details details) {}
     public record Summary(long receivableCents,long receivedCents,long refundedCents,long paidCents,long expenseRefundedCents,long payableCents) {}
     public record Ledger(Summary summary,PageResult<Row> entries,String projectName) {}
     public record Project(long projectId,String name,String status,Long sourceCommissionId) {}
@@ -45,7 +48,7 @@ public class FinProjectLedgerService {
           JOIN fr_sale_payment_stage s ON s.contract_id=c.id AND s.company_id=c.company_id
           WHERE NOT s.deleted AND s.amount_cents>0),
         """ + PAYABLES + """
-        , unlinked_expenses AS (SELECT e.id,e.amount_cents,e.create_time FROM fr_eng_expense e JOIN project p ON p.company_id=e.company_id AND p.id=e.project_id
+        , unlinked_expenses AS (SELECT e.* FROM fr_eng_expense e JOIN project p ON p.company_id=e.company_id AND p.id=e.project_id
           WHERE e.status='REGISTERED' AND e.payable_id IS NULL),
         payments AS (SELECT m.*,p.source_ref ledger_source_ref FROM fr_fin_payment m JOIN project x ON m.company_id=x.company_id
           LEFT JOIN fr_fin_payable p ON p.id=m.payable_id AND p.company_id=x.company_id
@@ -68,6 +71,32 @@ public class FinProjectLedgerService {
               (f.payment_id IN(SELECT id FROM payments) OR f.receipt_id IN(SELECT id FROM receipts WHERE status='已登记'))
         )
         """;
+    // Read each original by its ledger type and existing scoped set; IDs from different tables are not interchangeable.
+    private static final String DETAILS = """
+        SELECT l.*,l.id::text AS record_id,
+          COALESCE(r.name,e.name,q.stage,f.reason) AS name,COALESCE(r.category,e.purpose,q.category) AS category,
+          COALESCE(r.counterparty,q.recipient,original_receipt.counterparty) AS counterparty,
+          COALESCE(m.account_name,r.account_name) AS account_name,
+          COALESCE(m.transaction_no,r.transaction_no,f.transaction_no) AS transaction_no,
+          COALESCE(m.voucher_file_id,r.voucher_file_id,f.voucher_file_id)::text AS voucher_file_id,
+          COALESCE((SELECT c.payload::jsonb#>>'{supplement,note}' FROM pf_command_event c
+            WHERE c.domain='franchise' AND c.org_id=(SELECT company_id FROM project) AND c.aggregate_id=l.id
+              AND c.aggregate_type='fin-supplement-'||CASE WHEN l.type IN('RECEIPT','PENDING_RECEIPT') THEN 'receipt'
+                WHEN l.type IN('PAYMENT','ADVANCE') THEN 'payment'
+                WHEN l.type IN('REFUND','EXPENSE_REFUND','EMPLOYEE_REFUND') THEN 'refund' END
+              AND NULLIF(trim(c.payload::jsonb#>>'{supplement,note}'),'') IS NOT NULL
+            ORDER BY c.revision DESC LIMIT 1),e.note) AS note
+        FROM ledger l
+        LEFT JOIN payments m ON l.type IN('PAYMENT','ADVANCE') AND m.id=l.id
+        LEFT JOIN receipts r ON l.type IN('RECEIPT','PENDING_RECEIPT') AND r.id=l.id
+        LEFT JOIN unlinked_expenses e ON l.type='CONFIRMED_ENGINEERING_COST' AND e.id=l.id
+        LEFT JOIN fr_fin_refund f ON l.type IN('REFUND','EXPENSE_REFUND','EMPLOYEE_REFUND')
+          AND f.id=l.id AND f.company_id=(SELECT company_id FROM project)
+        LEFT JOIN payments original_payment ON original_payment.id=f.payment_id
+        LEFT JOIN receipts original_receipt ON original_receipt.id=f.receipt_id
+        LEFT JOIN payables q ON q.id=CASE WHEN l.type='PAYABLE' THEN l.id ELSE COALESCE(m.payable_id,original_payment.payable_id) END
+        ORDER BY l.occurred_on DESC NULLS LAST,l.id DESC,l.type DESC LIMIT ? OFFSET ?
+        """;
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Ledger page(long org,long project,int pageNo,int pageSize) {
         var projectNames=jdbc.queryForList("SELECT name FROM fr_eng_project WHERE id=? AND company_id=?",String.class,project,org);
@@ -82,8 +111,11 @@ public class FinProjectLedgerService {
                 + COALESCE(sum(amount_cents) FILTER(WHERE type='CONFIRMED_ENGINEERING_COST'),0) FROM ledger
             """,(rs,n)->new Summary(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getLong(4),rs.getLong(5),rs.getLong(6)),project,org,org);
         long total=jdbc.queryForObject(SCOPE+"SELECT count(*) FROM ledger",Long.class,project,org,org);
-        var rows=jdbc.query(SCOPE+"SELECT * FROM ledger ORDER BY occurred_on DESC NULLS LAST,id DESC,type DESC LIMIT ? OFFSET ?",
-                (rs,n)->new Row(rs.getLong("id"),rs.getString("type"),rs.getObject("occurred_on",LocalDate.class),rs.getLong("amount_cents"),rs.getString("source_ref"),rs.getString("status"),"CONFIRMED_ENGINEERING_COST".equals(rs.getString("type")) ? rs.getString("id") : null),project,org,org,pageSize,(long)(pageNo-1)*pageSize);
+        var rows=jdbc.query(SCOPE+DETAILS,
+                (rs,n)->new Row(rs.getLong("id"),rs.getString("type"),rs.getObject("occurred_on",LocalDate.class),rs.getLong("amount_cents"),rs.getString("source_ref"),rs.getString("status"),
+                        "CONFIRMED_ENGINEERING_COST".equals(rs.getString("type")) ? rs.getString("id") : null,rs.getString("record_id"),
+                        new Details(rs.getString("name"),rs.getString("category"),rs.getString("counterparty"),rs.getString("account_name"),
+                                rs.getString("transaction_no"),rs.getString("voucher_file_id"),rs.getString("note"))),project,org,org,pageSize,(long)(pageNo-1)*pageSize);
         return new Ledger(summary,new PageResult<>(rows,total),projectNames.get(0));
     }
 }

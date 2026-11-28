@@ -343,24 +343,30 @@ public class EngClosureService {
             var financeCosts = new java.util.HashMap<>(ledger.projectCostAmounts(post, projectId));
             supplyRows.stream().map(FrEngSupplyDO::getPayableId).filter(java.util.Objects::nonNull)
                     .forEach(financeCosts::remove);
-            var expenseIds = new java.util.HashSet<Long>();
+            var expenseAmounts = new java.util.HashMap<Long, Long>();
             long expensesTotal = 0;
+            long expensesRemaining = 0;
             boolean hasRevisedExpense = false;
             for (FrEngExpenseDO expense : expenses.selectByProject(post.orgId(), projectId)) {
                 Long id = expense.getPayableId();
                 Long financialAmount = id == null ? null : financeCosts.remove(id);
                 if (FrEngExpenseDO.STATUS_REGISTERED.equals(expense.getStatus())) {
-                    expensesTotal += financialAmount == null ? expense.getAmountCents() : financialAmount;
-                    if (id != null) expenseIds.add(id);
+                    long amount = financialAmount == null ? expense.getAmountCents() : financialAmount;
+                    expensesTotal += amount;
+                    if (id == null) expensesRemaining += amount;
+                    else expenseAmounts.merge(id, amount, Long::sum);
                     hasRevisedExpense |= financialAmount != null
                             && !financialAmount.equals(expense.getAmountCents());
                 }
             }
             // 剩余原单由财务直接登记或划入项目账，原单已计成本，无需复制一张工程费用单。
             expensesTotal += financeCosts.values().stream().mapToLong(Long::longValue).sum();
-            expenseIds.addAll(financeCosts.keySet());
-            var paidByExpense = ledger.paidCentsByPayableIds(post, expenseIds);
+            expenseAmounts.putAll(financeCosts);
+            var paidByExpense = ledger.paidCentsByPayableIds(post, expenseAmounts.keySet());
             long expensesPaid = paidByExpense.values().stream().mapToLong(Long::longValue).sum();
+            // 逐原应付计算欠款；一笔超付或核减后待退款的现金，不能抵消另一笔仍应支付的费用。
+            expensesRemaining += expenseAmounts.entrySet().stream().mapToLong(entry ->
+                    Math.max(0, entry.getValue() - paidByExpense.getOrDefault(entry.getKey(), 0L))).sum();
             // 展示工程修订与原财务单据的差异，不变更结算口径或触发账务动作。
             if (hasRevisedExpense) {
                 var reviewRows = jdbcTemplate.query("""
@@ -385,7 +391,7 @@ public class EngClosureService {
             }
             view.put("expensesTotalCents", expensesTotal);
             view.put("expensesPaidCents", expensesPaid);
-            view.put("expensesRemainingCents", Math.max(0, expensesTotal - expensesPaid));
+            view.put("expensesRemainingCents", expensesRemaining);
             view.put("collectionStages", stages);
             view.put("collectionTotalCents", receivedTotal);
         } else {

@@ -277,7 +277,7 @@ public class EngCollectionService {
         }
         // M07-T06/I05（R1 P1-1）：统一实收账——工程收款写通销售统一合同期次（资金事实唯一在
         // fr_fin_receipt + fr_sale_stage_receipt），本域 fr_eng_collection 行仅作留痕引用统一 receiptId，
-        // 不参与余额累计（读侧 requireStartGate/stageConfirmed 亦经统一端口）。
+        // 不参与余额累计；收款余额与资金门禁通过统一合同期次端口读取。
         // 期次归一：三枚举精确匹配；存量旧值 TOPPING 显式映射 CAP_DONE（v3 接线随 M07-T02）；
         // 其它未知值显式拒绝（不得静默错期入账——R1 P2-8）。
 

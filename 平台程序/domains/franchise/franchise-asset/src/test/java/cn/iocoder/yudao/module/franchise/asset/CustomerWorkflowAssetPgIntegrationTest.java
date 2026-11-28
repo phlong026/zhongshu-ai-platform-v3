@@ -390,6 +390,63 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow WHERE customer_id IN (?,?)", Long.class, first, second)).isEqualTo(1);
     }
 
+    @Test void reversedAttachmentAndDesignSlotAcquireOneOrderAndRejectTheOtherCustomer() throws Exception {
+        long first = customer(), second = customer();
+        long low = upload(PDF, "application/pdf"), high = upload(PDF, "application/pdf");
+        assertThat(low).isLessThan(high);
+        long lock = cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.lockKey(
+                new cn.iocoder.yudao.module.franchise.org.FranchiseCommandKeys.PostKeyScope("fr-workflow-asset", tenant),
+                Long.toString(low));
+        var pool = Executors.newFixedThreadPool(2);
+        try (var blocker = jdbc.getDataSource().getConnection();
+             var acquire = blocker.prepareStatement("SELECT pg_advisory_lock(?)");
+             var release = blocker.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+            acquire.setLong(1, lock); acquire.execute();
+            java.util.concurrent.Future<Boolean> lowerFirst, higherFirst;
+            try {
+                // Queue the low attachment first, then the opposite attachment/slot pair. With split
+                // locking, the second request holds high while waiting for low, creating a real PG cycle.
+                lowerFirst = pool.submit(() -> saveMixedAssets(first, low, high));
+                awaitAssetWaiters(lock, 1);
+                higherFirst = pool.submit(() -> saveMixedAssets(second, high, low));
+                awaitAssetWaiters(lock, 2);
+            } finally {
+                release.setLong(1, lock); release.execute();
+            }
+            assertThat(List.of(lowerFirst.get(20, TimeUnit.SECONDS), higherFirst.get(20, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(true, false);
+        } finally { pool.shutdownNow(); }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow WHERE customer_id IN (?,?)", Long.class, first, second)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM fr_customer_workflow_step s JOIN fr_customer_workflow w ON w.id=s.workflow_id
+                WHERE w.customer_id IN (?,?) AND s.step_code='QUOTATION'
+                """, Long.class, first, second)).isEqualTo(1);
+    }
+
+    private boolean saveMixedAssets(long customer, long attachment, long slot) {
+        TenantContextHolder.setTenantId(tenant);
+        try {
+            var original = quote(0, attachment);
+            var fields = new java.util.HashMap<>(original.fields());
+            fields.put("designFileAssetId", Long.toString(slot)); fields.put("designFileName", "设计方案.pdf");
+            as(sales, () -> workflow.save(sales, customer, "QUOTATION",
+                    new CustomerWorkflowModel.SaveCommand(0, original.occurredOn(), original.note(), fields, original.attachments()),
+                    "mixed-assets-" + customer));
+            return true;
+        } catch (ServiceException rejected) {
+            assertThat(rejected.getCode()).isEqualTo(400); return false;
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    private void awaitAssetWaiters(long lock, int count) {
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(() ->
+                jdbc.queryForObject("""
+                        SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND NOT granted
+                          AND classid::bigint=? AND objid::bigint=? AND objsubid=1
+                          AND database=(SELECT oid FROM pg_database WHERE datname=current_database())
+                        """, Integer.class, lock >>> 32, lock & 0xffffffffL) == count);
+    }
+
     private long customer() {
         return as(sales, () -> leads.capture(sales, new LeadService.CaptureCommand("王先生", Long.toString(PHONES.incrementAndGet()), "自建房", "到店"), null).customerId());
     }
