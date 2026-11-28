@@ -420,12 +420,12 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
                 SELECT count(*) FROM fr_customer_workflow_step s
                 JOIN fr_customer_workflow w ON w.id=s.workflow_id
                 WHERE w.customer_id=? AND s.attachments @> CAST(? AS jsonb)
-                """, Long.class, customer, "[{\\\"assetId\\\":\\\""+file+"\\\"}]")).isEqualTo(2);
+                """, Long.class, customer, "[{\"assetId\":\""+file+"\"}]")).isEqualTo(2);
         assertThat(jdbc.queryForObject("""
                 SELECT count(DISTINCT w.customer_id) FROM fr_customer_workflow_step s
                 JOIN fr_customer_workflow w ON w.id=s.workflow_id
                 WHERE s.attachments @> CAST(? AS jsonb)
-                """, Long.class, "[{\\\"assetId\\\":\\\""+file+"\\\"}]")).isEqualTo(1);
+                """, Long.class, "[{\"assetId\":\""+file+"\"}]")).isEqualTo(1);
     }
 
     @Test void simultaneousFirstAttachmentCannotBindOnePrivateDocumentToTwoCustomers() throws Exception {
