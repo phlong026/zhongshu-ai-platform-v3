@@ -769,13 +769,14 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
             as(sales, () -> workflow.save(sales, id, "INVITATION",
                     new SaveCommand(0, day, "", Map.of(), List.of()), "paused-reminder-seed-" + id));
             jdbc.update("UPDATE fr_customer_workflow SET status='PAUSED' WHERE customer_id=? AND company_id=?", id, store.orgId());
-            jdbc.update("UPDATE fr_customer SET next_visit_date=?,last_follow_at=NULL,create_time=CURRENT_TIMESTAMP - INTERVAL '3 days' WHERE id=?",
+            jdbc.update("UPDATE fr_customer SET status='REGISTERED',next_visit_date=?,last_follow_at=NULL,create_time=CURRENT_TIMESTAMP - INTERVAL '3 days' WHERE id=?",
                     date, id);
             ids.add(id);
         }
 
         var page = new PageParam(); page.setPageNo(1); page.setPageSize(50);
         assertThat(as(sales, () -> customers.listDueVisits(sales, day))).isEmpty();
+        assertThat(as(sales, () -> customers.listAwaitingFirstFollow(sales))).isEmpty();
         assertThat(as(sales, () -> customers.listStale(sales, day))).isEmpty();
         assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.DUE).getList())).isEmpty();
         assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.APPOINTMENTS).getList()))
