@@ -120,8 +120,9 @@ public class CustomerWorkflowService {
             throw invalid("本步骤已记录外部定制方向，请更新小程序后再修改");
         }
         Map<String, Object> fields = referencedFields(post, customerId, step, input.fields());
-        validateAttachments(post, customerId, input.attachments());
-        validateSlotAssets(post, customerId, step, fields);
+        var slotAssets = CustomerWorkflowRules.SLOT_ASSET_FIELDS.stream().filter(slotKey -> slotAssetStep(slotKey).equals(step))
+                .map(fields::get).filter(java.util.Objects::nonNull).map(value -> Long.parseLong(String.valueOf(value))).toList();
+        validateAttachments(post, customerId, input.attachments(), slotAssets);
         preserveUnchangedSlot(step, previous == null ? Map.of() : previous.fields(), request.fields(), fields);
         if (step == Step.MEASUREMENT) {
             CustomerWorkflowRules.applyMeasurementSiteFields(fields, previous == null ? Map.of() : previous.fields());
@@ -379,14 +380,22 @@ public class CustomerWorkflowService {
     }
 
     void validateAttachments(PostSnapshot post, long customerId, List<Attachment> attachments) {
-        if (attachments.isEmpty()) return;
-        attachmentPolicy.requireAttachable(post, customerId, attachments);
+        validateAttachments(post, customerId, attachments, List.of());
+    }
+
+    private void validateAttachments(PostSnapshot post, long customerId, List<Attachment> attachments, List<Long> slotAssets) {
+        if (attachments.isEmpty() && slotAssets.isEmpty()) return;
+        attachmentPolicy.requireAttachable(post, customerId, attachments, slotAssets);
         var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
         if (assetPort == null || accountPort == null) throw new ServiceException(503, "资料校验暂不可用，请稍后重试");
         var actor = new AssetAccessPort.Actor(post.orgId(), accountPort.requireServiceAccount(post.orgId()), post.userId(), post.postId());
         for (Attachment attachment : attachments) {
             if (!assetPort.validateReference(actor, Long.parseLong(attachment.assetId()), Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
                 throw invalid("附件不存在、未上传完成或无权引用");
+        }
+        for (long assetId : slotAssets) {
+            if (!assetPort.validateReference(actor, assetId, Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
+                throw invalid("资料不存在、未上传完成或无权引用");
         }
     }
 
@@ -402,25 +411,6 @@ public class CustomerWorkflowService {
                 fields.put(slotKey, previous.get(slotKey));
                 if (previous.containsKey(nameKey)) fields.put(nameKey, previous.get(nameKey));
             }
-        }
-    }
-
-    /** 专用槽位（05 设计合同、06 设计文件）的 fields 引用与通用附件同一套约束：先锁归属，再验资产可用。 */
-    private void validateSlotAssets(PostSnapshot post, long customerId, Step step, Map<String, Object> fields) {
-        boolean any = CustomerWorkflowRules.SLOT_ASSET_FIELDS.stream()
-                .anyMatch(key -> slotAssetStep(key).equals(step) && fields.get(key) != null);
-        if (!any) return;
-        var assetPort = assets.getIfAvailable(); var accountPort = accounts.getIfAvailable();
-        if (assetPort == null || accountPort == null) throw new ServiceException(503, "资料校验暂不可用，请稍后重试");
-        var actor = new AssetAccessPort.Actor(post.orgId(), accountPort.requireServiceAccount(post.orgId()), post.userId(), post.postId());
-        for (String key : CustomerWorkflowRules.SLOT_ASSET_FIELDS) {
-            if (!slotAssetStep(key).equals(step)) continue;
-            Object value = fields.get(key);
-            if (value == null) continue;
-            long assetId = Long.parseLong(String.valueOf(value));
-            attachmentPolicy.requireSlotAttachable(post, customerId, assetId);
-            if (!assetPort.validateReference(actor, assetId, Set.of("BUSINESS_DOCUMENT", "DESIGN_REFERENCE")))
-                throw invalid("资料不存在、未上传完成或无权引用");
         }
     }
 
