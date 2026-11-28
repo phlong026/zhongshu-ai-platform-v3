@@ -1,4 +1,4 @@
-const Checkout = require('./design-checkout');
+const Checkout = require('./design-checkout-history');
 const Status = require('./status-labels').commission;
 const TaskOrder = require('./task-order');
 const FILTERS = ['全部', Status.pay, Status.designing, Status.modifying, Status.receiptWaiting, Status.dispatch, Status.handover, Status.receive, Status.dispatched];
