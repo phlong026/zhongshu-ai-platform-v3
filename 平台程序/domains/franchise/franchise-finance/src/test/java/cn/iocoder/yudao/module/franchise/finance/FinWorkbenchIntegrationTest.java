@@ -221,7 +221,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(target);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(target);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE company_id=? AND source_type='reimbursement' AND source_ref=?",Long.class,post.orgId(),Long.toString(payment))).isEqualTo(target);
-  workbench.assignPayable(post,payable,"correct-assigned",new FinWorkbenchService.Assignment("project:"+other,"凭证复核后更正原归属"));
+  workbench.assignPayable(post,payable,"correct-assigned",new FinWorkbenchService.Assignment("project:"+other,"凭证复核后更正原归属",target+":"));
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(other);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(other);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE company_id=? AND source_type='reimbursement' AND source_ref=?",Long.class,post.orgId(),Long.toString(payment))).isEqualTo(other);
@@ -235,7 +235,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(original);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(original);
 
-  workbench.assignPayable(post,payable,"manual-correct-scope",new FinWorkbenchService.Assignment("project:"+target,"原登记误选工程，依据合同及凭证更正"));
+  workbench.assignPayable(post,payable,"manual-correct-scope",new FinWorkbenchService.Assignment("project:"+target,"原登记误选工程，依据合同及凭证更正",original+":"));
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(target);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(target);
   assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=? AND command='fin-payable-assign'",Long.class,payable)).isEqualTo(2L);
@@ -243,7 +243,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(((Number)((Map<String,Object>)workbench.ledger(post.orgId(),"project:"+target).get("summary")).get("paid_cents")).longValue()).isEqualTo(8600L);
  }
  @Test void assigningAnExpenseAfterEmployeeRecoveryCarriesOnlyTheOriginalReceipt(){
-  long project=assignmentProject("后补工程"),other=assignmentProject("无关工程");
+  long project=assignmentProject("后补工程"),other=assignmentProject("无关工程"),staleTarget=assignmentProject("旧表单的工程");
   LocalDate day=LocalDate.now();
   long advance=workbench.register(post,"recover-before-assign-advance",new FinWorkbenchService.EntryCommand(
       "company","expense","代垫交通","差旅",10000,day,"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"经办人"));
@@ -275,12 +275,24 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
        .noneMatch(row->Long.toString(receipt).equals(row.get("id")));
   }
   // A later explicit correction moves the same receipt out of the previous project, not just the payments.
-  var correction=new FinWorkbenchService.Assignment("project:"+other,"核对凭证后改到正确项目");
+  var correction=new FinWorkbenchService.Assignment("project:"+other,"核对凭证后改到正确项目",project+":");
+  var stale=new FinWorkbenchService.Assignment("project:"+staleTarget,"另一张仍显示原工程的表单",project+":");
+  var secondFinance=fixture.post(post.orgId(),FINANCE,null);
   workbench.assignPayable(post,payable,"recover-before-assign-correct",correction);
+  assertError(()->workbench.assignPayable(secondFinance,payable,"stale-attribution",stale),
+      cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
+  assertError(()->workbench.assignPayable(secondFinance,payable,"stale-legacy-attribution",
+      new FinWorkbenchService.Assignment("project:"+staleTarget,"旧版未传当前归属")),
+      cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT);
+  // Replaying a successful old/new key still succeeds even though the current scope has now changed.
+  workbench.assignPayable(post,payable,"recover-before-assign-move",assignment);
   workbench.assignPayable(post,payable,"recover-before-assign-correct",correction);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payable WHERE id=?",Long.class,payable)).isEqualTo(other);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,advance)).isEqualTo(other);
   assertThat(jdbc.queryForMap(fields,receipt)).isEqualTo(original);
   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(other);
   assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=? AND source_ref=?",Long.class,post.orgId(),"employee-recovery:"+debt)).isEqualTo(1L);
+  assertThat((List<Map<String,Object>>)workbench.ledger(post.orgId(),"project:"+staleTarget).get("entries")).isEmpty();
   var correctedLedger=workbench.ledger(post.orgId(),"project:"+other);
   assertThat((List<Map<String,Object>>)correctedLedger.get("entries")).filteredOn(row->Long.toString(receipt).equals(row.get("id"))).hasSize(1);
   assertThat(((Number)((Map<String,Object>)correctedLedger.get("summary")).get("received_cents")).longValue()).isEqualTo(2000);
