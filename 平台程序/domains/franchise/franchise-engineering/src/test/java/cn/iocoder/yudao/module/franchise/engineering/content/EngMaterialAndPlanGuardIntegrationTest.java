@@ -2155,6 +2155,46 @@ class EngMaterialAndPlanGuardIntegrationTest extends FranchisePgIntegrationTest 
     @Resource private EngExpenseService expensesService;
 
     @Test
+    void expenseOverpaymentCannotOffsetAnotherOriginalExpenseDebt() {
+        var firstExpense = as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("甲劳务", "LABOR", new BigDecimal("100"), "原费用甲"), idem()));
+        var firstTerms = as(engineer, () -> expensesService.terms(engineer,
+                Long.parseLong((String) firstExpense.get("expenseId")),
+                new EngExpenseService.TermsCommand("甲班组", "原结算甲"), idem()));
+        long first = Long.parseLong((String) firstTerms.get("payableId"));
+        var secondExpense = as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("乙劳务", "LABOR", new BigDecimal("100"), "原费用乙"), idem()));
+        var secondTerms = as(engineer, () -> expensesService.terms(engineer,
+                Long.parseLong((String) secondExpense.get("expenseId")),
+                new EngExpenseService.TermsCommand("乙班组", "原结算乙"), idem()));
+        long second = Long.parseLong((String) secondTerms.get("payableId"));
+        // 已确认但未挂应付的费用也须保留在待付，不能因改成逐原单合计而遗漏。
+        as(engineer, () -> expensesService.register(engineer, projectId,
+                new EngExpenseService.RegisterCommand("未挂应付费用", "OTHER", new BigDecimal("50"), ""), idem()));
+        var finance = fixture.post(store.orgId(), "finance", null);
+        long payment = paymentService.register(finance, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinPaymentService.PaymentCommand(
+                        first, 10000, LocalDate.now(), null, null));
+        financeWorkbench.adjustPayable(finance, first, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.PayableAdjustment(
+                        0, "甲费用核减，原付款待退回", null));
+
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("expensesTotalCents", 15000L).containsEntry("expensesPaidCents", 10000L)
+                .containsEntry("expensesRemainingCents", 15000L);
+        refundService.registerExpense(finance, idem(),
+                new cn.iocoder.yudao.module.franchise.finance.FinRefundService.ExpenseRefundCommand(
+                        payment, 10000, "甲原付款已退回", LocalDate.now(), null, null, null));
+        assertThat(as(engineer, () -> closuresService.settleSummary(engineer, projectId)))
+                .containsEntry("expensesTotalCents", 15000L).containsEntry("expensesPaidCents", 0L)
+                .containsEntry("expensesRemainingCents", 15000L);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE id=?", Long.class, second))
+                .isEqualTo(10000L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE payable_id=?", Long.class, second))
+                .isZero();
+    }
+
+    @Test
     void archivedOriginalExpenseCanCompleteTermsAndPayOnceWithoutReopeningConstruction() {
         var expense = as(engineer, () -> expensesService.register(engineer, projectId,
                 new EngExpenseService.RegisterCommand("归档前劳务", "LABOR", new BigDecimal("1000"), "原费用"), idem()));
