@@ -130,6 +130,12 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
 
     @Test void legacySubmittedPacketCanReturnResubmitAndReceiveExactlyOneOriginalProject() {
         long customer=customerWithBudget(),id=historical(customer,submit(TOTAL,FIRST),"DISPATCHED");
+        // Receiving a main project requires the customer's signed construction contract.
+        long contract=cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbc.update("""
+            INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,signed_date,status,revision,author_user_id,create_time,update_time)
+            VALUES(?,?,?,68000000,40800000,CURRENT_DATE,'SIGNED',1,?,now(),now())
+            """,contract,store.orgId(),customer,sales.userId());
         LegacyCommissionFixtures.dispatch(jdbc,id,1,"历史图纸V1",101,102,103);
         var packet=packet(engineer.userId());
         as(sales,()->handovers.submit(sales,id,packet,commandKey()));
@@ -142,6 +148,7 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
         as(engineer,()->handovers.receive(engineer,id,new DecisionCommand(null,true),receive));
         assertThat(accepted.commission().getStatus()).isEqualTo("ACCEPTED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE source_commission_id=?",Long.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE source_commission_id=?",Long.class,id)).isEqualTo(contract);
         assertThat(as(sales,()->commissions.get(sales,id)).allowedActions()).isEmpty();
     }
 
@@ -171,6 +178,26 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
         assertThat(returned.commission().getStatus()).isEqualTo("HANDOVER_RETURNED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE source_commission_id=?",Long.class,id)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE source_type='design' AND source_ref LIKE ?",Long.class,id+":%")).isZero();
+    }
+
+    @Test void historicalLegacySplitSettlementCreatesBothActualStagesAtomically() {
+        long id=historical(customerWithBudget(),submit(TOTAL,FIRST),"DESIGNING");
+        jdbc.update("""
+            INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,
+                order_number,amount_cents,status,channel,paid_by_user_id,paid_at)
+            VALUES(?,1,?,?,?,68000000,'PAID','WECHAT',?,now())
+            """,id,store.orgId(),fixture.headquarters(),"HIST-SPLIT-"+id,sales.userId());
+        String key=commandKey();
+        var command=new CommissionService.HistoricalSettlementCommand(1,"按历史合同核对首期与尾款，转入线下实收登记");
+        as(finance,()->commissions.prepareHistoricalSettlement(finance,id,command,key));
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE source_type='design' AND source_ref=?",Long.class,id+":1:FIRST")).isEqualTo(40800000L);
+        assertThat(jdbc.queryForObject("SELECT total_cents FROM fr_fin_payable WHERE source_type='design' AND source_ref=?",Long.class,id+":1:TAIL")).isEqualTo(27200000L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment m JOIN fr_fin_payable p ON p.id=m.payable_id WHERE p.source_ref IN (?,?)",Long.class,id+":1:FIRST",id+":1:TAIL")).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE source_ref IN (?,?)",Long.class,id+":1:FIRST",id+":1:TAIL")).isZero();
+        var after=counts();
+        as(finance,()->commissions.prepareHistoricalSettlement(finance,id,command,key));
+        assertThat(counts()).isEqualTo(after);
+        assertThat(as(finance,()->commissions.pendingHistoricalSettlements(finance))).noneMatch(c->c.getId()==id);
     }
 
     @Test void historicalReadsAndOriginalVersionProgressKeepExistingAccessChecks() {
