@@ -250,8 +250,12 @@ public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.ap
             SELECT EXISTS(SELECT 1 FROM fr_eng_supply WHERE company_id=? AND payable_id=?)
                 OR EXISTS(SELECT 1 FROM fr_eng_expense WHERE company_id=? AND payable_id=?)
             """,Boolean.class,post.orgId(),id,post.orgId(),id));
-        if(engineering || !"manual".equals(source.get("source_type")) || source.get("project_id")!=null
-                || source.get("book_id")!=null || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
+        // Only a true manual payable without an upstream source may be assigned or corrected.
+        // Existing project/book attribution is correctable; engineering-linked rows are rejected above.
+        Object sourceRef=source.get("source_ref");
+        if(engineering || !"manual".equals(source.get("source_type"))
+                || sourceRef!=null && !String.valueOf(sourceRef).isBlank()
+                || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
         jdbc.update("UPDATE fr_fin_payable SET book_id=?,project_id=? WHERE company_id=? AND (id=? OR (source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.bookId(),s.projectId(),post.orgId(),id,id,post.orgId());
         jdbc.update("UPDATE fr_fin_payment SET project_id=? WHERE company_id=? AND payable_id IN(SELECT id FROM fr_fin_payable WHERE id=? OR (company_id=? AND source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.projectId(),post.orgId(),id,post.orgId(),id,post.orgId());
         // Carry the original employee recovery when finance assigns its previously unassigned advance.
