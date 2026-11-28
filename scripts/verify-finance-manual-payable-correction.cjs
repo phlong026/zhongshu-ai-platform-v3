@@ -23,7 +23,11 @@ test('finance UI labels an existing attribution as correction and displays the o
   const form = fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.wxml', 'utf8');
   const workbench = fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js', 'utf8');
   assert.match(index, /更正归属/);
+  assert.match(index, /item\\.project_id/);
+  assert.match(index, /item\\.book_id/);
   assert.match(journey, /更正归属/);
+  assert.match(journey, /item\\.project_id/);
+  assert.match(journey, /item\\.book_id/);
   assert.match(form, /当前归属/);
   assert.match(form, /更正依据/);
   assert.match(workbench, /originalScopeLabel/);
