@@ -513,6 +513,61 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void reversedAttachmentListsAcquireOneSortedAssetLockSetWithoutDeadlock() throws Exception {
+        long leftCustomer = customer();
+        long rightCustomer = customer();
+        when(assets.validateReference(any(), eq(9002L), anySet())).thenReturn(true);
+
+        var invitation = invitation(0);
+        var leftCommand = new SaveCommand(invitation.revision(), invitation.occurredOn(), invitation.note(),
+                invitation.fields(), List.of(new Attachment("9001", "左侧附件.pdf"), new Attachment("9002", "右侧附件.pdf")));
+        var rightCommand = new SaveCommand(invitation.revision(), invitation.occurredOn(), invitation.note(),
+                invitation.fields(), List.of(new Attachment("9002", "右侧附件.pdf"), new Attachment("9001", "左侧附件.pdf")));
+
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<Object> left = () -> {
+                TenantContextHolder.setTenantId(tenant);
+                try {
+                    assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                    return as(sales, () -> workflow.save(sales, leftCustomer, "INVITATION", leftCommand, "asset-order-left"));
+                } catch (ServiceException failure) {
+                    return failure;
+                } finally {
+                    TenantContextHolder.clear();
+                }
+            };
+            Callable<Object> right = () -> {
+                TenantContextHolder.setTenantId(tenant);
+                try {
+                    assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                    return as(sales, () -> workflow.save(sales, rightCustomer, "INVITATION", rightCommand, "asset-order-right"));
+                } catch (ServiceException failure) {
+                    return failure;
+                } finally {
+                    TenantContextHolder.clear();
+                }
+            };
+            var leftFuture = executor.submit(left);
+            var rightFuture = executor.submit(right);
+            start.countDown();
+
+            Object leftResult = leftFuture.get(15, TimeUnit.SECONDS);
+            Object rightResult = rightFuture.get(15, TimeUnit.SECONDS);
+            assertThat(List.of(leftResult, rightResult).stream().filter(View.class::isInstance).count()).isEqualTo(1);
+            assertThat(List.of(leftResult, rightResult).stream().filter(ServiceException.class::isInstance).count()).isEqualTo(1);
+            assertThat(count("fr_customer_workflow", leftCustomer) + count("fr_customer_workflow", rightCustomer)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow_step WHERE attachments @> CAST(? AS jsonb)",
+                    Long.class, "[{\\\"assetId\\\":\\\"9001\\\"}]")).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_customer_workflow_step WHERE attachments @> CAST(? AS jsonb)",
+                    Long.class, "[{\\\"assetId\\\":\\\"9002\\\"}]")).isEqualTo(1);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void concurrentSameKeyFirstSaveCreatesOnlyOneWorkflowAndOneAuditRecord() throws Exception {
         long id = customer(); currentPost.use(sales);
         var start = new CountDownLatch(1);
