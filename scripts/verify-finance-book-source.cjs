@@ -26,7 +26,8 @@ function harness() {
     '../../../utils/finance-workbench-view': require('../miniprogram/utils/finance-workbench-view'),
     '../../../utils/finance-date': require('../miniprogram/utils/finance-date'),
     '../../../utils/account': { localDate: () => '2026-11-28' },
-    '../accounting/model': require('../miniprogram/pages/admin/accounting/model'), './book-source': Source
+    '../accounting/model': require('../miniprogram/pages/admin/accounting/model'), './book-source': Source,
+    './allocation-candidates': require('../miniprogram/pages/admin/finance-desk/allocation-candidates')
   };
   vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js', 'utf8'), {
     module, require: name => { if (!(name in modules)) throw Error('Unexpected dependency ' + name); return modules[name]; },
