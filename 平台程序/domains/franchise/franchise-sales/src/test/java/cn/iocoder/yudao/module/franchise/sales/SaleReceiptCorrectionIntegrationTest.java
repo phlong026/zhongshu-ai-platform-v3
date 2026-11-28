@@ -89,7 +89,8 @@ class SaleReceiptCorrectionIntegrationTest extends FranchisePgIntegrationTest {
         long firstId=IdWorker.getId(), secondId=IdWorker.getId(), voidId=IdWorker.getId();
         jdbc.update(refundSql,firstId,company,receipt,"已核实",finance.userId(),first);
         jdbc.update(refundSql,secondId,company,receipt,"已核实",finance.userId(),second);
-        jdbc.update(refundSql,voidId,company,receipt,"已作废",finance.userId(),first.minusDays(1));
+        jdbc.update(refundSql,voidId,company,receipt,"已核实",finance.userId(),first.minusDays(1));
+        jdbc.update("UPDATE fr_fin_refund SET status='已作废',void_by_user_id=?,void_reason='核对后作废',voided_at=CURRENT_TIMESTAMP WHERE id=?",finance.userId(),voidId);
         var original=jdbc.queryForMap("SELECT amount_cents,received_date,revision_version FROM fr_fin_receipt WHERE id=?",receipt);
         var originalRefunds=jdbc.queryForList("SELECT id,date,amount_cents,status FROM fr_fin_refund WHERE receipt_id=? ORDER BY id",receipt);
         var late=new SaleReceiptCorrectionService.Correction(1,40000L,first.plusDays(1),stages.get(0),"日期核对");
