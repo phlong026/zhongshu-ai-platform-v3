@@ -130,6 +130,12 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
 
     @Test void legacySubmittedPacketCanReturnResubmitAndReceiveExactlyOneOriginalProject() {
         long customer=customerWithBudget(),id=historical(customer,submit(TOTAL,FIRST),"DISPATCHED");
+        // Receiving a main project requires the customer's signed construction contract.
+        long contract=cn.hutool.core.util.IdUtil.getSnowflakeNextId();
+        jdbc.update("""
+            INSERT INTO fr_sale_contract(id,company_id,customer_id,total_cents,first_cents,signed_date,status,revision,author_user_id,create_time,update_time)
+            VALUES(?,?,?,68000000,40800000,CURRENT_DATE,'SIGNED',1,?,now(),now())
+            """,contract,store.orgId(),customer,sales.userId());
         LegacyCommissionFixtures.dispatch(jdbc,id,1,"历史图纸V1",101,102,103);
         var packet=packet(engineer.userId());
         as(sales,()->handovers.submit(sales,id,packet,commandKey()));
@@ -142,6 +148,7 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
         as(engineer,()->handovers.receive(engineer,id,new DecisionCommand(null,true),receive));
         assertThat(accepted.commission().getStatus()).isEqualTo("ACCEPTED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE source_commission_id=?",Long.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT sale_contract_id FROM fr_eng_project WHERE source_commission_id=?",Long.class,id)).isEqualTo(contract);
         assertThat(as(sales,()->commissions.get(sales,id)).allowedActions()).isEmpty();
     }
 
