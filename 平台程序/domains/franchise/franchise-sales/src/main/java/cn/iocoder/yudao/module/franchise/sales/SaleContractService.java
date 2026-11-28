@@ -696,21 +696,65 @@ public class SaleContractService {
             var peek=stages.selectById(stageId);if(peek==null||peek.getCompanyId()!=post.orgId())throw exception(REFERENCE_INVALID);
             var c=contracts.lockById(peek.getContractId());requireSIGNED(c);var stage=stages.lockById(stageId);
             // Recheck after the contract lock: a concurrent plan replacement may retire this node.
-            if(stage==null||Boolean.TRUE.equals(stage.getDeleted()))throw exception(REFERENCE_INVALID);
+            if(c.getCompanyId()!=post.orgId() || stage==null || stage.getCompanyId()!=post.orgId()
+                    || !java.util.Objects.equals(stage.getContractId(),c.getId()) || Boolean.TRUE.equals(stage.getDeleted()))throw exception(REFERENCE_INVALID);
+            // Book linking locks the book before its receipts. Read the stable identity first,
+            // then use the same order so allocation cannot race a whole-book project link.
+            var receiptScope=jdbcTemplate.queryForList("SELECT book_id FROM fr_fin_receipt WHERE id=? AND company_id=?",receiptId,post.orgId());
+            if(receiptScope.isEmpty())throw exception(REFERENCE_INVALID);
+            Long bookId=(Long)receiptScope.get(0).get("book_id");
+            Map<String,Object> book=null;
+            if(bookId!=null){
+                var books=jdbcTemplate.queryForList("SELECT * FROM fr_fin_book WHERE id=? AND company_id=? FOR UPDATE",bookId,post.orgId());
+                if(books.isEmpty())throw exception(REFERENCE_INVALID);
+                book=books.get(0);
+            }
             var rows=jdbcTemplate.queryForList("SELECT * FROM fr_fin_receipt WHERE id=? AND company_id=? FOR UPDATE",receiptId,post.orgId());
             if(rows.isEmpty())throw exception(REFERENCE_INVALID);var r=rows.get(0);
+            if(!java.util.Objects.equals(bookId,r.get("book_id")))throw exception(REFERENCE_INVALID);
             if(!"manual".equals(r.get("source_type"))||!"已登记".equals(r.get("status"))||r.get("source_ref")!=null)throw exception(REFERENCE_INVALID);
             if(r.get("customer_id")!=null && ((Number)r.get("customer_id")).longValue()!=c.getCustomerId())throw exception(REFERENCE_INVALID);
+            Long projectId=requireReceiptAllocationScope(post,c,r,book);
             long gross=((Number)r.get("amount_cents")).longValue();
             long refunded=jdbcTemplate.queryForObject("SELECT COALESCE(sum(amount_cents),0) FROM fr_fin_refund WHERE receipt_id=? AND status='已核实'",Long.class,receiptId);
             if(gross-refunded<=0 || gross-refunded>stage.getAmountCents()-stageCollectedInTx(stageId))throw exception(STAGE_AMOUNT_EXCEED);
             if(jdbcTemplate.queryForObject("SELECT count(*) FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receiptId)>0)throw exception(STAGE_ALREADY_PAID);
             stageReceipts.insert(new SaleStageReceiptDO().setCompanyId(post.orgId()).setContractId(c.getId()).setStageId(stageId).setReceiptId(receiptId).setAmountCents(gross));
-            jdbcTemplate.update("UPDATE fr_fin_receipt SET customer_id=?,source_type='business',source_ref=? WHERE id=? AND company_id=?",c.getCustomerId(),"sale-allocation:"+c.getId()+":"+stageId+":"+receiptId,receiptId,post.orgId());
+            jdbcTemplate.update("UPDATE fr_fin_receipt SET customer_id=?,project_id=?,source_type='business',source_ref=? WHERE id=? AND company_id=?",c.getCustomerId(),projectId,"sale-allocation:"+c.getId()+":"+stageId+":"+receiptId,receiptId,post.orgId());
             long net=stageCollectedInTx(stageId);
             jdbcTemplate.update("UPDATE fr_sale_payment_stage SET status=? WHERE id=?", "SETTLED".equals(stage.getStatus())||net>=stage.getAmountCents()?"SETTLED":"OPEN",stageId);
             commands.record(post,"sale-receipt-allocation",receiptId,1,"sale-receipt-allocation",input,key);
         });
+    }
+
+    /** Customer identity alone cannot move an existing project/book receipt to another contract. */
+    private Long requireReceiptAllocationScope(PostSnapshot post,SaleContractDO contract,
+                                                Map<String,Object> receipt,Map<String,Object> book){
+        var projects=jdbcTemplate.queryForList("SELECT id,customer_id,source_commission_id FROM fr_eng_project WHERE company_id=? AND sale_contract_id=?",post.orgId(),contract.getId());
+        if(projects.size()>1)throw exception(REFERENCE_INVALID);
+        var project=projects.isEmpty()?null:projects.get(0);
+        Long projectId=project==null?null:(Long)project.get("id");
+        if(project!=null && project.get("customer_id")!=null
+                && !java.util.Objects.equals(project.get("customer_id"),contract.getCustomerId()))throw exception(REFERENCE_INVALID);
+        if(receipt.get("project_id")!=null && !java.util.Objects.equals(receipt.get("project_id"),projectId))throw exception(REFERENCE_INVALID);
+        if(book==null)return projectId;
+        if(book.get("customer_id")!=null && !java.util.Objects.equals(book.get("customer_id"),contract.getCustomerId()))throw exception(REFERENCE_INVALID);
+        if(book.get("project_id")!=null && !java.util.Objects.equals(book.get("project_id"),projectId))throw exception(REFERENCE_INVALID);
+        if(book.get("commission_id")!=null){
+            boolean matchingCommission=Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                SELECT EXISTS(SELECT 1 FROM fr_commission c WHERE c.id=? AND c.company_id=? AND c.customer_id=?
+                  AND NOT EXISTS(SELECT 1 FROM fr_eng_project p WHERE p.company_id=c.company_id
+                    AND p.source_commission_id=c.id AND p.sale_contract_id IS DISTINCT FROM ?))
+                """,Boolean.class,book.get("commission_id"),post.orgId(),contract.getCustomerId(),contract.getId()));
+            if(!matchingCommission || project!=null && !java.util.Objects.equals(book.get("commission_id"),project.get("source_commission_id")))throw exception(REFERENCE_INVALID);
+        }
+        // A legacy book may have no customer/project metadata but already contain allocated cash.
+        if(Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_fin_receipt r JOIN fr_sale_stage_receipt s
+              ON s.receipt_id=r.id AND s.company_id=r.company_id
+              WHERE r.company_id=? AND r.book_id=? AND s.contract_id<>?)
+            """,Boolean.class,post.orgId(),book.get("id"),contract.getId())))throw exception(REFERENCE_INVALID);
+        return projectId;
     }
 
     public java.util.List<Map<String,Object>> contractCollectionDeclarations(PostSnapshot post, long contractId) {

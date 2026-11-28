@@ -35,6 +35,7 @@ class FlexiblePaymentPlanIntegrationTest extends FranchisePgIntegrationTest {
         sales=fixture.post(store.orgId(),"sales",store.salesTeamA());
         boss=fixture.post(store.orgId(),"boss",null);
         finance=fixture.post(store.orgId(),"finance",null);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_project(id bigint primary key,company_id bigint,customer_id bigint,source_commission_id bigint,sale_contract_id bigint)");
     }
 
     @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}

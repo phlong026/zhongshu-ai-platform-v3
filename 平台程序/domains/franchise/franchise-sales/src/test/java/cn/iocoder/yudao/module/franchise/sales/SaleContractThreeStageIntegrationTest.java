@@ -144,6 +144,8 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         salesA1 = fixture.post(store.orgId(), SALES, store.salesTeamA());
         boss = fixture.post(store.orgId(), BOSS, null);
         finance = fixture.post(store.orgId(), "finance", null);
+        // Only the engineering read contract is needed in the isolated sales module suite.
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_project(id bigint primary key,company_id bigint,customer_id bigint,source_commission_id bigint,sale_contract_id bigint)");
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
