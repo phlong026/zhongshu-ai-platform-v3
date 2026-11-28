@@ -387,7 +387,7 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
                 try {
                     ready.countDown();
                     if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("same-key requests did not start");
-                    return workflow.save(sales, customer, "INVITATION", invitation, "same-customer-asset-key");
+                    return as(sales, () -> workflow.save(sales, customer, "INVITATION", invitation, "same-customer-asset-key"));
                 } finally {
                     TenantContextHolder.clear();
                 }
@@ -415,7 +415,7 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
 
         // The same private asset may be referenced by another step of the same customer.
         var quotation = quote(1, file);
-        workflow.save(sales, customer, "QUOTATION", quotation, "same-customer-second-step");
+        as(sales, () -> workflow.save(sales, customer, "QUOTATION", quotation, "same-customer-second-step"));
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM fr_customer_workflow_step s
                 JOIN fr_customer_workflow w ON w.id=s.workflow_id
