@@ -324,12 +324,12 @@ public class CustomerService {
                 q -> q.eq(CustomerDO::getStatus, CustomerDO.STATUS_REGISTERED).apply("NOT " + CustomerMapper.LOST)));
     }
 
-    /** 当前岗位可办理、约定的下次跟进日期已到（含今天）的客户；已流失的不再提醒 */
+    /** 当前岗位可办理、下次跟进日期已到（含今天）的正常客户；暂缓和流失客户不进入到期提醒 */
     public List<CustomerDO> listDueVisits(PostSnapshot post, LocalDate today) {
         return customerMapper.selectDueVisits(CustomerAccess.writableBy(post), today);
     }
 
-    /** 当前岗位可办理、超期未跟进的客户：新客登记满两天未首跟，或跟进中 15 天没有新记录且没约下次 */
+    /** 当前岗位可办理、超期未跟进的正常客户；暂缓和流失客户不进入该提醒 */
     public List<CustomerDO> listStale(PostSnapshot post, LocalDate today) {
         return customerMapper.selectStale(CustomerAccess.writableBy(post), today);
     }
