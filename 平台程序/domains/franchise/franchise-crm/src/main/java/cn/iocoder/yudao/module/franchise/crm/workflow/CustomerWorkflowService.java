@@ -291,8 +291,10 @@ public class CustomerWorkflowService {
     }
 
     /**
-     * 客资关联到老客户（登记人可见时自动关联，或负责人关联）：时间线上留一条“再次咨询”，并把下次跟进提到今天。
-     * 已流失的客户不自动恢复，只记下再次咨询的时间，由负责人确认后恢复。调用方已持有客资命令的幂等与审计。
+     * 客资关联到老客户时记录“再次咨询”，不改变客户流程状态。
+     * ACTIVE：仅将已逾期或未约定的下次跟进日期提到今天，今天与未来日期保留；
+     * PAUSED：保留原再联系日期，不进入到期提醒；LOST：仅记录再次咨询，等待负责人决定是否恢复。
+     * 调用方已持有客资命令的幂等与审计。
      */
     @Transactional(rollbackFor = Exception.class)
     public void recordConsult(PostSnapshot post, long customerId, long leadId, String need, String source) {
@@ -324,8 +326,10 @@ public class CustomerWorkflowService {
                     row.id(), tenant, row.companyId());
             return;
         }
-        // 已逾期或没约定的提到今天；已经约好的未来日期由经办人自己决定是否提前。
-        jdbc.update("UPDATE fr_customer SET next_visit_date=?,update_time=CURRENT_TIMESTAMP WHERE id=? AND (next_visit_date IS NULL OR next_visit_date>?)",
+        // 暂缓客户的原再联系日期和状态均保持不变；只有正常跟进客户参与日期调整。
+        if (!"ACTIVE".equals(row.status())) return;
+        // ACTIVE：过去或未约定的日期提到今天；今天不变，未来预约不提前。
+        jdbc.update("UPDATE fr_customer SET next_visit_date=?,update_time=CURRENT_TIMESTAMP WHERE id=? AND (next_visit_date IS NULL OR next_visit_date<?)",
                 today, customerId, today);
     }
 
