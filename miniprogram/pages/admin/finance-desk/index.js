@@ -10,7 +10,7 @@ const PF=require('../../../utils/platform-finance');
 const PTPage=require('../../../utils/platform-todos-page'); // M+：API 态 tasks 视图/工作台待办接平台待办
 const perfApi=require('../../../api/franchise/performance'); // M+：月末对账改走平台 operating.reconcile
 const FrLink=require('../../../utils/fr-web-link'); // P1 §5.4：/fr Web 协同链接（复制不携凭据）
-const views={desk:'财务工作台',flows:'收支',profile:'我的',projects:'项目账本',book:'项目账本',reimbursements:'报销办理',progress:'正在办理',partners:'加盟商往来',project:'项目账目',partner:'加盟商往来',statement:'设计款到账进度',tasks:'财务办理'};
+const views={'design-fees':'原设计费用',desk:'财务工作台',flows:'收支',profile:'我的',projects:'项目账本',book:'项目账本',reimbursements:'报销办理',progress:'正在办理',partners:'加盟商往来',project:'项目账目',partner:'加盟商往来',statement:'设计款到账进度',tasks:'财务办理'};
 const clean=()=>({rows:[],detail:null,partner:null,statement:null,tasks:[],filters:[],stats:[],ready:false,error:''});
 const displayMetricValue=value=>value==='—'?'—':displayFinanceMoney(Math.round(Number(value||0)*100));
 const platformMetricCards=(m,taskCount=0)=>[{label:'已登记收款',value:displayMetricValue(m.received),url:D.url('flows','',{tab:'ledger'})},{label:'已登记付款',value:displayMetricValue(m.paid),url:D.url('flows','',{tab:'ledger'})},{label:'收支净额',value:displayMetricValue(m.net),url:D.url('flows','',{tab:'ledger'})},{label:'待办事项',value:taskCount,taskMetric:true,url:D.url('tasks')}];
@@ -59,6 +59,14 @@ Page({
   require('../../../utils/finance-keyboard').start(this);
   const activePost=auth.currentApiPost();this.setData({hq:!!activePost&&activePost.orgType==='headquarters',company:activePost&&activePost.orgName||''});
   const financeIdentity=apiScope();this.syncFinanceIdentity(financeIdentity);
+  if(this.data.view==='design-fees'){
+   const commission=String(this.options.commissionId??''),version=String(this.options.submissionVersion??'');
+   const allowed=this.canViewOriginalDesignFees();
+   this.setData({ready:true,title:views['design-fees'],designFeeRows:[],designFeeError:allowed?'':'当前岗位无权查看或原委托信息不完整，请返回原委托',designFeeStatus:allowed?'loading':'error',designFeeOriginalAllowed:!!allowed,
+       designFeeOriginalLabel:allowed?'委托 '+commission+' · V'+version:''});
+   if(allowed)this.loadOriginalDesignFees();
+   return;
+  }
   if(this.data.view==='profile'&&activePost&&['finance','finance-lead'].includes(activePost.roleCode))return this.showFinanceProfile();
   const boss=activePost&&['boss','owner'].includes(activePost.roleCode);
   if(boss||this.__readOnlyLedgerIdentity){
@@ -93,6 +101,13 @@ Page({
  },
  open(e){if(this.data.view==='profile')return require('../../profile/profile-page')(4).open.call(this,e);},
  logout(){if(this.data.view==='profile')return require('../../profile/profile-page')(4).logout.call(this);},
+ canViewOriginalDesignFees(){
+   const post=auth.currentApiPost();
+   return !this.__disposed&&!this.__financeHidden&&this.data.view==='design-fees'&&!!httpApi.token()
+    &&post?.orgType==='store'&&['finance','finance-lead'].includes(post.roleCode)&&!!this.__ledgerRouteIdentity
+    &&apiScope()===this.__ledgerRouteIdentity&&/^[1-9]\d{0,18}$/.test(String(this.options?.commissionId??''))
+    &&/^[1-9]\d{0,9}$/.test(String(this.options?.submissionVersion??''));
+ },
  canLoadProjectLedger(){
   const post=auth.currentApiPost(),identity=apiScope();
   if(!httpApi.token()||!post||this.__disposed||this.data.view!=='project'||!/^[1-9]\d*$/.test(this.id)||identity!==this.__financeIdentity)return false;
