@@ -20,7 +20,18 @@
    <view wx:if="{{wbForm.customerId&&(wbForm.availableCommissionId||wbForm.commissionId)}}" class="fin-form-row"><text>设计委托来源（选填）</text><text wx:if="{{wbForm.sourceCommissionLocked}}" class="fin-input">原设计委托 {{wbForm.commissionId}}</text><picker wx:else range="{{['仅按来源客户','属于该客户设计委托']}}" data-field="commissionId" value="{{wbForm.commissionId?1:0}}" bindchange="pickBookSource" disabled="{{wbBusy||wbForm.sourceLoading||wbForm.sourceFailed||paymentPending}}"><view class="fin-input">{{wbForm.commissionId?'该客户设计委托 '+wbForm.commissionId:'仅按来源客户'}}</view></picker></view>
    <text wx:if="{{wbForm.type==='book'}}" class="fin-muted">来源只能对应一个工程时自动接续；存在多个工程时，请在账本内明确关联原工程。</text>
   </block>
-  <view wx:if="{{wbForm.type==='allocation'}}" class="fin-form-row"><text>关联原实际收款</text><picker range="{{allocationReceipts}}" range-key="label" data-field="receiptId" bindchange="wbPick" disabled="{{wbBusy||paymentPending}}"><view class="fin-input">{{wbForm.receiptLabel||'选择原收款'}}</view></picker></view>
+  <block wx:if="{{wbForm.type==='allocation'}}">
+   <view class="fin-form-row"><text>抵扣期次</text><text class="fin-input">{{wbForm.stageLabel}} · 待收 ¥{{wbForm.stageRemainingText}}</text></view>
+   <view class="fin-form-row"><text>关联原实际收款</text>
+    <picker wx:if="{{allocationReceipts.length}}" range="{{allocationReceipts}}" range-key="label" data-field="receiptId" bindchange="wbPick" disabled="{{wbBusy||paymentPending||allocationReceiptsLoading}}"><view class="fin-input">{{wbForm.receiptLabel||'选择原收款'}}</view></picker>
+    <text wx:elif="{{allocationReceiptsLoading}}" class="fin-muted">正在核对当前合同可抵扣的收款…</text>
+    <text wx:elif="{{allocationReceiptsError}}" class="fin-error">{{allocationReceiptsError}}</text>
+    <text wx:elif="{{allocationReceiptHint}}" class="fin-muted">{{allocationReceiptHint}}</text>
+    <text wx:else class="fin-muted">当前没有可抵扣的原收款</text>
+   </view>
+   <button wx:if="{{allocationReceiptsError}}" class="fin-text" bindtap="loadAllocationCandidates" disabled="{{wbBusy||paymentPending}}">重新加载候选收款</button>
+   <text class="fin-muted">仅显示当前合同归属可用的未分配手工收款；标记“未关联客户”的收款请先核对原始凭证。</text>
+  </block>
   <block wx:if="{{wbForm.type==='contractchange'}}"><button class="fin-outline" data-id="{{wbForm.contractId}}" bindtap="openContractChange" disabled="{{wbBusy||paymentPending}}">打开付款计划</button></block>
   <block wx:if="{{wbForm.type==='payablechange'}}"><view class="fin-form-row"><text>调整后的结算总额（元）</text><input cursor-spacing="24" class="fin-input" type="digit" data-field="amount" value="{{wbForm.amount}}" bindinput="wbInput" disabled="{{wbBusy||paymentPending}}"/></view><picker mode="date" data-field="dueDate" bindchange="wbInput" disabled="{{wbBusy||paymentPending}}"><view class="fin-input">{{wbForm.dueDate||'约定付款日（选填）'}}</view></picker></block>
   <view wx:if="{{wbForm.type==='contractchange'||wbForm.type==='payablechange'||wbForm.type==='assignbook'||wbForm.type==='supplement'}}" class="fin-form-row"><text>{{wbForm.type==='supplement'?'补充说明':wbForm.type==='assignbook'?'归属说明':'变更依据'}}</text><input cursor-spacing="24" class="fin-input" data-field="reason" value="{{wbForm.reason}}" bindinput="wbInput" disabled="{{wbBusy||paymentPending}}"/></view>
