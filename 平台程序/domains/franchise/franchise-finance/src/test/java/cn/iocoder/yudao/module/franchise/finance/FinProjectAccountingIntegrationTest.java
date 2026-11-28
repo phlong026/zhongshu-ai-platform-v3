@@ -28,7 +28,7 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
     @Resource JdbcTemplate jdbc;
     @Resource PlatformTransactionManager transactions;
     PostSnapshot finance;
-    long project,contract,commission;
+    long project,contract,commission,bookCustomer;
     private static final long TENANT=41L;
     @AfterEach void clearActor(){TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}
 
@@ -51,14 +51,19 @@ class FinProjectAccountingIntegrationTest extends FranchisePgIntegrationTest {
               purpose varchar(32) NOT NULL,amount_cents bigint NOT NULL,payable_id bigint,status varchar(16) NOT NULL DEFAULT 'REGISTERED',
               note varchar(500),author_user_id bigint NOT NULL,create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now())
             """);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS fr_customer(id bigint primary key,company_id bigint,name text,phone text)");
+        jdbc.execute("ALTER TABLE fr_eng_project ADD COLUMN IF NOT EXISTS customer_id bigint");
+        bookCustomer=IdWorker.getId();
+        jdbc.update("INSERT INTO fr_customer(id,company_id,name,phone) VALUES(?,?,'前期账客户',?)",bookCustomer,finance.orgId(),Long.toString(bookCustomer));
         project=IdWorker.getId();contract=IdWorker.getId();commission=IdWorker.getId();
         jdbc.update("INSERT INTO fr_sale_contract(id,company_id,status,signed_date,total_cents) VALUES(?,?,'SIGNED',?,100000)",contract,finance.orgId(),LocalDate.now());
         jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status,source_commission_id,sale_contract_id) VALUES(?,?,'项目核算','SETTLED',?,?)",project,finance.orgId(),commission,contract);
+        jdbc.update("UPDATE fr_eng_project SET customer_id=? WHERE id=?",bookCustomer,project);
         jdbc.update("INSERT INTO fr_eng_closure(id,company_id,project_id,settled_at) VALUES(?,?,?,?)",IdWorker.getId(),finance.orgId(),project,LocalDate.now());
     }
 
     @Test void preliminaryCostsAndReimbursementAreCountedOnceAndCashIsNotProfit() {
-        long book=workbench.createBook(finance,"pre-book",new FinWorkbenchService.BookCommand("客户前期费用"));
+        long book=workbench.createBook(finance,"pre-book",new FinWorkbenchService.BookCommand("客户前期费用",bookCustomer,null));
         workbench.register(finance,"survey",entry("book:"+book,"expense",10000,"COMPANY"));
         workbench.linkProject(finance,book,project,"link");
         long design=payments.registerPayable(finance,"design",new FinPaymentService.PayableCommand(finance.orgId(),null,"外部设计",20000,"设计方","设计合同"));

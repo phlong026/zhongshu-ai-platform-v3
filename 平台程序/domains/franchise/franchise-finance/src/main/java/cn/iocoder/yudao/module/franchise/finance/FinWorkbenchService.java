@@ -14,7 +14,7 @@ import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorC
 
 /** 账本归属及组合登记。沿用原收付命令、流水身份、凭证和审计，不维护第二套现金余额。 */
 @Service
-public class FinWorkbenchService {
+public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.api.FinanceBookProjectPort {
     private final JdbcTemplate jdbc;
     private final FinReceiptService receipts;
     private final FinPaymentService payments;
@@ -26,7 +26,11 @@ public class FinWorkbenchService {
                                @org.springframework.context.annotation.Lazy FinPaymentService payments,FranchiseCommands commands) {
         this.jdbc=jdbc;this.receipts=receipts;this.payments=payments;this.commands=commands;
     }
-    public record BookCommand(String name) {}
+    public record BookCommand(String name,Long customerId,Long commissionId) {
+        public BookCommand(String name){this(name,null,null);}
+    }
+    private record LegacyBookCommand(String name) {}
+    public record BookSource(Long customerId,Long commissionId) {}
     public record PayableAdjustment(long totalCents,String reason,LocalDate dueDate) {}
     public record EntryCommand(String scope,String type,String name,String category,long amountCents,
         LocalDate date,String counterparty,String accountName,String transactionNo,Long voucherFileId,String fundingType,Long payerUserId,String payerName) {
@@ -37,10 +41,12 @@ public class FinWorkbenchService {
     public List<Map<String,Object>> books(long org,String keyword) {
         String term="%"+(keyword==null?"":keyword.trim())+"%";
         var rows=jdbc.queryForList("""
-            SELECT 'company' AS scope,'公司日常账' AS name,'公司日常' AS status,NULL::text AS project_id,NULL::text AS sale_contract_id
-            UNION ALL SELECT 'project:'||p.id,p.name,p.status,p.id::text,p.sale_contract_id::text FROM fr_eng_project p
+            SELECT 'company' AS scope,'公司日常账' AS name,'公司日常' AS status,NULL::text AS project_id,NULL::text AS sale_contract_id,
+              NULL::text AS customer_id,NULL::text AS commission_id,NULL::text AS book_id
+            UNION ALL SELECT 'project:'||p.id,p.name,p.status,p.id::text,p.sale_contract_id::text,p.customer_id::text,p.source_commission_id::text,
+              (SELECT b.id::text FROM fr_fin_book b WHERE b.company_id=p.company_id AND b.project_id=p.id) FROM fr_eng_project p
               WHERE p.company_id=? AND p.name ILIKE ?
-            UNION ALL SELECT 'book:'||b.id,b.name,'前期账本',b.project_id::text,NULL::text FROM fr_fin_book b
+            UNION ALL SELECT 'book:'||b.id,b.name,'前期账本',b.project_id::text,NULL::text,b.customer_id::text,b.commission_id::text,b.id::text FROM fr_fin_book b
               WHERE b.company_id=? AND b.project_id IS NULL AND b.name ILIKE ? ORDER BY scope
             """,org,term,org,term);
         return rows;
@@ -49,25 +55,121 @@ public class FinWorkbenchService {
     public long createBook(PostSnapshot post,String key,BookCommand cmd) {
         key=commands.requireIdempotencyKey(key);
         lock(post,key);
-        var replay=commands.replayed(post,key,cmd);if(replay.isPresent())return replay.get().getAggregateId();
+        Object input=cmd.customerId()==null && cmd.commissionId()==null?new LegacyBookCommand(cmd.name()):cmd;
+        var replay=commands.replayed(post,key,input);if(replay.isPresent())return replay.get().getAggregateId();
         if(cmd.name()==null || cmd.name().isBlank() || cmd.name().length()>160)throw exception(REFERENCE_INVALID_FIN);
+        var source=requireBookSource(post.orgId(),new BookSource(cmd.customerId(),cmd.commissionId()));
+        lockBookCustomer(post.orgId(),source.customerId());
         long id=IdWorker.getId();
-        jdbc.update("INSERT INTO fr_fin_book(id,company_id,name) VALUES(?,?,?)",id,post.orgId(),cmd.name().trim());
-        commands.record(post,"fin-book",id,1,"fin-book-create",cmd,key);return id;
+        jdbc.update("INSERT INTO fr_fin_book(id,company_id,name,customer_id,commission_id) VALUES(?,?,?,?,?)",id,post.orgId(),cmd.name().trim(),source.customerId(),source.commissionId());
+        commands.record(post,"fin-book",id,1,"fin-book-create",input,key);
+        var projects=matchingBookProjects(post.orgId(),source,id);
+        if(projects.size()==1)linkPendingBooks(post,projects.get(0));
+        return id;
     }
     @Transactional
     public void linkProject(PostSnapshot post,long book,long project,String key) {
+        linkProject(post,book,project,key,null);
+    }
+    @Transactional
+    public void linkProject(PostSnapshot post,long book,long project,String key,BookSource source) {
         key=commands.requireIdempotencyKey(key);lock(post,key);
-        var cmd=Map.of("bookId",book,"projectId",project);
+        Object cmd=source==null || source.customerId()==null && source.commissionId()==null
+                ?Map.of("bookId",book,"projectId",project):Map.of("bookId",book,"projectId",project,"source",source);
         if(commands.replayed(post,key,cmd).isPresent())return;
-        scope(post.orgId(),"project:"+project);
+        applyBookProject(post,book,project,source);
+        commands.record(post,"fin-book",book,IdWorker.getId(),"fin-book-link-project",cmd,key);
+    }
+
+    public Map<String,Object> bookSources(long org,String keyword,Long customerId) {
+        String term="%"+(keyword==null?"":keyword.trim())+"%";
+        var rows=jdbc.queryForList("""
+            SELECT c.id::text,c.name,c.phone,m.id::text AS commission_id FROM fr_customer c
+            LEFT JOIN fr_commission m ON m.company_id=c.company_id AND m.customer_id=c.id
+            WHERE c.company_id=? AND (?::bigint IS NULL OR c.id=?) AND (c.name ILIKE ? OR c.phone ILIKE ?)
+            ORDER BY c.name,c.id LIMIT 51
+            """,org,customerId,customerId,term,term);
+        return Map.of("items",rows.stream().limit(50).toList(),"hasMore",rows.size()>50);
+    }
+
+    private BookSource requireBookSource(long org,BookSource source) {
+        if(source==null || source.customerId()==null || source.customerId()<=0)throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400,"请明确前期账本的来源客户");
+        if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_customer WHERE company_id=? AND id=?)",Boolean.class,org,source.customerId())))throw exception(ORG_MISMATCH);
+        if(source.commissionId()!=null && !Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM fr_commission WHERE company_id=? AND id=? AND customer_id=?)",Boolean.class,org,source.commissionId(),source.customerId())))throw exception(ORG_MISMATCH);
+        return source;
+    }
+
+    private void lockBookCustomer(long org,long customer) {
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"fin-book-customer:"+org+":"+customer);
+    }
+
+    /** No date/status heuristic: a source or already allocated original contract must identify one project. */
+    private List<Long> matchingBookProjects(long org,BookSource source,long book) {
+        return jdbc.queryForList("""
+            SELECT p.id FROM fr_eng_project p WHERE p.company_id=? AND p.customer_id=?
+              AND (?::bigint IS NULL OR p.source_commission_id=?)
+              AND NOT EXISTS(SELECT 1 FROM fr_fin_receipt r JOIN fr_sale_stage_receipt s
+                ON s.company_id=r.company_id AND s.receipt_id=r.id
+                WHERE r.company_id=p.company_id AND r.book_id=? AND s.contract_id IS DISTINCT FROM p.sale_contract_id)
+            ORDER BY p.id
+            """,Long.class,org,source.customerId(),source.commissionId(),source.commissionId(),book);
+    }
+
+    /** Called by both filing and new-book commands; the customer lock prevents the two from missing each other. */
+    @Override @Transactional
+    public void linkPendingBooks(PostSnapshot post,long project) {
+        var projects=jdbc.queryForList("SELECT customer_id,source_commission_id FROM fr_eng_project WHERE company_id=? AND id=?",post.orgId(),project);
+        if(projects.isEmpty() || projects.get(0).get("customer_id")==null)return;
+        long customer=((Number)projects.get(0).get("customer_id")).longValue();
+        lockBookCustomer(post.orgId(),customer);
+        var pending=jdbc.queryForList("SELECT id,customer_id,commission_id FROM fr_fin_book WHERE company_id=? AND customer_id=? AND project_id IS NULL ORDER BY id",post.orgId(),customer);
+        var eligible=new ArrayList<Map<String,Object>>();
+        for(var book:pending){
+            var source=new BookSource((Long)book.get("customer_id"),(Long)book.get("commission_id"));
+            var matches=matchingBookProjects(post.orgId(),source,((Number)book.get("id")).longValue());
+            if(matches.size()==1 && matches.get(0)==project)eligible.add(book);
+        }
+        // Existing schema permits one preliminary book per project. Never pick one arbitrarily.
+        if(eligible.size()!=1)return;
+        var book=eligible.get(0);long id=((Number)book.get("id")).longValue();
+        try {
+            applyBookProject(post,id,project,new BookSource((Long)book.get("customer_id"),(Long)book.get("commission_id")));
+        } catch(cn.iocoder.yudao.framework.common.exception.ServiceException conflict) {
+            return; // An inconsistent historical book stays available for explicit source verification.
+        }
+        commands.record(post,"fin-book",id,IdWorker.getId(),"fin-book-auto-link",Map.of("bookId",id,"projectId",project),"fin-book-auto:"+id+":"+project);
+    }
+
+    private void applyBookProject(PostSnapshot post,long book,long project,BookSource supplied) {
+        // Project advisory lock precedes book/receipt locks; never take a contract lock after the book.
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"fin-book-project:"+post.orgId()+":"+project);
         var rows=jdbc.queryForList("SELECT * FROM fr_fin_book WHERE id=? AND company_id=? FOR UPDATE",book,post.orgId());
         if(rows.isEmpty() || (rows.get(0).get("project_id")!=null && ((Number)rows.get(0).get("project_id")).longValue()!=project))throw exception(ORG_MISMATCH);
-        jdbc.update("UPDATE fr_fin_book SET project_id=? WHERE id=?",project,book);
-        jdbc.update("UPDATE fr_fin_receipt SET project_id=? WHERE company_id=? AND book_id=?",project,post.orgId(),book);
+        var prior=rows.get(0);
+        Long customer=supplied!=null && supplied.customerId()!=null?supplied.customerId():(Long)prior.get("customer_id");
+        Long commission=supplied!=null && supplied.commissionId()!=null?supplied.commissionId():(Long)prior.get("commission_id");
+        if(prior.get("customer_id")!=null && !Objects.equals(prior.get("customer_id"),customer)
+                || prior.get("commission_id")!=null && !Objects.equals(prior.get("commission_id"),commission))throw exception(ORG_MISMATCH);
+        var source=requireBookSource(post.orgId(),new BookSource(customer,commission));
+        var projects=jdbc.queryForList("SELECT customer_id,source_commission_id,sale_contract_id FROM fr_eng_project WHERE company_id=? AND id=?",post.orgId(),project);
+        if(projects.isEmpty() || !Objects.equals(projects.get(0).get("customer_id"),source.customerId())
+                || source.commissionId()!=null && !Objects.equals(projects.get(0).get("source_commission_id"),source.commissionId()))throw exception(ORG_MISMATCH);
+        Long contract=(Long)projects.get(0).get("sale_contract_id");
+        boolean conflict=Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS(SELECT 1 FROM fr_fin_book WHERE company_id=? AND project_id=? AND id<>?)
+              OR EXISTS(SELECT 1 FROM fr_fin_receipt r WHERE r.company_id=? AND r.book_id=? AND (
+                (r.project_id IS NOT NULL AND r.project_id<>?) OR (r.customer_id IS NOT NULL AND r.customer_id<>?)
+                OR EXISTS(SELECT 1 FROM fr_sale_stage_receipt s WHERE s.company_id=r.company_id AND s.receipt_id=r.id AND s.contract_id IS DISTINCT FROM ?)))
+              OR EXISTS(SELECT 1 FROM fr_fin_payable q WHERE q.company_id=? AND q.book_id=? AND q.project_id IS NOT NULL AND q.project_id<>?)
+              OR EXISTS(SELECT 1 FROM fr_fin_payment m JOIN fr_fin_payable q ON q.company_id=m.company_id AND q.id=m.payable_id
+                WHERE q.company_id=? AND q.book_id=? AND m.project_id IS NOT NULL AND m.project_id<>?)
+            """,Boolean.class,post.orgId(),project,book,post.orgId(),book,project,customer,contract,
+                post.orgId(),book,project,post.orgId(),book,project));
+        if(conflict)throw new cn.iocoder.yudao.framework.common.exception.ServiceException(409,"原账已关联其他项目或合同，请核对原单，不能搬移账目");
+        jdbc.update("UPDATE fr_fin_book SET project_id=?,customer_id=?,commission_id=? WHERE id=?",project,customer,commission,book);
+        jdbc.update("UPDATE fr_fin_receipt SET project_id=?,customer_id=COALESCE(customer_id,?) WHERE company_id=? AND book_id=?",project,customer,post.orgId(),book);
         jdbc.update("UPDATE fr_fin_payable SET project_id=? WHERE company_id=? AND book_id=?",project,post.orgId(),book);
         jdbc.update("UPDATE fr_fin_payment SET project_id=? WHERE company_id=? AND payable_id IN(SELECT id FROM fr_fin_payable WHERE company_id=? AND book_id=?)",project,post.orgId(),post.orgId(),book);
-        commands.record(post,"fin-book",book,2,"fin-book-link-project",cmd,key);
     }
     Scope scope(long org,String value) {
         if("company".equals(value))return new Scope(null,null);
@@ -80,6 +182,12 @@ public class FinWorkbenchService {
         var rows=jdbc.queryForList("SELECT project_id FROM fr_fin_book WHERE id=? AND company_id=?",id,org);
         if(rows.isEmpty())throw exception(ORG_MISMATCH);
         return new Scope((Long)rows.get(0).get("project_id"),id);
+    }
+    private Scope writeScope(long org,String value) {
+        // Filing and allocation also lock the original book before touching its cash rows.
+        if(value!=null && value.matches("book:[0-9]+"))
+            jdbc.queryForList("SELECT id FROM fr_fin_book WHERE company_id=? AND id=? FOR UPDATE",org,Long.parseLong(value.substring(5)));
+        return scope(org,value);
     }
     @Transactional
     public Map<String,String> registrationResult(PostSnapshot post,String key) {
@@ -94,7 +202,7 @@ public class FinWorkbenchService {
     public long register(PostSnapshot post,String key,EntryCommand cmd) {
         key=commands.requireIdempotencyKey(key);lock(post,key);
         var replay=commands.replayed(post,key,cmd);if(replay.isPresent())return replay.get().getAggregateId();
-        Scope scope=scope(post.orgId(),cmd.scope());
+        Scope scope=writeScope(post.orgId(),cmd.scope());
         if(cmd.amountCents()<=0 || cmd.name()==null || cmd.name().isBlank() || cmd.category()==null || cmd.category().isBlank()
             || (!"payable".equals(cmd.type()) && (cmd.accountName()==null || cmd.accountName().isBlank())))throw exception(REFERENCE_INVALID_FIN);
         BusinessDateGuard.requireValid(cmd.date());
@@ -133,7 +241,7 @@ public class FinWorkbenchService {
         key=commands.requireIdempotencyKey(key);lock(post,key);
         var input=Map.of("payableId",id,"assignment",cmd);
         if(commands.replayed(post,key,input).isPresent())return;
-        Scope s=scope(post.orgId(),cmd.scope());
+        Scope s=writeScope(post.orgId(),cmd.scope());
         var rows=jdbc.queryForList("SELECT * FROM fr_fin_payable WHERE id=? AND company_id=? AND NOT deleted FOR UPDATE",id,post.orgId());
         if(rows.isEmpty() || cmd.reason()==null || cmd.reason().isBlank())throw exception(REFERENCE_INVALID_FIN);
         var source=rows.get(0);
@@ -164,7 +272,8 @@ public class FinWorkbenchService {
         rs AS (SELECT r.* FROM fr_fin_receipt r WHERE r.company_id=? AND NOT r.deleted AND r.status='已登记' AND (
           r.book_id IN(SELECT id FROM fr_fin_book WHERE company_id=r.company_id AND (id=? OR project_id=?)) OR r.project_id=?
           OR EXISTS(SELECT 1 FROM fr_sale_stage_receipt s JOIN chosen c ON c.sale_contract_id=s.contract_id WHERE s.receipt_id=r.id AND s.company_id=r.company_id)
-          OR (? AND r.project_id IS NULL AND r.book_id IS NULL AND r.category IS NOT NULL))),
+          OR (? AND r.project_id IS NULL AND r.book_id IS NULL AND r.category IS NOT NULL
+            AND NOT EXISTS(SELECT 1 FROM fr_sale_stage_receipt s WHERE s.company_id=r.company_id AND s.receipt_id=r.id)))),
         ms AS (SELECT m.*,q.stage,q.recipient,q.category,q.source_type,q.source_ref FROM fr_fin_payment m JOIN qs q ON q.id=m.payable_id AND q.company_id=m.company_id WHERE m.status='已核实' AND NOT m.deleted),
         fs AS (SELECT f.* FROM fr_fin_refund f WHERE f.company_id=? AND f.status='已核实' AND NOT f.deleted AND (f.payment_id IN(SELECT id FROM ms) OR f.receipt_id IN(SELECT id FROM rs))),
         entries AS (
@@ -230,6 +339,7 @@ public class FinWorkbenchService {
         summary.put("receivable_cents",receivable);
         var result=new LinkedHashMap<String,Object>();
         result.put("summary",summary);result.put("entries",entries);result.put("scope",value);result.put("truncated",entries.size()==500);
+        if(s.bookId()!=null)result.put("book",jdbc.queryForMap("SELECT id::text,name,customer_id::text,commission_id::text,project_id::text FROM fr_fin_book WHERE company_id=? AND id=?",org,s.bookId()));
         // Employee balances use the complete scoped obligations, independently of the recent cash-entry window.
         result.put("reimbursementIds",jdbc.queryForList(cte()+"""
             SELECT q.id::text FROM qs q JOIN fr_fin_payment m ON m.company_id=q.company_id AND m.id::text=q.source_ref

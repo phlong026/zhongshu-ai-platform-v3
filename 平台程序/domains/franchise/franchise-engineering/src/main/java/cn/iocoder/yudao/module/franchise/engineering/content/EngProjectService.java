@@ -59,6 +59,8 @@ public class EngProjectService {
     private final SystemDirectory systemDirectory;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private cn.iocoder.yudao.module.franchise.api.CommissionQueryPort commissionQuery;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private cn.iocoder.yudao.module.franchise.api.FinanceBookProjectPort financeBooks;
 
     public EngProjectService(FrEngProjectMapper projects, FrEngDocumentMapper documents,
                              FrEngPlanVersionMapper planVersions, FrEngPlanNodeMapper planNodes,
@@ -140,6 +142,7 @@ public class EngProjectService {
         linkSignedContract(post.orgId(), project, customer, phone);
         projects.insert(project);
         initTemplatePlan(post, project);
+        continueFinanceBook(post,project.getId());
         commands.record(post, AGGREGATE, project.getId(), 1,
                 "eng-project-create",
                 normalizeCreate(cmd), idempotencyKey);
@@ -179,7 +182,12 @@ public class EngProjectService {
             eventRevision = project.getRevision() + 1;
         }
         commands.record(post, AGGREGATE, project.getId(), eventRevision, backfill ? "eng-project-link-contract" : "eng-project-reuse", normalizeCreate(cmd), key);
+        continueFinanceBook(post,project.getId());
         return filingResult(post, project.getId(), true);
+    }
+
+    private void continueFinanceBook(PostSnapshot post,long project) {
+        if(financeBooks!=null)financeBooks.linkPendingBooks(post,project);
     }
 
     private boolean verifiedHistoricalLink(long org, long projectId, long customerId, long contractId) {
@@ -364,6 +372,7 @@ public class EngProjectService {
                             "drawingVersion", StrUtil.nullToEmpty(drawingVersion),
                             "frozenSchemeVersion", StrUtil.nullToEmpty(frozenSchemeVersion),
                             "contractBackfill", contractBackfill, "customerBackfill", customerBackfill), null);
+            continueFinanceBook(post,project.getId());
             return project.getId();
         }
         if (customerId == null || saleContractId == null) {
@@ -385,6 +394,7 @@ public class EngProjectService {
         projects.insert(project);
         refreshDocuments(post, project.getId(), documentRows);
         initTemplatePlan(post, project);
+        continueFinanceBook(post,project.getId());
         commands.record(post, AGGREGATE, project.getId(), 1, "eng-project-from-handover",
                 Map.of("commissionId", commissionId, "managerUserId", managerUserId,
                         "drawingVersion", StrUtil.nullToEmpty(drawingVersion),

@@ -69,6 +69,8 @@ import static org.mockito.Mockito.*;
         EngProjectService.class, EngPlanService.class, EngineeringPortImpl.class,
         EngineeringProjectContextAdapter.class, EngineeringOrgScope.class, EngWorkflowFactsAdapter.class, EngCollectionService.class,
         cn.iocoder.yudao.module.franchise.finance.FinReceiptService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.class,
+        cn.iocoder.yudao.module.franchise.finance.FinPaymentService.class,
         FranchiseCommands.class, CommandLogImpl.class, ApprovalServiceImpl.class,
         SaleContractEvidencePgIntegrationTest.Config.class, ExternalHandoverPgIntegrationTest.Config.class})
 @TestPropertySource(properties = "platform.test.extra-flyway-locations=,classpath:db/migration/franchise,classpath:db/migration/franchise-asset")
@@ -110,6 +112,7 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
     @Resource EngProjectService projects;
     @Resource EngCollectionService collections;
     @Resource cn.iocoder.yudao.module.franchise.finance.FinReceiptService financeReceipts;
+    @Resource cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService financeBooks;
     @Resource SalesAccess salesAccess;
     @Resource cn.iocoder.yudao.module.franchise.sales.dal.SalePaymentStageMapper saleStages;
     @Resource EngPlanService plans;
@@ -139,6 +142,38 @@ class ExternalHandoverPgIntegrationTest extends FranchisePgIntegrationTest {
         TenantContextHolder.setTenantId(tenant); storage.beforeRead=null; currentPost.use(sales);
     }
     @AfterEach void clear() { storage.beforeRead=null; TenantContextHolder.clear(); }
+
+    @Test void preliminaryBookFollowsActualEngineeringFilingAndRollsBackWithTheProject() throws Exception {
+        long customer=signedCustomer();
+        long book=as(finance,()->financeBooks.createBook(finance,key(),new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.BookCommand("建档前测量费",customer,null)));
+        long cash=as(finance,()->financeBooks.register(finance,key(),new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.EntryCommand("book:"+book,"expense","测量费","测量",8600,today(),"测量方","公司银行",null,null)));
+        assertThatThrownBy(()->new TransactionTemplate(transactions).execute(status->{
+            long project=manualProject(customer,engineer);
+            assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+            throw new IllegalStateException("rehearse filing rollback");
+        })).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isNull();
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,cash)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_eng_project WHERE customer_id=?",Long.class,customer)).isZero();
+        long project=manualProject(customer,engineer);
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,cash)).isEqualTo(project);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,finance.orgId())).isEqualTo(1);
+    }
+
+    @Test void commissionSourceBookContinuesThroughActualExternalHandoverReception() throws Exception {
+        long customer=signedCustomer();var ready=ready(customer);long commission=Long.parseLong(ready.commissionId());
+        long book=as(finance,()->financeBooks.createBook(finance,key(),new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.BookCommand("设计委托前期账",customer,commission)));
+        long receipt=as(finance,()->financeBooks.register(finance,key(),new cn.iocoder.yudao.module.franchise.finance.FinWorkbenchService.EntryCommand("book:"+book,"receipt","前期预付款","预付款",5000,today(),"客户","公司银行",null,null)));
+        var pending=submit(ready,upload(sales,"BUSINESS_DOCUMENT"),engineer);String receiveKey=key();
+        var received=receive(pending,engineer,receiveKey);long project=Long.parseLong(received.projectId());
+        receive(pending,engineer,receiveKey);
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+        assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(project);
+        assertThat(jdbc.queryForObject("SELECT customer_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(customer);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='fin-book-auto-link'",Long.class,book)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=?",Long.class,finance.orgId())).isEqualTo(1);
+    }
 
     @Test void designServiceContractStaysInCommissionAndOnlySignedConstructionContractCompletesStepSeven() throws Exception {
         long id = customer(sales);

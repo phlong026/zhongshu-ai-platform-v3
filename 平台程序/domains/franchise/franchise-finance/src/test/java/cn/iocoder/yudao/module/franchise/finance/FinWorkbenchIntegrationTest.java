@@ -8,6 +8,8 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.ArrayList;
@@ -16,6 +18,8 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import static org.assertj.core.api.Assertions.*;
 import static cn.iocoder.yudao.module.franchise.org.FranchiseRoles.FINANCE;
 import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertError;
@@ -29,11 +33,19 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  @Resource FinRefundService refunds;
  @Resource JdbcTemplate jdbc;
  @Resource StaffPostService staffPosts;
+ @Resource FranchiseCommands commands;
+ @Resource PlatformTransactionManager transactions;
  PostSnapshot post;
+ long bookCustomer;
  @BeforeEach void prepare(){
   var store=fixture.store();post=fixture.post(store.orgId(),FINANCE,null);
   // finance模块独立测试，仅创建跨域只读契约所用列；生产使用各域自己的迁移。
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_customer(id bigint primary key,company_id bigint,name text,phone text)");
+  jdbc.execute("CREATE TABLE IF NOT EXISTS fr_commission(id bigint primary key,company_id bigint,customer_id bigint)");
+  bookCustomer=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_customer(id,company_id,name,phone) VALUES(?,?,'前期账客户',?)",bookCustomer,post.orgId(),Long.toString(bookCustomer));
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_project(id bigint primary key,company_id bigint,name text,status text,source_commission_id bigint,sale_contract_id bigint)");
+  jdbc.execute("ALTER TABLE fr_eng_project ADD COLUMN IF NOT EXISTS customer_id bigint");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_stage_receipt(id bigint,company_id bigint,contract_id bigint,receipt_id bigint,stage_id bigint)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_contract(id bigint primary key,company_id bigint,status text,deleted boolean default false,signed_date date)");
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_sale_payment_stage(id bigint primary key,company_id bigint,contract_id bigint,stage text,amount_cents bigint,status text,deleted boolean default false)");
@@ -46,6 +58,134 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
         note varchar(500),author_user_id bigint NOT NULL,create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now())
       """);
 
+ }
+ private FinWorkbenchService.BookCommand bookCommand(String name){return new FinWorkbenchService.BookCommand(name,bookCustomer,null);}
+ private void linkBook(long book,long project,String key){
+  jdbc.update("UPDATE fr_eng_project SET customer_id=? WHERE id=? AND company_id=?",bookCustomer,project,post.orgId());
+  workbench.linkProject(post,book,project,key);
+ }
+ @Test void newProjectBooksRequireRealCustomerAndOptionalCommissionButOldSuccessfulCreatesReplay(){
+  assertThatThrownBy(()->workbench.createBook(post,"missing-source",new FinWorkbenchService.BookCommand("无来源"))).hasMessageContaining("来源客户");
+  long foreignCustomer=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),foreignOrg=fixture.store().orgId();
+  jdbc.update("INSERT INTO fr_customer(id,company_id,name,phone) VALUES(?,?,'其他客户','123')",foreignCustomer,foreignOrg);
+  assertError(()->workbench.createBook(post,"foreign-source",new FinWorkbenchService.BookCommand("错误客户",foreignCustomer,null)),ORG_MISMATCH);
+  long commission=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_commission(id,company_id,customer_id) VALUES(?,?,?)",commission,post.orgId(),foreignCustomer);
+  assertError(()->workbench.createBook(post,"foreign-commission",new FinWorkbenchService.BookCommand("错误委托",bookCustomer,commission)),ORG_MISMATCH);
+  long legacy=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_fin_book(id,company_id,name) VALUES(?,?,'历史账本')",legacy,post.orgId());
+  commands.record(post,"fin-book",legacy,1,"fin-book-create",Map.of("name","历史账本"),"legacy-create");
+  assertThat(workbench.createBook(post,"legacy-create",new FinWorkbenchService.BookCommand("历史账本"))).isEqualTo(legacy);
+  assertThat(jdbc.queryForObject("SELECT customer_id FROM fr_fin_book WHERE id=?",Long.class,legacy)).isNull();
+ }
+ @Test void sourceIdentifiedBookContinuesOnceWhenItsProjectAppearsAndKeepsOriginalCash(){
+  long book=workbench.createBook(post,"before-project",bookCommand("建档前发生的费用"));
+  long payment=workbench.register(post,"pre-cost",new FinWorkbenchService.EntryCommand("book:"+book,"expense","前期测量","交通",8600,LocalDate.now(),"测量方","银行",null,null));
+  long receipt=workbench.register(post,"pre-receipt",new FinWorkbenchService.EntryCommand("book:"+book,"receipt","客户预付款","预付款",12000,LocalDate.now(),"客户","银行",null,null));
+  long project=sourceProject(bookCustomer,null,80001L);
+  workbench.linkPendingBooks(post,project);workbench.linkPendingBooks(post,project);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_payment WHERE id=?",Long.class,payment)).isEqualTo(project);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(project);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payment WHERE company_id=?",Long.class,post.orgId())).isEqualTo(1);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=?",Long.class,post.orgId())).isEqualTo(1);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM pf_command_event WHERE aggregate_id=? AND command='fin-book-auto-link'",Long.class,book)).isEqualTo(1);
+  assertThat(summaryAmount("project:"+project,"received_cents")).isEqualTo(12000);
+  assertThat(summaryAmount("project:"+project,"paid_cents")).isEqualTo(8600);
+  long another=sourceProject(bookCustomer,null,80002L);
+  workbench.linkPendingBooks(post,another);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+ }
+ @Test void aBookCreatedAfterTheOnlyProjectUsesTheSameContinuation(){
+  long project=sourceProject(bookCustomer,null,81001L);
+  long book=workbench.createBook(post,"after-project",bookCommand("工程前期账"));
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(project);
+  assertThat(workbench.createBook(post,"after-project",bookCommand("工程前期账"))).isEqualTo(book);
+ }
+ @Test void twoPossiblePreliminaryBooksStayForExplicitOriginalBookSelection(){
+  long first=workbench.createBook(post,"first-book",bookCommand("第一事项"));
+  long second=workbench.createBook(post,"second-book",bookCommand("第二事项"));
+  long project=sourceProject(bookCustomer,null,81101L);
+  workbench.linkPendingBooks(post,project);
+  assertThat(jdbc.queryForList("SELECT project_id FROM fr_fin_book WHERE id IN(?,?)",Long.class,first,second)).containsOnlyNulls();
+  workbench.linkProject(post,second,project,"choose-original-book");
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,first)).isNull();
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,second)).isEqualTo(project);
+ }
+ @Test void filingWaitsForConcurrentOriginalBookEntryAndIncludesTheSameCashRow() throws Exception {
+  long book=workbench.createBook(post,"concurrent-book",bookCommand("并发前期账"));
+  long project=sourceProject(bookCustomer,null,81201L);
+  var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var linking=new CountDownLatch(1);
+  var executor=Executors.newFixedThreadPool(2);
+  try {
+   var cash=executor.submit(()->new TransactionTemplate(transactions).execute(status->{
+    long receipt=workbench.register(post,"concurrent-cash",new FinWorkbenchService.EntryCommand("book:"+book,"receipt","前期定金","预付款",5000,LocalDate.now(),"客户","银行",null,null));
+    entered.countDown();
+    try {if(!release.await(10,TimeUnit.SECONDS))throw new IllegalStateException("entry commit timed out");}
+    catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}
+    return receipt;
+   }));
+   assertThat(entered.await(10,TimeUnit.SECONDS)).isTrue();
+   var link=executor.submit(()->{linking.countDown();workbench.linkPendingBooks(post,project);});
+   assertThat(linking.await(10,TimeUnit.SECONDS)).isTrue();
+   assertThatThrownBy(()->link.get(300,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+   release.countDown();long receipt=cash.get(10,TimeUnit.SECONDS);link.get(10,TimeUnit.SECONDS);
+   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_receipt WHERE id=?",Long.class,receipt)).isEqualTo(project);
+   assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_receipt WHERE company_id=?",Long.class,post.orgId())).isEqualTo(1);
+  } finally {release.countDown();executor.shutdownNow();}
+ }
+ @Test void ambiguousCustomerProjectsRequireExplicitSelectionWhileCommissionIdentifiesTheOriginal(){
+  long commission=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_commission(id,company_id,customer_id) VALUES(?,?,?)",commission,post.orgId(),bookCustomer);
+  long first=sourceProject(bookCustomer,commission,82001L),second=sourceProject(bookCustomer,null,82002L);
+  long specific=workbench.createBook(post,"commission-book",new FinWorkbenchService.BookCommand("委托前期账",bookCustomer,commission));
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,specific)).isEqualTo(first);
+  long general=workbench.createBook(post,"customer-book",bookCommand("另一建房事项"));
+  workbench.linkPendingBooks(post,second);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,general)).isNull();
+  workbench.linkProject(post,general,second,"explicit-original");
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,general)).isEqualTo(second);
+  assertError(()->workbench.linkProject(post,specific,second,"move-commission"),ORG_MISMATCH);
+ }
+ @Test void oldUnassignedBookRequiresExplicitSourceAndCannotChangeItsCustomer(){
+  long book=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_fin_book(id,company_id,name) VALUES(?,?,'旧待核对账')",book,post.orgId());
+  long project=sourceProject(bookCustomer,null,83001L);
+  workbench.linkPendingBooks(post,project);
+  assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isNull();
+  assertThatThrownBy(()->workbench.linkProject(post,book,project,"missing-legacy-source")).hasMessageContaining("来源客户");
+  var source=new FinWorkbenchService.BookSource(bookCustomer,null);
+  workbench.linkProject(post,book,project,"verify-legacy-source",source);
+  workbench.linkProject(post,book,project,"verify-legacy-source",source);
+  assertThat(jdbc.queryForObject("SELECT customer_id FROM fr_fin_book WHERE id=?",Long.class,book)).isEqualTo(bookCustomer);
+  assertError(()->workbench.linkProject(post,book,project,"change-customer",new FinWorkbenchService.BookSource(bookCustomer+1,null)),ORG_MISMATCH);
+ }
+ @Test void alreadyAllocatedReceiptPreventsAWholeBookFromMovingToAnotherContract(){
+  long first=sourceProject(bookCustomer,null,84001L),second=sourceProject(bookCustomer,null,84002L);
+  for(boolean stamped:List.of(false,true)){
+   long book=workbench.createBook(post,"allocation-book-"+stamped,bookCommand("原收款关联"));
+   long receipt=workbench.register(post,"allocation-cash-"+stamped,new FinWorkbenchService.EntryCommand("book:"+book,"receipt","前期定金","预付款",10000,LocalDate.now(),"客户","银行",null,null));
+   jdbc.update("UPDATE fr_fin_receipt SET customer_id=?,source_type='business',project_id=? WHERE id=?",bookCustomer,stamped?first:null,receipt);
+   jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,contract_id,receipt_id,stage_id) VALUES(?,?,?,?,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),84001L,receipt,84011L);
+   assertThatThrownBy(()->workbench.linkProject(post,book,second,"wrong-contract-"+stamped)).hasMessageContaining("不能搬移");
+   assertThat(jdbc.queryForObject("SELECT project_id FROM fr_fin_book WHERE id=?",Long.class,book)).isNull();
+   assertThat(jdbc.queryForObject("SELECT contract_id FROM fr_sale_stage_receipt WHERE receipt_id=?",Long.class,receipt)).isEqualTo(84001L);
+  }
+ }
+ @Test void allocatedCompanyReceiptIsNotProjectedAgainAsCompanyDailyCash(){
+  long project=sourceProject(bookCustomer,null,85001L);
+  long receipt=workbench.register(post,"unassigned-cash",new FinWorkbenchService.EntryCommand("company","receipt","前期客户定金","预付款",10000,LocalDate.now(),"客户","银行",null,null));
+  jdbc.update("UPDATE fr_fin_receipt SET source_type='business',customer_id=? WHERE id=?",bookCustomer,receipt);
+  jdbc.update("INSERT INTO fr_sale_stage_receipt(id,company_id,contract_id,receipt_id,stage_id) VALUES(?,?,?,?,?)",com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),post.orgId(),85001L,receipt,85011L);
+  assertThat(summaryAmount("company","received_cents")).isZero();
+  assertThat(summaryAmount("project:"+project,"received_cents")).isEqualTo(10000);
+ }
+ @SuppressWarnings("unchecked")
+ private long summaryAmount(String scope,String field){return ((Number)((Map<String,Object>)workbench.ledger(post.orgId(),scope).get("summary")).get(field)).longValue();}
+ private long sourceProject(long customer,Long commission,Long contract){
+  long id=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
+  jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status,customer_id,source_commission_id,sale_contract_id) VALUES(?,?,?,'ACTIVE',?,?,?)",id,post.orgId(),"来源工程"+id,customer,commission,contract);
+  return id;
  }
  @Test void originalEngineeringPayablesAndTheirPaymentsCannotMoveToAnotherProject(){
   long original=assignmentProject("原工程"),target=assignmentProject("另一工程");
@@ -103,9 +243,9 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   }
   long manual=workbench.register(post,"manual-cost",new FinWorkbenchService.EntryCommand("project:"+project,"payable","财务直接费用","其他",3000,LocalDate.now(),"供应方",null,null,null));
   workbench.register(post,"company-cost",new FinWorkbenchService.EntryCommand("company","payable","公司费用","其他",7000,LocalDate.now(),"供应方",null,null,null));
-  long book=workbench.createBook(post,"cost-book",new FinWorkbenchService.BookCommand("前期账本"));
+  long book=workbench.createBook(post,"cost-book",bookCommand("前期账本"));
   assertThat(((Number)((Map<?,?>)workbench.ledger(post.orgId(),"book:"+book).get("summary")).get("committed_cents")).longValue()).isZero();
-  workbench.linkProject(post,book,project,"cost-book-link");
+  linkBook(book,project,"cost-book-link");
   for(String scope:List.of("project:"+project,"book:"+book)) {
    var ledger=workbench.ledger(post.orgId(),scope);var summary=(Map<?,?>)ledger.get("summary");
    assertThat(((Number)summary.get("committed_cents")).longValue()).isEqualTo(43000);
@@ -144,7 +284,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
    assertThat(workbench.registrationResult(anotherPost,key)).containsEntry("state","NOT_REGISTERED");
    assertThat(workbench.register(post,key,cmd)).isEqualTo(id);
   }
-  workbench.createBook(post,"book-only-result",new FinWorkbenchService.BookCommand("前期账本"));
+  workbench.createBook(post,"book-only-result",bookCommand("前期账本"));
   assertThat(workbench.registrationResult(post,"book-only-result")).containsEntry("state","NOT_REGISTERED");
   var written=new java.util.concurrent.CountDownLatch(1);var commit=new java.util.concurrent.CountDownLatch(1);
   var pool=Executors.newFixedThreadPool(2);
@@ -166,7 +306,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   } finally {commit.countDown();pool.shutdownNow();}
  }
  @Test void manualEntryIsAtomicIdempotentAndScoped(){
-  long book=workbench.createBook(post,"book-a",new FinWorkbenchService.BookCommand("张先生建房"));
+  long book=workbench.createBook(post,"book-a",bookCommand("张先生建房"));
   var cmd=new FinWorkbenchService.EntryCommand("book:"+book,"expense","现场运输","运输",86000,LocalDate.now(),"运输商","公司银行","运输-"+book,null);
   long id=workbench.register(post,"expense-a",cmd);
   assertThat(workbench.register(post,"expense-a",cmd)).isEqualTo(id);
@@ -177,18 +317,18 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThatThrownBy(()->workbench.register(post,"expense-a",new FinWorkbenchService.EntryCommand("company","expense","其他","其他",86000,LocalDate.now(),"运输商","现金",null,null))).isInstanceOf(RuntimeException.class);
  }
  @Test void linkingPreconstructionBookPreservesCashAcrossBothLedgerApis(){
-  long book=workbench.createBook(post,"prebook",new FinWorkbenchService.BookCommand("前期账本"));
+  long book=workbench.createBook(post,"prebook",bookCommand("前期账本"));
   workbench.register(post,"pre-expense",new FinWorkbenchService.EntryCommand("book:"+book,"expense","前期运输","运输",86000,LocalDate.now(),"运输方","银行",null,null));
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",project,post.orgId(),"工程项目");
-  workbench.linkProject(post,book,project,"link-project");
+  linkBook(book,project,"link-project");
   var newSummary=(Map<?,?>)workbench.ledger(post.orgId(),"project:"+project).get("summary");
   assertThat(((Number)newSummary.get("paid_cents")).longValue()).isEqualTo(86000);
   assertThat(new FinProjectLedgerService(jdbc).page(post.orgId(),project,1,20).summary().paidCents()).isEqualTo(86000);
  }
  @Test void employeeBalancesRemainInTheirBookAfter501And1001CashEntries(){
   for(int count:List.of(501,1001)) {
-   long book=workbench.createBook(post,"large-book-"+count,new FinWorkbenchService.BookCommand("完整员工往来"+count));
+   long book=workbench.createBook(post,"large-book-"+count,bookCommand("完整员工往来"+count));
    String scope="book:"+book;
    long advance=workbench.register(post,"old-advance-"+count,new FinWorkbenchService.EntryCommand(
        scope,"expense","最早垫付","差旅",10000,LocalDate.now().minusDays(1),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"垫付员工"));
@@ -219,7 +359,7 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   }
  }
  @Test void employeeBalancesKeepOriginalScopeThroughPartialReimbursementRefundRecoveryAndProjectLink(){
-  long book=workbench.createBook(post,"employee-book",new FinWorkbenchService.BookCommand("前期员工往来"));
+  long book=workbench.createBook(post,"employee-book",bookCommand("前期员工往来"));
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(),otherProject=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,'工程A','ACTIVE'),(?,?,'工程B','ACTIVE')",project,post.orgId(),otherProject,post.orgId());
   long advance=workbench.register(post,"book-advance",new FinWorkbenchService.EntryCommand(
@@ -237,8 +377,8 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   refunds.registerExpense(post,"return-to-employee",new FinRefundService.ExpenseRefundCommand(advance,8000,"交通款退回员工",LocalDate.now(),null,null,null,"EMPLOYEE"));
   assertThat(workbench.reimbursements(post.orgId())).filteredOn(r->debt.equals(r.get("payable_id"))).singleElement()
       .satisfies(r->assertThat(remaining(r)).isEqualTo(-2000));
-  workbench.linkProject(post,book,project,"link-employee-book");
-  workbench.linkProject(post,book,project,"link-employee-book");
+  linkBook(book,project,"link-employee-book");
+  linkBook(book,project,"link-employee-book");
   for(String scope:List.of("book:"+book,"project:"+project)) {
    assertThat((List<String>)workbench.ledger(post.orgId(),scope).get("reimbursementIds")).containsExactly(debt);
   }
@@ -292,10 +432,10 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
  }
  @Test void voidingAnUnreimbursedAdvanceClosesTheDebtAndRestoresOnlySupplierBalance(){
   long q=payments.registerPayable(post,"supplier",new FinPaymentService.PayableCommand(post.orgId(),null,"材料",100000,"供应商","采购"));
-  long book=workbench.createBook(post,"advance-book",new FinWorkbenchService.BookCommand("垫付项目"));
+  long book=workbench.createBook(post,"advance-book",bookCommand("垫付项目"));
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
   jdbc.update("INSERT INTO fr_eng_project(id,company_id,name,status) VALUES(?,?,?,'ACTIVE')",project,post.orgId(),"工程项目");
-  workbench.linkProject(post,book,project,"advance-project");
+  linkBook(book,project,"advance-project");
   jdbc.update("UPDATE fr_fin_payable SET source_type='manual', book_id=?,project_id=? WHERE id=?",book,project,q);
   long advance=payments.register(post,"supplier-advance",new FinPaymentService.PaymentCommand(q,30000,LocalDate.now(),null,null,"EMPLOYEE",post.userId(),"经办员工",null));
   var reimbursement=workbench.reimbursements(post.orgId()).get(0);
@@ -385,8 +525,6 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThatThrownBy(()->workbench.register(post,"bad-voucher",cmd)).isInstanceOf(RuntimeException.class);
   assertThat(jdbc.queryForObject("SELECT count(*) FROM fr_fin_payable WHERE company_id=?",Long.class,post.orgId())).isZero();
  }
- @Resource org.springframework.transaction.PlatformTransactionManager transactions;
-
  @Test void sameAdvanceSerializesRefundRecoveryReimbursementAndVoid() throws Exception {
   LocalDate today = LocalDate.now();
   long advance = workbench.register(post,"adv",new FinWorkbenchService.EntryCommand("company","expense","材料采购","材料",10000,today,"供应商","员工个人账户",null,null,"EMPLOYEE",post.userId(),"经办人"));
