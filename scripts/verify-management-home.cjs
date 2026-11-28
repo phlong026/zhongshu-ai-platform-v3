@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 global.wx = {
@@ -5,7 +6,7 @@ global.wx = {
   setStorageSync() {}
 };
 
-const Home = require('../miniprogram/pages/admin/owner-home');
+const Home = require('./fixtures/legacy-admin/owner-home');
 
 const customers = [
   {
@@ -80,4 +81,4 @@ transferred.state.transfers = [
 ];
 assert.equal(Home.todoRows(transferred, 'handover').length, 0, '转给在岗人员后交接待办关闭，不要求增加审批状态');
 
-console.log('PASS 管理首页指标、预约、内容获客与真实交接待办');
+console.log('PASS 历史夹具（非当前线上验收）：管理首页指标、预约、内容获客与真实交接待办');

@@ -1,4 +1,5 @@
-const a=require('miniprogram-automator'),fs=require('fs'),assert=require('assert/strict');const A=require('../miniprogram/utils/account'),M=require('../miniprogram/pages/admin/model');
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
+const a=require('miniprogram-automator'),fs=require('fs'),assert=require('assert/strict');const A=require('../miniprogram/utils/account'),M=require('./fixtures/legacy-admin/model');
 const out='qa/management-profile-20261018';fs.mkdirSync(out+'/flows',{recursive:true});const wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{const mp=await a.connect({wsEndpoint:process.env.MANAGEMENT_WS||'ws://127.0.0.1:9620'}),checks=[],errors=[];mp.on('exception',e=>errors.push(e));const before=await mp.evaluate(()=>({a:wx.getStorageSync('zhongshu-account-v1'),m:wx.getStorageSync('zhongshu-management-v1'),b:wx.getStorageSync('zhongshu-business-v3')}));
 const retry=async fn=>{for(let n=0;n<3;n++){try{return await fn();}catch(e){if(n===2||!e.message.includes('timeout waiting'))throw e;console.log('RETRY transient read/navigation timeout');await wait(400);}}};const get=key=>retry(async()=>{const page=await mp.currentPage();return page.data(key);});const invoke=(method,...args)=>mp.evaluate(x=>getCurrentPages().slice(-1)[0][x.method](...x.args),{method,args});
