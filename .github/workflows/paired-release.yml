@@ -140,10 +140,41 @@ jobs:
       - name: Verify external handover with the pinned mini program and real business services
         if: steps.coverage.outputs.run_external == 'true'
         run: |
+          module="平台程序/domains/franchise/franchise-asset"
+          source="$module/src/test/java/cn/iocoder/yudao/module/franchise/asset/ExternalHandoverPgIntegrationTest.java"
+          tests="ExternalHandoverPgIntegrationTest#pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject"
+          installments=false
+          if [[ -s "$RUNNER_TEMP/mini/scripts/paired-contract-installments.cjs" ]] && python3 -I - "$source" <<'PYTHON'
+          from pathlib import Path
+          import re, sys
+          source = Path(sys.argv[1]).read_text(encoding='utf-8')
+          raise SystemExit(0 if re.search(r'\bvoid\s+pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation\s*\(', source) else 1)
+          PYTHON
+          then
+            tests="$tests+pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation"
+            installments=true
+          else
+            echo "此历史组合缺少合同分期两端用例，未计为分期核验通过。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # Keep both methods in one invocation: the final pair summary verifies the same class report.
           mvn -B -ntp -f 平台程序/pom.xml -pl domains/franchise/franchise-asset -am test \
-            -Dtest=ExternalHandoverPgIntegrationTest#pairedMiniProgramRegistersExternalResultsAndReceivesOneEngineeringProject \
+            -Dtest="$tests" \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Dfranchise.external-handover.client="$RUNNER_TEMP/mini/scripts/verify-paired-external-handover.cjs"
+          if [[ "$installments" == true ]]; then
+            python3 -I - "$module/target/surefire-reports" <<'PYTHON'
+          from pathlib import Path
+          import sys
+          from xml.etree import ElementTree
+          name = 'cn.iocoder.yudao.module.franchise.asset.ExternalHandoverPgIntegrationTest'
+          method = 'pairedNativeInstallmentsUseTheSamePrepaidReceiptDeclarationAndFinanceConfirmation'
+          report = ElementTree.parse(Path(sys.argv[1]) / f'TEST-{name}.xml')
+          cases = [case for case in report.iter('testcase') if case.get('classname') == name and case.get('name') == method]
+          if len(cases) != 1 or any(cases[0].find(result) is not None for result in ('skipped', 'failure', 'error')):
+              raise SystemExit('The native contract installments test did not execute exactly once and pass')
+          PYTHON
+            echo "合同分期原生操作、同一预收款抵扣、工程申报及财务核实配对通过。" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Verify optional materials for all eight customer steps with the frozen mini program
         shell: bash
         run: |
