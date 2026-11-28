@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -52,7 +53,7 @@ async function main() {
   const Access = require('../miniprogram/utils/access');
   const Checkout = require('../miniprogram/utils/design-checkout');
   const Finance = require('../miniprogram/utils/finance-source');
-  const Management = require('../miniprogram/pages/admin/model');
+  const Management = require('./fixtures/legacy-admin/model');
   const Organization = require('../miniprogram/utils/organization');
   const { render } = require('./role-page-runtime.cjs');
   const designOrder = Checkout.order(customer);

@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert=require('assert/strict');
 const fs=require('fs');const path=require('path');const automator=require('miniprogram-automator');
 const root=path.resolve(__dirname,'..');const delay=ms=>new Promise(r=>setTimeout(r,ms));
@@ -19,7 +20,7 @@ async function main(){
   async function waitRoute(route){for(let i=0;i<40;i++){if((await mp.currentPage()).path===route)return;await delay(200)}assert.equal((await mp.currentPage()).path,route)}
   async function until(predicate,label){for(let i=0;i<50;i++){if(await predicate())return;await delay(200)}throw new Error('Timed out: '+label)}
   function pass(name){checks.push({name,result:'passed'});console.log('PASS '+name)}
-  try{await mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).forEach(k=>wx.removeStorageSync(k)));const testAccount=require('../miniprogram/utils/account').seed();testAccount.session.loggedIn=true;await mp.evaluate(x=>{wx.setStorageSync('zhongshu-account-v1',x.a);wx.setStorageSync('zhongshu-management-v1',x.m);},{a:testAccount,m:require('../miniprogram/pages/admin/model').seed()});
+  try{await mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).forEach(k=>wx.removeStorageSync(k)));const testAccount=require('../miniprogram/utils/account').seed();testAccount.session.loggedIn=true;await mp.evaluate(x=>{wx.setStorageSync('zhongshu-account-v1',x.a);wx.setStorageSync('zhongshu-management-v1',x.m);},{a:testAccount,m:require('./fixtures/legacy-admin/model').seed()});
     await relaunch('/pages/business/index');
     
     if(!metadataOnly){
