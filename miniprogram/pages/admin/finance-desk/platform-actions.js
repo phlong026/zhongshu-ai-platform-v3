@@ -390,4 +390,5 @@ module.exports = function attach(page, financeApi, PF) {
       })
       .finally(() => this.setData({ revisionBusy: false }));
   };
+  require('./contract-receipt-correction')(page, financeApi, PF, httpApi, authApi);
 };

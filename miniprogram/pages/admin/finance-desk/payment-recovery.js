@@ -3,12 +3,13 @@ const pending = new Map();
 const kinds = {
   payment: { label: '付款', source: 'payableId', result: 'paymentId', call: 'registerPayment', path: 'payments' },
   'payroll-payment': { label: '薪酬付款', source: 'payrollRecordId', result: 'id' },
+  'receipt-correction': { label: '收款更正', source: 'receiptId', result: 'receiptId', call: 'correctContractReceipt' },
   refund: { label: '退款', source: 'receiptId', result: 'refundId', call: 'registerRefund', path: 'refunds' },
   'expense-refund': { label: '支出退回', source: 'paymentId', result: 'refundId', call: 'registerExpenseRefund', path: 'expense-refunds' }
 };
 const kind = entry => kinds[entry.type || 'payment']; // Existing saved payments have no type.
 const payroll = entry => entry.type === 'payroll-payment';
-const path = entry => payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
+const path = entry => entry.type==='receipt-correction' ? '/franchise/sales/receipts/'+encodeURIComponent(entry.body.receiptId)+'/correction' : payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
   '/franchise/finance/' + kind(entry).path;
 
 module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
@@ -37,11 +38,13 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     page.setData({ registerType: '', registerForm: {}, registerBusy: false, paymentPending: false,
       paymentRetry: false, registerError: '', paymentNotice: kind(entry).label + '已登记，单号 ' + id });
     if (payroll(entry)) page.setData({ wbForm: null, wbError: '' });
+    if (entry.type==='receipt-correction') page.setData({revisionForm:null,revisionBusy:false});
     page.financeEntrySaved?.(payroll(entry) ? 'expense' : entry.type || 'payment', entry.form, result);
     page.loadPlatformFinance(true);
     page.loadWorkbench?.();
     page.loadDesignFees?.();
     page.refreshFinanceTasks?.();
+    if(entry.type==='receipt-correction'&&page.data.view==='book')page.loadBookLedger?.();
     return true;
   };
   const reject = (key, entry) => {

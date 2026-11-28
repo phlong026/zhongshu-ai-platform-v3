@@ -1,15 +1,19 @@
 <template name="receiptRevision">
-    <view class="fin-card"><view wx:if="{{!compactHeader}}" class="fin-heading"><text class="fin-title">修订收款金额</text><button class="fin-text" bindtap="cancelRegister">取消</button></view>
+    <view class="fin-card"><view wx:if="{{!compactHeader}}" class="fin-heading"><text class="fin-title">修订收款记录</text><button class="fin-text" bindtap="cancelRegister" disabled="{{paymentPending||registerBusy}}">取消</button></view>
+     <text wx:if="{{revisionForm.contract}}" class="fin-muted">按原收款更正金额、到账日期或所属期次，更正原因会保留在原单记录中。</text>
+     <text wx:if="{{revisionForm.loading}}" class="fin-muted">正在核对原收款…</text>
      <view class="fin-form-row"><text class="fin-muted">原金额</text><text class="fin-input">{{revisionForm.originAmount}}</text></view>
-     <view class="fin-form-row"><text class="fin-muted">新金额</text><input cursor-spacing="24" class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}"/></view>
-     <view class="fin-form-row"><text class="fin-muted">修订原因</text><input cursor-spacing="24" class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}"/></view>
-     <text wx:if="{{registerError}}" class="fin-error">{{registerError}}</text><button class="fin-primary" bindtap="submitRevision" disabled="{{revisionBusy}}">提交修订</button>
+     <view class="fin-form-row"><text class="fin-muted">新金额</text><input cursor-spacing="24" class="fin-input" data-field="amount" bindinput="revisionInput" value="{{revisionForm.amount}}" disabled="{{paymentPending||registerBusy||revisionForm.loading||revisionForm.failed}}"/></view>
+     <view wx:if="{{revisionForm.contract}}" class="fin-form-row"><text class="fin-muted">到账日期</text><picker mode="date" value="{{revisionForm.receivedDate}}" data-field="receivedDate" bindchange="revisionInput" disabled="{{paymentPending||registerBusy||revisionForm.loading||revisionForm.failed}}"><view class="fin-input">{{revisionForm.receivedDate||'请选择实际到账日期'}}</view></picker></view>
+     <view wx:if="{{revisionForm.contract}}" class="fin-form-row"><text class="fin-muted">合同期次</text><picker range="{{revisionForm.stages}}" range-key="label" data-field="stageId" bindchange="revisionInput" disabled="{{paymentPending||registerBusy||revisionForm.loading||revisionForm.failed}}"><view class="fin-input">{{revisionForm.stageLabel||'请选择原合同期次'}}</view></picker></view>
+     <view class="fin-form-row"><text class="fin-muted">修订原因</text><input cursor-spacing="24" class="fin-input" data-field="note" bindinput="revisionInput" value="{{revisionForm.note}}" maxlength="255" disabled="{{paymentPending||registerBusy||revisionForm.loading||revisionForm.failed}}"/></view>
+     <text wx:if="{{registerError}}" class="fin-error">{{registerError}}</text><button class="fin-primary" bindtap="submitRevision" disabled="{{revisionBusy||paymentPending||registerBusy||revisionForm.loading||revisionForm.failed}}">提交修订</button>
      <view wx:if="{{revisionHistory}}" class="fin-form-row" style="margin-top:12rpx"><text class="fin-muted">修订历史</text>
       <text wx:if="{{revisionHistory.status==='loading'}}" class="fin-muted">加载中…</text>
-      <text wx:elif="{{revisionHistory.status==='failed'}}" class="fin-muted">历史加载失败（不影响提交）</text>
-      <text wx:elif="{{revisionHistory.status==='ready'&&!revisionHistory.rows.length}}" class="fin-muted">暂无修订记录</text>
+      <text wx:elif="{{revisionHistory.status==='failed'}}" class="fin-muted">{{revisionForm.contract?'原单加载失败，请关闭后重新打开核对':'历史加载失败（不影响提交）'}}</text>
+      <text wx:elif="{{revisionHistory.status==='empty'||revisionHistory.status==='ready'&&!revisionHistory.rows.length}}" class="fin-muted">暂无修订记录</text>
       <block wx:elif="{{revisionHistory.status==='ready'}}">
-       <view wx:for="{{revisionHistory.rows}}" wx:key="versionAfter" style="width:100%"><text>_v{{item.versionAfter}}：{{item.originalText}} → {{item.newText}} · {{item.note}}（{{item.dateText}}）</text></view>
+       <view wx:for="{{revisionHistory.rows}}" wx:key="versionAfter" style="width:100%"><text>v{{item.versionAfter}}：{{item.originalText}} → {{item.newText}} · {{item.note}}（{{item.dateText}}）</text><text wx:if="{{item.changeText}}" class="fin-muted">{{item.changeText}}</text></view>
       </block>
      </view>
     </view>
