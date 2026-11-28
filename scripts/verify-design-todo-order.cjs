@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const W = require('../miniprogram/utils/design-admin-workbench');
-const SF = require('../miniprogram/utils/sales-flow');
+const SF = require('../miniprogram/utils/commission-history');
 const actor = { active: true, role: 'hq-design-admin', orgType: 'headquarters', companyId: 'headquarters', staffId: 'admin' };
 const customer = (id, paidAt, feedbackAt) => ({
   id, name: id, companyId: 'store', designOrganizationId: 'headquarters',

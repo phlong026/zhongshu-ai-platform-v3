@@ -26,15 +26,20 @@ test('LIVE-08 successful customer refresh clears loading text and preserves a re
   const http = { sessionGeneration: () => 1 };
   const p = page('miniprogram/pages/workflow/index.js', {
     '../../utils/organization': {}, '../../utils/view-container': {}, '../../api/http': http,
-    '../../utils/platform-crm': {}, './views': { titles: {} }
+    '../../utils/platform-crm': {}, './views': { titles: {} },
+    './customer-follow': require('../miniprogram/pages/workflow/customer-follow')
   });
   Object.assign(p, { __post: {}, __postKey: 'p', __http: http,
-    __pf: { can: () => true, today: () => '', detailView: () => ({ customer: { name: '测试客户' } }), maskPhone: () => '' },
-    __crmApi: { customers: { get: async () => ({}) } } });
+    __pf: { can: () => true, today: () => '', toDate: value => value, daysBetween: () => 0, errorMessage: error => String(error && error.message || error),
+      detailView: () => ({ customer: { name: '测试客户' } }), maskPhone: () => '' },
+    // 资料页的补充读取（八步视图、跟进时间线）在真实页面里随资料一起请求
+    __crmApi: { customers: { get: async () => ({}), workflow: async () => null, timeline: async () => ({ list: [], total: 0 }) } } });
   p.loadPlatformDetail('customer');
   await flush();
   assert.equal(p.data.platformStatus, 'ready');
   assert.equal(p.data.error, '');
+  assert.equal(p.data.canChange, false, '八步视图为空时不可办理状态');
+  assert.equal(p.data.timelineError, '');
   p.data.error = '资料已更新，请核对后再提交';
   p.loadPlatformDetail('customer');
   await flush();

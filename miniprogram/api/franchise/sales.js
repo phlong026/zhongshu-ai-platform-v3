@@ -46,11 +46,7 @@ const stages = {
 };
 
 const deliveries = {
-  /** 创建交付（四节点登记制）{contractId, requirementId?} → {deliveryId} */
-  create: (data, key) => http.post('/franchise/sales/deliveries', data, idem(key, 'delivery')),
-  /** 推进节点 node: design-delivered/design-confirmed/construction-delivered/construction-accepted（顺序强制） */
-  advance: (deliveryId, node, key) => http.post('/franchise/sales/deliveries/' + deliveryId + '/advance', { node }, idem(key, 'dv-' + node)),
-  /** 交付查询（按合同） */
+  /** 历史交付查询（按合同，只读） */
   get: (contractId) => http.get('/franchise/sales/deliveries', { contractId })
 };
 

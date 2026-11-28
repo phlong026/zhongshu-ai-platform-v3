@@ -2,7 +2,7 @@ function sourceUrl(row,role,key,period,roleCode){
  const id=encodeURIComponent(row.source_id||''),customer=encodeURIComponent(row.customer_id||''),project=encodeURIComponent(row.project_id||''),base='/pages/build/record/index?id='+project;
  switch(row.source_type){
  case 'customer':return '/pages/workflow/index?view=customer&id='+customer;
- case 'budget':return '/pages/workflow/index?view=budget&id='+customer;
+ case 'budget':return '/pages/home-metrics/record?type=budget&customerId='+customer+'&id='+id+'&version='+encodeURIComponent(row.version||'');
  case 'receivable':if(role==='owner')return '/pages/home-metrics/record?role=owner&metric='+key+'&period='+period+'&type=receivable&id='+encodeURIComponent(row.id);
  case 'contract':if(roleCode==='owner'&&row.source_type==='contract')return '/pages/home-metrics/record?role='+role+'&metric='+key+'&period='+period+'&type=contract&id='+id;
   return role==='finance'?'/pages/admin/finance-desk/index?view=flows&tab=receivables&homeStage='+encodeURIComponent(row.id):'/pages/workflow/index?view=contract&id='+customer+'&contractId='+id;

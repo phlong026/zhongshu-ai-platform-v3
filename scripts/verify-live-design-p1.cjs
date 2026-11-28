@@ -54,8 +54,8 @@ function makeUploadHarness({ ticket, uploadTicket, putResponse, completeResponse
       options.success(putResponse || { statusCode: 200, data: '' });
     }
   };
-  delete require.cache[require.resolve('../miniprogram/pages/workflow/explore/platform-bridge')];
-  const attach = require('../miniprogram/pages/workflow/explore/platform-bridge');
+  delete require.cache[require.resolve('./fixtures/legacy-explore-platform-bridge.cjs')];
+  const attach = require('./fixtures/legacy-explore-platform-bridge.cjs');
   let generation = 1;
   const http = {
     base: () => 'https://api2.zszhj.com/admin-api',

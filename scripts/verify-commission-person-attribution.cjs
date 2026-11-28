@@ -23,7 +23,7 @@ store[keys.account] = {
   companies:[{ id:'acme', type:'store', name:'测试门店', roles:['sales-lead'] }]
 };
 
-const SalesFlow = require('../miniprogram/utils/sales-flow');
+const SalesFlow = require('./fixtures/legacy-commission-transition.cjs');
 const customer = {
   id:'customer-attribution', projectId:'project-attribution', companyId:'acme', teamId:'sales',
   name:'归属证据客户', ownerId:'owner-a', createdById:'owner-a',
@@ -49,4 +49,17 @@ assert.equal(order.responsiblePersonId, 'person-owner-a', '后续 staffId 换人
 assert.equal(submitted.businessFlow.responsiblePersonId, 'person-owner-a', '后续 staffId 换人不得回写历史委托归属');
 assert.equal(order.responsibleId, 'owner-a', '历史 staffId 责任字段继续保留原值');
 
-console.log('PASS 新委托冻结真实负责人 person，代提交与后续 staff 变化不改历史归属');
+store[keys.management].staff.push({id:'engineer-a',personId:'person-engineer-a',name:'原工程接收人',active:true,roles:['engineer']});
+const returned=clone(submitted);
+returned.businessFlow.dispatch={version:1};
+returned.handover={version:1,status:'returned',managerId:'engineer-a'};
+const file=name=>({name,text:'历史归档内容'});
+const packet=SalesFlow.transition(returned,'packet-submit',{
+  dispatchVersion:1,resultFile:file('正式成果'),drawingFile:file('施工图'),reviewFile:file('审核依据'),confirmationFile:file('客户确认'),
+  drawingVersion:'V1',confirmationDate:'2020-01-01',received:true,confirmed:true,note:'原交底说明'
+},'2026-10-30T09:00:00.000Z');
+assert.equal(packet.handover.status,'pending');
+assert.equal(packet.handover.documents.length,5,'历史夹具仍保留文件与交底读取链');
+assert.equal(returned.handover.status,'returned','迁出的历史 transition 不回写输入原件');
+
+console.log('PASS 历史委托冻结真实负责人 person，代提交与后续 staff 变化不改历史归属，原文件夹具可读');

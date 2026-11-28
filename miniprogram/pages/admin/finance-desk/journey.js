@@ -71,7 +71,7 @@ module.exports=function(page,api){
   if(target.kind==='declaration')return this.openJourneyDeclaration(event);
   return this.payJourneyRow(event);
  };
- page.setData({journeyEntryTitles:{receipt:'登记收款',payment:'登记付款',expense:'补记其他支出',payable:'登记待付费用',refund:'登记退款','expense-refund':'登记退款（支出退回）',revision:'修订收款金额',book:'新建账本',contractchange:'合同金额变更',payablechange:'结算调整',allocation:'抵扣定金',linkbook:'关联工程',assignbook:'账本归属',supplement:'补充资料',recovery:'登记员工归还'}});
+ page.setData({journeyEntryTitles:{receipt:'登记收款',payment:'登记付款',expense:'补记其他支出',payable:'登记待付费用',refund:'登记退款','expense-refund':'登记退款（支出退回）',revision:'修订收款记录',book:'新建账本',contractchange:'合同金额变更',payablechange:'结算调整',allocation:'抵扣定金',linkbook:'关联工程',assignbook:'账本归属',supplement:'补充资料',recovery:'登记员工归还'}});
  page.rememberEntryOrigin=function(){if(!this.__entryOrigin){this.__entryOptions={...this.options};this.__entryScroll=this.__navigationScrollTop||0;this.__entryOrigin={view:this.data.view,title:this.data.title,flowTab:this.data.flowTab,bookScope:this.data.bookScope,bookFlowTab:this.data.bookFlowTab,keyword:this.data.keyword};this.setData({journeyReturnLabel:this.data.view==='book'?'返回项目账本':this.data.view==='desk'?'返回财务首页':this.data.view==='reimbursements'?'返回报销列表':this.data.view==='tasks'?'返回待办列表':'返回上一页'});}};
  page.refreshJourney=function(){
   if(!this.data.journeyEnabled)return;
@@ -124,6 +124,7 @@ module.exports=function(page,api){
  };
  const open=page.openRegister;
  page.openRegister=function(e){
+  if(this.data.declarationPending)return;
   if(!this.data.journeyEnabled)return open.call(this,e);
   if(this.data.registerBusy||this.data.wbBusy||this.data.busy)return;
   this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,journeyErrorField:'',...(this.options?.from==='commission'?{journeyReturnLabel:'返回项目提成'}:{})});
@@ -131,6 +132,7 @@ module.exports=function(page,api){
  };
  const entry=page.openWorkbenchEntry;
  page.openWorkbenchEntry=function(e){
+  if(this.data.declarationPending)return;
   if(!this.data.journeyEnabled)return entry.call(this,e);
   if(this.data.registerBusy||this.data.wbBusy||this.data.busy)return;
   this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,journeyErrorField:''});entry.call(this,e);
@@ -141,22 +143,24 @@ module.exports=function(page,api){
  const cancelRegister=page.cancelRegister,cancelWorkbench=page.cancelWorkbench;
  page.returnFinanceEntry=function(){if(this.data.designReceiptBusy||this.data.revisionBusy)return;if(this.data.designReceiptForm)return this.cancelDesignReceipt();return this.closeFinanceEntry();};
  page.closeFinanceEntry=function(){
-  if(this.data.registerBusy||this.data.wbBusy||this.data.revisionBusy||this.data.busy)return;
+  if(this.data.registerBusy||this.data.wbBusy||this.data.revisionBusy||this.data.busy||this.data.declarationPending)return;
   require('../../../utils/finance-keyboard').dismiss(this,wx);
   cancelRegister.call(this);cancelWorkbench.call(this);
   const origin=this.__entryOrigin,scroll=this.__entryScroll||0;if(this.__entryOptions)this.options={...this.__entryOptions};this.__entryOrigin=null;this.__entryOptions=null;
-  this.setData({...(origin||{}),journeyResult:null,journeyDeclaration:null,bookEntryDetail:null,journeyErrorField:''});
+  this.__declarationFormAlive=null;
+  this.setData({...(origin||{}),journeyResult:null,journeyDeclaration:null,declarationForm:null,bookEntryDetail:null,journeyErrorField:''});
   if(this.options?.from==='commission')return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/commission/index'});
   if(this.options?.payrollRecord)return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/payroll/index'});
   this.refresh();if(this.data.view==='desk')this.syncPlatformTasks();wx.pageScrollTo({scrollTop:scroll,duration:0});
  };
- page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
+ page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy||this.data.paymentPending)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
  page.journeyPick=function(e){
+  if(this.data.paymentPending||this.data.declarationPending||this.data.journeyDeclaration&&(this.data.wbBusy||!this.__declarationFormAlive?.()))return;
   const field=e.currentTarget.dataset.field,i=Number(e.detail.value),f=this.data.wbForm||{};
   if(field==='scope'){const r=this.data.journeyScopes[i];if(r)this.setData({'wbForm.scope':r.scope,'wbForm.scopeLabel':r.name,'wbForm.stageId':'','wbForm.stageLabel':''});}
   if(field==='stageId'){const r=this.data.journeyStages[i];if(r)this.setData({'wbForm.stageId':String(r.id),'wbForm.stageLabel':(r.stageLabel||J.stageName(r.stage)),'wbForm.name':(r.stageLabel||J.stageName(r.stage)),'wbForm.counterparty':r.customer_name,'wbForm.category':'合同回款'});}
   if(field==='category')this.setData({'wbForm.category':this.data.journeyCategories[i],...(i===0?{'wbForm.fundingType':'COMPANY'}:{})});
-  if(field==='account')this.setData({[f.type?'wbForm.accountName':'registerForm.accountName']:this.data.journeyAccounts[i]});
+  if(field==='account')this.setData({[this.data.journeyDeclaration?'declarationForm.accountName':f.type?'wbForm.accountName':'registerForm.accountName']:this.data.journeyAccounts[i]});
   this.setData({journeyErrorField:'',wbError:'',registerError:''});this.syncJourneyForm();
  };
  page.journeyChoosePayable=function(e){const q=this.data.journeyPaymentOptions[Number(e.detail.value)];if(q)this.selectJourneyPayable(q);};
@@ -189,7 +193,16 @@ module.exports=function(page,api){
  const bookEntry=page.openBookEntry;
  page.openBookEntry=function(e){bookEntry.call(this,e);const r=this.data.bookEntryDetail;if(!r||!this.data.journeyEnabled)return;const cash=(this.__journeyCash||[]).find(c=>c.id===String(r.id)&&c.type===r.type);this.setData({bookEntryDetail:{...r,...cash,scope:this.data.bookScope,projectName:this.data.bookName}});};
  page.refundBookEntry=function(){const r=this.data.bookEntryDetail;if(!r)return;const type=r.type==='RECEIPT'?'refund':'expense-refund',id=String(r.id);this.openRegister(event(type));this.setData({['registerForm.'+(type==='refund'?'receiptId':'paymentId')]:id,['registerForm.'+(type==='refund'?'receiptIdLabel':'paymentIdLabel')]:r.name,'registerForm.scope':r.scope||this.data.bookScope,'registerForm.scopeLabel':r.projectName||this.data.bookName});this.syncJourneyForm();};
- page.openJourneyDeclaration=function(e){const row=(this.data.journeyDeclarations||[]).find(r=>String(r.id)===String(e.currentTarget.dataset.id));if(!row)return;this.rememberEntryOrigin();this.setData({journeyDeclaration:row,registerType:'',wbForm:null,journeyResult:null});wx.pageScrollTo({scrollTop:0,duration:0});};
+ page.openJourneyDeclaration=function(e){
+  if(this.data.wbBusy||this.data.registerBusy||this.data.busy||this.data.declarationPending)return;
+  const id=String(e.currentTarget.dataset.id),row=(this.data.journeyDeclarations||[]).find(r=>String(r.id)===id)
+    ||(this.data.collectionDeclarations||[]).find(r=>String(r.id)===id);
+  if(!row)return;
+  this.rememberEntryOrigin();this.__declarationFormAlive=http.sessionGuard();
+  this.setData({journeyDeclaration:{...row,name:row.name||(row.customer_name||'业主')+' · '+contractStageName(row,this.data.financialStages),amountText:row.amountText||V.money(row.amount_cents),date:row.date||day(row.received_date)},
+    declarationForm:{accountName:row.account_name||'',method:row.requires_method_confirmation===false?(row.method||''):''},declarationPending:false,workbenchError:'',registerType:'',wbForm:null,journeyResult:null});
+  wx.pageScrollTo({scrollTop:0,duration:0});
+ };
  page.collectJourneyStage=function(e){const r=(this.data.financialStages||[]).find(s=>String(s.id)===String(e.currentTarget.dataset.id));if(!r)return;this.openWorkbenchEntry(event('receipt'));const scope=r.project_id?'project:'+r.project_id:'contract:'+r.contract_id;const book=(this.data.workbenchBooks||[]).find(b=>b.scope===scope);this.setData({'wbForm.scope':scope,'wbForm.scopeLabel':book?.name||r.customer_name+' · 合同款','wbForm.stageId':String(r.id),'wbForm.stageLabel':(r.stageLabel||J.stageName(r.stage)),'wbForm.name':(r.stageLabel||J.stageName(r.stage)),'wbForm.counterparty':r.customer_name,'wbForm.category':'合同回款'});this.syncJourneyForm();};
  page.openJourneyVoucher=async function(){const row=this.data.journeyDeclaration;if(row?.voucher_file_id)await this.openBookVoucher({voucher_file_id:row.voucher_file_id});};
  page.financeEntrySaved=function(type,form,result){
@@ -238,7 +251,7 @@ module.exports=function(page,api){
  };
  // Every secondary form keeps the same return target as the primary entry points.
  for(const name of ['createFinanceBook','linkFinanceBook','openReceiptAllocation','openFinanceSupplement','recoverEmployee','assignPayableBook','openPayableAdjustment','openRevision']){
-  const original=page[name];page[name]=function(e){if(this.data.journeyEnabled){if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return;this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,registerType:'',wbForm:null,bookEntryDetail:null});}const result=original.call(this,e);if(this.data.journeyEnabled){this.syncJourneyForm();wx.pageScrollTo({scrollTop:0,duration:0});}return result;};
+  const original=page[name];page[name]=function(e){if(this.data.declarationPending)return;if(this.data.journeyEnabled){if(this.data.wbBusy||this.data.registerBusy||this.data.busy)return;this.rememberEntryOrigin();this.setData({journeyResult:null,journeyDeclaration:null,registerType:'',wbForm:null,bookEntryDetail:null});}const result=original.call(this,e);if(this.data.journeyEnabled){this.syncJourneyForm();wx.pageScrollTo({scrollTop:0,duration:0});}return result;};
  }
  page.cancelRegister=function(){return this.data.journeyEnabled?this.closeFinanceEntry():cancelRegister.call(this);};
  page.cancelWorkbench=function(){return this.data.journeyEnabled?this.closeFinanceEntry():cancelWorkbench.call(this);};

@@ -63,26 +63,42 @@ test('completion bounds and any upload failure prevent a partially saved node',a
  await assert.rejects(P.perform('node','100',{files:[{path:'a'},{path:'b'},{path:'c'}]},{id:'101'},'original'),/上传失败/);
  assert.equal(calls.length,0);assert.equal(uploads,2);
 });
-test('choosing one replacement file clears an older multi-photo selection',()=>{
+test('a node chat file appends to earlier photos, while correction targets its own field',()=>{
  let page;const file=path.resolve('miniprogram/pages/build/record/index.js'),real=createRequire(file);
  vm.runInNewContext(fs.readFileSync(file,'utf8'),{Page:p=>page=p,require:real});
  page.data={view:'node',form:{files:[{path:'old-a'},{path:'old-b'}]}};
  page.setData=patch=>{for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let target=page.data;for(const part of parts.slice(0,-1))target=target[part]||(target[part]={});target[parts.at(-1)]=v;}};
- page.setFile('file',{name:'new.jpg',path:'new.jpg'});assert.equal(page.data.form.files.length,1);assert.equal(page.data.form.files[0].path,'new.jpg');
+ page.setFile('file',{name:'验收单.pdf',path:'new.pdf'});
+ assert.deepEqual(Array.from(page.data.form.files,f=>f.path),['old-a','old-b','new.pdf']);
+ page.setFile('nodeFile',{name:'更正件.pdf',path:'correction.pdf'});
+ assert.equal(page.data.form.nodeFile.path,'correction.pdf');
+ assert.deepEqual(Array.from(page.data.form.files,f=>f.path),['old-a','old-b','new.pdf']);
 });
 test('handover next step progresses through preparation, schedule, collection, start, node, delivery, settlement and archive', () => {
   const { P } = harness(),
     b = bundle(),
     next = () => P.recordView(b, {}).next;
+  // Real templates retain one START node; preparation does not complete it.
+  const start = { id: '103', nodeIndex: 1, name: '正式开工', milestone: 'START', status: 'PENDING' };
+  b.detail.nodes = [start, ...b.detail.nodes.map((n, i) => ({ ...n, nodeIndex: i === 0 ? 5 : 8 }))];
+  const base = '/pages/build/record/index?id=100&view=';
   assert.match(next().url, /prepare$/);
   b.detail.preparedAt = '2026-11-17';
-  assert.match(next().url, /project$/);
-  b.detail.nodes.forEach((n) => Object.assign(n, { startDate: '2026-11-17', endDate: '2026-11-17' }));
-  assert.match(next().url, /collection/);
+  assert.equal(next().url, base + 'project');
+  // Only the planned start date is needed; later construction dates stay unknown.
+  Object.assign(start, { startDate: '2026-11-17', endDate: '2026-11-17' });
+  assert.equal(next().url, base + 'collection&stage=start');
+  const collection = P.recordView(b, { view: 'collection', stage: 'start', financeRole: true });
+  assert.equal(collection.form.stage, 'SIGN_AFTER');
+  assert.equal(collection.actions[0].action, 'collect');
+  assert.equal(P.recordView(b, { view: 'start', writeRole: true }).actions.length, 0);
   Object.assign(b.collections.stages[0], { confirmedCents: 100000, remainingCents: 0 });
-  assert.match(next().url, /start$/);
+  assert.equal(next().url, base + 'start');
+  assert.equal(P.recordView(b, { view: 'start', writeRole: true }).actions[0].action, 'start');
   b.detail.actualStartAt = '2026-11-17';
-  assert.match(next().url, /node&nodeId=101/);
+  Object.assign(start, { status: 'DONE', completedAt: '2026-11-17' });
+  b.detail.nodes[1].status = 'IN_PROGRESS';
+  assert.equal(next().url, base + 'node&nodeId=101');
   b.detail.nodes.forEach((n) => (n.status = 'DONE'));
   assert.match(next().url, /delivery$/);
   b.detail.closure = { deliveredAt: '2026-11-17' };
@@ -209,13 +225,14 @@ test('zero or fully collected installments never offer a new collection or dunni
     'collect'
   );
 });
-test('legacy project links select a project before loading detail and retain node context when present', () => {
+test('legacy project links preserve their destination through login and a failed navigation retry', () => {
   let page;
+  let online = true, failNext = false, homeCalls = 0;
   const urls = [];
   vm.runInNewContext(fs.readFileSync('miniprogram/pages/build/index.js', 'utf8'), {
-    Page: (p) => (page = p),
-    require: () => ({ online: () => true }),
-    wx: { redirectTo: (o) => urls.push(o.url) }
+    Page: (p) => (page = { ...p, setData(patch) { Object.assign(this.data, patch); } }),
+    require: (name) => name.endsWith('/page-navigation') ? { home: () => homeCalls++ } : { online: () => online },
+    wx: { redirectTo: (o) => { urls.push(o.url); if (failNext) { failNext = false; o.fail(); } } }
   });
   page.onLoad({ view: 'projects' });
   page.onLoad({ view: 'materials' });
@@ -227,6 +244,20 @@ test('legacy project links select a project before loading detail and retain nod
     '/pages/build/record/index?view=project&id=123',
     '/pages/build/record/index?view=node&id=123&nodeId=456'
   ]);
+  online = false;
+  failNext = true;
+  page.onLoad({ view: 'collection', id: '123', stage: 'stage:789', planId: '321', homeSupply: '654' });
+  const destination = '/pages/build/record/index?view=collection&id=123&stage=stage%3A789&planId=321&homeSupply=654';
+  assert.equal(new URL(urls.at(-1), 'https://local').searchParams.get('return'), destination);
+  assert.equal(page.data.failed, true);
+  page.openDestination();
+  assert.equal(urls.at(-1), urls.at(-2));
+  assert.equal(page.data.failed, false);
+  online = true;
+  page.openDestination();
+  assert.equal(urls.at(-1), destination);
+  page.home();
+  assert.equal(homeCalls, 1);
 });
 test('partial receipts, electronic briefing and archived preparation are represented truthfully', () => {
   const { P } = harness(),
@@ -262,3 +293,4 @@ test('reopen is limited to the latest completed node and hides after a subsequen
   b.collections.records = [{ id: '9', stage: 'CAP_DONE', amountCents: 1000 }];
   assert.equal(view('102'), false);
 });
+

@@ -9,9 +9,11 @@ const copy = value => JSON.parse(JSON.stringify(value));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const event = (key, value) => ({ currentTarget: { dataset: { key } }, detail: { value } });
+// 客户当前约定的下次跟进日期（未过期），新记录没单独约定时沿用它。
+const nextFollowOn = new Date(Date.now() + 3 * 86400e3 + 8 * 3600e3).toISOString().slice(0, 10);
 function workflow(patch = {}) {
   return { workflowId: null, customerId: '42', customerName: '本店客户', companyId: '9', templateVersion: 1,
-    status: 'ACTIVE', revision: 0, completedCount: 0, totalSteps: 8, progressPercent: 0,
+    status: 'ACTIVE', revision: 0, completedCount: 0, totalSteps: 8, progressPercent: 0, nextFollowOn, canChangeStatus: true,
     currentStepCode: 'INVITATION', nextStepCode: 'INTRODUCTION', canWrite: true,
     steps: model.STEPS.map((s, i) => ({ code: s.code, name: s.name, order: i + 1, status: 'TODO', revision: 0,
       occurredOn: null, note: '', fields: {}, attachments: [], completedAt: null, canWrite: i < 6, canComplete: i < 6,
@@ -20,12 +22,13 @@ function workflow(patch = {}) {
 }
 function harness(options = {}) {
   let definition, session = 1, post = { postId: '7', orgType: 'store', roleCode: 'sales', brandId: '3', ...options.post }, keyCount = 0;
-  const calls = [], navigations = [], toasts = [];
-  const h = { state: workflow(), calls, navigations, toasts, overrides: options.api || {} };
-  const api = Object.fromEntries(['get', 'save', 'complete', 'skipVisit', 'reopen', 'records', 'download', 'listQuotes', 'entryCustomer', 'entryProfile'].map(name => [name, async (...args) => {
+  const calls = [], requests = [], navigations = [], toasts = [];
+  const h = { state: workflow(), calls, requests, navigations, toasts, overrides: options.api || {} };
+  const respond = async (name, ...args) => {
     calls.push({ name, args: copy(args) });
     if (h.overrides[name]) return h.overrides[name](...args);
     if (name === 'get') return copy(h.state);
+    if (name === 'status') { h.state.revision += 1; h.state.status = args[1].status; h.state.reconsulted = false; return copy(h.state); }
     if (name === 'entryCustomer' || name === 'entryProfile') return null;
     if (name === 'records') return { list: [], total: 0 };
     if (name === 'listQuotes') return [];
@@ -39,25 +42,73 @@ function harness(options = {}) {
     }
     if (name === 'reopen') Object.assign(step, { status: 'DRAFT', canWrite: true, canReopen: false });
     return copy(h.state);
-  }]));
-  const http = { token: () => 'token', currentUserId: () => options.loginUser || '', currentPostId: () => post?.postId || '' };
+  };
+  // 加载真实 API 模块，只在 HTTP 边界替换服务端；不存在的 API 方法必须直接暴露为测试失败。
+  const request = async (method, url, body, headers) => {
+    requests.push(copy({ method, url, body, headers }));
+    if (method === 'GET' && url === '/platform/profile/mine') return respond('entryProfile');
+    const match = /^\/franchise\/customers\/([^/]+)(.*)$/.exec(url);
+    assert.ok(match, 'unexpected request: ' + method + ' ' + url);
+    const id = decodeURIComponent(match[1]), route = match[2], key = headers?.['Idempotency-Key'];
+    if (method === 'GET') {
+      if (route === '') return respond('entryCustomer', id);
+      if (route === '/workflow') return respond('get', id);
+      if (route === '/workflow/quotes') return respond('listQuotes', id);
+      if (route === '/workflow/records') return respond('records', id, body.pageNo);
+    }
+    if (method === 'POST' && route === '/workflow/status') return respond('status', id, body, key);
+    const step = /^\/workflow\/steps\/([^/]+)(.*)$/.exec(route);
+    if (step) {
+      const code = decodeURIComponent(step[1]);
+      if (method === 'PUT' && step[2] === '') return respond('save', id, code, body, key);
+      if (method === 'POST' && step[2] === '/complete') return respond('complete', id, code, body, key);
+      if (method === 'POST' && step[2] === '/skip') return respond('skipVisit', id, body, key);
+      if (method === 'POST' && step[2] === '/reopen') return respond('reopen', id, code, body, key);
+      const asset = /^\/assets\/([^/]+)\/download-tickets$/.exec(step[2]);
+      if (method === 'POST' && asset) return respond('download', id, code, decodeURIComponent(asset[1]));
+    }
+    throw Error('unexpected request: ' + method + ' ' + url);
+  };
+  const http = { token: () => 'token', currentUserId: () => options.loginUser || '', currentPostId: () => post?.postId || '',
+    get: (url, query) => request('GET', url, query), post: (url, body, headers) => request('POST', url, body, headers),
+    put: (url, body, headers) => request('PUT', url, body, headers) };
+  const loadApi = (file, dependencies) => {
+    const module = { exports: {} };
+    vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), { module, require: name => {
+      if (!(name in dependencies)) throw Error(name);
+      return dependencies[name];
+    } });
+    return module.exports;
+  };
+  const crm = loadApi('miniprogram/api/franchise/crm.js', { '../http': http });
+  const api = loadApi('miniprogram/pages/customer-flow/api.js', { '../../api/http': http, '../../api/franchise/crm': crm });
   const requires = {
     '../../api/http': http, '../../api/auth': { currentApiPost: () => post }, '../../utils/api-scope': () => JSON.stringify([session, post?.postId]),
     '../../utils/page-navigation': { open: url => navigations.push({ url }), back: value => navigations.push({ back: value }) },
     './visit-entry': require('../miniprogram/pages/customer-flow/visit-entry'),
     '../../utils/platform-crm': { commandKey: prefix => prefix + '-' + ++keyCount }, './api': api, './model': model,
+    './status-sheet': require('../miniprogram/pages/customer-flow/status-sheet'),
     '../../utils/finance-date': require('../miniprogram/utils/finance-date'),
     './upload': { run: options.upload || (async () => ({ assetId: '800', title: '资料.pdf', mimeType: 'application/pdf' })) },
     '../../utils/b-asset-download': { downloadTicketFile: async () => ({ tempFilePath: '/download.pdf', contentType: 'application/pdf' }) }
   };
-  const wx = { showToast: value => toasts.push(value), showModal: value => h.modal = value,
+  const wx = { showToast: value => toasts.push(value), showModal: value => h.modal = value, showActionSheet: value => { h.actionSheet = value; },
     navigateTo: value => navigations.push(value), chooseMessageFile: value => h.filePicker = value,
     chooseMedia: value => h.mediaPicker = value, previewImage: value => h.preview = value, openDocument: value => h.preview = value };
+  // 状态弹层模块由 Node 直接加载，不在页面 vm 里；让它看到同一份 wx 桩（小程序运行时 wx 是全局）。
+  global.wx = wx;
   vm.runInNewContext(fs.readFileSync(path.join(root, 'miniprogram/pages/customer-flow/index.js'), 'utf8'), {
     Page: value => definition = value, require: name => { if (!(name in requires)) throw Error(name); return requires[name]; }, wx, console
   });
-  const page = h.page = { ...definition, data: copy(definition.data), setData(patch) { Object.assign(this.data, copy(patch)); } };
-  page.onLoad({ customerId: options.customerId || '42', step: options.step || '' });
+  // 与真实 setData 一致：支持 'statusSheet.reasonCode' 这类路径键。
+  const page = h.page = { ...definition, data: copy(definition.data), setData(patch) {
+    for (const [key, value] of Object.entries(patch)) {
+      const parts = key.split('.'); let target = this.data;
+      while (parts.length > 1) { const part = parts.shift(); target = target[part] || (target[part] = {}); }
+      target[parts[0]] = copy(value);
+    }
+  } };
+  page.onLoad({ customerId: options.customerId || '42', step: options.step || '', status: options.status || '' });
   h.switchSession = () => { session += 1; post = { postId: String(7 + session), roleCode: 'sales', brandId: '4' }; };
   h.open = () => page.onShow();
   h.callsFor = name => calls.filter(call => call.name === name);
@@ -151,14 +202,14 @@ test('进度卡与全部步骤按原单状态显示，跨步补录与切换保�
   assert.equal(named('journey-node').length, 8);
   assert.deepEqual(named('journey-node-done').map(n => n.attrs['data-code']), ['HOUSE_SELECTION']);
   assert.equal(named('journey-connector-done').length, 1);
-  assert.equal(page.data.nextStepLabel, model.definition('INTRODUCTION').name);
+  assert.equal(page.data.workflow.currentStepName, model.definition('INVITATION').name);
   page.input(event('note', '到店前再联系'));
   page.showJourney();
   assert.equal(named('journey-row').length, 8);
   page.selectStep({ currentTarget: { dataset: { code: 'CONTRACT' } } });
   assert.equal(page.data.journeyOpen, false);
   assert.equal(page.data.step.code, 'CONTRACT');
-  assert.equal(page.data.nextStepLabel, model.definition('INVITATION').name);
+  assert.equal(page.data.workflow.currentStepName, model.definition('INVITATION').name);
   page.selectStep({ currentTarget: { dataset: { code: 'INVITATION' } } });
   assert.equal(page.data.form.note, '到店前再联系');
   assert.equal(page.data.dirty, true);
@@ -174,14 +225,14 @@ test('八步都完成后默认查看开工原单，单一未完成步骤保留�
   Object.assign(h.state, { completedCount: 8, progressPercent: 100, currentStepCode: null, nextStepCode: null });
   await h.open();
   assert.equal(h.page.data.step.code, 'START');
-  assert.equal(h.page.data.nextStepLabel, '');
+  assert.equal(h.page.data.workflow.currentStepName, '业务八步完成');
   h.state.completedCount = 7;
   h.state.currentStepCode = 'START';
   h.state.nextStepCode = null;
   h.state.steps[7].status = 'TODO';
   await h.page.load();
   assert.equal(h.page.data.workflow.completedCount, 7);
-  assert.equal(h.page.data.nextStepLabel, '');
+  assert.equal(h.page.data.workflow.currentStepName, '开工大吉');
   h.page.showJourney();
   h.page.clear();
   assert.equal(h.page.data.journeyOpen, false);
@@ -217,7 +268,7 @@ test('step six uses an exact quote for this customer and submits a communication
   assert.match(h.page.data.form.occurredOn, /^\d{4}-\d{2}-\d{2}$/);
   await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
   const [save] = h.callsFor('save');
-  assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户' });
+  assert.deepEqual(save.args[2].fields, { quoteId: quote.id, communicated: true, result: '已发给客户', designFileAssetId: '', designFileName: '' });
   assert.deepEqual(save.args[2].attachments, []);
   assert.equal(h.callsFor('complete').length, 1);
 });
@@ -570,14 +621,14 @@ test('07/08只读真实事实且没有完成按钮；预算入口仍携带客户
   h.page.openSalesQuote(); assert.equal(h.navigations.at(-1).url, '/pages/workflow/index?view=budget&id=42');
 });
 
-test('第07步为施工签约，设计合同归档后待办，签署施工合同后回看原单', async () => {
+test('第07步为合同签约，设计合同归档后待办，签署施工合同后回看原单', async () => {
   const h = harness({ step: 'CONTRACT' });
   await h.open();
   const { render } = require('./role-page-runtime.cjs');
   const file = path.join(root, 'miniprogram/pages/customer-flow/index.wxml');
   const renderedText = node => node.text || (node.children || []).map(renderedText).join('');
   const visible = () => render(file, h.page.data).map(renderedText).join('');
-  assert.equal(h.page.data.step.name, '施工签约');
+  assert.equal(h.page.data.step.name, '合同签约');
   assert.match(visible(), /设计服务合同可归入设计委托档案/);
   Object.assign(h.state.steps[6], { status: 'COMPLETED', fields: { contractId: '8101', signedDate: '2026-11-25', totalCents: '100000' } });
   Object.assign(h.state, { completedCount: 1, progressPercent: 12.5 });
@@ -638,13 +689,51 @@ test('灵感选择回传保留其他填写，切岗后的选择回传被拒绝',
   assert.equal(h.page.data.form.fields.referenceCaseId, '');
 });
 
-test('客户列表使用批量内联摘要，旧详情仍保留，按钮携带不透明客户ID', () => {
+test('客户列表仅剩开工待办时以 currentStepCode 显示开工大吉，不把 nextStepCode=null 当作全部完成', () => {
   const crm = require('../miniprogram/utils/platform-crm');
-  const row = crm.customerRow({ id: '900719925474099999', name: '客户', createTime: 0, nextVisitDate: [2026, 12, 1],
-    workflow: { completedCount: 3, totalSteps: 8, progressPercent: 37.5, currentStepName: '带看工地', nextContactOn: '2026-11-27' } }, { canWrite: true, today: '2026-11-25' });
-  assert.equal(row.stageName, '带看工地'); assert.equal(row.appointment, '2026-11-27'); assert.match(row.detail, /11-27/);
+  const row = crm.customerRow({
+    id: '900719925474099999', name: '待开工客户', createTime: 0, lastFollowAt: 1,
+    workflow: {
+      status: 'ACTIVE', completedCount: 7, totalSteps: 8, progressPercent: 87.5,
+      currentStepCode: 'START', nextStepCode: null,
+      start: { status: 'TODO', fields: { projectId: '77', commissionStatus: 'ACCEPTED' } }
+    }
+  }, { canWrite: true, today: '2026-11-27' });
+  assert.equal(row.stageName, '开工大吉');
+  assert.equal(row.progress, '7/8步 · 87.5%');
+  assert.equal(row.engineeringHint, '工程已接收，待实际开工');
+  assert.equal(row.off, false);
+  assert.notEqual(row.stageName, '业务八步完成');
+});
+
+test('客户列表使用批量内联摘要，下次跟进日期读客户表，按钮统一进八步页', () => {
+  const crm = require('../miniprogram/utils/platform-crm');
+  const row = crm.customerRow({ id: '900719925474099999', name: '客户', createTime: 0, lastFollowAt: 1, nextVisitDate: [2026, 12, 1],
+    workflow: { status: 'ACTIVE', completedCount: 3, totalSteps: 8, progressPercent: 37.5, currentStepName: '带看工地', nextContactOn: '2026-11-27' } }, { canWrite: true, today: '2026-11-25' });
+  assert.equal(row.stageName, '带看工地'); assert.equal(row.appointment, '2026-12-01'); assert.match(row.detail, /12-01/);
+  assert.equal(row.workflow.nextContactOn, '2026-11-27', '八步邀约日期保持在原摘要');
+  assert.equal(row.progress, '3/8步 · 37.5%'); assert.equal(row.action, '客户跟进'); assert.equal(row.off, false);
   assert.equal(row.workflow.progressPercent, 37.5); assert.equal(row.flowUrl, '/pages/customer-flow/index?customerId=900719925474099999');
-  assert.match(row.url, /pages\/workflow\/index\?view=customer/);
+  assert.match(row.url, /pages\/workflow\/index\?view=customer/); assert.doesNotMatch(row.url, /modal=follow/);
+});
+
+test('流失与暂缓的客户置灰，不进待跟进和预约跟进；再次咨询的流失客户突出显示', () => {
+  const crm = require('../miniprogram/utils/platform-crm');
+  const day = '2026-11-26';
+  const lost = crm.customerRow({ id: '1', name: '刘先生', lastFollowAt: 1, workflow: { status: 'LOST', statusReason: '选了同行', completedCount: 4, totalSteps: 8, progressPercent: 50 } }, { today: day });
+  assert.equal(lost.stageName, '已流失'); assert.equal(lost.cue, '选了同行'); assert.equal(lost.off, true); assert.equal(lost.action, '查看 / 恢复');
+  const paused = crm.customerRow({ id: '2', name: '陈先生', lastFollowAt: 1, nextVisitDate: [2027, 3, 15], workflow: { status: 'PAUSED', completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
+  assert.equal(paused.stageName, '暂缓'); assert.equal(paused.cue, '03-15 再联系'); assert.equal(paused.off, true);
+  const again = crm.customerRow({ id: '3', name: '周先生', lastFollowAt: 1, workflow: { status: 'LOST', reconsulted: true, completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
+  assert.equal(again.cue, '再次咨询'); assert.equal(again.cueTone, 'tone-warning');
+  const overdue = crm.customerRow({ id: '4', name: '钱女士', lastFollowAt: 1, nextVisitDate: [2026, 11, 24], workflow: { status: 'ACTIVE', completedCount: 2, totalSteps: 8, progressPercent: 25 } }, { today: day });
+  assert.equal(overdue.cue, '逾期 2 天');
+  assert.deepEqual(crm.tabFilter([overdue, lost, paused, again], 'due', { today: day }).map(row => row.id), ['4']);
+  assert.deepEqual(crm.tabFilter([overdue, lost, paused, again], 'appointments', { today: day }).map(row => row.id), ['2']);
+  const follow = require('../miniprogram/pages/workflow/customer-follow');
+  assert.deepEqual(follow.railView({ currentStepCode: 'HOUSE_SELECTION', steps: [{ code: 'INVITATION', status: 'COMPLETED' }, { code: 'INTRODUCTION', status: 'COMPLETED' }, { code: 'HOUSE_SELECTION', status: 'TODO' }] }).map(row => row.active), [false, false, true]);
+  const timeline = follow.timelineView({ list: [{ id: '9', stepCode: 'INTRODUCTION', type: 'CONSULT', note: '想了解两层报价', createdAt: Date.now(), actorName: '李业务', attachments: [] }], total: 9 });
+  assert.equal(timeline.timeline[0].title, '店面讲解 · 再次咨询'); assert.equal(timeline.timeline[0].kind, 'lead'); assert.equal(timeline.timelineMore, true); assert.equal(timeline.timelineTotal, 9);
 });
 
 test('明确未上传后页面允许换票重传，保留文件字节并清除原票据；切岗后不能重传', async () => {
@@ -775,4 +864,303 @@ test('其他步骤、已实际带看及过期的免带看弹窗均不能发出�
   await done.open();done.page.skipVisit();assert.equal(done.modal,undefined);assert.equal(done.page.data.step.statusLabel,'已带看');
   const draft=harness({step:'SITE_VISIT'});await draft.open();draft.page.input(event('siteName','刚输入的现场'));draft.page.skipVisit();
   assert.equal(draft.modal,undefined);assert.equal(draft.page.data.form.fields.siteName,'刚输入的现场');
+});
+
+// ===== 下次跟进日期与流程状态（八步流程是客户跟进的唯一事实来源） =====
+const dayText = offset => require('../miniprogram/utils/platform-crm').toDate(Date.now() + offset * 86400000);
+
+test('完成本步前必须约定下次跟进日期；仅保存记录可不填，带了就随记录提交', async () => {
+  const h = harness(); await h.open();
+  // 本步还没单独约定时，沿用客户当前还没过期的约定
+  assert.equal(h.page.data.form.nextFollowOn, nextFollowOn);
+  h.page.input(event('nextFollowOn', ''));
+  await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
+  assert.match(h.page.data.error, /请先约定下次跟进日期/);
+  assert.equal(h.callsFor('save').length, 0, '未约定日期时不发出任何保存或完成请求');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  assert.equal(h.callsFor('save')[0].args[2].nextFollowOn, null);
+  h.page.input(event('nextFollowOn', '2000-01-01'));
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  assert.match(h.page.data.error, /下次跟进日期不能早于今天/);
+  assert.equal(h.callsFor('save').length, 1);
+  h.page.input(event('nextFollowOn', dayText(0)));
+  await h.page.submit({ currentTarget: { dataset: { action: 'complete' } } });
+  assert.equal(h.callsFor('save').at(-1).args[2].nextFollowOn, dayText(0));
+  assert.equal(h.callsFor('complete').length, 1);
+  assert.equal(h.page.data.error, '');
+});
+
+test('标记流失：必选原因，“其他”须自填；按服务端当前流程版本提交并刷新', async () => {
+  const h = harness(); await h.open();
+  h.page.journeyState();
+  assert.equal(h.actionSheet.itemList.join(','), '暂缓跟进,标记流失');
+  h.actionSheet.success({ tapIndex: 1 });
+  assert.equal(h.page.data.statusSheet.kind, 'lost');
+  await h.page.submitStatus(); assert.match(h.page.data.statusSheet.error, /请选择流失原因/);
+  assert.equal(h.callsFor('status').length, 0);
+  assert.equal(h.state.status, 'ACTIVE');
+  h.page.statusPick({ currentTarget: { dataset: { code: 'COMPETITOR' } } });
+  await h.page.submitStatus();
+  assert.deepEqual(h.callsFor('status')[0].args.slice(0, 2), ['42', { status: 'LOST', reasonCode: 'COMPETITOR', reason: '', revision: h.state.revision - 1 }]);
+  const request = h.requests.find(row => row.method === 'POST');
+  assert.equal(request.url, '/franchise/customers/42/workflow/status');
+  assert.deepEqual(request.body, h.callsFor('status')[0].args[1]);
+  assert.equal(request.headers['Idempotency-Key'], h.callsFor('status')[0].args[2]);
+  assert.ok(request.headers['Idempotency-Key']);
+  assert.equal(h.state.status, 'LOST'); assert.equal(h.page.data.statusSheet, null);
+  assert.ok(h.toasts.some(text => text.title === '已标记流失'));
+  assert.equal(h.callsFor('get').length, 3, '首次加载、提交前取版本、成功后刷新各读取一次');
+
+  const other = harness(); await other.open();
+  other.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+  other.page.statusPick({ currentTarget: { dataset: { code: 'OTHER' } } });
+  await other.page.submitStatus(); assert.match(other.page.data.statusSheet.error, /请填写流失原因/);
+  other.page.statusInput({ detail: { value: ' 选了同村施工队 ' } });
+  await other.page.submitStatus();
+  assert.equal(other.callsFor('status')[0].args[1].reason, '选了同村施工队');
+  other.page.closeStatus(); assert.equal(other.page.data.statusSheet, null);
+});
+
+test('暂缓须填写原因和晚于今天的再联系日期；已暂缓或已流失时流程状态可恢复', async () => {
+  const h = harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+  await h.page.submitStatus(); assert.match(h.page.data.statusSheet.error, /请填写暂缓原因/);
+  h.page.statusInput({ detail: { value: '等宅基地批复' } });
+  h.page.statusDate({ detail: { value: dayText(0) } });
+  await h.page.submitStatus(); assert.match(h.page.data.statusSheet.error, /晚于今天/);
+  assert.equal(h.callsFor('status').length, 0);
+  h.page.statusDate({ detail: { value: dayText(30) } });
+  await h.page.submitStatus();
+  assert.deepEqual(h.callsFor('status')[0].args[1], { status: 'PAUSED', reason: '等宅基地批复', nextFollowOn: dayText(30), revision: h.state.revision - 1 });
+  assert.equal(h.state.status, 'PAUSED');
+  h.page.journeyState(); assert.equal(h.actionSheet.itemList.join(','), '恢复跟进');
+  h.actionSheet.success({ tapIndex: 0 });
+  assert.equal(h.page.data.statusSheet.kind, 'resume');
+  await h.page.submitStatus();
+  assert.deepEqual(h.callsFor('status')[1].args[1], { status: 'ACTIVE', revision: h.state.revision - 1 });
+  assert.equal(h.state.status, 'ACTIVE');
+
+  const lost = harness(); lost.state.status = 'LOST'; await lost.open();
+  lost.page.journeyState(); lost.actionSheet.success({ tapIndex: 0 }); await lost.page.submitStatus();
+  assert.equal(lost.callsFor('status')[0].args[1].status, 'ACTIVE');
+  assert.equal(lost.page.data.workflow.status, 'ACTIVE');
+});
+
+test('带 status 参数进入时自动打开对应弹层，只打开一次；不可办理的客户不打开', async () => {
+  const h = harness({ status: 'lost' }); await h.open();
+  assert.equal(h.page.data.statusSheet.kind, 'lost');
+  await h.page.load({ replace: true }); assert.equal(h.page.data.statusSheet.kind, 'lost', '之后的刷新不再重复弹出或关闭');
+  h.page.closeStatus(); await h.page.load({ replace: true }); assert.equal(h.page.data.statusSheet, null);
+  const readonly = harness({ status: 'lost' }); Object.assign(readonly.state, { canChangeStatus: false }); await readonly.open();
+  assert.equal(readonly.page.data.statusSheet, null);
+  readonly.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+  assert.equal(readonly.page.data.statusSheet, null);
+});
+
+test('状态提交结果未知时保留原键重试，确定失败时提示原因', async () => {
+  const h = harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+  h.page.statusInput({ detail: { value: '等批复' } }); h.page.statusDate({ detail: { value: dayText(9) } });
+  h.overrides.status = async () => { h.state.revision += 1; throw { code: -1 }; };
+  await h.page.submitStatus();
+  assert.equal(h.page.data.statusSheet.busy, false); assert.match(h.page.data.statusSheet.error, /未收到保存确认/);
+  const readCount=h.callsFor('get').length;
+  h.page.statusInput({ detail: { value: '不能替换旧请求的内容' } });
+  h.overrides.status = async () => { throw { code: 409, message: '流程已更新，请刷新后重试' }; };
+  await h.page.submitStatus();
+  assert.deepEqual(h.callsFor('status')[1].args, h.callsFor('status')[0].args, '回执丢失后只重发原日期、原原因、原版本和原编号');
+  assert.equal(h.callsFor('get').length,readCount,'结果未知时不重新取版本');
+  assert.match(h.page.data.statusSheet.error, /流程已更新/);
+  delete h.overrides.status;
+  await h.page.submitStatus();
+  assert.notEqual(h.callsFor('status')[2].args[2], h.callsFor('status')[0].args[2], '确定失败后换新的幂等键');
+  assert.equal(h.page.data.statusSheet, null);
+});
+
+test('状态已保存但回执丢失，重试找回原结果且不再执行变更', async () => {
+  const h=harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+  h.page.statusPick({ currentTarget: { dataset: { code: 'PRICE' } } });
+  let original, writes=0;
+  h.overrides.status=async (...args) => {
+    if (!original) {
+      original=copy(args);
+      h.state.status='LOST'; h.state.revision += 1; writes += 1;
+      throw { code: -1 };
+    }
+    assert.deepEqual(args,original);
+    return copy(h.state);
+  };
+  await h.page.submitStatus();
+  assert.equal(h.page.data.statusSheet.pending,true);
+  assert.equal(writes,1);
+  await h.page.submitStatus();
+  assert.equal(writes,1);
+  assert.equal(h.page.data.statusSheet,null);
+  const requests = h.requests.filter(row => row.method === 'POST');
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1], requests[0], '真实 HTTP 请求保留首次日期、版本、内容和 Idempotency-Key');
+});
+
+test('状态 revision 冲突保留原状态和填写，重试读取最新版本并使用新命令', async () => {
+  const h = harness(); await h.open();
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+  h.page.statusInput({ detail: { value: '等审批' } });
+  await h.page.submitStatus();
+  assert.equal(h.callsFor('status').length, 0, '缺必要日期不提交');
+  h.page.statusDate({ detail: { value: dayText(3) } });
+  h.overrides.status = async () => { h.state.revision = 4; throw { code: 409, message: '流程已更新，请刷新后重试' }; };
+  await h.page.submitStatus();
+  assert.equal(h.state.status, 'ACTIVE');
+  assert.equal(h.page.data.workflow.status, 'ACTIVE');
+  assert.equal(h.page.data.statusSheet.reasonText, '等审批');
+  assert.match(h.page.data.statusSheet.error, /流程已更新/);
+  assert.equal(h.page.data.statusSheet.pending, false);
+  assert.equal(h.page.__statusCommand, null);
+  delete h.overrides.status;
+  await h.page.submitStatus();
+  const [first, retry] = h.callsFor('status');
+  assert.equal(first.args[1].revision, 0);
+  assert.equal(retry.args[1].revision, 4);
+  assert.notEqual(retry.args[2], first.args[2]);
+  assert.equal(h.page.data.workflow.status, 'PAUSED');
+});
+
+test('状态读取或提交后切换客户/岗位，迟到响应不能污染当前客户或新的弹层', async () => {
+  for (const phase of ['get', 'status']) {
+    for (const change of ['customer', 'post']) {
+      for (const rejected of [false, true]) {
+        const h = harness(); await h.open();
+        h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+        h.page.statusPick({ currentTarget: { dataset: { code: 'PRICE' } } });
+        const held = deferred(); h.overrides[phase] = () => held.promise;
+        const pending = h.page.submitStatus(); await tick();
+        delete h.overrides[phase];
+        if (change === 'customer') { h.page.clear(); h.page.onLoad({ customerId: '43' }); }
+        else h.switchSession();
+        h.state = workflow({ customerId: h.page.customerId, customerName: '当前客户' });
+        await h.open();
+        h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+        h.page.statusInput({ detail: { value: '当前填写' } });
+        const expected = copy(h.page.data);
+        if (rejected) held.reject({ code: 409, message: '旧客户的冲突' });
+        else held.resolve(workflow({ status: 'LOST', revision: 99, customerName: '旧客户' }));
+        await pending;
+        assert.deepEqual(copy(h.page.data), expected, [phase, change, rejected].join('/'));
+        assert.equal(h.toasts.length, 0);
+        assert.equal(h.callsFor('status').length, phase === 'status' ? 1 : 0, '旧客户的迟到读取不得继续提交');
+      }
+    }
+  }
+});
+
+test('八步页模板包含下次跟进日期、可点的流程状态和状态弹层', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const h = harness(); await h.open();
+  const template = path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  const nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.tag === 'picker' && node.attrs['data-key'] === 'nextFollowOn'));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'journeyState'));
+  assert.equal(nodes.some(node => node.attrs && node.attrs.bindtap === 'statusPick'), false, '未打开时不渲染弹层');
+  h.page.openStatus({ currentTarget: { dataset: { kind: 'lost' } } });
+  const sheet = flatten(render(template, h.page.data));
+  for (const handler of ['statusPick', 'closeStatus', 'submitStatus']) assert.ok(sheet.some(node => node.attrs && node.attrs.bindtap === handler), handler);
+  assert.equal(sheet.filter(node => node.attrs && node.attrs.bindtap === 'statusPick').length, h.page.data.lostReasons.length);
+  // “其他”和“暂缓”才出现原因输入框；暂缓另有再联系日期
+  h.page.statusPick({ currentTarget: { dataset: { code: 'OTHER' } } });
+  assert.ok(flatten(render(template, h.page.data)).some(node => node.tag === 'textarea' && node.attrs.bindinput === 'statusInput'));
+  h.page.closeStatus(); h.page.openStatus({ currentTarget: { dataset: { kind: 'paused' } } });
+  const paused = flatten(render(template, h.page.data));
+  assert.ok(paused.some(node => node.tag === 'textarea' && node.attrs.bindinput === 'statusInput'));
+  assert.ok(paused.some(node => node.tag === 'picker' && node.attrs.bindchange === 'statusDate'));
+});
+
+test('05测量步骤可登记设计合同：上传写入fields、可预览移除，不占通用附件列表', async () => {
+  const h = harness({ step: 'MEASUREMENT', upload: async pending => ({ assetId: '800', title: pending.file.name, mimeType: 'application/pdf' }) });
+  await h.open();
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designFile' } } });
+  assert.equal(h.filePicker, undefined, '设计文件槽位不属于测量步骤');
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.ok(h.filePicker, '选择器已打开');
+  h.filePicker.success({ tempFiles: [{ name: '设计服务合同.pdf', path: '/local/contract.pdf', size: 1024 }] });
+  for (let i = 0; i < 10 && h.page.data.form.fields.designContractAssetId !== '800'; i++) await tick();
+  assert.equal(h.page.data.form.fields.designContractAssetId, '800');
+  assert.equal(h.page.data.form.fields.designContractName, '设计服务合同.pdf');
+  assert.equal(h.page.data.form.attachments.length, 0, '槽位文件不进通用附件列表');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.designContractAssetId, '800');
+  assert.equal(body.fields.designContractName, '设计服务合同.pdf');
+  assert.equal(body.attachments, undefined || body.attachments.length === 0 ? body.attachments : body.attachments, '通用附件保持为空');
+  assert.deepEqual(body.attachments, []);
+  const pickerBefore = h.filePicker;
+  h.page.chooseSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.equal(h.filePicker, pickerBefore, '已登记后不再打开选择器');
+  delete h.page._localFiles['800'];
+  await h.page.previewFile({ currentTarget: { dataset: { id: '800' } } });
+  assert.deepEqual(h.callsFor('download').at(-1).args, ['42', 'MEASUREMENT', '800'], '槽位文件走本步下载票据');
+  h.page.removeSlotFile({ currentTarget: { dataset: { slot: 'designContract' } } });
+  assert.equal(h.page.data.form.fields.designContractAssetId, '');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  assert.equal(h.callsFor('save')[1].args[2].fields.designContractAssetId, '', '移除后显式提交空值清除');
+});
+
+test('06报价设计文件独立于报价原单：换原单与改外部报价都保留，历史查看可回看', async () => {
+  const h = harness({ step: 'QUOTATION', upload: async pending => ({ assetId: '800', title: pending.file.name, mimeType: 'application/pdf' }) });
+  h.overrides.listQuotes = async () => [{ id: '9001', customerId: '42', companyId: '9', totalCents: 128000, budgetVersion: 2, createTime: '2026-11-20T10:00:00Z' }];
+  await h.open(); await tick();
+  await h.page.startUpload({ path: '/local/design.pdf', name: '别墅设计方案V1.pdf' }, model.SLOTS.designFile);
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800');
+  h.page.chooseQuote({ detail: { value: 0 } });
+  assert.equal(h.page.data.form.fields.quoteId, '9001');
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800', '关联正式报价不清设计文件');
+  h.page.removeQuote();
+  assert.equal(h.page.data.form.fields.designFileAssetId, '800', '改用外部报价保留设计文件');
+  assert.equal(h.page.data.form.attachments.length, 0);
+  await h.page.startUpload({ path: '/local/design2.pdf', name: '别墅设计方案V2.pdf' }, model.SLOTS.designFile);
+  assert.equal(h.page.data.form.fields.communicated, false, '更换设计文件不重置报价沟通');
+  assert.equal(h.page.data.form.fields.designFileName, '别墅设计方案V2.pdf');
+  await h.page.submit({ currentTarget: { dataset: { action: 'save' } } });
+  const body = h.callsFor('save')[0].args[2];
+  assert.equal(body.fields.designFileAssetId, '800');
+  assert.equal(body.fields.designFileName, '别墅设计方案V2.pdf');
+  h.page.setData({ records: model.records([{ id: '91', stepCode: 'QUOTATION', type: 'SAVE', fields: { quoteId: '9001', designFileAssetId: '801', designFileName: '历史设计文件.pdf' }, attachments: [] }]) });
+  h.page.viewRecord({ currentTarget: { dataset: { id: '91' } } });
+  assert.ok(h.page.data.activeRecord.details.some(row => row.label === '设计文件' && row.value === '历史设计文件.pdf'));
+  assert.ok(h.page.data.activeRecord.attachments.some(file => file.assetId === '801' && file.title === '历史设计文件.pdf'));
+});
+
+test('专用资料拍照后按上传识别的类型预览，无需先保存或重新下载', async () => {
+  const h = harness({ step: 'QUOTATION', upload: async pending => pending.file.name
+    ? { assetId: '801', title: pending.file.name, mimeType: 'application/pdf' }
+    : { assetId: '800', title: '现场照片', mimeType: 'image/jpeg' } });
+  await h.open();
+  h.page.chooseSlotPhoto({ currentTarget: { dataset: { slot: 'designFile' } } });
+  h.mediaPicker.success({ tempFiles: [{ tempFilePath: '/local/camera', size: 1024 }] });
+  await tick();
+  await h.page.previewFile({ currentTarget: { dataset: { id: '800' } } });
+  assert.deepEqual(copy(h.preview), { urls: ['/local/camera'] });
+  assert.equal(h.callsFor('download').length, 0);
+
+  h.page.removeSlotFile({ currentTarget: { dataset: { slot: 'designFile' } } });
+  await h.page.startUpload({ path: '/local/plan.pdf', name: '方案.pdf' }, model.SLOTS.designFile);
+  await h.page.previewFile({ currentTarget: { dataset: { id: '801' } } });
+  assert.equal(h.preview.filePath, '/local/plan.pdf');
+  assert.equal(h.preview.showMenu, true);
+  assert.equal(h.callsFor('download').length, 0);
+});
+
+test('八步页模板只为测量与报价步骤渲染各自的专用资料槽位', async () => {
+  const { render } = require('./role-page-runtime.cjs');
+  const template = path.join(root, 'miniprogram/pages/customer-flow/index.wxml'), flatten = nodes => nodes.flatMap(node => [node, ...flatten(node.children || [])]);
+  const h = harness({ step: 'MEASUREMENT' }); await h.open();
+  let nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'chooseSlotFile' && node.attrs['data-slot'] === 'designContract'));
+  assert.equal(nodes.some(node => node.attrs && node.attrs['data-slot'] === 'designFile'), false, '测量步骤不渲染设计文件槽位');
+  h.page.select('QUOTATION');
+  nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'chooseSlotFile' && node.attrs['data-slot'] === 'designFile'));
+  h.page.setData({ form: { ...h.page.data.form, fields: { ...h.page.data.form.fields, designFileAssetId: '801', designFileName: '设计文件.pdf' } } });
+  nodes = flatten(render(template, h.page.data));
+  assert.ok(nodes.some(node => node.attrs && node.attrs.bindtap === 'removeSlotFile' && node.attrs['data-slot'] === 'designFile'), '已登记后出现移除按钮');
 });

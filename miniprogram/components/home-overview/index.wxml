@@ -2,7 +2,7 @@
 <view class="overview {{role}}">
  <view class="summary-card">
   <view class="overview-heading"><view wx:if="{{role==='owner'}}" class="tabs"><button class="{{tab==='operating'?'selected':''}}" data-tab="operating" bindtap="switchTab">经营</button><button class="{{tab==='ledger'?'selected':''}}" data-tab="ledger" bindtap="switchTab">账本</button></view><text wx:else class="heading-title">{{role==='business'?'业务概览':role==='engineering'?'工程概览':'本月收支'}}</text><picker mode="date" fields="month" value="{{month}}" bindchange="changeMonth"><view class="month">{{month}}<image src="/assets/creation-down.png"/></view></picker></view>
-  <view class="overview-status" aria-live="polite"><text>{{error||(loading?'正在更新业务数据…':'')}}</text><button wx:if="{{error}}" bindtap="load">重新加载</button></view>
+  <view class="overview-status {{(error||loading)?'active':''}}" aria-live="polite"><text>{{error||(loading?'正在更新业务数据…':'')}}</text><button wx:if="{{error}}" bindtap="load">重新加载</button></view>
   <block wx:if="{{role==='business'||role==='engineering'||(role==='owner'&&tab==='operating')}}">
    <view class="metric-grid {{role==='engineering'?'three':'two'}} primary-grid"><template wx:for="{{board.primary}}" wx:key="key" is="metric" data="{{item:item,size:'large'}}"/></view>
    <view class="metric-grid three secondary-grid"><template wx:for="{{board.secondary}}" wx:key="key" is="metric" data="{{item:item}}"/></view>

@@ -39,24 +39,15 @@ test('accepted work remains resumable when the user has already left the design 
  h.page._candidateClosed=false;h.ok();await h.page.submitAttempt(h.spec);assert.equal(h.result().jobs,1);assert.equal(h.routes.length,1);
 });
 
-test('retired simulation never enters a command even when an older server advertises it',()=>{
+test('retired legacy submission rejects even when older state advertises simulation or formal fees',()=>{
  let page;
  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/workflow/commission/index.js'),'utf8'),{
-  Page:value=>{page=value;},
-  require:id=>id==='./payment-flow'?()=>({}):id.endsWith('/view-container')?{makeFormHandlers:()=>({})}:{}
+  Page:value=>{page=value;},require:id=>id.endsWith('/view-container')?{makeFormHandlers:()=>({})}:{}
  });
- const form={__mode:'AREA_FULL',__budgetVersion:1,__pricingVersion:2,text:'建房需求',scope:'设计方案',checked:true};
- const ctx={data:{form},__context:{feeOffer:{simulationAllowed:false}}};
- const payload=()=>page.commandPayload.call(ctx,'commission-submit');
- assert.equal(payload().paymentMode,undefined);
- form.testPayment=true;
- assert.throws(payload,/模拟付款已停用/);
- ctx.__context.feeOffer.simulationAllowed=true;
- assert.throws(payload,/模拟付款已停用/,'an older backend cannot authorize the versioned test mode');
- ctx.__context.feeOffer.simulationPaymentMode='TEST_SIMULATION';
- assert.throws(payload,/模拟付款已停用/);
- form.testPayment=false;
- assert.equal(payload().paymentMode,undefined);
+ for(const testPayment of [true,false]){
+  const ctx={data:{form:{__mode:'AREA_FULL',__budgetVersion:1,__pricingVersion:2,text:'原需求',scope:'原范围',checked:true,testPayment}},__context:{feeOffer:{simulationAllowed:true}}};
+  assert.throws(()=>page.commandPayload.call(ctx,'commission-submit'),/旧委托新增已停用/);
+ }
 });
 
 function commissionPage(postSubmit, postCommand) {
@@ -73,7 +64,7 @@ function commissionPage(postSubmit, postCommand) {
   Page:value=>{definition=value;},
   wx:{showToast(){},pageScrollTo(){},removeStorageSync(){}},
   require:id=>({
-   './payment-flow':()=>({}),'../../../utils/view-container':{makeFormHandlers:()=>({})},
+   '../../../utils/view-container':{makeFormHandlers:()=>({})},
    '../../../api/franchise/commission':api,'../../../api/http':{sessionGuard:()=>()=>true},
    './presentation':presentation,'./design-brief':require('../miniprogram/pages/workflow/commission/design-brief')
   }[id]||{})
@@ -108,33 +99,13 @@ test('原负责人转交后，指定接收人可以在原页面确认移交',asy
  assert.equal(calls[1].key,calls[0].key);
  assert.equal(page.view,'progress');
 });
-test('withdrawal invalidates consent and formal submission requires a new explicit choice',async()=>{
- const calls=[];
- const {page,withdraw}=commissionPage(async (...call)=>{calls.push(call);return {commissionId:'8'};});
- withdraw();
- await page.refresh();
- assert.equal(page.data.paymentChoiceRequired,true);
- assert.equal(page.data.form.checked,false);
- await page.submit();
- assert.equal(calls.length,0);
- page.chooseFormalCommission();
- await page.submit();
- assert.equal(calls.length,0);
- page.check({currentTarget:{dataset:{key:'checked'}},detail:{value:['yes']}});
- await Promise.all([page.submit(),page.submit()]);
- assert.equal(calls.length,1);
- assert.equal(calls[0][1].paymentMode,undefined);
-});
-test('stale simulation drafts require a fresh physical-fee confirmation before any request',async()=>{
- const calls=[];
- const {page,withdraw}=commissionPage(async (_,payload)=>{
-   calls.push(payload.paymentMode);withdraw();throw {code:1111000022,message:'演练权限已撤回'};
- });
- await page.submit();
- await page.submit();
+test('stale formal and simulated drafts cannot send a new LEGACY request',async()=>{
+ const calls=[];const {page}=commissionPage(async(...call)=>{calls.push(call);return {commissionId:'8'};});
+ for(const testPayment of [true,false]){
+  page.data.form.testPayment=testPayment;page.data.form.checked=true;
+  await page.submit();assert.match(page.data.error,/旧委托新增已停用/);assert.equal(page.data.busy,false);
+ }
  assert.deepEqual(calls,[]);
- assert.equal(page.data.paymentChoiceRequired,true);
- assert.equal(page.data.form.checked,false);
 });
 
 test('archive pagination uses the committed keyword and discards stale search responses',async()=>{

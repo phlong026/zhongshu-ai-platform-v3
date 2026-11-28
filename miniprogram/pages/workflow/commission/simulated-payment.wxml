@@ -9,4 +9,16 @@
   <view wx:if="{{paymentOrder.timeText}}" class="commission-row"><text class="commission-muted">历史登记时间</text><text>{{paymentOrder.timeText}}</text></view>
  </block>
  <text class="payment-disclaimer">模拟记录不计入实际收支。实际付款请由财务登记流水和凭证。</text>
+ <block wx:if="{{view==='receipt'}}">
+  <view wx:if="{{paymentOrder.canPrepareHistoricalSettlement}}" class="commission-field">
+   <text class="commission-label">历史费用复核</text>
+   <text class="commission-muted">请核对原委托费用及实际结算情况并填写说明，后续收付款沿原财务单据办理。</text>
+   <textarea value="{{settlementNote}}" maxlength="500" disabled="{{busy||settlementPending}}" bindinput="settlementInput" placeholder="填写历史费用核对说明"/>
+   <button class="commission-primary" disabled="{{busy}}" loading="{{busy}}" bindtap="prepareHistoricalSettlement">{{settlementPending?'重试原复核':'确认历史费用复核'}}</button>
+  </view>
+  <view wx:elif="{{paymentOrder.historicalSettlementPrepared}}" class="commission-field">
+   <text class="commission-muted">历史费用已复核，实际收付款以原财务流水为准。</text>
+   <button wx:if="{{canViewHistoricalPayments}}" class="commission-secondary" bindtap="openHistoricalPayments">查看原设计费用</button>
+  </view>
+ </block>
 </view>

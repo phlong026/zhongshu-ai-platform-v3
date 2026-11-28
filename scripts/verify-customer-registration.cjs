@@ -17,7 +17,7 @@ function instance(definition) {
     if(done)done();
   }};
 }
-function pageHarness(http = {}) {
+function pageHarness(http = {}, navigations = [], orgStaff = async()=>[]) {
   let definition,windowHeight=800,listener,unsubscribed=false;
   vm.runInNewContext(fs.readFileSync(path.join(root,'miniprogram/pages/workflow/index.js'),'utf8'),{
     Page(value){definition=value;},Date,Math,Promise,
@@ -27,7 +27,11 @@ function pageHarness(http = {}) {
       if(id.endsWith('/view-container'))return {routeValue:value=>value,fail(){}};
       if(id==='./views')return {titles:{}};
       if(id.endsWith('/http'))return http;
+      if(id.endsWith('/api/org'))return {orgStaff};
       if(id.endsWith('/organization'))return {roles:{sales:'销售'}};
+      if(id.endsWith('/page-navigation'))return {open(url){navigations.push(url);}};
+      if(id.endsWith('/api/franchise/content'))return {growth:{customerSources:()=>Promise.resolve([])}};
+      if(id==='./customer-follow')return require('../miniprogram/pages/workflow/customer-follow');
       throw Error('Unexpected dependency '+id);
     }
   });
@@ -120,121 +124,82 @@ test('missing village data allows explicit manual entry, while fetch errors rema
   assert.equal(failure.component.data.rows[0].loading,false);
 });
 
-function followHarness() {
-  let generation = 1, post = {postId:'sales',roleCode:'sales'}, reads = 0;
-  const http = {token:()=>post ? 'token' : '',sessionGeneration:()=>generation};
-  const {page} = pageHarness(http);
-  const calls = [], records = new Map();
-  page.id = 'customer-1';
-  page.__http = http;
-  page.platformSession = () => post;
-  page.loadPlatformDetail = () => { reads++; };
-  page.setData({view:'customer',platformMode:true,canFollow:true});
-  page.__crmApi.customers = {follow(id,payload,key) {
-    let resolve, reject;
-    const promise = new Promise((ok,fail)=>{resolve=ok;reject=fail;});
-    function commit() {
-      if(records.has(key)) assert.deepEqual(records.get(key),payload);
-      records.set(key,payload);
-    }
-    calls.push({id,key,payload,commit,reject,acknowledge() {
-      commit();
-      resolve({customer:{id,name:'客户'},follows:[...records.values()].map(row=>({note:row.note,occurredOn:row.occurredOn}))});
-    }});
-    return promise;
+function followupHarness(customerView = {}) {
+  const http={sessionGeneration:()=>1}, navigations=[], requests=[];
+  // 约定两天后跟进：未逾期。
+  const planned=CRM.toDate(Date.now()+2*86400000);
+  const {page}=pageHarness(http, navigations);
+  const customer={id:'42',name:'钱女士',revision:4,ownerUserId:'11',status:'FOLLOWING',
+    workflow:{status:'ACTIVE',completedCount:2,totalSteps:8,progressPercent:25,currentStepCode:'HOUSE_SELECTION',currentStepName:'户型选择',nextStepCode:'SITE_VISIT',nextFollowOn:planned}};
+  const stepNames={INVITATION:'邀约进店',INTRODUCTION:'店面讲解',HOUSE_SELECTION:'户型选择',SITE_VISIT:'带看工地',MEASUREMENT:'现场测量',QUOTATION:'别墅报价',CONTRACT:'合同签约',START:'开工大吉'};
+  // 步骤名称来自服务端八步视图（Step.label），工作区不自己翻译步骤编码。
+  const steps=Object.keys(stepNames).map((code,index)=>({code,name:stepNames[code],order:index+1,
+    status:index<2?'COMPLETED':'TODO',revision:index<2?1:0,occurredOn:null,note:'',fields:{},attachments:[],completedAt:null,canWrite:false,canComplete:false,canReopen:false,completionErrors:[],source:'MANUAL'}));
+  const entry={id:'9',stepCode:'INTRODUCTION',type:'CONSULT',occurredOn:null,note:'想了解两层的报价',createdAt:Date.now(),actorUserId:'11',actorName:'李业务',revision:5,fields:{},attachments:[]};
+  const timeline=(pageNo,total)=>({list:pageNo===1?[entry,{...entry,id:'8',type:'COMPLETE',stepCode:'INTRODUCTION',note:'已到店'}]:[{...entry,id:'7',type:'LEGACY',stepCode:null}],total});
+  page.id='42';page.__http=http;page.__pf=CRM;page.__post={postId:'sales',roleCode:'sales'};page.__postKey='sales';page.__pageSession=1;
+  page.platformSession=()=>({postId:'sales',roleCode:'sales'});
+  page.__crmApi={customers:{
+    get:id=>{requests.push(['get',id]);return Promise.resolve({customer,follows:[],schemes:[]});},
+    workflow:id=>{requests.push(['workflow',id]);return Promise.resolve({...customerView,workflowId:'5',customerId:'42',status:'ACTIVE',revision:3,completedCount:2,totalSteps:8,progressPercent:25,
+      currentStepCode:'HOUSE_SELECTION',nextStepCode:'SITE_VISIT',canWrite:true,steps,events:[],hasMoreEvents:false,nextFollowOn:planned,canChangeStatus:customerView.canChangeStatus!==false});},
+    timeline:(id,pageNo)=>{requests.push(['timeline',id,pageNo]);return Promise.resolve(timeline(pageNo,pageNo===1?3:0));}
   }};
-  page.openModal('follow');
-  page.input({currentTarget:{dataset:{key:'followContent'}},detail:{value:'约电话沟通方案'}});
-  page.date({currentTarget:{dataset:{key:'appointment'}},detail:{value:CRM.today()}});
-  return {page,calls,records,reads:()=>reads,changePost(next) { generation++; post=next; }};
+  page.setData({platformMode:true,view:'customer',customer:{id:'42'},canFollow:true});
+  return {page,navigations,requests,customer};
 }
 
-for(const replyWhileHidden of [false,true]) {
-  test('pending follow displays the saved record when the reply arrives '+(replyWhileHidden?'in background':'after return'),async()=>{
-    const {page,calls,records,reads}=followHarness();
-    const save=page.saveModal();
-    page.onHide();
-    if(!replyWhileHidden) { page.onShow(); page.onShow(); }
-    assert.equal(reads(),0);
-    page.saveModal();
-    assert.equal(calls.length,1);
-    calls[0].acknowledge();
-    await save;
-    if(replyWhileHidden)page.onShow();
-    assert.equal(page.data.busy,false);
-    assert.equal(page.data.modal,'');
-    assert.equal(page.data.activeCustomerTab,1);
-    assert.equal(page.data.customer.follows[0].content,'约电话沟通方案');
-    assert.equal(records.size,1);
-    assert.equal(reads(),0);
-    page.onShow();
-    assert.equal(reads(),1);
-  });
-}
+test('the workspace reads the eight-step view and the merged follow-up timeline, and never posts a follow-up',async()=>{
+  const {page,requests}=followupHarness();
+  assert.equal(CRM.followPayload,undefined,'the old follow payload builder is gone');
+  page.loadPlatformDetail('customer');
+  for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(requests.map(row=>row[0]),['get','workflow','timeline']);
+  assert.equal(page.data.flow.status,'ACTIVE');
+  assert.deepEqual(page.data.rail.filter(row=>row.active).map(row=>row.code),['HOUSE_SELECTION']);
+  assert.equal(page.data.currentStepName,'户型选择');
+  assert.equal(page.data.canChange,true);assert.equal(page.data.nextFollowLate,false);
+  assert.equal(page.data.timelineTotal,3);assert.equal(page.data.timelineMore,true);
+  assert.deepEqual(page.data.timeline.map(row=>row.title),['店面讲解 · 再次咨询','店面讲解 · 完成步骤']);
+  page.moreTimeline();
+  for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(requests.at(-1),['timeline','42',2]);
+  assert.equal(page.data.timeline.length,3);assert.equal(page.data.timelineMore,false);assert.equal(page.data.timeline[2].title,'跟进记录');
+});
 
-for(const [saved,code] of [[true,-1],[true,504],[false,-1]]) {
-  test('follow retries the same command after '+(saved?'a lost receipt':'a failed write')+' ('+code+')',async()=>{
-    const {page,calls,records,reads}=followHarness();
-    const first=page.saveModal();
-    page.onHide();
-    if(saved)calls[0].commit();
-    if(!saved)page.onShow();
-    calls[0].reject({code});
-    await first;
-    if(saved)page.onShow();
-    assert.equal(reads(),0);
-    assert.equal(page.data.busy,false);
-    assert.equal(page.data.modal,'follow');
-    assert.equal(page.data.form.followContent,'约电话沟通方案');
-    assert.match(page.data.error,/重试/);
-    assert.equal(records.size,saved?1:0);
-    const retry=page.saveModal();
-    assert.equal(calls[0].key,calls[1].key);
-    assert.deepEqual(calls[0].payload,calls[1].payload);
-    calls[1].acknowledge();
-    await retry;
-    assert.equal(page.data.customer.follows.length,1);
-    assert.equal(page.data.modal,'');
-    assert.equal(records.size,1);
-  });
-}
+test('an overdue appointment and a read-only boss are shown from the eight-step view',async()=>{
+  const overdue=followupHarness();overdue.page.__crmApi.customers.workflow=()=>Promise.resolve({...overdue.page.data.flow,nextFollowOn:CRM.dateToArray(CRM.toDate(Date.now()-86400000))});
+  overdue.page.loadPlatformDetail('customer');
+  for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(overdue.page.data.nextFollowLate,true);assert.match(overdue.page.data.nextFollowText,/逾期 1 天/);
+  const boss=followupHarness({canChangeStatus:false});
+  boss.page.loadPlatformDetail('customer');
+  for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(boss.page.data.canChange,false);
+  boss.page.openStatus({currentTarget:{dataset:{kind:'lost'}}});
+  assert.deepEqual(boss.navigations,[],'a read-only viewer cannot open the status sheet');
+});
 
-for(const [label,post] of [['account with the same post ID',{postId:'sales',roleCode:'sales'}],['post',{postId:'other',roleCode:'sales'}],['logout',null]]) {
-  test('switching '+label+' discards the follow form and its late reply',async()=>{
-    const {page,calls,changePost}=followHarness();
-    const oldSave=page.saveModal();
-    page.onHide();
-    changePost(post);
-    page.onShow();
-    assert.equal(page.data.modal,'');
-    assert.equal(page.data.busy,false);
-    assert.deepEqual(page.data.form,{});
-    if(post) {
-      page.setData({canFollow:true});
-      page.openModal('follow');
-      page.input({currentTarget:{dataset:{key:'followContent'}},detail:{value:'新身份草稿'}});
-    }
-    if(label==='post')calls[0].reject({code:401});
-    else calls[0].acknowledge();
-    await oldSave;
-    assert.equal(page.data.customer,null);
-    assert.equal(page.data.error,'');
-    assert.equal(page.data.form.followContent,post?'新身份草稿':undefined);
-  });
-}
-
-test('a late follow receipt cannot update a different customer or an unloaded page',async()=>{
-  for(const unload of [false,true]) {
-    const {page,calls}=followHarness();
-    const first=page.saveModal();
-    page.onHide();
-    if(unload)page.onUnload();
-    else { page.id='customer-2'; page.onShow(); }
-    calls[0].acknowledge();
-    await first;
-    assert.equal(page.data.customer,null);
-    if(!unload)assert.equal(page.data.busy,false);
+test('status actions and the retired follow entry open the eight-step page instead of a follow form',()=>{
+  const {page,navigations}=followupHarness();
+  page.setData({canChange:true});
+  for(const kind of ['paused','lost','resume']) {
+    page.openStatus({currentTarget:{dataset:{kind}}});
+    assert.equal(navigations.at(-1),'/pages/customer-flow/index?customerId=42&status='+kind);
   }
+  page.openCustomerFlow();assert.equal(navigations.at(-1),'/pages/customer-flow/index?customerId=42');
+  // 旧版待办深链仍可能带 modal=follow：改为进入八步页，不再弹出“记录跟进”
+  page.openModal('follow');
+  assert.equal(navigations.at(-1),'/pages/customer-flow/index?customerId=42');
+  assert.equal(page.data.modal,'');page.saveModal();
+  assert.equal(page.data.error,'');
+});
+
+test('the workspace template exposes status actions, the timeline and no follow-up sheet',()=>{
+  const template=fs.readFileSync(path.join(root,'miniprogram/pages/workflow/index.wxml'),'utf8');
+  assert.doesNotMatch(template,/modal==='follow'|customer\.follows/);
+  for(const kind of ['paused','lost','resume'])assert.match(template,new RegExp('data-kind="'+kind+'"[^>]*bindtap="openStatus"|bindtap="openStatus"[^>]*data-kind="'+kind+'"'));
+  assert.match(template,/bindtap="moreTimeline"/);assert.match(template,/bindtap="openCustomerFlow"/);
 });
 
 function customerWriteHarness(action) {
@@ -274,11 +239,79 @@ function customerWriteHarness(action) {
     page.setData({'form.name':'已修改'});
   }else{
     page.__transferCandidates=[{label:'同名 · 一组',userId:'101'},{label:'同名 · 二组',userId:'102'}];
-    page.setData({form:{newOwner:'同名 · 二组',transferReason:'调整分工'}});
+    page.setData({form:{transferReason:'调整分工'}});
+    page.pickTransferOwner({detail:{value:'1'}});
   }
   return {page,calls,reads,effects,loads:()=>loads,send:()=>action==='transfer'?page.submit():page.saveModal(),
     switchTo(next){generation++;post=next;}};
 }
+
+test('transfer submits the selected user ID when names and departments are identical',async()=>{
+  const h=customerWriteHarness('transfer'),{page,calls}=h;
+  page.__transferCandidates=[{label:'张三 · 一组',userId:'101'},{label:'张三 · 一组',userId:'202'}];
+  page.pickTransferOwner({detail:{value:'1'}});
+  const saving=h.send();
+  assert.equal(calls[0].payload.targetUserId,'202');
+  page.pickTransferOwner({detail:{value:'0'}});
+  assert.equal(page.data.form.newOwnerUserId,'202','an in-flight write keeps its original recipient');
+  calls[0].ack();await saving;
+});
+
+test('refreshed transfer candidates keep the selected identity through reorder and clear revoked targets',async()=>{
+  const employee=id=>({userId:id,name:'张三',teamName:'一组',roleCode:'sales',active:true,mobile:'13800000'+id});
+  let rows=[employee('101'),employee('202')];
+  const {page}=pageHarness({},[],async()=>rows);
+  page.__post={orgId:'1'};page.__pf=CRM;
+  await page.loadTransferTargets(1);
+  assert.deepEqual(copy(page.data.ownerOptions),['张三 · 一组 · 手机尾号 0101','张三 · 一组 · 手机尾号 0202']);
+  assert(!JSON.stringify(page.data).includes(employee('202').mobile));
+  page.pickTransferOwner({detail:{value:'1'}});
+  assert.match(page.data.form.newOwner,/0202$/);
+  rows=[employee('202'),employee('101')];
+  await page.loadTransferTargets(1);
+  assert.equal(page.data.form.newOwnerUserId,'202');
+  assert.equal(page.data.form.newOwnerIndex,0);
+  rows=[employee('101'),{...employee('202'),active:false}];
+  await page.loadTransferTargets(1);
+  assert.equal(page.data.form.newOwnerUserId,'');
+  assert.equal(page.data.form.newOwner,'');
+  page.platformSubmitTransfer();assert.match(page.data.error,/请选择接手人/);
+});
+
+test('indistinguishable names with missing or matching phone hints cannot be submitted',async()=>{
+  const employee=(id,mobile,name='张三')=>({userId:id,name,teamName:'一组',roleCode:'sales',active:true,mobile});
+  const rows=[employee('101','13812341234'),employee('202','13945671234'),employee('303',''),employee('404','13800000404','李四')];
+  const {page}=pageHarness({},[],async()=>rows);
+  page.__post={orgId:'1'};page.__pf=CRM;
+  await page.loadTransferTargets(1);
+  assert.deepEqual(copy(page.data.ownerOptions), [
+    '张三 · 一组 · 手机尾号 1234 · 需核对身份',
+    '张三 · 一组 · 手机尾号 1234 · 需核对身份',
+    '张三 · 一组 · 需核对身份','李四 · 一组'
+  ]);
+  for(const value of ['0','1','2']){
+    page.pickTransferOwner({detail:{value}});
+    assert.equal(page.data.form.newOwnerUserId,'');
+    assert.match(page.data.error,/请核对员工资料/);
+  }
+  page.platformSubmitTransfer();
+  assert.match(page.data.error,/请选择接手人/);
+  page.pickTransferOwner({detail:{value:'3'}});
+  assert.equal(page.data.form.newOwnerUserId,'404');
+});
+
+test('transfer cannot use a display label or an invalid picker index as an identity',()=>{
+  const {page}=customerWriteHarness('transfer');
+  page.setData({form:{newOwner:'同名 · 二组',transferReason:'调整分工'}});
+  page.platformSubmitTransfer();assert.match(page.data.error,/请选择接手人/);
+  for(const value of ['-1','999','1.5','NaN']){
+    page.pickTransferOwner({detail:{value}});
+    assert.equal(page.data.form.newOwnerUserId,'');
+  }
+  page.data.sourceOptions=['朋友介绍','到店咨询'];
+  page.pick({currentTarget:{dataset:{key:'source',options:'sourceOptions'}},detail:{value:'1'}});
+  assert.equal(page.data.form.source,'到店咨询','unrelated pickers retain their original behavior');
+});
 
 for(const action of ['capture','update','transfer']){
   for(const commitBeforeTimeout of [false,true]){
@@ -399,4 +432,13 @@ test('customer reminders open the matching customer follow-up tab on a cold entr
     assert.equal(page.data.activeCustomerTab,expected);
     if(options.id)assert.equal(page.id,id);
   }
+});
+
+
+test('最后一个待办和八步完成来自服务端，不把 nextStepCode 为空当作完成',()=>{
+  const {page}=followupHarness();
+  page.applyFlow({status:'ACTIVE',completedCount:7,currentStepCode:'START',nextStepCode:null,steps:[]});
+  assert.equal(page.data.currentStepName,'开工大吉');
+  page.applyFlow({status:'COMPLETED',completedCount:8,currentStepCode:null,nextStepCode:null,steps:[]});
+  assert.equal(page.data.currentStepName,'业务八步完成');
 });

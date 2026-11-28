@@ -31,7 +31,7 @@ function merge(c,existing){
  // 工程经办人、已签施工合同和现场记录由工程维护，资料刷新只带入业务交底。
  Object.assign(p,{sourceCustomerId:c.id,name:c.name+' · '+c.city.replace(/市$/,'')+'乡墅',customer:c.name,city:c.city,phone:c.phone,area:basis.area,floors:basis.floors,accepted:p.accepted||c.acceptance.date});
  if(!p.recordFlow?.contract)p.contractTotal=c.agreements?.at(-1)?.total??c.contract?.total??p.contractTotal??0;
- const SF=require('./sales-flow'),offline=SF.is(c),packet=c.businessFlow?.packet;
+ const SF=require('./commission-history'),offline=SF.is(c),packet=c.businessFlow?.packet;
  p.acceptedAt=p.acceptedAt||c.acceptance.at||c.businessFlow?.events?.filter(e=>e.action==='packet-receive').at(-1)?.at||c.acceptance.date;
  if(offline)require('./engineering-records').init(p);
  const d=offline?{version:packet?.drawingVersion,file:packet?.drawingFile}:latest(c.drawings);

@@ -80,10 +80,10 @@ test('owner navigation uses one transition and keeps only the last queued destin
   h.navigation[1].complete();assert.equal(h.app.globalData.workspaceNavigating,false);
 });
 
-async function setup(initialFailure={}) {
+async function setup(initialFailure={}, kind='home', role='boss') {
   const runtime = await connect();
   const auth = require('../miniprogram/api/auth');
-  const post = { postId:'boss-home', orgId:'store-home', orgName:'不应显示的门店名称', orgType:'store', roleCode:'boss' };
+  const post = { postId:'boss-home', orgId:'store-home', orgName:'不应显示的门店名称', orgType:'store', roleCode:role };
   auth.saveLogin({ accessToken:'boss-home-test' }); auth.savePosts([post]); auth.switchPost(post.postId);
   const day = CRM.today();
   const later = CRM.toDate(Date.now() + 86400000), earlier = CRM.toDate(Date.now() - 86400000);
@@ -105,6 +105,9 @@ async function setup(initialFailure={}) {
     let failed = false;
     if (url === '/platform/profile/mine') data = { nickname:'裴火荣' };
     else if (url === '/platform/todos') data = { items:[], failedDomains:[], actionableCount:0 };
+    else if (url === '/franchise/home') data = {metrics:{signed:{total:2,cents:350000},building:{total:1,cents:0}}};
+    // 业务首页的客户数字改读服务端跟进汇总，口径与这批客户数据一致：待跟进 3、预约 1、已逾期 1、跟进过 133。
+    else if (url === '/franchise/customers/follow-summary') data = { total:customers.length, due:3, appointments:1, overdue:1, following:customers.length - 2, lost:0, paused:0 };
     else if (url === '/franchise/customers' || url === '/franchise/commissions') {
       failed = businessFailure;
       const rows = url === '/franchise/customers' ? customers : commissions;
@@ -121,42 +124,47 @@ async function setup(initialFailure={}) {
     };
     setImmediate(() => options.success({ statusCode:200, data:{ code:failed ? 500 : 0, msg:failed ? '测试接口失败' : '', data } }));
   };
-  await runtime.callWxMethod('reLaunch', { url:'/pages/admin/home/index' }); await flush();
+  await runtime.callWxMethod('reLaunch', { url:'/pages/admin/'+kind+'/index' }); await flush();
   const page = getCurrentPages().at(-1);
   return {
     runtime, page, auth, post, customers, commissions, projects, calls,
-    nodes:() => flatten(render(file, page.data)),
+    nodes:() => flatten(render(path.resolve(__dirname,'../miniprogram/'+page.route+'.wxml'), page.data)),
     failure:(type, value) => { if (type === 'business') businessFailure=value; if (type === 'projects') projectsFailure=value; if (type === 'summary') summaryFailure=value; },
     intercept:fn => { intercept=fn; }
   };
 }
 
-test('老板指标使用业务、工程首页的同一统计函数和全量接口数据', async () => {
-  const h = await setup();
-  const business = h.page.data.desk.home.business;
-  const engineering = h.page.data.desk.home.engineering;
-  assert.deepEqual(business.metrics, CRM.homeSummary(h.customers, h.commissions, h.post).metrics);
-  assert.deepEqual(business.metrics.map(row => row.value), [3, 1, '1.25', 135]);
-  assert.deepEqual(engineering.counts, Engineering.homeStats(Engineering.listCards(h.projects)));
-  assert.deepEqual(engineering.metrics.map(row => row.value), [1,1,1,5]);
-  for (const url of ['/franchise/customers','/franchise/commissions']) {
-    assert.deepEqual(h.calls.filter(call => call.url === url).map(call => call.data.pageNo), [1,2]);
+const unusedHomeRoutes = ['/franchise/customers','/franchise/commissions','/franchise/performance/tasks/summary','/franchise/performance/goals','/franchise/performance/operating/analytics'];
+function homeOverview(h) {
+  const mod=path.resolve(__dirname,'../miniprogram/components/home-overview/index');
+  let def;const previous=global.Component;
+  try {global.Component=d=>{def=d;};delete require.cache[require.resolve(mod)];require(mod);}finally{global.Component=previous;delete require.cache[require.resolve(mod)];}
+  const component={...def.methods,properties:{role:'owner',period:h.page.data.desk.period},data:structuredClone(def.data),
+    setData(patch){Object.assign(this.data,patch);},triggerEvent(name,detail){if(name==='monthchange')h.page.month({detail});}};
+  return {component,attach:()=>def.lifetimes.attached.call(component)};
+}
+test('老板和经营者首页只取实际消费的数据，指标及换月由现有概览组件读取', async () => {
+  for(const role of ['boss','owner']) {
+    const h=await setup({business:true,summary:true},'home',role), overview=homeOverview(h);
+    await overview.attach();
+    assert.deepEqual(h.page.data.desk.home.engineering.counts,Engineering.homeStats(Engineering.listCards(h.projects)));
+    assert.equal(h.nodes().filter(n=>hasClass(n,'home-project-row')).length,3);
+    assert.equal(overview.component.data.board.metrics.signed.known,true);
+    assert.deepEqual(h.calls.filter(row=>row.url==='/franchise/home').map(row=>row.data),[{role:'owner',period:h.page.platPeriod}]);
+    overview.component.changeMonth({detail:{value:'2026-10'}});await flush();
+    assert.equal(h.page.data.desk.period,'2026-10');
+    assert.equal(h.calls.filter(row=>row.url==='/franchise/home').at(-1).data.period,'2026-10');
+    h.page.retryHome();h.page.onShow();await flush();
+    for(const route of unusedHomeRoutes)assert.equal(h.calls.filter(row=>row.url===route).length,0,route);
+    assert.equal(h.page.platSummary,null);assert.equal(h.page.data.homeRefreshError,false);
   }
-  assert.equal(business.panels.find(panel => panel.key === 'all').total, 135);
-  assert.equal(business.panels.find(panel => panel.key === 'all').rows.length, 8);
-  assert.ok(business.panels.find(panel => panel.key === 'all').hasMore);
-
-  // Render the existing business home with the same backend rows, rather than only comparing helper output.
-  const sales = { ...h.post, postId:'sales-home', roleCode:'sales' };
-  h.auth.savePosts([sales]); h.auth.switchPost(sales.postId);
-  await h.runtime.callWxMethod('switchTab', { url:'/pages/business/index' }); await flush();
-  const actualBusiness = getCurrentPages().at(-1).data;
-  assert.deepEqual([actualBusiness.todayCount,actualBusiness.appointmentCount,actualBusiness.commission.value,actualBusiness.customerCount], business.metrics.map(row => row.value));
-  assert.equal(actualBusiness.commission.unit, business.metrics[2].unit);
-  const engineer = { ...h.post, postId:'engineering-home', roleCode:'engineer' };
-  h.auth.savePosts([engineer]); h.auth.switchPost(engineer.postId);
-  await h.runtime.callWxMethod('reLaunch', { url:'/pages/build/home/index' }); await flush();
-  assert.deepEqual(getCurrentPages().at(-1).data.eng.stats, engineering.counts);
+});
+test('经营页面继续读取被消费的绩效汇总、目标和经营数据', async()=>{
+  const h=await setup({},'finance');
+  for(const route of unusedHomeRoutes.slice(2))assert.equal(h.calls.filter(row=>row.url===route).length,1,route);
+  assert.equal(h.page.platSummary.summary.departments.business['auto:collectionsAmount'],1234500);
+  assert.equal(h.page.data.desk.ledger.inTotal,'¥12,345.00');
+  assert.equal(h.calls.filter(row=>row.url==='/franchise/engineering/projects').length,0);
 });
 
 async function ownerOverviewFixture(h) {
@@ -181,32 +189,21 @@ test('经营指标打开所选月份及岗位的明细',async()=>{
   const detail=getCurrentPages().at(-1);assert.equal(detail.route,'pages/home-metrics/index');assert.equal(detail.role,'owner');assert.equal(detail.data.key,'signed');assert.equal(detail.data.period,'2026-11');
 });
 
-test('普通失败保留已核验业务和工程，成功空结果才显示真实空态', async () => {
+test('普通失败保留重点工程，成功空结果才显示真实空态', async () => {
   const h = await setup();
-  h.failure('business',true); await h.page.refreshHomeModules(); await flush();
-  assert.deepEqual(h.page.data.desk.home.business.metrics,CRM.homeSummary(h.customers,h.commissions,h.post).metrics);
-  assert.equal(h.page.data.desk.home.business.available,true);assert.ok(h.page.ownerBusinessError);
-  assert.equal(h.page.data.desk.home.engineering.available,true);
-  h.failure('business',false); h.failure('projects',true);
-  await h.page.refreshHomeModules(); await flush();
-  assert.equal(h.page.data.desk.home.business.available,true);
+  h.failure('projects',true);await h.page.refreshHomeModules();await flush();
   assert.deepEqual(h.page.data.desk.home.engineering.counts,Engineering.homeStats(Engineering.listCards(h.projects)));assert.ok(h.page.ownerProjectsError);
-  h.failure('projects',false); h.failure('summary',true);
-  h.page.refresh(); await flush();
-  assert.equal(h.page.data.desk.home.business.available,true);
-  assert.equal(h.page.data.desk.home.engineering.available,true);
-  h.customers.length=0; h.commissions.length=0; h.projects.length=0;
-  await h.page.refreshHomeModules(); await flush();
-  assert.ok(h.page.data.desk.home.business.metrics.every(row => Number(row.value) === 0));
-  assert.ok(h.page.data.desk.home.engineering.metrics.every(row => row.value === 0));
-  const empty=h.nodes().find(n=>hasClass(n,'home-empty'));assert.ok(empty);assert.equal(text(empty), '当前没有工程项目');
+  h.failure('projects',false);h.projects.length=0;
+  await h.page.refreshHomeModules();await flush();
+  assert.ok(h.page.data.desk.home.engineering.metrics.every(row=>row.value===0));
+  const empty=h.nodes().find(n=>hasClass(n,'home-empty'));assert.ok(empty);assert.equal(text(empty),'当前没有工程项目');
 });
 
 test('换月只影响经营账本；换岗与迟到响应不会恢复旧模块内容', async () => {
   const h = await setup();
-  const originalMetrics = h.page.data.desk.home.business.metrics;
+  const originalProjects = h.page.ownerProjects;
   h.page.month({detail:{value:'2026-10'}}); await flush();
-  assert.deepEqual(h.page.data.desk.home.business.metrics, originalMetrics);
+  assert.deepEqual(h.page.ownerProjects,originalProjects);assert.equal(h.calls.filter(row=>unusedHomeRoutes.includes(row.url)).length,0);
   const delayed = deferred();
   h.intercept((url, options) => {
     if (url !== '/franchise/engineering/projects') return false;
@@ -218,7 +215,6 @@ test('换月只影响经营账本；换岗与迟到响应不会恢复旧模块�
   h.auth.savePosts([next]); h.auth.switchPost(next.postId);
   h.customers.length=0; h.commissions.length=0; h.projects.length=0; h.intercept(() => false);
   await h.page.refreshHomeModules(); delayed.resolve(); await oldRequest; await flush();
-  assert.ok(h.page.data.desk.home.business.metrics.every(row => Number(row.value) === 0));
   assert.ok(h.page.data.desk.home.engineering.metrics.every(row => row.value === 0));
   assert.equal(h.page.data.expandedBusiness,''); assert.equal(h.page.data.expandedEngineering,'');
 });
@@ -285,8 +281,7 @@ test('interrupted member append retains all loaded pages after resuming',async()
 });
 
 test('first owner reads that fail never invent zero metrics or cached projects',async()=>{
- const h=await setup({business:true,projects:true,summary:true});
- assert.equal(h.page.data.desk.home.business.available,false);assert(h.page.data.desk.home.business.metrics.every(r=>r.value==='—'));
+ const h=await setup({projects:true});
  assert.equal(h.page.data.desk.home.engineering.available,false);assert.equal(h.page.data.desk.home.engineering.sites.length,0);assert.equal(h.page.data.desk.ledger.inTotal,'—');
 });
 test('same-scope duplicate shows retain all owner cards and share pending domain reads',async()=>{
@@ -294,7 +289,7 @@ test('same-scope duplicate shows retain all owner cards and share pending domain
  h.intercept((url,o)=>{if(url==='/franchise/engineering/projects'){held.push(o);return true;}return false;});
  const start=h.calls.length;h.page.onShow();h.page.onShow();
  assert.equal(JSON.stringify([h.page.data.desk.home,h.page.platSummary]),before);
- await flush();for(const url of ['/franchise/engineering/projects','/franchise/performance/tasks/summary','/franchise/performance/goals','/franchise/performance/operating/analytics','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
+ await flush();for(const url of ['/franchise/engineering/projects','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
  assert.equal(h.nodes().filter(n=>hasClass(n,'home-project-row')).length,3);
  assert(h.nodes().some(n=>n.tag==='#text'&&n.text.includes('更新中')));
  held[0].success({statusCode:200,data:{code:0,data:h.projects}});await flush();assert.equal(h.page.data.homeRefreshing,false);
@@ -306,7 +301,7 @@ test('an ordinary project refresh failure keeps mounted rows and retries from th
  assert(!h.page.ownerProjectsError);assert.equal(h.page.data.desk.home.engineering.sites.length,3);
 });
 test('owner summaries retain a failed domain while applying the other domain latest response',async()=>{
- const h=await setup(),oldSummary=structuredClone(h.page.platSummary.summary);
+ const h=await setup({},'finance'),oldSummary=structuredClone(h.page.platSummary.summary);
  h.intercept((url,o)=>{if(url.endsWith('/tasks/summary')){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'offline'}}));return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:0,data:{trend:[{period:h.page.platPeriod,incomeCents:990000,paidCents:0,netCents:990000}],totals:{}}}}));return true;}return false;});
  await h.page.refreshPlatSummary();await flush();assert.deepEqual(h.page.platSummary.summary,oldSummary);assert.equal(h.page.platSummary.operating.trend[0].incomeCents,990000);assert.equal(h.page.platDegraded,true);
  const oldOperating=structuredClone(h.page.platSummary.operating);
@@ -325,9 +320,9 @@ test('same-post owner permission and organization changes clear every cached mod
 test('hidden owner reads cannot merge with a return or overwrite its new projects, performance or profile',async()=>{
  for(const leave of ['onHide','onUnload']){
   const h=await setup(),held=[];
-  h.intercept((url,o)=>{if(['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'].includes(url)){held.push({url,o});return true;}return false;});h.page.onShow();await flush();
+  h.intercept((url,o)=>{if(['/franchise/engineering/projects','/platform/profile/mine'].includes(url)){held.push({url,o});return true;}return false;});h.page.onShow();await flush();
   const start=h.calls.length;h.page[leave]();h.intercept(()=>false);h.page.onShow();await flush();
-  for(const url of ['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
+  for(const url of ['/franchise/engineering/projects','/platform/profile/mine'])assert.equal(h.calls.slice(start).filter(c=>c.url===url).length,1,url);
   const latest=JSON.stringify(h.page.data.desk);for(const {url,o}of held)o.success({statusCode:200,data:{code:url==='/platform/profile/mine'?0:403,data:{nickname:'旧姓名'}}});await flush();assert.equal(JSON.stringify(h.page.data.desk),latest);
  }
 });
@@ -339,7 +334,7 @@ test('current owner denial representations clear all retained summaries and proj
  }}finally{Engineering.api.projects.page=original;}
 });
 test('month changes clear only the financial snapshot and reject late previous-period responses',async()=>{
- const h=await setup(),projects=h.page.ownerProjects,customers=h.page.ownerCustomers,held=[];
+ const h=await setup({},'finance'),projects=h.page.ownerProjects,customers=h.page.ownerCustomers,held=[];
  h.intercept((url,o)=>{if(url.includes('/performance/')){held.push(o);return true;}return false;});h.page.refreshPlatSummary();await flush();
  h.intercept(()=>false);h.page.month({detail:{value:'2026-10'}});assert.equal(h.page.platSummary,null);assert.equal(h.page.ownerProjects,projects);assert.equal(h.page.ownerCustomers,customers);await flush();
  const latest=JSON.stringify(h.page.platSummary);for(const o of held)o.success({statusCode:200,data:{code:0,data:{departments:{private:'previous-month'}}}});await flush();assert.equal(JSON.stringify(h.page.platSummary),latest);
@@ -348,15 +343,15 @@ test('month changes clear only the financial snapshot and reject late previous-p
 
 test('owner project retry starts a new read even when another home domain is still pending',async()=>{
  const h=await setup(),old=[];
- h.intercept((url,o)=>{if(url==='/franchise/customers'){old.push(o);return true;}if(url==='/franchise/engineering/projects'){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'项目网络失败'}}));return true;}return false;});
- h.page.refreshHomeModules();await flush();assert(h.page.ownerProjectsError);const start=h.calls.length;
+ h.intercept((url,o)=>{if(url==='/platform/profile/mine'){old.push(o);return true;}if(url==='/franchise/engineering/projects'){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'项目网络失败'}}));return true;}return false;});
+ h.page.onShow();await flush();assert(h.page.ownerProjectsError);assert.equal(old.length,1);const start=h.calls.length;
  h.intercept(()=>false);const p=await h.runtime.currentPage();await(await p.$('.home-section-heading button')).tap();await flush();
  assert.equal(h.calls.slice(start).filter(c=>c.url==='/franchise/engineering/projects').length,1,'explicit retry was swallowed by the other domain pending flight');
  assert.equal(h.page.ownerProjectsError,'');assert.equal(h.page.data.desk.home.engineering.sites.length,3);
  for(const o of old)o.success({statusCode:200,data:{code:0,data:{list:[],total:0}}});await flush();
 });
 test('owner summary retry starts a fresh failed domain while the parallel summary domain is pending',async()=>{
- const h=await setup(),old=[];
+ const h=await setup({},'finance'),old=[];
  h.intercept((url,o)=>{if(url.endsWith('/tasks/summary')){old.push(o);return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:500,msg:'经营网络失败'}}));return true;}return false;});
  h.page.refreshPlatSummary();await flush();assert.equal(h.page.platOperatingDegraded,true);const start=h.calls.length;
  h.intercept(()=>false);h.page.retryHome();await flush();
@@ -366,15 +361,17 @@ test('owner summary retry starts a fresh failed domain while the parallel summar
 });
 test('current owner denial followed by same-scope retry cannot revive any earlier domain owner',async()=>{
  const h=await setup(),old=[];
- h.intercept((url,o)=>{if(['/franchise/engineering/projects','/franchise/performance/tasks/summary','/platform/profile/mine'].includes(url)){old.push({url,o});return true;}if(url.endsWith('/operating/analytics')){setImmediate(()=>o.success({statusCode:200,data:{code:403,msg:'当前权限拒绝'}}));return true;}return false;});
+ h.intercept((url,o)=>{if(url==='/franchise/engineering/projects'){old.push({url,o});return true;}if(url==='/platform/profile/mine'){setImmediate(()=>o.success({statusCode:200,data:{code:403,msg:'当前权限拒绝'}}));return true;}return false;});
  h.page.onShow();await flush();assert.equal(h.page.ownerProjects,null);assert.equal(h.page.ownerCustomers,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.platProfileName,'');
  const fresh=[];h.intercept((url,o)=>{if(url==='/platform/todos')return false;fresh.push(o);return true;});h.page.retryHome();await flush();
  for(const{url,o}of old)o.success({statusCode:200,data:{code:0,data:url==='/franchise/engineering/projects'?[{id:'old-private',name:'旧权限工程',status:'IN_PROGRESS'}]:url==='/platform/profile/mine'?{nickname:'旧姓名'}:{departments:{business:{private:'old'}}}}});await flush();
  assert.equal(h.page.ownerProjects,null);assert.equal(h.page.platSummary,null);assert.equal(h.page.platProfileName,'');assert.equal(h.page.data.desk.home.engineering.sites.length,0);
- h.page.onUnload();for(const o of fresh)o.success({statusCode:200,data:{code:0,data:[]}});await flush();
+ for(const o of fresh)o.success({statusCode:200,data:{code:0,data:o.url.includes('/profile/mine')?{nickname:'当前姓名'}:h.projects}});await flush();
+ assert.equal(h.page.data.homeRefreshError,false);assert.equal(h.page.data.homeAccessError,'');assert.equal(h.page.data.desk.name,'当前姓名');
+ assert.equal(h.page.data.desk.home.engineering.sites.length,3);
 });
 test('owner archive confirmation forces a new summary batch instead of joining its pre-archive read',async()=>{
- const h=await setup(),old=[],writes=[];
+ const h=await setup({},'finance'),old=[],writes=[];
  h.intercept((url,o)=>{if(url.endsWith('/operating/snapshot')){writes.push(o);return true;}if(url.includes('/performance/')){old.push(o);return true;}return false;});
  h.page.refreshPlatSummary();await flush();h.page.archivePlatSnapshot();await flush();assert.equal(writes.length,1);const start=h.calls.length;
  h.intercept(()=>false);writes[0].success({statusCode:200,data:{code:0,data:{}}});await flush();

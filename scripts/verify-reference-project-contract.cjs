@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const attach = require('../miniprogram/pages/workflow/explore/platform-bridge');
+const attach = require('./fixtures/legacy-explore-platform-bridge.cjs');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function harness(error) {
   const calls = [];

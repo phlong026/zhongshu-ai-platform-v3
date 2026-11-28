@@ -49,6 +49,7 @@ test('所有加盟商岗位和总部代表岗位都能从我的打开公告列�
     ...templates.store.map(role => [role, 'store', ['finance', 'finance-lead'].includes(role)
       ? '/pages/admin/finance-desk/index?view=profile' : '/pages/profile/index']),
     ['finance', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
+    ['finance-lead', 'headquarters', '/pages/admin/finance-desk/index?view=profile'],
     ['hq-admin', 'headquarters', '/pages/profile/index']
   ]) {
     const env = await setup(role, orgType);
@@ -72,6 +73,12 @@ test('所有加盟商岗位和总部代表岗位都能从我的打开公告列�
       assert.ok(services >= 0 && training > services, role + ' has fixed franchise and training sections');
       assert.match(text(rendered[services].children), /展陈设计.*众墅甄选.*门店地图.*商学院/s);
       assert.match(text(rendered[training].children), /全部课程.*当前岗位暂无已开放课程.*学习资料/s);
+    } else {
+      assert.match(profileText, /公司公告.*消息.*总部工具.*加盟商地图.*全品牌.*学习培训/s);
+      assert.doesNotMatch(profileText, /加盟商服务|平台财务协作|平台财务管理|总部全品牌工作台|公司与项目账本|我的绩效任务/);
+      assert.ok(!flat(env.render(page)).some(node => node.tag === 'point-asset-card'));
+      if (role === 'hq-admin') assert.match(profileText, /平台管理.*公告管理.*加盟商名录/s);
+      else assert.doesNotMatch(profileText, /平台管理|公告管理|加盟商名录/);
     }
     await control.tap(); await flush();
     const list = getCurrentPages().at(-1);
@@ -90,9 +97,15 @@ test('所有加盟商岗位和总部代表岗位都能从我的打开公告列�
   }
 });
 
-test('游客不显示内部公告入口，列表和详情深链接转登录且保留原目标', async () => {
+test('游客显示公告登录引导，访问列表和详情转登录且保留原目标', async () => {
   const env = await setup(null), profile = await env.open('/pages/profile/index');
-  assert.equal(text(env.render(profile)).includes('公司公告'), false);
+  assert.match(text(env.render(profile)), /公司公告.*登录后查看/s);
+  assert.doesNotMatch(text(env.render(profile)), /用户协议/);
+  const click = [], originalNavigate = wx.navigateTo;
+  wx.navigateTo = options => click.push(options.url);
+  await (await (await env.runtime.currentPage()).$('button[data-action="announcements"]')).tap();
+  wx.navigateTo = originalNavigate;
+  assert.equal(new URL(click[0], 'https://fixture.invalid').searchParams.get('return'), LIST);
   assert.equal(text(env.render(profile)).includes('退出登录'), false);
   const redirects = [];
   wx.redirectTo = options => redirects.push(options.url);

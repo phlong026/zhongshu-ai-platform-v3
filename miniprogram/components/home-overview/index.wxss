@@ -3,4 +3,4 @@
 .overdue-pill{font-size:20rpx;color:#b76416;background:#ffebc8;padding:3rpx 8rpx;border-radius:20rpx;white-space:nowrap}.follow-strip button{gap:5rpx;padding:0 9rpx}.follow-strip .overdue-pill{margin-left:auto}
 
 .finance>.summary-card:first-child,.finance .refunds{background:transparent}
-.overview-status{height:56rpx;min-height:28px;display:flex;align-items:center;margin:0 4rpx 8rpx;gap:12rpx;font-size:24rpx;color:#8f8980;box-sizing:border-box}.overview-status>text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.overview-status>button{flex-shrink:0;font-size:24rpx;color:#8b522b;text-decoration:underline}
+.overview-status{height:0;min-height:0;display:flex;align-items:center;margin:0 4rpx;gap:12rpx;font-size:24rpx;color:#8f8980;box-sizing:border-box;overflow:hidden}.overview-status.active{height:56rpx;min-height:28px;margin-bottom:8rpx}.overview-status>text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.overview-status>button{flex-shrink:0;font-size:24rpx;color:#8b522b;text-decoration:underline}

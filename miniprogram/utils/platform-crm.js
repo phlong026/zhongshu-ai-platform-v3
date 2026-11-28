@@ -1,14 +1,19 @@
 /**
- * 平台客资视图模型（阶段 1 · P1 客户接入）：客户列表/工作区/跟进/登记/转交。
+ * 平台客资视图模型（阶段 1 · P1 客户接入）：客户列表/工作区/登记/转交。
  * 纯函数，零 wx/Storage 依赖——隔离验收（AC9 执行链 spy）依赖此约束。
  * 契约见 docs/backend-parity/09-阶段1-P1客户接入-需求与验收.md（V6，Codex R5 PASS）。
- * 序列化事实：nextVisitDate=[年,月,日] 数组；createTime/lastFollowAt=毫秒时间戳；
+ * 序列化事实：nextVisitDate / nextFollowOn=[年,月,日] 数组；createTime/lastFollowAt=毫秒时间戳；
  * Long 超出 ±(2^53-1) 输出字符串（边界值本身也是字符串）——ID 一律不透明值，禁止数值化。
+ * 客户跟进只有八步流程一个事实来源：下次跟进日期读客户表的 nextVisitDate（由八步服务同步）。
  */
 const CRM_ROLES = ['sales', 'sales-lead', 'boss', 'owner'];
 const DESIGN_STATUS_TEXT = {EXTERNAL_PENDING:'等待外部成果',EXTERNAL_READY:'外部成果已登记',FEE_PENDING:'委托待审核',FEE_RETURNED:'委托待修改',DESIGNING:'设计中',DESIGN_COMPLETED:'设计完成',DISPATCHED:'成果已下发',HANDOVER_SUBMITTED:'待工程接收',HANDOVER_RETURNED:'移交待补充',ACCEPTED:'已移交工程'};
 const customerStatus = c => DESIGN_STATUS_TEXT[c.designStatus] || statusText(c.status);
 const STATUS_TEXT = { REGISTERED: '已登记', FOLLOWING: '跟进中' };
+/** 八步流程状态里需要单独显示的三种；进行中（ACTIVE）显示当前步骤。 */
+const FLOW_STATE = { PAUSED: '暂缓', LOST: '已流失', COMPLETED: '已开工' };
+const CRM_ROLESTEPS = { INVITATION: '邀约进店', INTRODUCTION: '店面讲解', HOUSE_SELECTION: '户型选择', SITE_VISIT: '带看工地', MEASUREMENT: '现场测量', QUOTATION: '别墅报价', CONTRACT: '合同签约', START: '开工大吉' };
+const TIMELINE_TYPES = { SAVE: '保存记录', COMPLETE: '完成步骤', SKIP: '已跳过带看', REOPEN: '重新办理', STATUS: '更新状态', SUPPLEMENT: '补充记录', CONSULT: '再次咨询', LEGACY: '跟进记录', VISIT: '实际接待' };
 
 /** 五态判定归并：guest/no-post/non-role → demo；仅 token+销售家族岗位 → api（岗位缓存不作为依据） */
 function pageMode(token, post) {
@@ -84,38 +89,58 @@ const shortDate = d => String(d || '').slice(5, 10);
 function customerRow(c, ctx) {
   const day = (ctx && ctx.today) || today();
   const canW = !!(ctx && ctx.canWrite);
-  const appointment = toDate(c.workflow?.nextContactOn || c.nextVisitDate);
+  const flow = (c && c.workflow) || null;
+  // 与客户列表分栏同源，只认客户的下次跟进日期；八步邀约自己的日期不参与（#287）。
+  const appointment = toDate(c.nextVisitDate);
   const fresh = !c.lastFollowAt;
   const lastDate = toDate(c.lastFollowAt);
   const name = c.name || '';
   const phoneText = c.phone ? maskPhone(c.phone) : (c.wechat || '暂无联系方式');
   const searchText = [c.name, c.phone, c.province, c.city, c.district, c.town, c.village, c.addressDetail].filter(Boolean).join(' ');
+  // 已流失不再提醒；暂缓的客户到再联系日期才回到待跟进，之前按日期排在后面。
+  const lost = !!flow && flow.status === 'LOST';
+  const paused = !!flow && flow.status === 'PAUSED';
+  const waiting = paused && !!appointment && appointment > day;
   let cue, cueTone = '', rank, sortKey;
-  if (appointment && appointment < day) {
+  if (lost) {
+    cue = flow.reconsulted ? '再次咨询' : (flow.statusReason || FLOW_STATE.LOST);
+    cueTone = flow.reconsulted ? 'tone-warning' : 'customer-cue-muted';
+    rank = 5; sortKey = (flow.reconsulted ? '0' : '9') + String(c.lastFollowAt || 0);
+  } else if (waiting) {
+    cue = shortDate(appointment) + ' 再联系'; cueTone = 'customer-cue-muted'; rank = 5; sortKey = '8' + appointment;
+  } else if (appointment && appointment < day) {
     cue = '逾期 ' + daysBetween(appointment, day) + ' 天'; cueTone = 'tone-danger'; rank = 0; sortKey = appointment;
   } else if (appointment && appointment === day) {
-    cue = '今天 回访'; cueTone = 'tone-warning'; rank = 1; sortKey = appointment;
+    cue = '今天跟进'; cueTone = 'tone-warning'; rank = 1; sortKey = appointment;
   } else if (appointment && appointment > day) {
-    cue = shortDate(appointment) + ' 回访'; rank = 3; sortKey = appointment;
+    cue = shortDate(appointment) + ' 跟进'; rank = 3; sortKey = appointment;
   } else if (fresh) {
     cue = '新客户'; rank = 2; sortKey = String(c.createTime || 0);
   } else {
     const n = daysBetween(lastDate, day);
     cue = n > 0 ? n + ' 天未跟进' : '今天已跟进'; cueTone = 'customer-cue-muted'; rank = 4; sortKey = String(c.lastFollowAt || 0);
   }
-  const detail = appointment ? '下次：' + shortDate(appointment) + ' 客户回访' : fresh ? '待首次沟通' : '上次：' + shortDate(lastDate);
+  const detail = lost ? '已流失' + (flow.statusReason ? ' · ' + flow.statusReason : '') + '，可恢复'
+    : waiting ? '暂缓 · ' + shortDate(appointment) + ' 再联系'
+    : appointment ? '下次：' + shortDate(appointment) + ' 跟进'
+    : fresh ? '待首次跟进' : '上次：' + shortDate(lastDate);
   const id = String(c.id);
   return {
     id, name, initial: name.slice(0, 1),
-    status: customerStatus(c), stageName: c.workflow?.currentStepName || customerStatus(c), workflow: c.workflow || null,
+    status: customerStatus(c),
+    stageName: lost || paused ? FLOW_STATE[flow.status] : flow ? workflowProgress(flow).currentStepName : customerStatus(c),
+    engineeringHint: workflowProgress(flow).engineeringHint,
+    workflow: flow || null,
+    progress: flow ? (Number(flow.completedCount) || 0) + '/' + (Number(flow.totalSteps) || 8) + '步 · ' + (flow.progressPercent == null ? 0 : flow.progressPercent) + '%' : '',
+    lost, paused, off: lost || paused, reconsulted: !!(flow && flow.reconsulted),
     phone: phoneText, phoneText, dial: c.phone || '',
     searchText, city: c.city || '', summary: c.summary || '',
     brief: [c.city, c.source && c.source !== '未记录' ? c.source : ''].filter(Boolean).join(' · '),
-    fresh, appointment, next: appointment ? '客户回访' : '',
+    fresh, appointment, next: appointment ? '客户跟进' : '',
     cue, cueTone, rank, sortKey, detail,
     canFollow: canW,
-    action: canW ? '写跟进' : '看记录',
-    url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id) + (fresh && canW ? '&modal=follow' : ''),
+    action: lost ? '查看 / 恢复' : '客户跟进',
+    url: '/pages/workflow/index?view=customer&id=' + encodeURIComponent(id),
     flowUrl: '/pages/customer-flow/index?customerId=' + encodeURIComponent(id),
     hasPhone: !!c.phone,
     hasDesign: !!DESIGN_STATUS_TEXT[c.designStatus], hasPlan: false, hasVisit: !!ctx?.visited,
@@ -125,20 +150,42 @@ function customerRow(c, ctx) {
   };
 }
 
+/** 列表、工作区与八步页共用服务端只读事实；选中的表单页不参与当前业务进度。 */
+function workflowProgress(flow) {
+  if (!flow) return { currentStepName: '待办理', engineeringHint: '' };
+  const currentStepName = CRM_ROLESTEPS[flow.currentStepCode] || (flow.completedCount === 8 ? '业务八步完成' : flow.currentStepName || '待办理');
+  const start = flow.start || (flow.steps || []).find(step => step.code === 'START');
+  const f = start?.fields || {};
+  let hint = '';
+  if (start?.status === 'COMPLETED') hint = '已实际开工';
+  // 当前移交的待办优先于已建档；只有已确认开工可覆盖它。
+  else if (f.commissionStatus === 'HANDOVER_SUBMITTED') hint = f.handoverStatus === 'PENDING' ? '已移交，待指定工程人员接收' : '移交资料待核对';
+  else if (f.commissionStatus === 'HANDOVER_RETURNED') hint = f.handoverStatus === 'RETURNED' ? '移交已退回，待补齐重提' : '移交资料待核对';
+  else if (f.projectId) hint = f.actualStartAt ? '已登记开工日期，开工凭据待核对'
+    : f.commissionStatus === 'ACCEPTED' ? '工程已接收，待实际开工' : '主工程已建档，待实际开工';
+  else if (f.commissionStatus === 'ACCEPTED') hint = '工程已接收，但缺少关联主工程';
+  else if (f.commissionStatus === 'EXTERNAL_PENDING') hint = '待登记外部成果';
+  else if (['EXTERNAL_READY', 'DISPATCHED'].includes(f.commissionStatus)) hint = f.contractSigned === false ? '待提交工程移交，缺正式施工合同' : '待提交工程移交';
+  else if (f.commissionId) hint = '历史委托待核对';
+  const version = Number(f.handoverVersion);
+  return { currentStepName, engineeringHint: hint + (hint && Number.isInteger(version) && version > 0 ? ' · 移交 V' + version : '') };
+}
+
 /** 行排序：rank 升序 → sortKey 字典序 → id 字符串字典序稳定兜底 */
 function sortRows(rows) {
   return rows.slice().sort((a, b) => a.rank - b.rank ||
     String(a.sortKey).localeCompare(String(b.sortKey)) || String(a.id).localeCompare(String(b.id)));
 }
 
-/** 首页汇总使用与客户列表查询一致的上海业务日期。 */
+/**
+ * 首页汇总使用与客户列表查询一致的上海业务日期。
+ * 口径与后端 followFilter 同源：已流失不进任何跟进分栏；暂缓的客户到再联系日期才回到待跟进。
+ */
 function tabFilter(rows, tab, ctx) {
   const day = (ctx && ctx.today) || today();
   if (tab === 'visited') return rows.filter(r => r.hasVisit);
-  if (tab === 'due') {
-    return rows.filter(r => r.fresh || (r.appointment && r.appointment <= day));
-  }
-  if (tab === 'appointments') return rows.filter(r => r.appointment && r.appointment > day);
+  if (tab === 'due') return rows.filter(r => !r.lost && (r.fresh || (r.appointment && r.appointment <= day)));
+  if (tab === 'appointments') return rows.filter(r => !r.lost && r.appointment && r.appointment > day);
   return rows;
 }
 
@@ -183,10 +230,11 @@ function homeSummary(customers, commissions, post, day) {
   const upcoming = tabFilter(rows, 'appointments', { today: day });
   return {
     rows, monthRows, commission, due, upcoming,
-    overdue: rows.filter(row => row.appointment && row.appointment < day),
+    following: rows.filter(row => row.status === '跟进中' && !row.off),
+    overdue: rows.filter(row => !row.lost && row.appointment && row.appointment < day),
     metrics: [
       { key: 'due', label: '今日待跟进', value: due.length, unit: '人' },
-      { key: 'appointments', label: '预约回访', value: upcoming.length, unit: '人' },
+      { key: 'appointments', label: '预约跟进', value: upcoming.length, unit: '人' },
       { key: 'commission', label: '委托', value: commission.value, unit: commission.unit },
       { key: 'all', label: '全部客户', value: rows.length, unit: '人' }
     ]
@@ -212,13 +260,16 @@ function latestSchemeSize(schemes) {
 function detailView(detail, ctx) {
   const canW = !!(ctx && ctx.canWrite);
   const c = detail.customer || {};
+  const flow = (c && c.workflow) || null;
   const size = latestSchemeSize(detail.schemes);
+  // 升级前登记的普通跟进：只读保留在详情里，新版本在“跟进”页显示八步时间线，不再写入。
   const follows = (detail.follows || []).slice().reverse().map(f => ({
     kind: 'api', method: f.contactKind==='VISIT'?'实际接待':f.contactKind==='FOLLOW'?'普通跟进':'', result: '',
     date: toDate(f.occurredOn||f.createTime), appointment: f.nextVisitDate ? toDate(f.nextVisitDate) : '',
     content: f.note || '', note: f.note || ''
   }));
-  const status = customerStatus(c);
+  // 流失、暂缓、已开工在状态位显示；进行中沿用“已登记 / 跟进中”。
+  const status = flow && FLOW_STATE[flow.status] ? FLOW_STATE[flow.status] : customerStatus(c);
   const id = String(c.id);
   return {
     customer: {
@@ -227,7 +278,8 @@ function detailView(detail, ctx) {
       district: c.district || '', town: c.town || '', village: c.village || '',
       regionCode: c.regionCode || '', addressDetail: c.addressDetail || '',
       address: [c.province,c.city,c.district,c.town,c.village,c.addressDetail].filter(Boolean).join(' '),
-      summary: c.summary || '', status,
+      summary: c.summary || '', status, nextVisitDate: toDate(c.nextVisitDate), lastFollowAt: c.lastFollowAt || null,
+      flow: flow && typeof flow === 'object' ? flow : null,
       width: size ? size.width : '', depth: size ? size.depth : '', floors: size ? size.floors : '',
       ownerUserId: c.ownerUserId == null ? '' : String(c.ownerUserId),
       ownerName: c.ownerName || '', ownerDisplay: c.ownerName || '负责人待核', ownerRoleName: '',
@@ -292,15 +344,6 @@ function updatePayload(form, revision) {
     ...addressPayload(form),
     summary: String(form.summary || '').trim(),
     revision
-  };
-}
-
-/** 跟进：{note,nextVisitDate:[y,m,d]}（客户端不带 revision） */
-function followPayload(form) {
-  return {
-    note: String(form.followContent || '').trim(),
-    nextVisitDate: dateToArray(form.appointment),
-    contactKind:form.contactKind==='VISIT'?'VISIT':'FOLLOW',occurredOn:dateToArray(form.occurredOn||today())
   };
 }
 
@@ -468,9 +511,9 @@ function errorMessage(err, action) {
 }
 
 module.exports = {
-  CRM_ROLES, pageMode, can, collectError, toDate, dateToArray, today, maskPhone, statusText,
-  customerRow, sortRows, tabFilter, loadSummaryRows, homeSummary, latestSchemeSize, detailView,
-  commandKey, capturePayload, updatePayload, addressPayload, addressError, followPayload, transferPayload,
+  CRM_ROLES, pageMode, can, collectError, toDate, dateToArray, today, daysBetween, maskPhone, statusText,
+  customerRow, workflowProgress, sortRows, tabFilter, loadSummaryRows, homeSummary, latestSchemeSize, detailView,
+  commandKey, capturePayload, updatePayload, addressPayload, addressError, transferPayload,
   validPhone, within, errorMessage,
   // P2 交易流（契约=docs/backend-parity/12）
   toCents, compileQuoteItems, requirementRow, quoteRow, contractRow, deliveryView, DELIVERY_NODES, errorMessageSales

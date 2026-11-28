@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
@@ -23,13 +24,13 @@ assert.equal(Business.validDate('2999-12-31'), true, '通用业务日期只校�
 
 const cloneConsumers = [
   'miniprogram/utils/finance-ledger.js',
-  'miniprogram/utils/sales-flow.js',
+  'miniprogram/utils/commission-history.js',
   'miniprogram/utils/commercial-approval.js',
   'miniprogram/utils/transfers-v2.js',
   'miniprogram/utils/cross-evidence.js',
   'miniprogram/utils/growth.js',
   'miniprogram/utils/project-settlement.js',
-  'miniprogram/pages/admin/finance-save.js',
+  'scripts/fixtures/legacy-admin/finance-save.js',
   'miniprogram/pages/admin/organization-actions-v2.js'
 ];
 for (const path of cloneConsumers) {
@@ -40,20 +41,20 @@ for (const path of cloneConsumers) {
 
 const dateConsumers = [
   'miniprogram/utils/operations.js',
-  'miniprogram/pages/build/model.js',
   'miniprogram/utils/engineering-records.js',
-  'miniprogram/pages/admin/finance-actions.js',
+  'scripts/fixtures/legacy-admin/finance-actions.js',
   'miniprogram/utils/business.js',
-  'miniprogram/utils/sales-flow.js'
+  'scripts/fixtures/legacy-commission-transition.cjs'
 ];
 for (const path of dateConsumers) {
   const code = read(path);
   assert(!code.includes('/^\\d{4}-\\d{2}-\\d{2}$/'), path + ' 不得回流局部严格日期正则');
   assert(/require\(['"][^'"]*iso-date['"]\)/.test(code), path + ' 应复用严格日期单源');
 }
-const salesFlow = read('miniprogram/utils/sales-flow.js');
+assert.equal(require('../miniprogram/utils/engineering-records').date, isIsoDate, '工程历史与财务共享的日期读取仍使用严格日期单源');
+const salesFlow = read('scripts/fixtures/legacy-commission-transition.cjs');
 assert(/isIsoDate\(v\)\s*&&\s*v\s*<=\s*date\(\)/.test(salesFlow), '客户确认日期仍须保留不能晚于今天的业务边界');
-const financeActions = read('miniprogram/pages/admin/finance-actions.js');
-assert(/isIsoDate\(f\.date\)\s*&&\s*f\.date\s*<=\s*require\(['"]\.\.\/\.\.\/utils\/account['"]\)\.localDate\(\)/.test(financeActions), '财务实收实付日期仍须保留不能晚于今天的业务边界');
+const financeActions = read('scripts/fixtures/legacy-admin/finance-actions.js');
+assert(/isIsoDate\(f\.date\)\s*&&\s*f\.date\s*<=\s*require\(['"]\.\.\/\.\.\/\.\.\/miniprogram\/utils\/account['"]\)\.localDate\(\)/.test(financeActions), '历史财务夹具的实收实付日期仍须保留不能晚于今天的边界');
 
 console.log('PASS JSON 深拷贝与严格日期复用单源，原业务日期范围保持不变');

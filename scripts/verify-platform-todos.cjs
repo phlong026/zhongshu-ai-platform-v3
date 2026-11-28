@@ -96,6 +96,31 @@ assert.equal(r6b.state.status, 'partial-empty');
 assert.ok(!/暂无待办/.test(r6b.state.warning + '已加载部分暂无待办') || r6b.state.status === 'partial-empty', '不得显示暂无待办');
 ok('6');
 
+
+ // 老板只看待决策时，其他待办虽已加载，提成复核失败不能看成没有待决策。
+ {
+   const ownerTodos = require('../miniprogram/utils/owner-todo-view');
+   const tpl = fs.readFileSync(path.join(root, 'miniprogram/pages/admin/todos/index.wxml'), 'utf8');
+   const response = { items: [{ key: 'fr-eng:start:99', title: '待开工', actionable: true, appPath: '/engineering' }],
+     actionableCount: 1, failedDomains: [] };
+   const state0 = PT.initialState();
+   const same = { loadGen: 1, sessionGen: 1, postKey: '1:2:3:store:boss' };
+   const partial = PT.applyResponse(state0, ownerTodos.mergeReviews(response, null, true), same, same).state;
+   assert.equal(partial.status, 'partial');
+   assert.equal(ownerTodos.filter(ownerTodos.board(partial.rows).rows, 'all', true).length, 0);
+   const hint = tpl.split('\n').find(line => line.includes('bindtap="refresh"') &&
+     line.includes("platformTodos.status==='partial'"));
+   assert.ok(hint, '部分有结果仍能点击重试');
+   assert.ok(tpl.split('\n').some(line => line.includes("platformTodos.status==='partial'") &&
+     line.includes('已加载 {{rows.length}} 项待办，结果不完整')), '部分结果不能显示为完整的 0 项');
+   const complete = PT.applyResponse(partial, ownerTodos.mergeReviews(response, [{
+     projectId: '99', project: '合成工程', stages: [{ stage: 'start', canReconcile: true }]
+   }]), same, same).state;
+   assert.equal(complete.status, 'ready');
+   assert.equal(ownerTodos.filter(ownerTodos.board(complete.rows).rows, 'all', true)[0].path,
+     '/pages/admin/commission/index?id=99&reviewStage=SIGN_AFTER');
+ }
+
 // ---- AC7 重复/缺 key 清洗与计数异常 ----
 const r7 = PT.applyResponse(PT.initialState(), {
   items: [
@@ -123,7 +148,8 @@ ok('8');
 
 // ---- AC9 标签映射全前缀 + 未知前缀 ----
 const expectLabels = {
-  'first-follow': '首次跟进', 'visit': '到期回访', 'submit-commission': '预算待委托', 'lead-link': '客资待关联',
+  'first-follow': '待首次跟进', 'visit': '约定跟进到期', 'reconsult': '流失客户再次咨询', 'stale': '超期未跟进',
+  'lead-link': '客资待关联',
   'fee-approve': '委托费用待审批', 'fee-pending': '委托费用审批中', 'fee-returned': '委托费用已退回',
   'design-complete': '设计完成待下发', 'design-dispatch': '设计下发', 'tail-follow': '尾款跟进',
   'handover-prepare': '成果收图移交', 'handover-returned': '移交退回', 'handover-review': '移交核查', 'handover-waiting': '移交核查中'

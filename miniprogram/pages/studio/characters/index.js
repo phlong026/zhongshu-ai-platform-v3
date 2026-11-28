@@ -19,6 +19,8 @@ const EXTRA = [
   { key: 'forbiddenClaims', label: '禁用表达', max: 600, example:'例如：不承诺最低价、不保证固定工期、不虚构案例' }
 ];
 const LEGACY = ['cta', 'ipType', 'track', 'differentiator'];
+const CLONE_TITLE_LIMIT = 20;
+const CLONE_TITLE_ERROR = '资源名称须填写 1–20 个字符';
 const TITLES = { home:'人物库', edit:'新增人物', supplement:'补充定位', detail:'人物详情', avatar:'口播分身', voice:'语音克隆', resources:'人物资源' };
 const emptyForm = () => Object.assign({ enabled: true }, ...FIELDS.concat(EXTRA).map(f => ({ [f.key]: '' })));
 
@@ -35,7 +37,7 @@ Page({
     if (!studio.guard()) return;
     const post = auth.currentApiPost();
     this.__hidden=false;
-    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.cancelCloneRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,cloneBusy:false,cloneError:'',cloneRetry:false,cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
+    if(this.__scope!==studio.scope()||this.__generation!==http.sessionGeneration()) {this.__cloneManagement=null;this.__pendingReceipt=null;this.__clonePreview=null;this.resetAudioPreview();this.stopUploadClock();this.cancelCloneRefresh();this.__cloneAttempt=null;this.__pendingCloneKind=null;if(this.__audio)this.__audio.destroy();this.setData({view:'home',pageTitle:'人物库',rows:[],filtered:[],editing:false,form:{},editId:'',digitalPersona:null,digitalPeople:[],cloneEntryKind:'',cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,canUseDigital:false,cloneLoading:false,cloneBusy:false,cloneError:'',cloneRetry:false,cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneFileName:'',cloneFileMeta:'',clonePreviewError:'',cloneConsented:false});}
     this.__scope = studio.scope();
     this.__generation=http.sessionGeneration();
     if (this.__uploadTick) this.__uploadTick();
@@ -47,14 +49,23 @@ Page({
     if(this.data.digitalPersona){if(this.data.cloneBusy)this.scheduleRefresh();else this.loadClones();}
   },
   onUnload() {this.resetAudioPreview();this.flushDraft(true);this.__closed = true;this.stopUploadClock();this.cancelCloneRefresh();if(wx.offNetworkStatusChange&&this.__draftNetwork)wx.offNetworkStatusChange(this.__draftNetwork); if(this.__audio)this.__audio.destroy(); },
-  onHide() {this.pauseAudioPreview();if(this.data.clonePreviewOpen&&wx.createVideoContext)wx.createVideoContext('clone-preview-player',this).pause();this.flushDraft();this.__hidden=true;this.cancelCloneRefresh(); if(this.__audio)this.__audio.stop(); },
+  onHide() {this.pauseAudioPreview();if(this.data.clonePreviewOpen&&wx.createVideoContext)wx.createVideoContext('clone-preview-player',this).pause();this.flushDraft();this.__hidden=true;this.cancelCloneRefresh();
+    if(this.__cloneManagement?.confirming){this.__cloneManagement=null;this.setData({cloneBusy:false});}
+    if(this.__audio)this.__audio.stop(); },
   alive() { return !this.__closed && !!http.token() && this.__scope === studio.scope()&&this.__generation===http.sessionGeneration(); },
   showView(view) {this.pauseAudioPreview();this.cancelCloneRefresh();this.setData({cloneRefreshError:'',view,pageTitle:view==='edit'&&this.data.editId?'编辑定位':TITLES[view],error:''});if(wx.pageScrollTo)wx.pageScrollTo({scrollTop:0,duration:0});},
   back() {if(this.data.clonePreviewOpen)return this.closeClonePreview();if(this.data.saving||this.data.cloneBusy)return;if(this.data.view==='supplement')return this.showView('edit');if(this.data.view==='edit')return this.close();this.__cloneAttempt=null;this.setData({cloneRetry:false});this.showView(this.data.view==='detail'?'home':this.data.digitalPersona?'detail':'home');},
   detail(e) {const row=this.data.rows.find(r=>r.id===String(e.currentTarget.dataset.id));if(row&&this.alive()){this.setData({digitalPersona:row,canManage:this.canEditPersona(row),profileExpanded:false});this.showView('detail');}},
   toggleProfile() {this.setData({profileExpanded:!this.data.profileExpanded});},
   supplement() {if(this.data.editing&&!this.data.saving)this.showView('supplement');},
-  resources() {if(this.data.digitalPersona){this.showView('resources');this.loadClones();}},
+  resources() {
+    const person = this.data.digitalPersona;
+    if (!person || !this.alive() || this.data.cloneBusy) return;
+    if (this.data.view === 'detail') return this.openDigital({ currentTarget: { dataset: { id: person.id } } }, true);
+    if (this.data.cloneRetry) return;
+    this.showView('resources');
+    return this.loadClones();
+  },
   async load() {
     if (!http.token()) { this.setData({ rows: [], filtered: [], loading: false, error: '请先登录后使用人物库' }); return; }
     const guard = http.requestGuard('character-library');
@@ -169,15 +180,21 @@ Page({
     if(this.data.cloneBusy||this.data.cloneRetry)return;
     const resources=this.data.view==='resources';
     const person=this.data.digitalPeople[Number(e.detail.value)];
-    if(person){this.openDigital({currentTarget:{dataset:{id:person.id,kind:this.data.cloneKind}}});if(resources)this.showView('resources');}
+    if (person) return this.openDigital({ currentTarget: { dataset: { id: person.id, kind: this.data.cloneKind } } }, resources);
   },
-  openDigital(e) {
-    if(!this.alive()||this.data.cloneBusy||this.data.cloneRetry)return;
+  openDigital(e, resourcesOnly = false) {
+    if(!this.alive()||this.data.cloneBusy||(!resourcesOnly&&this.data.cloneRetry))return;
     const id=e.currentTarget.dataset.id||this.data.digitalPersona&&this.data.digitalPersona.id;
     const row=this.data.rows.find(r=>r.id===String(id));if(!row)return;
     const kind=['AVATAR','VOICE'].includes(e.currentTarget.dataset.kind)?e.currentTarget.dataset.kind:'AVATAR';
     this.__clonePreview=null;this.resetAudioPreview();this.__cloneTitleAuto=true;
-    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
+    this.setData({digitalPersona:row,canManage:this.canEditPersona(row),digitalPersonIndex:Math.max(0,this.data.digitalPeople.findIndex(person=>person.id===row.id)),cloneEntryKind:kind,cloneRows:[],visibleCloneRows:[],avatarCloneRows:[],cloneListError:'',avatarCount:0,voiceCount:0,canUseDigital:false,cloneKind:kind,cloneTitle:(row.name.slice(0,9)+' · '+(kind==='AVATAR'?'视频分身':'克隆声音')+' 1'),cloneUploadId:'',canReplayUpload:false,cloneReceiptPending:false,cloneConsented:false,cloneQuote:null,cloneRetry:false,cloneError:'',cloneFileName:'',cloneUploadStatus:'',cloneSelecting:false,cloneUploading:false,clonePreviewOpen:false,cloneAudioPath:'',cloneVideoPath:'',cloneVideoPoster:'',cloneFileMeta:'',clonePreviewError:'',cloneCreatedNotice:''});
+    this.__cloneAttempt = null;
+    if (resourcesOnly) {
+      this.setData({ resourceFilter: 'ALL' });
+      this.showView('resources');
+      return this.loadClones();
+    }
     const receipt = this.pendingReceipt(this.receiptKey(row.id,kind));
     if (receipt) this.setData({cloneReceiptPending:true,cloneFileName:receipt.name,cloneError:'文件已传完，可重试确认。'});
     const attempt=wx.getStorageSync(studio.scopedKey('zs-clone-attempt:'+row.id));
@@ -190,7 +207,7 @@ Page({
     const valid=()=>typeof accept!=='function'||accept();
     const person=this.data.digitalPersona;if(!person)return;
     const guard=http.requestGuard('character-clones');this.setData({cloneLoading:true,cloneListError:''});
-    try{const rows=await api.clones.list(person.id);if(valid()&&guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.setData({canUseDigital:person.enabled&&this.readyPair()});this.filterClones();if(this.__cloneTitleAuto&&!this.data.cloneRetry&&['avatar','voice'].includes(this.data.view))this.suggestCloneTitle();this.scheduleRefresh();}}
+    try{const rows=await api.clones.list(person.id);if(valid()&&guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id){this.setData({cloneRows:P.rowsOf(rows).filter(r=>r&&r.id!=null&&r.mock!==true&&r.demo!==true).map(r=>({...r,id:String(r.id)})),cloneLoading:false});this.filterClones();if(this.__cloneTitleAuto&&!this.data.cloneRetry&&['avatar','voice'].includes(this.data.view))this.suggestCloneTitle();this.scheduleRefresh();}}
     catch(e){if(valid()&&guard()&&this.alive()&&this.data.digitalPersona&&this.data.digitalPersona.id===person.id)this.setData({cloneLoading:false,cloneListError:P.degradeMessage(e)});}
   },
   async loadQuote() {
@@ -200,17 +217,77 @@ Page({
   },
   chooseKind(e) {this.openDigital(e);},
   readyPair() {return this.data.cloneRows.some(r=>r.ready&&r.kind==='AVATAR')&&this.data.cloneRows.some(r=>r.ready&&r.kind==='VOICE');},
-  async setDefaultClone(e) {
-    if(!this.data.canManage||!this.alive()||this.data.cloneBusy||this.data.cloneLoading||this.data.cloneRetry)return;
-    const person=this.data.digitalPersona,id=String(e.currentTarget.dataset.id);
-    const row=this.data.cloneRows.find(row=>String(row.id)===id);
-    if(!person||!person.enabled||!row||!row.ready||row.isDefault)return;
-    const guard=http.requestGuard('clone-default');this.setData({cloneBusy:true,cloneError:''});
-    try{
-      await api.clones.setDefault(id);
-      if(!guard()||!this.alive()||this.data.digitalPersona?.id!==person.id)return;
-      this.setData({cloneBusy:false});await this.loadClones();
-    }catch(error){if(guard()&&this.alive()&&this.data.digitalPersona?.id===person.id)this.setData({cloneBusy:false,cloneError:P.degradeMessage(error)});}
+  canDefaultClone(row) {
+    if (!row.ready || row.isDefault) return false;
+    if (row.canSetDefault !== undefined) return row.canSetDefault === true;
+    // Older servers exposed the default route to management roles only.
+    return this.data.canManage && this.data.digitalPersona?.enabled === true
+      && ['sales-lead', 'boss', 'owner'].includes(auth.currentApiPost()?.roleCode);
+  },
+  setDefaultClone(e) { return this.manageClone(e, 'default'); },
+  renameClone(e) { return this.manageClone(e, 'rename'); },
+  deleteClone(e) { return this.manageClone(e, 'delete'); },
+  async manageClone(e, action) {
+    const view = this.data.view;
+    if (view !== 'resources' && !(view === 'avatar' && action === 'default')) return;
+    if (!this.alive() || this.__hidden || this.data.cloneBusy || this.data.cloneLoading
+        || this.data.cloneRetry || this.data.cloneRefreshing) return;
+    const personId = this.data.digitalPersona?.id;
+    const id = String(e.currentTarget.dataset.id || '');
+    const findRow = () => this.data.cloneRows.find(row => String(row.id) === id);
+    const allowed = row => row && (action === 'default' ? this.canDefaultClone(row)
+      : action === 'rename' ? row.canRename === true : row.canDelete === true);
+    const row = findRow();
+    if (!personId || !allowed(row)) return;
+    const operation = { confirming: action !== 'default' };
+    this.__cloneManagement = operation;
+    const ownsLock = () => this.__cloneManagement === operation && this.alive();
+    const samePerson = () => ownsLock() && this.data.digitalPersona?.id === personId;
+    this.setData({ cloneBusy: true, cloneError: '' });
+    try {
+      let title;
+      if (operation.confirming) {
+        const options = action === 'rename'
+          ? { title: '修改资源名称', editable: true, content: row.title, placeholderText: '输入资源名称', confirmText: '保存' }
+          : { title: '删除资源', content: '删除后，此资源将从人物资源和新任务选项中移除，历史任务和已生成的作品会保留。', confirmText: '删除', confirmColor: '#a33b2b' };
+        const reply = await new Promise((resolve, reject) => wx.showModal({ ...options, success: resolve, fail: reject }));
+        operation.confirming = false;
+        if (!reply.confirm || !samePerson() || this.__hidden || this.data.view !== 'resources' || !allowed(findRow())) return;
+        if (action === 'rename') {
+          title = String(reply.content || '').trim();
+          if (!title || title.length > CLONE_TITLE_LIMIT) return this.setData({ cloneError: CLONE_TITLE_ERROR });
+          if (title === findRow()?.title) return;
+        }
+      }
+      let updated;
+      if (action === 'default') await api.clones.setDefault(id);
+      else if (action === 'delete') {
+        if (await api.clones.remove(id) !== true) throw Error('删除结果待确认，请刷新后重试');
+      } else {
+        updated = await api.clones.rename(id, title);
+        if (String(updated?.id ?? '') !== id) throw Error('改名结果待确认，请刷新后重试');
+      }
+      if (!samePerson()) return;
+      const rows = this.data.cloneRows;
+      if (action === 'delete') {
+        if (this.data.previewAudioId === 'clone-' + id) this.resetAudioPreview();
+        this.setData({ cloneRows: rows.filter(item => String(item.id) !== id) });
+      } else if (action === 'default') {
+        this.setData({ cloneRows: rows.map(item => item.kind === row.kind
+          ? { ...item, isDefault: String(item.id) === id } : item) });
+      } else {
+        this.setData({ cloneRows: rows.map(item => String(item.id) === id ? { ...item, ...updated, id } : item) });
+      }
+      this.filterClones();
+      if (!this.__hidden) await this.loadClones();
+    } catch (error) {
+      if (samePerson()) this.setData({ cloneError: P.degradeMessage(error) });
+    } finally {
+      if (ownsLock()) {
+        this.__cloneManagement = null;
+        this.setData({ cloneBusy: false });
+      }
+    }
   },
   stopRefresh() {if(this.__refreshTimer)clearTimeout(this.__refreshTimer);this.__refreshTimer=null;},
   cancelCloneRefresh() {
@@ -405,9 +482,11 @@ Page({
     if(!this.data.canManage||!this.alive()||this.data.cloneBusy||!this.data.digitalPersona||this.data.digitalPersona.enabled===false)return;
     const person=this.data.digitalPersona.id,quote=this.data.cloneQuote;
     if(!this.__cloneAttempt){
-      if(!this.data.cloneTitle.trim()||!this.data.cloneUploadId||!this.data.cloneConsented)return this.setData({cloneError:'请填写名称、上传素材并确认授权'});
+      const title = String(this.data.cloneTitle || '').trim();
+      if(!title || title.length > CLONE_TITLE_LIMIT)return this.setData({cloneError:CLONE_TITLE_ERROR});
+      if(!this.data.cloneUploadId||!this.data.cloneConsented)return this.setData({cloneError:'请上传素材并确认授权'});
       if(!quote||!quote.available)return this.setData({cloneError:quote&&quote.message||'请先获取制作价格'});
-      this.__cloneAttempt={key:'clone-'+Date.now()+'-'+Math.floor(Math.random()*1e8),body:{kind:this.data.cloneKind,title:this.data.cloneTitle.trim(),sourceUploadId:this.data.cloneUploadId,consentVersion:quote.consentVersion,confirmedCredits:quote.credits}};
+      this.__cloneAttempt={key:'clone-'+Date.now()+'-'+Math.floor(Math.random()*1e8),body:{kind:this.data.cloneKind,title,sourceUploadId:this.data.cloneUploadId,consentVersion:quote.consentVersion,confirmedCredits:quote.credits}};
       wx.setStorageSync(studio.scopedKey('zs-clone-attempt:'+person),this.__cloneAttempt);
     }
     const attempt=this.__cloneAttempt,guard=http.requestGuard('clone-create');this.setData({cloneBusy:true,cloneError:'',cloneRetry:true});
@@ -437,8 +516,13 @@ Page({
   },
   filterClones() {
     const rows=this.data.cloneRows,kind=this.data.resourceFilter;
-    const avatarCloneRows=rows.filter(row=>row.kind==='AVATAR');
-    this.setData({visibleCloneRows:rows.filter(row=>kind==='ALL'||row.kind===kind),avatarCloneRows,avatarCount:avatarCloneRows.length,voiceCount:rows.filter(row=>row.kind==='VOICE').length});
+    const displayRows = rows.map(row => ({
+      ...row, canRename: row.canRename === true, canDelete: row.canDelete === true, canSetDefault: this.canDefaultClone(row)
+    }));
+    const visibleCloneRows = displayRows.filter(row => kind === 'ALL' || row.kind === kind);
+    const avatarCloneRows = displayRows.filter(row => row.kind === 'AVATAR');
+    this.setData({ visibleCloneRows, avatarCloneRows, avatarCount: avatarCloneRows.length,
+      voiceCount: rows.filter(row => row.kind === 'VOICE').length, canUseDigital: !!this.data.digitalPersona?.enabled && this.readyPair() });
   },
   changeResourceFilter(e) {const kind=e.currentTarget.dataset.kind;if(['ALL','AVATAR','VOICE'].includes(kind)){this.setData({resourceFilter:kind});this.filterClones();}},
   suggestCloneTitle() {

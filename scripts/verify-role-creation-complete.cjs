@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('assert/strict');
 const fs = require('fs');
 const path = require('path');
@@ -40,7 +41,7 @@ async function main() {
   const keys=['zhongshu-studio','zhongshu-video-draft','zhongshu-creation-draft','zhongshu-account-v1','zhongshu-management-v1'];
   const previous=await mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).map(key=>({key,value:wx.getStorageSync(key)})));
   try {
-    await mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).forEach(k=>wx.removeStorageSync(k)));const testAccount=require('../miniprogram/utils/account').seed();testAccount.session.loggedIn=true;await mp.evaluate(x=>{wx.setStorageSync('zhongshu-account-v1',x.a);wx.setStorageSync('zhongshu-management-v1',x.m);},{a:testAccount,m:require('../miniprogram/pages/admin/model').seed()});
+    await mp.evaluate(()=>wx.getStorageInfoSync().keys.filter(k=>k.startsWith('zhongshu-')).forEach(k=>wx.removeStorageSync(k)));const testAccount=require('../miniprogram/utils/account').seed();testAccount.session.loggedIn=true;await mp.evaluate(x=>{wx.setStorageSync('zhongshu-account-v1',x.a);wx.setStorageSync('zhongshu-management-v1',x.m);},{a:testAccount,m:require('./fixtures/legacy-admin/model').seed()});
     await modal(false);
     let page=await relaunch('/pages/creation/index');await delay(300);
     await tap('.extract-button');assert.equal((await mp.currentPage()).path,'pages/creation/index');

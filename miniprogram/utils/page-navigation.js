@@ -69,7 +69,7 @@ function parent(page=current()){
   return profile?profile.url:'/pages/profile/index';
  }
  if(route==='pages/account/index'){
-  const map={course:'learning',resource:'learning',service:'services',request:'service',product:'selection',procure:'product',purchase:'purchases',order:'orders',plan:'order',delivery:'order',cancel:'order',feedback:'help',binding:'privacy',devices:'privacy',permissions:'privacy',policy:'privacy',agreement:'privacy'};
+  const map={course:'learning',resource:'learning',service:'services',request:'service',product:'selection',procure:'product',purchase:'purchases',order:'orders',plan:'order',delivery:'order',cancel:'order',feedback:'help',binding:'privacy',devices:'privacy',permissions:'privacy',policy:apiSession()?'privacy':'',agreement:'policy'};
   return map[v]?target('/pages/account/index',map[v],id,{service:o.service}):'/pages/profile/index';
  }
  if(route==='pages/studio/index'){

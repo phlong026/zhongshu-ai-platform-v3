@@ -6,7 +6,7 @@ const route = '/pages/account/store-map/index';
 const initial = () => ({markers:[],callouts:[],rows:[],total:0,pinned:false,brands:[],brandCounts:[],pickers:[],
   selectedBrand:'',brandIndex:0,admin:false,brandName:'',error:'',loading:true,
   query:'',keyword:'',searchMatchCount:0,suggestions:[],searchOpen:false,mode:'region',viewportError:'',viewportLoading:false,
-  overview:{franchiseCount:0,coverageRecordCount:0,districtCount:0},summary:null,expandedId:'',focusNote:'',
+  overview:{franchiseCount:0,coverageRecordCount:0,districtCount:0},summary:null,upperCoverageLabel:'',expandedId:'',focusNote:'',
   latitude:35.9,longitude:104.2,scale:4});
 
 Page({
@@ -59,7 +59,7 @@ Page({
     const callouts = view.markers.map(({id,heading,brands,selected,pinText,pinColor}) => ({id,heading,brands,selected,pinText,pinColor}));
     const markers = view.markers.map(({key,storeIds,heading,brands,selected,pinText,pinColor,...marker}) => marker);
     const patch = {markers,callouts,pickers:view.pickers,brands:view.brands,brandCounts:view.brandCounts,
-      overview:view.overview,summary:view.summary,selectedBrand:this.filters.brand || '',
+      overview:view.overview,summary:view.summary,upperCoverageLabel:view.upperCoverageLabel,selectedBrand:this.filters.brand || '',
       keyword:this.filters.keyword || '',brandIndex:Math.max(0,view.brands.findIndex(brand => brand.id === this.filters.brand)),
       rows:this.list.slice(0,this.rowLimit),total:this.list.length,pinned:!!view.pinnedRows,searchMatchCount:view.rows.length,
       expandedId:this.filters.record || '',...(!keepFocus ? {focusNote:''} : {})};

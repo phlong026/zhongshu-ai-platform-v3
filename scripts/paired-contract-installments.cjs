@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const input = require('node:readline').createInterface({ input: process.stdin });
 const replies = input[Symbol.asyncIterator]();
 const f = JSON.parse(process.argv[2]);
-global.wx = { getStorageSync: () => '', getSystemInfoSync: () => ({}) };
+global.wx = { getStorageSync: () => '', getSystemInfoSync: () => ({}), showToast() {} };
 const http = require('../miniprogram/api/http');
 const sale = require('../miniprogram/api/franchise/sales');
 const pay = require('../miniprogram/pages/workflow/payment-plan/api');
@@ -125,9 +125,32 @@ async function scenario() {
   actor = 'finance';
   const row = (await http.get('/franchise/sales/collection-declarations')).find(r => r.id === declaration);
   assert.equal(row.voucher_file_id, f.correctedProof); assert.equal(row.amount_cents, 15000);
-  const receipt = model.id((await http.post(confirm, {}, header('confirm'))).receiptId);
+  assert.equal(row.method, 'bank'); assert.equal(row.account_name, null);
+  // Use the production confirmation handler, including a lost response after the real database commit.
+  const auth = require('../miniprogram/api/auth'), priorPost = auth.currentApiPost;
+  auth.currentApiPost = () => ({ roleCode: actor });
+  let saved, lost = true; const writes = [], originalPost = http.post;
+  const page = { data: { journeyEnabled: true, journeyDeclaration: row, declarationForm: { accountName: '公司银行尾号2468', method: row.method } },
+    __declarationFormAlive: () => actor === 'finance', setData(patch) { Object.assign(this.data, patch); },
+    loadPlatformFinance() {}, financeEntrySaved(type, form, result) { saved = result; } };
+  require('../miniprogram/pages/admin/finance-desk/workbench')(page, { idemKey: () => key('confirm') });
+  page.loadWorkbench = () => {};
+  http.post = async (...args) => {
+    writes.push(JSON.stringify(args)); const result = await originalPost(...args);
+    if (lost) { lost = false; throw Object.assign(Error('核实回执丢失'), { code: -1 }); }
+    return result;
+  };
+  try {
+    const event = { currentTarget: { dataset: { id: declaration } } };
+    await page.confirmCollectionDeclaration(event);
+    assert.equal(page.data.declarationPending, true);
+    page.declarationInput({ currentTarget: { dataset: { field: 'accountName' } }, detail: { value: '不得替换原请求账户' } });
+    assert.equal(page.data.declarationForm.accountName, '公司银行尾号2468');
+    await page.confirmCollectionDeclaration(event);
+    assert.equal(page.data.declarationPending, false); assert.equal(writes.length, 2); assert.equal(writes[1], writes[0]);
+  } finally { http.post = originalPost; auth.currentApiPost = priorPost; }
+  const receipt = model.id(saved?.receiptId);
   assert.ok(receipt && receipt !== model.id(deposit.receiptId));
-  assert.equal(model.id((await http.post(confirm, {}, header('confirm-again'))).receiptId), receipt);
   actor = 'engineer'; await engineeringBalance(25000);
   const history = (await engineering.page(project)).declarations;
   assert.equal(history.length, 2); assert.equal(history[0].status, 'CONFIRMED'); assert.equal(history[0].receiptId, receipt);

@@ -11,35 +11,68 @@ module.exports = function (page, api) {
   page.loadWorkbench = async function () {
     this.__messageWorkbenchReady=false;
     const alive = this.financeReadGuard?this.financeReadGuard('fin-workbench'):http.requestGuard('fin-workbench');
-    this.setData({ workbenchError: '' });
+    this.setData({ workbenchError: '', bookEmployeeFactsLoading:true });
     try {
       const [books, reimbursements, staff, declarations, stages, receipts,commission] = await Promise.all([http.get(base + '/books'), http.get(base + '/reimbursements'), http.get(base + '/staff'),http.get('/franchise/sales/collection-declarations'),http.get('/franchise/sales/financial-stages'),api.receipts(),http.get('/franchise/performance/commission/rows').catch(()=>null)]);
       if (!alive() || this.__disposed) return;
       const rows = reimbursements.map(r => ({ ...r, pay_date:financeDay(r.pay_date), id: r.payable_id, remaining: Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0),
         absoluteAmount:yuan(Math.abs(Number(r.eligible_cents)-Number(r.reimbursed_cents)+Number(r.recovered_cents||0))),amount: yuan(Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0)), paidText: yuan(r.reimbursed_cents) }));
-      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
+      this.setData({ allocationReceipts:receipts.filter(r=>r.status==='已登记'&&r.sourceType==='manual'&&!r.sourceRef).map(r=>({...r,label:r.name+' · ¥'+yuan(r.amountCents)})),financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, bookEmployeeFactsLoading:false, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
         'deskHome.focus': rows.filter(r => r.remaining !== 0).map(r => ({ id: r.id, name: r.payer_name + ' · '+r.stage,
           amount: '¥' + BookView.money(r.remaining), status: r.remaining < 0 ? '员工应归还公司' : Number(r.reimbursed_cents) > 0 ? '部分报销' : '待报销', url: '/pages/admin/finance-desk/index?view=reimbursements' })) });
       this.__commissionStages=commission===null?null:commission.flatMap(r=>r.stages||[]);
       this.__messageWorkbenchReady=true;
       if(this.refreshJourney)this.refreshJourney();if (this.data.view === 'projects') this.loadFinanceProjects();if(this.data.view==='book'&&this.data.bookEntryRows)this.updateBookEmployees();
-    } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败'};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
+    } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败',bookEmployeeFactsLoading:false};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.returnCollectionDeclaration=function(e){
+    if(this.data.wbBusy||this.data.declarationPending)return;
     const id=String(e.currentTarget.dataset.id),alive=http.sessionGuard();
     wx.showModal({title:'退回补充到账资料',editable:true,placeholderText:'填写需补充或更正的内容',success:async result=>{
       if(!result.confirm||!alive()||this.__disposed)return;
       if(!(result.content||'').trim())return this.setData({workbenchError:'请填写退回原因'});
-      try{await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/return',{reason:result.content.trim()},{'Idempotency-Key':api.idemKey('collection-return')});if(alive()&&!this.__disposed){if(this.data.journeyEnabled&&this.closeFinanceEntry)this.closeFinanceEntry();this.loadWorkbench();if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已退回补充'});}}
+      try{await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/return',{reason:result.content.trim()},{'Idempotency-Key':api.idemKey('collection-return')});if(alive()&&!this.__disposed){if(String(this.data.journeyDeclaration?.id||'')===id&&this.closeFinanceEntry)this.closeFinanceEntry();this.loadWorkbench();if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已退回补充'});}}
       catch(error){if(alive()&&!this.__disposed)this.setData({workbenchError:error.message||'退回失败'});}
     }});
   };
+  page.declarationInput=function(e){
+    if(this.data.wbBusy||this.data.declarationPending||!this.__declarationFormAlive?.())return;
+    const field=e.currentTarget.dataset.field;if(!['accountName','method'].includes(field))return;
+    const value=field==='method'?['bank','cash','other'][Number(e.detail.value)]:e.detail.value;
+    this.setData({['declarationForm.'+field]:value,workbenchError:''});
+  };
   page.confirmCollectionDeclaration = async function(e){
-    const id=String(e.currentTarget.dataset.id);if(this.data.wbBusy)return;
-    this.declarationKeys=this.declarationKeys||{};if(!this.declarationKeys[id])this.declarationKeys[id]=api.idemKey('collect-confirm');
-    const alive=http.sessionGuard();this.setData({wbBusy:true,workbenchError:''});
-    try{const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(id)+'/confirm',{}, {'Idempotency-Key':this.declarationKeys[id]});if(!alive()||this.__disposed)return;delete this.declarationKeys[id];if(this.financeEntrySaved&&this.data.journeyDeclaration){const d=this.data.journeyDeclaration;this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);}this.loadWorkbench();this.loadPlatformFinance(true);if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});}
-    catch(e){if(alive()&&!this.__disposed)this.setData({workbenchError:e.message||e.msg||'核实失败'});}finally{if(alive()&&!this.__disposed)this.setData({wbBusy:false});}
+    const id=String(e.currentTarget.dataset.id);if(this.data.wbBusy||this.__disposed)return;
+    if(!['finance','finance-lead'].includes(auth.currentApiPost()?.roleCode))return;
+    if(!this.data.journeyDeclaration||String(this.data.journeyDeclaration.id)!==id)return;
+    if(!this.__declarationFormAlive?.())return;
+    let command=this.__declarationPending;
+    if(command&&command.id!==id)return;
+    if(!command){
+      const form=this.data.declarationForm||{},accountName=String(form.accountName||'').trim(),method=form.method;
+      if(!accountName||accountName.length>100||!['bank','cash','other'].includes(method))return this.setData({workbenchError:'请填写实际收款账户并选择收款方式'});
+      command={id,body:Object.freeze({accountName,method}),key:api.idemKey('collect-confirm'),source:{...this.data.journeyDeclaration},alive:this.__declarationFormAlive};
+      this.__declarationPending=command;
+    }
+    const alive=()=>command.alive()&&!this.__disposed&&this.__declarationPending===command;
+    this.setData({wbBusy:true,declarationPending:true,declarationForm:{...command.body},workbenchError:''});
+    try{
+      const result=await http.post('/franchise/sales/collection-declarations/'+encodeURIComponent(command.id)+'/confirm',command.body,{'Idempotency-Key':command.key});
+      if(!alive())return;
+      if(!Accounting.id(result?.receiptId))throw Error('核实结果尚未确认，请按原资料重试');
+      this.__declarationPending=null;
+      this.setData({wbBusy:false,declarationPending:false,declarationForm:null});
+      const d=command.source;
+      if(this.financeEntrySaved&&this.data.journeyEnabled)this.financeEntrySaved('receipt',{name:d.name,amount:(d.amount_cents/100).toFixed(2),scope:d.scope,scopeLabel:d.projectName},result);
+      else this.setData({journeyDeclaration:null});
+      this.loadWorkbench();this.loadPlatformFinance(true);if(this.refreshFinanceTasks)this.refreshFinanceTasks();wx.showToast({title:'已核实到账'});
+    }catch(error){
+      if(!alive())return;
+      const code=Number(error?.code??error?.status??error?.statusCode),uncertain=!Number.isFinite(code)||code===-1||code>=500&&code<600;
+      if(!uncertain)this.__declarationPending=null;
+      const patch={wbBusy:false,declarationPending:uncertain,workbenchError:uncertain?'核实结果尚未确认，请按原资料重试。':error.message||error.msg||'核实失败'};
+      if(this.financeReadError)this.financeReadError(error,patch);else this.setData(patch);
+    }
   };
   page.loadFinanceProjects = async function () {
     const alive=this.financeReadGuard?this.financeReadGuard('finance-projects'):http.requestGuard('finance-projects');this.setData({financeProjectLoading:true,financeProjectError:''});
@@ -59,7 +92,7 @@ module.exports = function (page, api) {
       const s=result.summary,entryRows=BookView.bookRows(result.entries),book=books.find(b=>b.scope===scope);
       const projectId = String(scope).startsWith('project:') ? Accounting.id(String(scope).slice(8)) : '';
       const accounting = result.accounting && projectId ? Accounting.view(result.accounting,projectId) : null;
-      this.setData({bookLoading:false,bookResult:result,workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
+      this.setData({bookLoading:false,bookResult:{...result,employeeScopeIncomplete:!Array.isArray(result.reimbursementIds)},workbenchBooks:books,bookName:book?book.name:'项目账本',bookEntryRows:entryRows,
         bookFlowTab:this.data.bookFlowTab||'cash',bookSummary:BookView.summary(s),
         bookAccounting:accounting,bookAccountingUrl:projectId?'/pages/admin/accounting/index?projectId='+encodeURIComponent(projectId):'',
         bookNet:BookView.money(Number(s.received_cents)+Number(s.expense_refunded_cents)-Number(s.paid_cents)-Number(s.refunded_cents)),bookCost:BookView.money(s.committed_cents),bookEntryDetail:null,bookCollectionUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=collection',bookMaterialsUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=materials',bookExpensesUrl:'/pages/build/record/index?id='+encodeURIComponent(String(scope).slice(8))+'&view=expenses'});this.filterBookEntries();this.updateBookEmployees();
@@ -67,8 +100,19 @@ module.exports = function (page, api) {
   };
   page.filterBookEntries=function(){this.setData({bookEntries:BookView.filteredRows(this.data.bookEntryRows,this.data.bookFlowTab||'cash')});};
   page.updateBookEmployees=function(){
-    const ids=new Set((this.data.bookEntryRows||[]).filter(r=>r.type==='ADVANCE').map(r=>String(r.id)));
-    this.setData({bookEmployeeRows:(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.origin_payment_id))).map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+    const book=this.data.bookResult;
+    if(!book){this.setData({bookEmployeeRows:[],bookEmployeeDetailsMissing:false});return;}
+    // Employee balances must come from the complete server-side scope, never the latest 500 cash rows.
+    // An older backend without reimbursementIds is explicitly marked incomplete by loadBookLedger;
+    // fail closed rather than silently presenting a partial list as the project's full employee balance.
+    const ids=new Set(Array.isArray(book.reimbursementIds)?book.reimbursementIds.map(String):[]);
+    const rows=(this.data.reimbursementRows||[]).filter(r=>ids.has(String(r.id)));
+    const bookEmployeeDetailsMissing=new Set(rows.map(r=>String(r.id))).size!==ids.size;
+    this.setData({bookEmployeeDetailsMissing,bookEmployeeRows:bookEmployeeDetailsMissing?[]:rows.map(r=>({...r,eligibleText:BookView.money(r.eligible_cents),paidText:BookView.money(r.reimbursed_cents),remainingText:BookView.money(Math.abs(r.remaining))}))});
+  };
+  page.retryBookEmployees=function(){
+    if(this.data.bookLoading||this.data.bookEmployeeFactsLoading)return;
+    return Promise.all([this.loadBookLedger(),this.loadWorkbench()]);
   };
   page.changeBookFlowTab=function(e){this.setData({bookFlowTab:e.currentTarget.dataset.tab});this.filterBookEntries();};
   page.openBookEntry=function(e){const key=e.currentTarget.dataset.key;const entry=(this.data.bookEntryRows||[]).find(r=>r.key===key);if(entry)this.setData({bookEntryDetail:entry});};
@@ -83,7 +127,7 @@ module.exports = function (page, api) {
   page.openReceiptAllocation=function(e){this.wbKey=api.idemKey('allocate');this.setData({wbForm:{type:'allocation',name:'前期定金抵合同款',stageId:String(e.currentTarget.dataset.id)},wbError:''});};
   page.openFinanceSupplement=function(e){this.setData({bookEntryDetail:null});this.wbKey=api.idemKey('supplement');this.setData({wbForm:{type:'supplement',sourceType:e.currentTarget.dataset.kind,sourceId:String(e.currentTarget.dataset.id).replace(/^[rpf]-/,''),name:'补充原收付资料'},wbError:''});};
   page.recoverEmployee=function(e){const row=(this.data.reimbursementRows||[]).find(r=>r.id===String(e.currentTarget.dataset.id));if(!row||row.remaining>=0)return;this.wbKey=api.idemKey('employee-recover');this.setData({wbForm:{type:'recovery',payableId:row.id,name:'员工归还 · '+row.payer_name,amount:yuan(-row.remaining),date:date(),accountName:''},wbError:''});};
-  page.assignPayableBook=function(e){this.wbKey=api.idemKey('assign-book');this.setData({wbForm:{type:'assignbook',payableId:String(e.currentTarget.dataset.id),name:'补充账本归属'},wbError:''});};
+  page.assignPayableBook=function(e){const id=String(e.currentTarget.dataset.id),source=(this.__financeFacts?.payables||[]).find(row=>String(row.id)===id)||(this.data.rows||[]).find(row=>String(row.id)===id);if(!Money.canAssignPayable(source))return this.setData({wbError:'仅未归属的手工费用可补充账本，请核对原单'});this.wbKey=api.idemKey('assign-book');this.setData({wbForm:{type:'assignbook',payableId:id,name:'补充账本归属'},wbError:''});};
   page.openContractChange=function(e){
     if(this.data.wbBusy||this.data.busy||this.__disposed)return;
     const id=String(e.currentTarget.dataset.id);
@@ -103,15 +147,16 @@ module.exports = function (page, api) {
     this._registerSeq=(this._registerSeq||0)+1;this.registerIdem=null;
     this.setData({ registerType:'',registerForm:{},registerError:'',bookEntryDetail:null, wbForm: { type, scope: this.data.view === 'book' ? (this.data.bookScope || '') : '',scopeLabel:this.data.view==='book'?this.data.bookName:'', date: date(), category: type === 'receipt' ? '其他收款' : '其他费用', accountName: '' }, wbError: '' });
   };
-  page.wbInput = function (e) { const field=e.currentTarget.dataset.field;this.setData({ ['wbForm.' + field]: field==='fundingType'?['COMPANY','EMPLOYEE'][Number(e.detail.value)]:e.detail.value }); };
+  page.wbInput = function (e) { if(this.data.wbBusy||this.data.paymentPending)return;const field=e.currentTarget.dataset.field;this.setData({ ['wbForm.' + field]: field==='fundingType'?['COMPANY','EMPLOYEE'][Number(e.detail.value)]:e.detail.value }); };
   page.wbPick = function (e) {
+    if(this.data.wbBusy||this.data.paymentPending)return;
     const field = e.currentTarget.dataset.field;if(field==='receiptId'){const row=(this.data.allocationReceipts||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.receiptId':row.id,'wbForm.receiptLabel':row.label});return;}if(field==='stageId'){const row=(this.data.financialStages||[])[Number(e.detail.value)];if(row)this.setData({'wbForm.stageId':row.id,'wbForm.stageLabel':row.label});return;}const rows = field === 'scope' ? this.data.workbenchBooks : this.data.workbenchStaff;
     const row = (rows || [])[Number(e.detail.value)]; if (!row) return;
     this.setData({ ['wbForm.' + field]: field === 'scope' ? row.scope : row.id, ['wbForm.' + field + 'Label']: row.name });
   };
-  page.cancelWorkbench = function () { if (this.data.wbBusy) return; this.wbGeneration = (this.wbGeneration || 0) + 1; this.setData({ wbForm: null, wbError: '' }); };
+  page.cancelWorkbench = function () { if (this.data.wbBusy||this.data.paymentPending) return; this.wbGeneration = (this.wbGeneration || 0) + 1; this.setData({ wbForm: null, wbError: '' }); };
   page.wbVoucher = function () {
-    if (this.data.wbBusy || !this.data.wbForm) return;
+    if (this.data.wbBusy || this.data.paymentPending || !this.data.wbForm) return;
     const session = http.sessionGuard(), generation = this.wbGeneration;
     const selection = this.__voucherSelection = (this.__voucherSelection || 0) + 1;
     const context = () => { const f = this.data.wbForm || {}; return JSON.stringify([f.type,f.scope,f.id,f.recordId,f.sourceType,f.sourceId,f.payableId,f.stageId,f.receiptId]); };
@@ -122,8 +167,11 @@ module.exports = function (page, api) {
     }).catch(error => { if (alive()) this.setData({ wbError: error.message }); });
   };
   page.submitWorkbench = async function () {
-    if (this.data.wbBusy || !this.data.wbForm) return;
+    if (this.data.wbBusy || this.data.paymentPending || !this.data.wbForm) return;
     const f = { ...this.data.wbForm }, aliveSession = http.sessionGuard(), generation = this.wbGeneration;
+    if (f.type==='receipt'&&f.stageId&&!['finance','finance-lead'].includes(auth.currentApiPost()?.roleCode)) {
+      return this.setData({wbError:'请由财务核实并登记实际收款'});
+    }
     if (f.payrollRecordId) {
       const post = auth.currentApiPost(), route = this.options || {};
       if (String(post?.orgId) !== route.payrollCompany || String(post?.postId) !== route.payrollPost ||
@@ -172,7 +220,13 @@ module.exports = function (page, api) {
           amountCents: body.amountCents, date: body.date, accountName: body.accountName, transactionNo: body.transactionNo,
           voucherFileId: body.voucherFileId }, this.wbKey, f, 'payroll-payment');
       }
-      const result=f.type==='receipt'&&f.stageId?await http.post('/franchise/sales/stages/'+encodeURIComponent(f.stageId)+'/collect',{amountCents:body.amountCents,method:'other',transactionNo:body.transactionNo,receivedDate:body.date,voucherFileId:body.voucherFileId,accountName:body.accountName},{'Idempotency-Key':this.wbKey}):await http.post(endpoint.startsWith('/franchise/')?endpoint:base + endpoint, body, { 'Idempotency-Key': this.wbKey });
+      if (f.type==='receipt'&&f.stageId) {
+        return await this.dispatchPreparedPayment({stageId:String(f.stageId),amountCents:body.amountCents,method:'other',
+          transactionNo:body.transactionNo,receivedDate:body.date,voucherFileId:body.voucherFileId,accountName:body.accountName},
+          this.wbKey,f,'stage-collection');
+      }
+      if (endpoint==='/entries') return await this.dispatchPreparedPayment(body,this.wbKey,f,'workbench-entry');
+      const result=await http.post(endpoint.startsWith('/franchise/')?endpoint:base + endpoint, body, { 'Idempotency-Key': this.wbKey });
       if (!alive()) return;
       if(f.type==='linkbook'){this.options={...this.options,bookScope:f.scope};this.setData({bookScope:f.scope,canLinkBook:false});}
       if(this.financeEntrySaved)this.financeEntrySaved(f.type,f,result);

@@ -39,10 +39,10 @@ function eventTime(at) {
 
 function build(customers, actor, options = {}) {
   assertActor(actor);
-  const nextFor = options.nextFor || (customer => require('./sales-flow').next(customer));
-  const feeApproved = options.feeApproved || (customer => require('./sales-flow').feeApproved(require('./sales-flow').raw(customer)));
+  const nextFor = options.nextFor || (customer => require('./commission-history').next(customer));
+  const feeApproved = options.feeApproved || (customer => require('./commission-history').feeApproved(require('./commission-history').raw(customer)));
   const companyNameFor = options.companyNameFor || companyName;
-  const salesFlow = options.salesFlow || require('./sales-flow');
+  const salesFlow = options.salesFlow || require('./commission-history');
   const rows = customers
     .filter(customer => customer?.businessFlow?.type === 'sales-offline-v1')
     .filter(customer => customer.designOrganizationId === actor.companyId && feeApproved(customer))
@@ -115,7 +115,7 @@ function dateLabel(date = require('./account').localDate()) {
 
 function load(actor = require('./access').context()) {
   assertActor(actor);
-  const SalesFlow = require('./sales-flow');
+  const SalesFlow = require('./commission-history');
   const projected = require('./business').load().customers;
   const rawRows = ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || []);
   const rawById = new Map(rawRows.map(customer => [`${customer.companyId || 'quanzhou'}:${customer.id}`, customer]));

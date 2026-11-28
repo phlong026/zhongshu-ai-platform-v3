@@ -1,9 +1,6 @@
 {
   "usingComponents": {
-    "business-header": "/components/business-header/index",
-    "custom-tab-bar": "/custom-tab-bar/index",
-    "brand-header": "/components/brand-header/index",
-    "todo-preview": "/components/todo-preview/index"
+    "business-header": "/components/business-header/index"
   },
   "navigationStyle": "custom"
 }

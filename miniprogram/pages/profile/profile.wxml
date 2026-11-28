@@ -22,13 +22,13 @@
       <text class="profile-name">欢迎来到众墅之家</text>
       <text class="login-link">登录</text>
     </button>
-    <point-asset-card wx:if="{{loggedIn}}" id="company-points"/>
-    <view wx:if="{{loggedIn}}" class="section service-section announcement-section">
+    <point-asset-card wx:if="{{loggedIn&&!showAdminMap}}" id="company-points"/>
+    <view class="section service-section announcement-section">
       <button class="service-row" data-action="announcements" bindtap="open">
         <image src="/assets/icons/profile-megaphone.svg" mode="aspectFit"/>
         <view class="row-body">
           <text class="announcement-title">公司公告</text>
-          <text wx:if="{{announcementTitle}}" class="announcement-preview">{{announcementTitle}}</text>
+          <text wx:if="{{!loggedIn||announcementTitle}}" class="announcement-preview">{{loggedIn?announcementTitle:"登录后查看"}}</text>
         </view>
         <view class="chevron"/>
       </button>
@@ -41,33 +41,40 @@
         <view class="chevron"/>
       </button>
     </view>
-    <view wx:if="{{loggedIn}}" class="section service-section management-section">
-      <view class="section-heading"><text class="section-title">{{ownerProfile?'门店管理':'工作入口'}}</text></view>
-      <button class="service-row" data-action="performance" bindtap="open">
+    <view wx:if="{{loggedIn&&(!showAdminMap||managementEntries.length)}}" class="section service-section management-section">
+      <view class="section-heading"><text class="section-title">{{showAdminMap?'平台管理':ownerProfile?'门店管理':'岗位工作'}}</text></view>
+      <button wx:if="{{!showAdminMap}}" class="service-row" data-action="performance" bindtap="open">
         <image src="/assets/account-chart.jpg" mode="aspectFit"/>
-        <text class="row-body">{{ownerProfile?'绩效任务':'我的任务'}}</text><view class="chevron"/>
+        <text class="row-body">{{ownerProfile?'绩效任务':'我的绩效任务'}}</text><view class="chevron"/>
       </button>
-      <button wx:for="{{managementEntries}}" wx:key="text" class="service-row" data-url="{{item.url}}" bindtap="open">
+      <button wx:for="{{managementEntries}}" wx:key="text" class="service-row" data-url="{{item.url}}" data-admin="{{showAdminMap?item.text:null}}" bindtap="open">
         <image wx:if="{{item.icon}}" src="{{item.icon}}" mode="aspectFit"/>
         <text class="row-body">{{item.text}}</text><view class="chevron"/>
       </button>
       <button wx:for="{{entries}}" wx:key="text" class="service-row" data-url="{{item.url}}" bindtap="open">
+        <image wx:if="{{item.icon}}" src="{{item.icon}}" mode="aspectFit"/>
         <text class="row-body">{{item.text}}</text><view class="chevron"/>
       </button>
     </view>
-    <view wx:if="{{showStoreServices||showAdminMap}}" class="section franchise-section">
-      <view class="section-heading"><text class="section-title">加盟商服务</text></view>
+    <view wx:if="{{showStoreServices}}" class="section franchise-section">
+      <view class="section-heading"><text class="section-title">加盟商服务</text><text wx:if="{{!loggedIn}}" class="announcement-preview">详情需登录</text></view>
       <view class="two-grid">
-        <button wx:if="{{showStoreServices}}" class="tile" data-action="services" bindtap="open"><image src="/assets/account-shop.jpg" mode="aspectFit"/><text>展陈设计</text><view class="chevron"/></button>
-        <button wx:if="{{showStoreServices}}" class="tile" data-action="selection" bindtap="open"><image src="/assets/account-bag.jpg" mode="aspectFit"/><text>众墅甄选</text><view class="chevron"/></button>
+        <button class="tile" data-action="services" bindtap="open"><image src="/assets/account-shop.jpg" mode="aspectFit"/><text>展陈设计</text><view class="chevron"/></button>
+        <button class="tile" data-action="selection" bindtap="open"><image src="/assets/account-bag.jpg" mode="aspectFit"/><text>众墅甄选</text><view class="chevron"/></button>
         <button wx:if="{{showStoreMap}}" class="tile" data-action="storeMap" bindtap="open"><image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text>门店地图</text><view class="chevron"/></button>
-        <button wx:if="{{showStoreServices}}" class="tile" data-action="academy" bindtap="open"><image src="/assets/icons/profile-graduation-cap.svg" mode="aspectFit"/><text>商学院</text><view class="chevron"/></button>
+        <button class="tile" data-action="academy" bindtap="open"><image src="/assets/icons/profile-graduation-cap.svg" mode="aspectFit"/><text>商学院</text><view class="chevron"/></button>
       </view>
+    </view>
+    <view wx:elif="{{showAdminMap}}" class="section service-section">
+      <view class="section-heading"><text class="section-title">总部工具</text></view>
+      <button class="service-row" data-action="storeMap" bindtap="open">
+        <image src="/assets/icons/map-pin.svg" mode="aspectFit"/><text class="row-body">加盟商地图</text><text class="text-link">全品牌</text><view class="chevron"/>
+      </button>
     </view>
     <view wx:if="{{learningAvailable}}" class="section academy-section">
       <view class="section-heading">
         <text class="section-title">学习培训</text>
-        <button class="text-link" data-action="learning" bindtap="open">全部课程<view class="chevron"/></button>
+        <button wx:if="{{loggedIn}}" class="text-link" data-action="learning" bindtap="open">全部课程<view class="chevron"/></button>
       </view>
       <button wx:if="{{!loggedIn||courseId}}" class="course-card" data-action="course" bindtap="open">
         <image class="course-image" src="{{courseImage}}" mode="aspectFill"/>
@@ -77,11 +84,11 @@
             <text class="course-status">已完成{{progress.completed}}/{{progress.total}}节<text wx:if="{{learningLoading||learningError}}"> · {{learningLoading?'更新中…':'更新失败'}}</text></text>
             <view class="progress-track"><view class="progress-value" style="width:{{progress.percent}}%"/></view>
           </block>
-          <text class="continue">{{loggedIn?'继续学习':'登录学习'}}</text>
+          <text class="continue">{{loggedIn?'继续学习':'登录后学习'}}</text>
         </view>
       </button>
       <view wx:else class="course-status">{{learningLoading?'课程加载中…':learningError||'当前岗位暂无已开放课程'}}</view>
-      <button wx:if="{{loggedIn}}" class="service-row course-resources" data-action="resources" bindtap="open">
+      <button wx:if="{{loggedIn&&!showAdminMap}}" class="service-row course-resources" data-action="resources" bindtap="open">
         <image src="/assets/icons/profile-file-text.svg" mode="aspectFit"/>
         <text class="row-body">学习资料</text><view class="chevron"/>
       </button>
@@ -94,10 +101,6 @@
       <button class="service-row" data-action="{{loggedIn?'privacy':'policy'}}" bindtap="open">
         <image src="/assets/account-shield.jpg" mode="aspectFit"/>
         <text class="row-body">{{loggedIn?'账号与隐私':'隐私政策'}}</text><view class="chevron"/>
-      </button>
-      <button wx:if="{{!loggedIn}}" class="service-row" data-action="agreement" bindtap="open">
-        <image src="/assets/account-agreement.jpg" mode="aspectFit"/>
-        <text class="row-body">用户协议</text><view class="chevron"/>
       </button>
     </view>
     <button wx:if="{{loggedIn}}" class="section profile-logout" bindtap="logout">退出登录</button>

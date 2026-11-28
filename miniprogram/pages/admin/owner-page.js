@@ -2,7 +2,6 @@ const PP = require('../../utils/platform-performance'); // 阶段 3 API 态（�
 const A = require('../../utils/account');
 const OwnerHome = require('../../utils/platform-owner-home');
 const Engineering = require('../../utils/platform-engineering');
-const CRM = require('../../utils/platform-crm');
 const http = require('../../api/http');
 const apiScope = require('../../utils/api-scope');
 const { routeValue } = require('../../utils/view-container');
@@ -79,7 +78,7 @@ module.exports = function(kind) {
       this.ownerBusinessStatus = 'error'; this.ownerProjectsStatus = 'error';
       this.ownerAccessError = error && (error.message || error.msg) || '当前工作身份无法访问，请重试或切换岗位';
       this.ownerBusinessError = this.ownerAccessError; this.ownerProjectsError = this.ownerAccessError;
-      this.platDegraded = true; this.platOperatingDegraded = true;
+      this.platDegraded = this.kind !== 'home'; this.platOperatingDegraded = this.kind !== 'home';
       this.refreshPlatView();
     },
     onHide() { this.__ownerHidden = true; this.cancelOwnerReads(); },
@@ -90,39 +89,23 @@ module.exports = function(kind) {
       if (!force && this.__ownerHomeFlight) return this.__ownerHomeFlight.promise;
       const flight = this.__ownerHomeFlight = {scope};
       const stale = () => !this.ownerReadCurrent('__ownerHomeFlight', flight);
-      if (this.ownerBusinessStatus !== 'ready') this.ownerBusinessStatus = 'loading';
       if (this.ownerProjectsStatus !== 'ready') this.ownerProjectsStatus = 'loading';
       this.ownerBusinessError = ''; this.ownerProjectsError = ''; this.ownerAccessError = '';
-      const crmApi = require('../../api/franchise/crm');
-      const commissionApi = require('../../api/franchise/commission');
-      const failed = (error, domain) => {
+      const failed = error => {
         if (stale()) return;
         if (denied(error)) return this.invalidateOwnerAccess(error);
-        if (domain === 'business') {
-          this.ownerBusinessError = error && (error.message || error.msg) || '业务更新失败';
-          if (this.ownerBusinessStatus !== 'ready') this.ownerBusinessStatus = 'error';
-        } else {
-          this.ownerProjectsError = error && (error.message || error.msg) || '工程更新失败';
-          if (this.ownerProjectsStatus !== 'ready') this.ownerProjectsStatus = 'error';
-        }
+        this.ownerProjectsError = error && (error.message || error.msg) || '工程更新失败';
+        if (this.ownerProjectsStatus !== 'ready') this.ownerProjectsStatus = 'error';
         this.refreshPlatView();
       };
-      const business = Promise.all([
-        CRM.loadSummaryRows(crmApi.customers.page, stale, '客户'),
-        CRM.loadSummaryRows(commissionApi.commissions.page, stale, '委托')
-      ]).then(([customers, commissions]) => {
-        if (stale()) return;
-        this.ownerBusinessStatus = 'ready'; this.ownerCustomers = customers; this.ownerCommissions = commissions;
-        this.refreshPlatView();
-      }).catch(error => failed(error, 'business'));
-      const projects = Engineering.api.projects.page().then(rows => {
+      // 首页指标由 home-overview 自取；这里只加载仍被重点项目列表消费的工程数据。
+      flight.promise = Engineering.api.projects.page().then(rows => {
         if (stale()) return;
         if (!Array.isArray(rows)) throw new Error('工程项目返回无效');
         this.ownerProjectsStatus = 'ready'; this.ownerProjects = rows;
         this.refreshPlatView();
-      }).catch(error => failed(error, 'projects'));
+      }).catch(failed).finally(() => this.finishOwnerRead('__ownerHomeFlight', flight));
       this.refreshPlatView();
-      flight.promise = Promise.all([business, projects]).finally(() => this.finishOwnerRead('__ownerHomeFlight', flight));
       return flight.promise;
     },
     onLoad(options = {}) {
@@ -216,7 +199,7 @@ module.exports = function(kind) {
       this.updateOwnerFeedback();
     },
     refreshPlatSummary(force = false) {
-      if (!PP.online() || this.__ownerHidden || this.__ownerDisposed) return;
+      if (this.kind === 'home' || !PP.online() || this.__ownerHidden || this.__ownerDisposed) return;
       const scope = this.syncOwnerScope(), post = PP.apiPost();
       const period = this.platPeriod || PP.currentPeriod();
       const cacheKey = JSON.stringify([scope, period, this.kind]);
