@@ -403,7 +403,7 @@ for(const type of ['refund','expense-refund']) {
 }
 
 
-test('only unassigned manual expenses expose book assignment and the original handler refuses stale source rows',()=>{
+test('manual expenses expose initial attribution or audited correction while upstream and voided rows remain blocked',()=>{
  const originals=[
   {id:'9007199254740999',sourceType:'manual',status:'进行中',totalCents:100},
   {id:'engineer',stage:'engineering',sourceType:null,status:'进行中',projectId:'91',totalCents:100},
@@ -412,13 +412,14 @@ test('only unassigned manual expenses expose book assignment and the original ha
   {id:'design',sourceType:'design',status:'进行中',totalCents:100},
   {id:'void',sourceType:'manual',status:'已作废',totalCents:100}
  ];
- assert.deepEqual(J.payableRows({payables:originals},[],[]).map(q=>q.canAssign),[true,false,false,false,false,false]);
- const page={__financeFacts:{payables:originals},data:{wbForm:null},setData(patch){Object.assign(this.data,patch);}};
+ assert.deepEqual(J.payableRows({payables:originals},[],[]).map(q=>q.canAssign),[true,false,true,true,false,false]);
+ const page={__financeFacts:{payables:originals},data:{wbForm:null,workbenchBooks:[{scope:'project:91',name:'工程91'},{scope:'book:92',name:'前期账92'}]},setData(patch){Object.assign(this.data,patch);}};
  require('../miniprogram/pages/admin/finance-desk/workbench')(page,{idemKey:()=> 'original-key'});
  const tap=id=>({currentTarget:{dataset:{id}}});
- for(const q of originals.slice(1)){page.assignPayableBook(tap(q.id));assert.equal(page.data.wbForm,null);}
- page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm.payableId,originals[0].id);
- page.data.wbForm=null;originals[0].projectId='91';page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm,null);
+ for(const q of [originals[1],originals[4],originals[5]]){page.assignPayableBook(tap(q.id));assert.equal(page.data.wbForm,null);}
+ page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm.payableId,originals[0].id);assert.equal(page.data.wbForm.isCorrection,false);
+ page.data.wbForm=null;page.assignPayableBook(tap(originals[2].id));assert.equal(page.data.wbForm.isCorrection,true);assert.equal(page.data.wbForm.originalScopeLabel,'工程91');
+ page.data.wbForm=null;page.assignPayableBook(tap(originals[3].id));assert.equal(page.data.wbForm.isCorrection,true);assert.equal(page.data.wbForm.originalScopeLabel,'前期账92');
 });
 
 
