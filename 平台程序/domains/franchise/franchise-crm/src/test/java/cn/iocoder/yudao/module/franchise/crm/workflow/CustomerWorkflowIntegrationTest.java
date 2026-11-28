@@ -741,7 +741,10 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
                         status, id, store.orgId());
                 String lastFollowBefore = jdbc.queryForObject("SELECT last_follow_at::text FROM fr_customer WHERE id=?", String.class, id);
 
-                as(sales, () -> workflow.recordConsult(sales, id, id + 1_000_000L, "再次咨询的建房需求", "朋友介绍"));
+                as(sales, () -> {
+                    workflow.recordConsult(sales, id, id + 1_000_000L, "再次咨询的建房需求", "朋友介绍");
+                    return null;
+                });
 
                 LocalDate expected = "ACTIVE".equals(status) && (original == null || original.isBefore(day)) ? day : original;
                 assertThat(as(sales, () -> customers.get(sales, id).customer().getNextVisitDate())).isEqualTo(expected);
