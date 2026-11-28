@@ -153,9 +153,9 @@ module.exports=function(page,api){
   if(this.options?.payrollRecord)return require('../../../utils/page-navigation').back({skipLocal:true,fallback:'/pages/admin/payroll/index'});
   this.refresh();if(this.data.view==='desk')this.syncPlatformTasks();wx.pageScrollTo({scrollTop:scroll,duration:0});
  };
- page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
+ page.changeReceiptMode=function(e){const mode=e.currentTarget.dataset.mode;if(this.data.wbBusy||this.data.paymentPending)return;const f=this.data.wbForm||{},keep=mode==='other'?!String(f.scope||'').startsWith('contract:'):String(f.scope||'').startsWith('project:')||String(f.scope||'').startsWith('contract:');this.setData({'wbForm.receiptMode':mode,'wbForm.stageId':'','wbForm.stageLabel':'','wbForm.name':'','wbForm.scope':keep?f.scope:'','wbForm.scopeLabel':keep?f.scopeLabel:'',wbError:'',journeyErrorField:''});this.syncJourneyForm();};
  page.journeyPick=function(e){
-  if(this.data.declarationPending||this.data.journeyDeclaration&&(this.data.wbBusy||!this.__declarationFormAlive?.()))return;
+  if(this.data.paymentPending||this.data.declarationPending||this.data.journeyDeclaration&&(this.data.wbBusy||!this.__declarationFormAlive?.()))return;
   const field=e.currentTarget.dataset.field,i=Number(e.detail.value),f=this.data.wbForm||{};
   if(field==='scope'){const r=this.data.journeyScopes[i];if(r)this.setData({'wbForm.scope':r.scope,'wbForm.scopeLabel':r.name,'wbForm.stageId':'','wbForm.stageLabel':''});}
   if(field==='stageId'){const r=this.data.journeyStages[i];if(r)this.setData({'wbForm.stageId':String(r.id),'wbForm.stageLabel':(r.stageLabel||J.stageName(r.stage)),'wbForm.name':(r.stageLabel||J.stageName(r.stage)),'wbForm.counterparty':r.customer_name,'wbForm.category':'合同回款'});}

@@ -3,13 +3,22 @@ const pending = new Map();
 const kinds = {
   payment: { label: '付款', source: 'payableId', result: 'paymentId', call: 'registerPayment', path: 'payments' },
   'payroll-payment': { label: '薪酬付款', source: 'payrollRecordId', result: 'id' },
+  'workbench-entry': { label: '收支', result: 'id', path: 'workbench/entries' },
+  'stage-collection': { label: '合同收款', source: 'stageId', result: 'receiptId' },
   'receipt-correction': { label: '收款更正', source: 'receiptId', result: 'receiptId', call: 'correctContractReceipt' },
   refund: { label: '退款', source: 'receiptId', result: 'refundId', call: 'registerRefund', path: 'refunds' },
   'expense-refund': { label: '支出退回', source: 'paymentId', result: 'refundId', call: 'registerExpenseRefund', path: 'expense-refunds' }
 };
 const kind = entry => kinds[entry.type || 'payment']; // Existing saved payments have no type.
 const payroll = entry => entry.type === 'payroll-payment';
-const path = entry => entry.type==='receipt-correction' ? '/franchise/sales/receipts/'+encodeURIComponent(entry.body.receiptId)+'/correction' : payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
+const workbench = entry => entry.type === 'workbench-entry';
+const stageCollection = entry => entry.type === 'stage-collection';
+const workbenchForm = entry => payroll(entry) || workbench(entry) || stageCollection(entry);
+const validSource = entry => workbench(entry)
+  ? ['receipt', 'expense', 'payable'].includes(entry.body?.type) && /^(company|(project|book):[0-9]+)$/.test(entry.body?.scope || '')
+  : !!entry.body?.[kind(entry).source];
+const path = entry => entry.type === 'receipt-correction' ? '/franchise/sales/receipts/' + encodeURIComponent(entry.body.receiptId) + '/correction' :
+  stageCollection(entry) ? '/franchise/sales/stages/' + encodeURIComponent(entry.body.stageId) + '/collect' : payroll(entry) ? '/franchise/finance/payroll/records/' + encodeURIComponent(entry.body.payrollRecordId) + '/payments' :
   '/franchise/finance/' + kind(entry).path;
 
 module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
@@ -37,28 +46,29 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     page.registerIdem = null;
     page.setData({ registerType: '', registerForm: {}, registerBusy: false, paymentPending: false,
       paymentRetry: false, registerError: '', paymentNotice: kind(entry).label + '已登记，单号 ' + id });
-    if (payroll(entry)) page.setData({ wbForm: null, wbError: '' });
-    if (entry.type==='receipt-correction') page.setData({revisionForm:null,revisionBusy:false});
-    page.financeEntrySaved?.(payroll(entry) ? 'expense' : entry.type || 'payment', entry.form, result);
+    if (workbenchForm(entry)) page.setData({ wbForm: null, wbError: '' });
+    if (entry.type === 'receipt-correction') page.setData({ revisionForm: null, revisionBusy: false });
+    page.financeEntrySaved?.(workbench(entry) ? entry.body.type : stageCollection(entry) ? 'receipt' : payroll(entry) ? 'expense' : entry.type || 'payment', entry.form, result);
     page.loadPlatformFinance(true);
     page.loadWorkbench?.();
     page.loadDesignFees?.();
     page.refreshFinanceTasks?.();
-    if(entry.type==='receipt-correction'&&page.data.view==='book')page.loadBookLedger?.();
+    if ((workbench(entry) || stageCollection(entry) || entry.type === 'receipt-correction') && page.data.view === 'book') page.loadBookLedger?.();
     return true;
   };
   const reject = (key, entry) => {
     if (!current(key, entry)) return;
     remove(key);
     page.registerIdem = null;
-    page.setData({ ...(payroll(entry) ? { wbError: entry.rejection } : {}), registerBusy: false, paymentPending: false, paymentRetry: false,
+    page.setData({ ...(workbenchForm(entry) ? { wbError: entry.rejection } : {}), registerBusy: false, paymentPending: false, paymentRetry: false,
       registerError: entry.rejection, paymentNotice: entry.rejection });
   };
   const send = (key, entry) => {
     if (entry.flight) return entry.flight;
     entry.notice = kind(entry).label + '请求已发送，正在确认登记结果';
-    const { payrollRecordId, ...payment } = entry.body;
-    const dispatch = payroll(entry) ? http.post(path(entry), payment, { 'Idempotency-Key': entry.idem }) : api[kind(entry).call](entry.body, entry.idem);
+    const { payrollRecordId, stageId, ...payment } = entry.body;
+    const dispatch = payroll(entry) || stageCollection(entry) ? http.post(path(entry), payment, { 'Idempotency-Key': entry.idem })
+      : workbench(entry) ? http.post(path(entry), entry.body, { 'Idempotency-Key': entry.idem }) : api[kind(entry).call](entry.body, entry.idem);
     entry.flight = dispatch.then(result => {
       entry.result = result;
     }, err => {
@@ -95,7 +105,7 @@ module.exports = function attachRecovery(page, api, http, auth, wx, PF) {
     let entry = pending.get(key);
     if (!entry) {
       const saved = wx.getStorageSync?.(key);
-      if (!saved?.idem || !kind(saved) || !saved?.body?.[kind(saved).source]) return;
+      if (!saved?.idem || !kind(saved) || !validSource(saved)) return;
       entry = { ...saved, uncertain: true };
       pending.set(key, entry);
     }

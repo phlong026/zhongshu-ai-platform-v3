@@ -115,15 +115,46 @@ test('home keeps confirmed module order and a single month selector',()=>{
  assert.equal(PF.shortcuts(false)[2].label,'报销办理');
  assert.ok(s.includes('wx:if="{{!desk.hq}}" role="finance"'));assert.ok(s.includes('wx:if="{{desk.hq}}"'));assert.ok(s.includes('bind:monthchange="financeMonth"'));
 });
-test('manual entry retries reuse command and uploaded voucher without creating another fact',async()=>{
- const source=fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8'),module={exports:{}};
- let attempt=0,uploads=0;const calls=[],refreshes=[];
- const http={sessionGuard:()=>()=>true,post:async(url,body,headers)=>{calls.push({url,body,headers});if(++attempt===1)throw Error('network response lost');},requestGuard:()=>()=>true};
- vm.runInNewContext(source,{module,require:n=>n.endsWith('/api/http')?http:n.endsWith('/platform-finance')?PF:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},wx:{showToast(){}},Promise,Number,String});
- const page={data:{wbForm:{type:'expense',scope:'company',name:'现场运输',category:'运输',amount:'860',date:'2026-11-17',accountName:'公司银行',counterparty:'运输商',voucherPath:'/test/voucher.png'}},setData(patch){for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let d=this.data;while(parts.length>1){const k=parts.shift();d=d[k]||(d[k]={});}d[parts[0]]=v;}},options:{},loadPlatformFinance(force){refreshes.push(force);}};
- module.exports(page,{idemKey:()=> 'fixed-test-key',uploadVoucher:async()=>{uploads++;return '9007199254740999';}});page.wbKey='fixed-test-key';page.wbGeneration=1;
- page.loadWorkbench=()=>{};await page.submitWorkbench();assert.ok(page.data.wbForm);await page.submitWorkbench();
- assert.equal(uploads,1);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.equal(page.data.wbForm,null);assert.deepEqual(refreshes,[true],'a successful write bypasses any pre-write pending read');
+test('manual entries and contract receipts recover the frozen request after process reload',async()=>{
+ const source=fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8');
+ const recovery=fs.readFileSync('miniprogram/pages/admin/finance-desk/payment-recovery.js','utf8');
+ for(const type of ['receipt','expense','stage'])for(const committed of [false,true]){
+  let uploads=0,lookups=0,postId='original-post',roleCode='finance';const calls=[],refreshes=[],storage=new Map();
+  const result=type==='stage'?{receiptId:'9007199254742999'}:{id:'9007199254742999'};
+  const endpoint=type==='stage'?'/franchise/sales/stages/9007199254741999/collect':'/franchise/finance/workbench/entries';
+  const key='frozen-'+type+'-'+committed;
+  const wx={showToast(){},pageScrollTo(){},setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),getStorageSync:k=>storage.get(k),removeStorageSync:k=>storage.delete(k)};
+  const auth={currentApiPost:()=>({orgId:'store',userId:'finance',postId,orgType:'store',roleCode})};
+  const http={sessionGuard:()=>()=>true,currentPostId:()=>postId,tenantId:()=> 'tenant',requestGuard:()=>()=>true,
+   post:async(url,body,headers)=>{calls.push(JSON.parse(JSON.stringify({url,body,headers})));if(calls.length===1)throw Error('network response lost');return result;},
+   get:async(url,args)=>{lookups++;assert.equal(url,endpoint+'/registration-result');assert.equal(args.key,key);return committed?result:{state:'NOT_REGISTERED'};}};
+  const api={idemKey:()=>key,uploadVoucher:async()=>{uploads++;return '9007199254740999';}};
+  const form={type:type==='expense'?'expense':'receipt',scope:type==='stage'?'contract:91':'company',name:'原收付事项',category:'其他',amount:'860',date:'2026-11-17',accountName:'公司银行',counterparty:'原往来方',voucherPath:'/test/voucher.png',...(type==='stage'?{stageId:'9007199254741999'}:{})};
+  function create(form){
+   const module={exports:{}};vm.runInNewContext(source,{module,require:n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/platform-finance')?PF:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},wx,Promise,Number,String});
+   const page={data:{view:'book',wbForm:form},setData(patch){for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let d=this.data;while(parts.length>1){const k=parts.shift();d=d[k]||(d[k]={});}d[parts[0]]=v;}},options:{},loadPlatformFinance(force){refreshes.push(force);}};
+   module.exports(page,api);page.wbKey=key;page.wbGeneration=1;page.loadWorkbench=()=>{};
+   const moduleRecovery={exports:{}};vm.runInNewContext(recovery,{module:moduleRecovery,require});moduleRecovery.exports(page,api,http,auth,wx,PF);
+   return page;
+  }
+  const first=create({...form});
+  if(type==='stage'){roleCode='engineer';await first.submitWorkbench();assert.equal(calls.length,0);assert.equal(uploads,0);roleCode='finance';}
+  await first.submitWorkbench();
+  assert.equal(calls.length,1);assert.equal(first.data.paymentPending,true);assert.equal(storage.size,1);
+  first.wbInput({currentTarget:{dataset:{field:'amount'}},detail:{value:'999'}});
+  assert.equal(first.data.wbForm.amount,'860');await first.submitWorkbench();assert.equal(calls.length,1);
+  const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
+  const controls=flat(render(path.resolve('miniprogram/pages/admin/finance-desk/journey-forms.wxml'),first.data)).filter(n=>['input','picker'].includes(n.tag));
+  assert(controls.length>0);assert(controls.every(n=>n.attrs.disabled));
+  first.__disposed=true;
+  const reopened=create({...form,amount:'999',voucherPath:'/test/another.png'});
+  postId='another-post';await reopened.resumePayment();assert.equal(lookups,0);assert.equal(calls.length,1);
+  postId='original-post';await reopened.resumePayment();
+  if(!committed){assert.equal(reopened.data.paymentPending,true);await reopened.retryPendingPayment();assert.equal(calls.length,2);assert.deepEqual(calls[1],calls[0]);}
+  else assert.equal(calls.length,1);
+  assert.equal(calls[0].url,endpoint);assert.equal(calls[0].body.amountCents,86000);assert.equal(calls[0].body.voucherFileId,'9007199254740999');
+  assert(!Object.hasOwn(calls[0].body,'stageId'));assert.equal(uploads,1);assert.equal(storage.size,0);assert.equal(reopened.data.wbForm,null);assert.equal(reopened.data.paymentPending,false);assert.deepEqual(refreshes,[true]);
+ }
 });
 // Append to scripts/verify-finance-workbench-20261117.cjs for review reproduction.
 const reviewBooks=[{scope:'book:11',name:'旧岗位私有账本'}];
