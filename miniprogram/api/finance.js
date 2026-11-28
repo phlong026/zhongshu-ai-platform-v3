@@ -323,11 +323,19 @@ function revisions(receiptId) {
   return http.get('/franchise/finance/revisions', { receiptId });
 }
 
+function contractReceiptCorrection(receiptId) {
+  return http.get('/franchise/sales/receipts/'+encodeURIComponent(receiptId)+'/correction');
+}
+function correctContractReceipt(body, key) {
+  const {receiptId,...change}=body;
+  return http.post('/franchise/sales/receipts/'+encodeURIComponent(receiptId)+'/correction',change,{'Idempotency-Key':key});
+}
+
 module.exports = {
   idemKey, receipts, payments, payables, refunds,
   registerReceipt, registerPayment, registerRefund, registerExpenseRefund, registerPayable,
   voidRefund, reconciliation,
   voidPayment,
   confirmBank, bankFlows, projectAccount, designFees, projectLedger, projects,
-  uploadVoucher, reviseReceipt, revisions, sha256Hex, readFileBase64, guessMime, sniffMime, voucherMime, voucherRejectText
+  uploadVoucher, reviseReceipt, revisions, contractReceiptCorrection, correctContractReceipt, sha256Hex, readFileBase64, guessMime, sniffMime, voucherMime, voucherRejectText
 };
