@@ -298,6 +298,42 @@ class FinWorkbenchIntegrationTest extends FranchisePgIntegrationTest {
   assertThat(cash).containsEntry("counterparty","运输商").containsEntry("account_name","公司账户").containsEntry("source_type","manual").containsEntry("funding_type","COMPANY").containsEntry("note","运输收据已核对");
   assertThat(rows.stream().filter(row->"PAYMENT".equals(row.get("type"))).count()).isEqualTo(1);
  }
+ @Test void bossProjectLedgerKeepsTypedOriginalsExactIdsAndTheirOwnEvidence(){
+  long project=assignmentProject("只读追溯工程"),other=assignmentProject("另一工程");
+  long shared=9007199254740993L,receiptVoucher=9007199254740995L,paymentVoucher=9007199254740997L,refundVoucher=9007199254740999L;
+  long payment=workbench.register(post,"readonly-payment",new FinWorkbenchService.EntryCommand("project:"+project,"expense","原运输费","运输",86000,LocalDate.now(),"运输商","公司账户","付款流水",null));
+  jdbc.update("UPDATE fr_fin_payment SET id=?,voucher_file_id=? WHERE id=?",shared,paymentVoucher,payment);
+  long receipt=workbench.register(post,"readonly-receipt",new FinWorkbenchService.EntryCommand("project:"+project,"receipt","客户回款","工程款",100000,LocalDate.now(),"客户甲","收款账户","收款流水",null));
+  jdbc.update("UPDATE fr_fin_receipt SET id=?,voucher_file_id=? WHERE id=?",shared,receiptVoucher,receipt);
+  long refund=refunds.registerExpense(post,"readonly-refund",new FinRefundService.ExpenseRefundCommand(shared,1000,"运费退回",LocalDate.now(),"退回流水",null,null,"COMPANY"));
+  jdbc.update("UPDATE fr_fin_refund SET id=?,voucher_file_id=? WHERE id=?",shared,refundVoucher,refund);
+  workbench.supplement(post,shared,"readonly-payment-note",new FinWorkbenchService.Supplement("payment","付款补充说明",null));
+  workbench.supplement(post,shared,"readonly-receipt-note",new FinWorkbenchService.Supplement("receipt","收款补充说明",null));
+  workbench.supplement(post,shared,"readonly-refund-note",new FinWorkbenchService.Supplement("refund","退回补充说明",null));
+  long advance=workbench.register(post,"readonly-advance",new FinWorkbenchService.EntryCommand("project:"+project,"expense","员工交通费","差旅",2000,LocalDate.now(),"车队","员工账户",null,null,"EMPLOYEE",post.userId(),"员工甲"));
+  long employeeReturn=refunds.registerExpense(post,"readonly-employee-refund",new FinRefundService.ExpenseRefundCommand(advance,500,"交通退回员工",LocalDate.now(),null,null,null,"EMPLOYEE"));
+  jdbc.update("INSERT INTO fr_fin_receipt(id,company_id,project_id,name,source_type,amount_cents,status,registrar_user_id) VALUES(?,?,?,'未核实原收款','manual',3000,'待登记',?)",shared+100,post.orgId(),project,post.userId());
+  workbench.register(post,"readonly-other",new FinWorkbenchService.EntryCommand("project:"+other,"receipt","另一工程回款","工程款",999999,LocalDate.now(),"其他客户","其他账户",null,null));
+  var result=new FinProjectLedgerService(jdbc).page(post.orgId(),project,1,20);
+  assertThat(result.summary().receivedCents()).isEqualTo(100000);
+  assertThat(result.summary().paidCents()).isEqualTo(86000);
+  assertThat(result.summary().expenseRefundedCents()).isEqualTo(1000);
+  var originals=result.entries().getList().stream().filter(row->row.id()==shared).collect(java.util.stream.Collectors.toMap(FinProjectLedgerService.Row::type,row->row));
+  assertThat(originals).containsOnlyKeys("PAYMENT","RECEIPT","EXPENSE_REFUND");
+  assertThat(originals.values()).allSatisfy(row->assertThat(row.recordId()).isEqualTo(Long.toString(shared)));
+  assertThat(originals.get("PAYMENT").details()).isEqualTo(new FinProjectLedgerService.Details("原运输费","运输","运输商","公司账户","付款流水",Long.toString(paymentVoucher),"付款补充说明"));
+  assertThat(originals.get("RECEIPT").details()).isEqualTo(new FinProjectLedgerService.Details("客户回款","工程款","客户甲","收款账户","收款流水",Long.toString(receiptVoucher),"收款补充说明"));
+  var returnDetails=originals.get("EXPENSE_REFUND").details();
+  assertThat(returnDetails.voucherFileId()).isEqualTo(Long.toString(refundVoucher));
+  assertThat(returnDetails.transactionNo()).isEqualTo("退回流水");
+  assertThat(returnDetails.counterparty()).isEqualTo("运输商");
+  assertThat(returnDetails.accountName()).isNull();
+  assertThat(returnDetails.note()).isEqualTo("退回补充说明");
+  assertThat(result.entries().getList()).anySatisfy(row->{assertThat(row.id()).isEqualTo(employeeReturn);assertThat(row.type()).isEqualTo("EMPLOYEE_REFUND");});
+  assertThat(result.entries().getList()).anySatisfy(row->{assertThat(row.id()).isEqualTo(shared+100);assertThat(row.type()).isEqualTo("PENDING_RECEIPT");});
+  assertThat(result.entries().getList()).noneMatch(row->"另一工程回款".equals(row.details().name()));
+  assertThatThrownBy(()->new FinProjectLedgerService(jdbc).page(post.orgId()+10000,project,1,20)).isInstanceOf(RuntimeException.class);
+ }
  @Test void historicalEngineeringExpenseKeepsItsNameWithoutChangingCashOrCrossingOrganizations(){
   jdbc.execute("CREATE TABLE IF NOT EXISTS fr_eng_material(id bigint,company_id bigint,name text)");
   long project=com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
