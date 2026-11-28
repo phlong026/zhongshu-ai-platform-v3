@@ -121,3 +121,31 @@ test('切岗、隐藏页面或关闭原单使未完成的凭据请求失效', as
   assert.equal(env.downloads.length, 0); assert.equal(env.opened.length, 0);
  }
 });
+
+test('退给员工的款保持中性，只有公司收到的钱显示入账方向', async () => {
+ const fixture = ledgerFixture();
+ const common = { amountCents: 8000, occurredOn: '2026-11-28', status: '已核实' };
+ const employee = fixture.entries.list.find(row => row.type === 'EMPLOYEE_REFUND');
+ Object.assign(employee, common);
+ const company = { ...common, type: 'EXPENSE_REFUND', recordId: '9007199254741001', details: { name: '退款退回公司' } };
+ const recovery = { ...common, type: 'RECEIPT', recordId: '9007199254741002', details: { name: '员工归还公司' } };
+ fixture.entries.list.push(company, recovery);
+ fixture.entries.total += 2;
+ fixture.summary.receivedCents += 8000;
+ fixture.summary.expenseRefundedCents += 8000;
+ const env = await realLedger('boss', fixture);
+ const rows = env.page.data.projectLedgerEntries;
+ const refund = rows.find(row => row.type === 'EMPLOYEE_REFUND');
+ assert.equal(refund.typeLabel, '垫付退回员工');
+ assert.equal(refund.amountText, '80.00');
+ assert.equal(refund.sign, '');
+ assert.equal(refund.tone, '');
+ for (const row of rows.filter(row => ['RECEIPT', 'EXPENSE_REFUND'].includes(row.type))) {
+  assert.equal(row.sign, '+');
+  assert.equal(row.tone, 'income');
+ }
+ assert.equal(env.page.data.projectBookNet, '300.00', '公司汇总只反映公司实际收到的原款与退款');
+ await (await env.ui.$('button[data-key="EMPLOYEE_REFUND:' + recordId + '"]')).tap();
+ assert.equal(env.page.data.bookEntryDetail.id, recordId);
+ assert.equal(env.page.data.bookEntryDetail.voucher_file_id, voucherId);
+});
