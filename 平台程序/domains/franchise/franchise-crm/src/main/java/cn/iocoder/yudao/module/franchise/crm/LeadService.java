@@ -177,8 +177,8 @@ public class LeadService {
     }
 
     /**
-     * 客资关联到老客户（登记人可见时自动关联，或负责人关联）：在客户的八步时间线上留一条“再次咨询”，
-     * 并把下次跟进日期提到今天；已流失的客户只记下再次咨询，等负责人恢复。
+     * 客资关联到老客户（登记人可见时自动关联，或负责人关联）：在客户的八步时间线上留一条“再次咨询”。
+     * ACTIVE仅将过去或空的下次跟进日期提到今天；PAUSED保留原再联系日期，LOST等待负责人决定是否恢复。
      */
     private void consult(PostSnapshot post, CustomerDO customer, LeadDO lead) {
         if (workflows == null || customer == null || lead == null) return;
