@@ -168,6 +168,7 @@ test('opening the real workbench form loads only current-contract candidates and
   });
   const api = {
     idemKey: prefix => 'test-' + prefix,
+    receipts: async () => [receipt('receipt-1', { amountCents: 50000 })],
     refunds: async () => [{ receiptId: 'receipt-1', amountCents: 10000, status: '已核实' }]
   };
   const page = {
@@ -177,7 +178,6 @@ test('opening the real workbench form loads only current-contract candidates and
       workbenchBooks: [targetProject], allocationReceipts: []
     },
     __financeReadEpoch: 1,
-    __allocationReceiptFacts: [receipt('receipt-1', { amountCents: 50000 })],
     setData(patch) {
       Object.keys(patch).forEach(key => {
         const parts = key.split('.');

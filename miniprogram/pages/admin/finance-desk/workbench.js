@@ -19,7 +19,6 @@ module.exports = function (page, api) {
       if (!alive() || this.__disposed) return;
       const rows = reimbursements.map(r => ({ ...r, pay_date:financeDay(r.pay_date), id: r.payable_id, remaining: Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0),
         absoluteAmount:yuan(Math.abs(Number(r.eligible_cents)-Number(r.reimbursed_cents)+Number(r.recovered_cents||0))),amount: yuan(Number(r.eligible_cents) - Number(r.reimbursed_cents) + Number(r.recovered_cents||0)), paidText: yuan(r.reimbursed_cents) }));
-      this.__allocationReceiptFacts=receipts;
       this.setData({ allocationReceipts:this.data.wbForm?.type==='allocation'?(this.data.allocationReceipts||[]):[],financialStages: stages.map(r=>({...r,stageLabel:r.label||require("../../../utils/finance-journey-view").stageName(r.stage),label: (r.customer_name||"合同收款")+" · "+(r.label||require("../../../utils/finance-journey-view").stageName(r.stage))+" · 待收 ¥"+BookView.money(Math.max(0,Number(r.amount_cents)-Number(r.collected_cents)))})),workbenchBooks: books, reimbursementRows: rows, bookEmployeeFactsLoading:false, workbenchStaff: staff, collectionDeclarations: declarations.map(r=>({...r,amount:yuan(r.amount_cents)})),
         'deskHome.focus': rows.filter(r => r.remaining !== 0).map(r => ({ id: r.id, name: r.payer_name + ' · '+r.stage,
           amount: '¥' + BookView.money(r.remaining), status: r.remaining < 0 ? '员工应归还公司' : Number(r.reimbursed_cents) > 0 ? '部分报销' : '待报销', url: '/pages/admin/finance-desk/index?view=reimbursements' })) });
@@ -27,7 +26,7 @@ module.exports = function (page, api) {
       if(!this.data.wbBusy&&['book','linkbook'].includes(this.data.wbForm?.type))this.setData({wbForm:{...this.data.wbForm,...require('./book-source').projectChoices(this,this.data.wbForm)}});
       this.__messageWorkbenchReady=true;
       if(this.refreshJourney)this.refreshJourney();if (this.data.view === 'projects') this.loadFinanceProjects();if(this.data.view==='book'&&this.data.bookEntryRows)this.updateBookEmployees();
-      if(this.data.wbForm?.type==='allocation'&&this.data.allocationReceiptsLoading)this.loadAllocationCandidates(this.data.wbForm.stageId);
+      if(this.data.wbForm?.type==='allocation')this.loadAllocationCandidates(this.data.wbForm.stageId);
     } catch (e) { if (alive() && !this.__disposed){const patch={workbenchError:e.message||e.msg||'账本及报销加载失败',bookEmployeeFactsLoading:false};if(this.financeReadError)this.financeReadError(e,patch);else this.setData(patch);} }
   };
   page.returnCollectionDeclaration=function(e){
@@ -136,11 +135,9 @@ module.exports = function (page, api) {
     const alive=()=>session()&&!this.__disposed&&!this.__financeHidden&&(this.__financeReadEpoch||0)===epoch&&this.__allocationCandidateRequest===request&&this.data.wbForm?.type==='allocation'&&String(this.data.wbForm.stageId)===target;
     this.setData({allocationReceipts:[],allocationReceiptsLoading:true,allocationReceiptsError:'',allocationReceiptHint:''});
     try{
-      const receiptRead=Array.isArray(this.__allocationReceiptFacts)?Promise.resolve(this.__allocationReceiptFacts):api.receipts();
-      const [receipts,refunds]=await Promise.all([receiptRead,api.refunds()]);
+      const [receipts,refunds]=await Promise.all([api.receipts(),api.refunds()]);
       if(!alive())return;
       if(!Array.isArray(receipts)||!Array.isArray(refunds))throw Error('收款或退款记录返回异常，请刷新后重试');
-      this.__allocationReceiptFacts=receipts;
       const result=AllocationCandidates.candidates({stageId:target,stages:this.data.financialStages||[],receipts,refunds,books:this.data.workbenchBooks||[]});
       const rows=result.items.map(row=>({...row,label:[row.originLabel,row.name||'原收款','可抵 ¥'+BookView.money(row.availableAmountCents),row.receivedDate].filter(Boolean).join(' · ')}));
       this.setData({allocationReceipts:rows,allocationReceiptsLoading:false,allocationReceiptsError:'',allocationReceiptHint:result.hint||''});
