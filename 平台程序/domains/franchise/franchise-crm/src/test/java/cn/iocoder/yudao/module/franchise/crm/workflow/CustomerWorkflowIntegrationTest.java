@@ -681,7 +681,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void lostNeedsAReasonAndLeavesTheFollowupListsWhileResumeBringsTheCustomerBackToday() {
+    void lostAndPausedCustomersStayOutOfDueFollowupsUntilExplicitResume() {
         long id = customer();
         as(sales, () -> workflow.save(sales, id, "INVITATION", new SaveCommand(0, today(), "", Map.of(), List.of(), today().plusDays(1)), "plan"));
         failure(400, () -> as(sales, () -> workflow.status(sales, id, new StatusCommand(1, "LOST", "客户不建了"), "lost-without-code")));
@@ -721,8 +721,75 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         View deferred = as(sales, () -> workflow.status(sales, id, new StatusCommand(resumed.revision(), "PAUSED", null, "等宅基地批复", later), "pause"));
         assertThat(deferred.nextFollowOn()).isEqualTo(later);
         assertThat(as(sales, () -> customers.listDueVisits(sales, today()))).isEmpty();
-        assertThat(as(sales, () -> customers.listDueVisits(sales, later))).extracting(CustomerDO::getId).containsExactly(id);
+        assertThat(as(sales, () -> customers.listDueVisits(sales, later))).isEmpty();
+        assertThat(as(sales, () -> workflow.get(sales, id).status())).isEqualTo("PAUSED");
         failure(409, () -> as(sales, () -> workflow.complete(sales, id, "INVITATION", deferred.revision(), "paused-complete")));
+    }
+
+    @Test
+    void reconsultAppliesTheConfirmedTwelveCombinationStatusAndDateMatrix() {
+        LocalDate day = today();
+        List<LocalDate> dates = java.util.Arrays.asList(day.minusDays(1), day, day.plusDays(1), null);
+        for (String status : List.of("ACTIVE", "PAUSED", "LOST")) {
+            for (LocalDate original : dates) {
+                long id = customer();
+                as(sales, () -> workflow.save(sales, id, "INVITATION",
+                        new SaveCommand(0, day, "", Map.of(), List.of()), "reconsult-seed-" + id));
+                if (original == null) jdbc.update("UPDATE fr_customer SET next_visit_date=NULL WHERE id=?", id);
+                else jdbc.update("UPDATE fr_customer SET next_visit_date=? WHERE id=?", original, id);
+                jdbc.update("UPDATE fr_customer_workflow SET status=? WHERE customer_id=? AND company_id=?",
+                        status, id, store.orgId());
+                String lastFollowBefore = jdbc.queryForObject("SELECT last_follow_at::text FROM fr_customer WHERE id=?", String.class, id);
+
+                as(sales, () -> {
+                    workflow.recordConsult(sales, id, id + 1_000_000L, "再次咨询的建房需求", "朋友介绍");
+                    return null;
+                });
+
+                LocalDate expected = "ACTIVE".equals(status) && (original == null || original.isBefore(day)) ? day : original;
+                assertThat(as(sales, () -> customers.get(sales, id).customer().getNextVisitDate())).isEqualTo(expected);
+                assertThat(as(sales, () -> workflow.get(sales, id).status())).isEqualTo(status);
+                assertThat(jdbc.queryForObject("SELECT last_follow_at::text FROM fr_customer WHERE id=?", String.class, id))
+                        .isEqualTo(lastFollowBefore);
+                assertThat(as(sales, () -> workflow.timeline(sales, id, 1, 20)).getList())
+                        .extracting(RecordView::type).contains("CONSULT");
+
+                var reconsultedIds = as(sales, () -> customers.listReconsulted(sales)).stream()
+                        .map(CustomerDO::getId).toList();
+                if ("LOST".equals(status)) assertThat(reconsultedIds).contains(id);
+                else assertThat(reconsultedIds).doesNotContain(id);
+            }
+        }
+    }
+
+    @Test
+    void pausedCustomersKeepTheirOriginalDatesButNeverEnterDueOrStaleReminders() {
+        LocalDate day = today();
+        List<LocalDate> dates = List.of(day.minusDays(1), day, day.plusDays(1));
+        List<Long> ids = new java.util.ArrayList<>();
+        for (LocalDate date : dates) {
+            long id = customer();
+            as(sales, () -> workflow.save(sales, id, "INVITATION",
+                    new SaveCommand(0, day, "", Map.of(), List.of()), "paused-reminder-seed-" + id));
+            jdbc.update("UPDATE fr_customer_workflow SET status='PAUSED' WHERE customer_id=? AND company_id=?", id, store.orgId());
+            jdbc.update("UPDATE fr_customer SET status='REGISTERED',next_visit_date=?,last_follow_at=NULL,create_time=CURRENT_TIMESTAMP - INTERVAL '3 days' WHERE id=?",
+                    date, id);
+            ids.add(id);
+        }
+
+        var page = new PageParam(); page.setPageNo(1); page.setPageSize(50);
+        assertThat(as(sales, () -> customers.listDueVisits(sales, day))).isEmpty();
+        assertThat(as(sales, () -> customers.listAwaitingFirstFollow(sales))).isEmpty();
+        assertThat(as(sales, () -> customers.listStale(sales, day))).isEmpty();
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.DUE).getList())).isEmpty();
+        assertThat(as(sales, () -> customers.page(sales, page, null, null, null, CustomerMapper.FollowFilter.APPOINTMENTS).getList()))
+                .extracting(CustomerDO::getId).containsExactly(ids.get(2));
+
+        var summary = as(sales, () -> customers.followSummary(sales));
+        assertThat(summary.due()).isZero();
+        assertThat(summary.overdue()).isZero();
+        assertThat(summary.appointments()).isEqualTo(1);
+        assertThat(summary.paused()).isEqualTo(3);
     }
 
     @Test
@@ -783,7 +850,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(as(sales, () -> workflow.timeline(sales, id, 3, 4).getTotal())).isEqualTo(5L);
         assertThat(as(sales, () -> workflow.records(sales, id, 1, 20)).getList()).extracting(RecordView::type)
                 .containsExactly("CONSULT", "COMPLETE", "SAVE");
-        // 再次咨询不是负责人的跟进：最近跟进时间不变，没约定的下次跟进日期提到今天
+        // 再次咨询不是负责人的跟进：最近跟进时间不变；ACTIVE客户没约定的下次跟进日期提到今天
         assertThat(as(sales, () -> workflow.get(sales, id).nextFollowOn())).isEqualTo(today());
         failure(1_110_000_000, () -> as(colleague, () -> workflow.timeline(colleague, id, 1, 20)));
     }

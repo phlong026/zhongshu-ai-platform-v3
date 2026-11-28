@@ -250,21 +250,26 @@ public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.ap
             SELECT EXISTS(SELECT 1 FROM fr_eng_supply WHERE company_id=? AND payable_id=?)
                 OR EXISTS(SELECT 1 FROM fr_eng_expense WHERE company_id=? AND payable_id=?)
             """,Boolean.class,post.orgId(),id,post.orgId(),id));
-        if(engineering || !"manual".equals(source.get("source_type")) || source.get("project_id")!=null
-                || source.get("book_id")!=null || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
+        // Only a true manual payable without an upstream source may be assigned or corrected.
+        // Existing project/book attribution is correctable; engineering-linked rows are rejected above.
+        Object sourceRef=source.get("source_ref");
+        if(engineering || !"manual".equals(source.get("source_type"))
+                || sourceRef!=null && !String.valueOf(sourceRef).isBlank()
+                || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
         jdbc.update("UPDATE fr_fin_payable SET book_id=?,project_id=? WHERE company_id=? AND (id=? OR (source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.bookId(),s.projectId(),post.orgId(),id,id,post.orgId());
         jdbc.update("UPDATE fr_fin_payment SET project_id=? WHERE company_id=? AND payable_id IN(SELECT id FROM fr_fin_payable WHERE id=? OR (company_id=? AND source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.projectId(),post.orgId(),id,post.orgId(),id,post.orgId());
-        // Carry the original employee recovery when finance assigns its previously unassigned advance.
+        // Carry the original employee recovery only if it still belongs to the expense's old scope.
         jdbc.update("""
             UPDATE fr_fin_receipt r SET book_id=?,project_id=?
             FROM fr_fin_payable q JOIN fr_fin_payment m ON m.company_id=q.company_id AND m.id::text=q.source_ref
             WHERE r.company_id=q.company_id AND q.company_id=? AND m.payable_id=?
               AND q.source_type='reimbursement' AND NOT q.deleted
               AND m.funding_type='EMPLOYEE' AND r.source_type='manual' AND NOT r.deleted
-              AND r.book_id IS NULL AND r.project_id IS NULL AND r.source_ref='employee-recovery:'||q.id
+              AND r.source_ref='employee-recovery:'||q.id
+              AND r.book_id IS NOT DISTINCT FROM ?::bigint AND r.project_id IS NOT DISTINCT FROM ?::bigint
               AND EXISTS (SELECT 1 FROM pf_command_event e WHERE e.domain='franchise' AND e.org_id=r.company_id
                 AND e.aggregate_type='fin-employee-recovery' AND e.command='fin-employee-recovery' AND e.aggregate_id=r.id)
-            """,s.bookId(),s.projectId(),post.orgId(),id);
+            """,s.bookId(),s.projectId(),post.orgId(),id,source.get("book_id"),source.get("project_id"));
         long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,id);
         commands.record(post,"fin-payable",id,revision,"fin-payable-assign",input,key);
     }
