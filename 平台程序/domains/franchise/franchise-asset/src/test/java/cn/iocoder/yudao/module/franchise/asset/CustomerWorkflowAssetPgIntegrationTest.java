@@ -371,6 +371,63 @@ class CustomerWorkflowAssetPgIntegrationTest extends FranchisePgIntegrationTest 
         denied(() -> assets.readDownload(actor(sales), file, ticket));
     }
 
+    @Test void sameCustomerCanReuseOneAssetAcrossStepsAndConcurrentSameKeyRetryWritesOnce() throws Exception {
+        long customer = customer(), file = upload(PDF, "application/pdf");
+        var invitation = new CustomerWorkflowModel.SaveCommand(0, LocalDate.now(ZoneId.of("Asia/Shanghai")),
+                "客户已确认邀约", Map.of("contactMethod", "微信", "invitationResult", "CONFIRMED",
+                "appointmentAt", LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(1) + "T10:00"),
+                List.of(new CustomerWorkflowModel.Attachment(Long.toString(file), "同一资料.pdf")));
+
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<CustomerWorkflowModel.View> request = () -> {
+                TenantContextHolder.setTenantId(tenant);
+                try {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("same-key requests did not start");
+                    return as(sales, () -> workflow.save(sales, customer, "INVITATION", invitation, "same-customer-asset-key"));
+                } finally {
+                    TenantContextHolder.clear();
+                }
+            };
+            var first = pool.submit(request);
+            var second = pool.submit(request);
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            var firstResult = first.get(20, TimeUnit.SECONDS);
+            var secondResult = second.get(20, TimeUnit.SECONDS);
+            assertThat(firstResult).isEqualTo(secondResult);
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM fr_customer_workflow_step s
+                    JOIN fr_customer_workflow w ON w.id=s.workflow_id
+                    WHERE w.customer_id=? AND s.step_code='INVITATION'
+                    """, Long.class, customer)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM fr_customer_workflow_event e
+                    JOIN fr_customer_workflow w ON w.id=e.workflow_id
+                    WHERE w.customer_id=? AND e.step_code='INVITATION' AND e.action='SAVE'
+                    """, Long.class, customer)).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // The same private asset may be referenced by another step of the same customer.
+        var quotation = quote(1, file);
+        as(sales, () -> workflow.save(sales, customer, "QUOTATION", quotation, "same-customer-second-step"));
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM fr_customer_workflow_step s
+                JOIN fr_customer_workflow w ON w.id=s.workflow_id
+                WHERE w.customer_id=? AND s.attachments @> CAST(? AS jsonb)
+                """, Long.class, customer, "[{\"assetId\":\""+file+"\"}]")).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(DISTINCT w.customer_id) FROM fr_customer_workflow_step s
+                JOIN fr_customer_workflow w ON w.id=s.workflow_id
+                WHERE s.attachments @> CAST(? AS jsonb)
+                """, Long.class, "[{\"assetId\":\""+file+"\"}]")).isEqualTo(1);
+    }
+
     @Test void simultaneousFirstAttachmentCannotBindOnePrivateDocumentToTwoCustomers() throws Exception {
         long first = customer(), second = customer(), file = upload(PDF, "application/pdf");
         currentPost.use(sales); var start = new CountDownLatch(1); var pool = Executors.newFixedThreadPool(2);
