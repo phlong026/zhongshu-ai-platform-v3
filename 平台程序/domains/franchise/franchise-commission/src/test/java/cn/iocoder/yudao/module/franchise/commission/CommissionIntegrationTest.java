@@ -41,7 +41,8 @@ import static cn.iocoder.yudao.module.franchise.test.FranchiseAssertions.assertE
 import static cn.iocoder.yudao.module.platform.workflow.enums.PlatformWorkflowErrorCodes.APPROVAL_SELF_FORBIDDEN;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Import({CommissionService.class, HandoverService.class, DesignPolicyService.class, CommissionAccess.class,
+@Import({CommissionService.class, HandoverService.class,
+        cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService.class, DesignPolicyService.class, CommissionAccess.class,
         cn.iocoder.yudao.module.franchise.engineering.content.EngineeringPortImpl.class,
         cn.iocoder.yudao.module.franchise.engineering.content.EngProjectService.class,
         cn.iocoder.yudao.module.franchise.sales.SaleContractQueryAdapter.class,
@@ -55,6 +56,7 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
     @Resource private LeadService leads;
     @Resource private CustomerService customers;
     @Resource private CommissionService commissions;
+    @Resource private cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService designFeeActions;
     @Resource private HandoverService handovers;
     @Resource private FranchiseCommands commands;
     private Store store;
@@ -253,6 +255,36 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
                     .containsEntry("store_payment_count",null).containsEntry("no_actual_finance_records",null));
         assertThat(jdbc.queryForList(select.replace(":'include_test_pairs'","'false'")))
                 .noneMatch(row->Long.valueOf(id).equals(row.get("commission_id")));
+        assertThat(counts()).isEqualTo(before);
+    }
+
+    @Test void originalDesignFeesReadOneSubmissionBeyondTheFirstPageWithoutWriting() {
+        long id=historical(customerWithBudget(),submit(TOTAL,FIRST),"DESIGNING");
+        long hq=fixture.headquarters();
+        int oldVersion=1,newVersion=2;
+        var template="""
+            INSERT INTO fr_fin_payable(id,company_id,design_org_id,customer_id,source_type,source_ref,
+              stage,total_cents,status,recipient)
+            SELECT ?,company_id,design_org_id,customer_id,'design',?,?,?,'进行中','合成设计收款方'
+            FROM fr_commission WHERE id=?
+            """;
+        jdbc.update(template,cn.hutool.core.util.IdUtil.getSnowflakeNextId(),id+":1:FIRST","FIRST",40800000,id);
+        jdbc.update(template,cn.hutool.core.util.IdUtil.getSnowflakeNextId(),id+":1:TAIL","TAIL",27200000,id);
+        for(int version=2;version<=22;version++)
+            jdbc.update(template,cn.hutool.core.util.IdUtil.getSnowflakeNextId(),id+":"+version+":FIRST","FIRST",40800000,id);
+        var before=counts();
+        assertThat(designFeeActions.page(store.orgId(),1,20).getList())
+            .noneMatch(row->row.commissionId()==id&&row.submissionVersion()==oldVersion);
+        var original=designFeeActions.original(store.orgId(),id,oldVersion);
+        assertThat(original.getTotal()).isEqualTo(2L);
+        assertThat(original.getList()).extracting(cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService.Item::stage)
+            .containsExactly("FIRST","TAIL");
+        assertThat(original.getList()).allMatch(row->row.submissionVersion()==oldVersion&&row.allowedActions().isEmpty());
+        assertThat(designFeeActions.original(store.orgId(),id,newVersion).getList())
+            .singleElement().satisfies(row->assertThat(row.stage()).isEqualTo("FIRST"));
+        assertThat(designFeeActions.original(store.orgId(),id,99).getList()).isEmpty();
+        assertThat(designFeeActions.original(otherSales.orgId(),id,oldVersion).getList()).isEmpty();
+        assertThat(designFeeActions.original(hq,id,oldVersion).getList()).hasSize(2);
         assertThat(counts()).isEqualTo(before);
     }
 

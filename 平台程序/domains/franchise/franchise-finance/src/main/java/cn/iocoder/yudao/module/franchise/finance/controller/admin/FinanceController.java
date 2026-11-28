@@ -541,6 +541,15 @@ public class FinanceController {
         return success(designFeeActions.page(currentPost.require().orgId(),pageNo,pageSize));
     }
 
+    @GetMapping("/design-fees/original")
+    @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
+    public CommonResult<PageResult<cn.iocoder.yudao.module.franchise.finance.DesignFeeActionService.Item>> originalDesignFees(
+            @RequestParam("commissionId") long commissionId,@RequestParam("submissionVersion") int submissionVersion) {
+        if(commissionId<=0 || submissionVersion<=0)throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST);
+        return success(designFeeActions.original(currentPost.require().orgId(),commissionId,submissionVersion));
+    }
+
     @GetMapping("/projects/{projectId}/ledger")
     @PreAuthorize("@post.has('" + FinPermissions.QUERY + "')")
     public CommonResult<cn.iocoder.yudao.module.franchise.finance.FinProjectLedgerService.Ledger> projectLedger(

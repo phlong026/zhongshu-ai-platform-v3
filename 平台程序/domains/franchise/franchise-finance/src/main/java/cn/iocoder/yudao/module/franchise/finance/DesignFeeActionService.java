@@ -27,6 +27,22 @@ public class DesignFeeActionService {
         String filter=" FROM fr_fin_payable WHERE source_type='design' AND (company_id=? OR design_org_id=?)";
         long total=jdbc.queryForObject("SELECT count(*)"+filter,Long.class,org,org);
         var rows=jdbc.queryForList("SELECT id,source_ref,company_id,design_org_id,customer_id,total_cents"+filter+" ORDER BY create_time DESC,id DESC LIMIT ? OFFSET ?",org,org,pageSize,(long)(pageNo-1)*pageSize);
+        return new PageResult<>(readItems(org,rows,false),total);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    public PageResult<Item> original(long org,long commissionId,int version) {
+        String prefix=commissionId+":"+version+":";
+        var rows=jdbc.queryForList("""
+            SELECT id,source_ref,company_id,design_org_id,customer_id,total_cents FROM fr_fin_payable
+            WHERE source_type='design' AND NOT deleted AND (company_id=? OR design_org_id=?)
+             AND source_ref IN (?,?,?)
+            ORDER BY CASE split_part(source_ref,':',3) WHEN 'FULL' THEN 1 WHEN 'FIRST' THEN 2 ELSE 3 END,id
+            """,org,org,prefix+"FULL",prefix+"FIRST",prefix+"TAIL");
+        return new PageResult<>(readItems(org,rows,true),(long)rows.size());
+    }
+
+    private List<Item> readItems(long org,List<java.util.Map<String,Object>> rows,boolean readOnly) {
         var result=new ArrayList<Item>();
         for(var row:rows) {
             String[] ref=((String)row.get("source_ref")).split(":");
@@ -43,14 +59,14 @@ public class DesignFeeActionService {
                 FROM fr_fin_payment m WHERE payable_id=? AND status='已核实' ORDER BY m.pay_date,m.id
                 """,(rs,n)->new Payment(rs.getLong("id"),rs.getLong("amount_cents"),rs.getLong("net"),rs.getLong("received"),Math.max(0,rs.getLong("net")-rs.getLong("received"))),payable);
             var actions=new ArrayList<String>();
-            if(current && org==company && !stage.storeReady()) actions.add("PAYMENT_REGISTER");
-            if(current && org==designOrg && payments.stream().anyMatch(p->p.receivableCents()>0)) actions.add("RECEIPT_REGISTER");
+            if(!readOnly && current && org==company && !stage.storeReady()) actions.add("PAYMENT_REGISTER");
+            if(!readOnly && current && org==designOrg && payments.stream().anyMatch(p->p.receivableCents()>0)) actions.add("RECEIPT_REGISTER");
             long overReceived=payments.stream().mapToLong(p->Math.max(0,p.receivedNetCents()-p.netPaidCents())).sum();
             boolean exception=overReceived>0 || (current && List.of("DISPATCHED","HANDOVER_SUBMITTED","HANDOVER_RETURNED","ACCEPTED").contains(fee.status()) && !stage.fullyReady());
             String mode=stage.stage()==DesignFeeSettlementPort.Stage.FULL?"AREA_FULL":"LEGACY_SPLIT";
             result.add(new Item(id,version,((Number)row.get("customer_id")).longValue(),company,designOrg,mode,ref[2],payable,
                     stage.expectedCents(),stage.storePaidNetCents(),stage.headquartersNetCents(),stage.storeReady(),stage.headquartersReady(),payments,actions,exception,overReceived));
         }
-        return new PageResult<>(result,total);
+        return result;
     }
 }
