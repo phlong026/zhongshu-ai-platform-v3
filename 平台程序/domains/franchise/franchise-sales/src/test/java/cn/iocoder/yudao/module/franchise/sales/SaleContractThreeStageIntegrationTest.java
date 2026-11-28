@@ -130,6 +130,7 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     private SignedCustomerQuery signedCustomers;
     @Resource
     private JdbcTemplate jdbc;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
 
     private Store store;
     private PostSnapshot salesA1;
@@ -223,7 +224,9 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
             assertThat(r.get("customer_id")).isEqualTo(String.valueOf(customerId));
             assertThat(r.get("customer_name")).isEqualTo("陈先生");
         });
-        as(finance,()->contracts.confirmDeclaration(finance,id,idem()));
+        String confirmationKey=idem();
+        as(finance,()->contracts.confirmDeclaration(finance,id,confirmationKey));
+        assertThat(contracts.collectionRegistrationResult(finance,stage,confirmationKey)).containsEntry("state","NOT_REGISTERED");
         assertThat(contracts.stageCollected(finance,stage)).isEqualTo(50000);
         as(finance,()->contracts.confirmDeclaration(finance,id,idem()));
         assertThat(contracts.stageCollected(finance,stage)).isEqualTo(50000);
@@ -395,6 +398,34 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void directCollectionResultWaitsForTheOriginalTransaction() throws Exception {
+        var contract=as(salesA1,()->contracts.create(salesA1,contract(newCustomer(),100000,100000,0,0),idem()));
+        as(salesA1,()->contracts.sign(salesA1,contract.getId(),new SaleContractService.SignCommand(java.time.LocalDate.now(),9001L),revisionOf(contract.getId()),idem()));
+        long stage=stageIdOf(contract.getId(),"SIGN_AFTER");String key=idem();
+        var written=new java.util.concurrent.CountDownLatch(1);var commit=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);currentPost.use(finance);
+        try {
+            var registration=pool.submit(()->{
+                TenantContextHolder.setTenantId(store.orgId());
+                try{return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx->{
+                    var result=contracts.collect(finance,stage,new SaleContractService.CollectCommand(10000,"bank",txn(),java.time.LocalDate.now()),key);
+                    written.countDown();
+                    try{if(!commit.await(8,java.util.concurrent.TimeUnit.SECONDS))throw new AssertionError("commit was not released");}
+                    catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new RuntimeException(interrupted);}
+                    return result;
+                });}finally{TenantContextHolder.clear();}
+            });
+            assertThat(written.await(8,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var lookup=pool.submit(()->contracts.collectionRegistrationResult(finance,stage,key));
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).until(()->Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted)",Boolean.class)));
+            assertThat(lookup.isDone()).isFalse();commit.countDown();
+            var result=registration.get(10,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(lookup.get(10,java.util.concurrent.TimeUnit.SECONDS)).containsEntry("receiptId",String.valueOf(result.get("receiptId")));
+        }finally{commit.countDown();pool.shutdownNow();}
+    }
+
+    @Test
     void idempotentReplayReturnsSameReceiptForSameKeyAndContent() {
         long customerId = newCustomer();
         SaleContractDO created = as(salesA1, () -> contracts.create(salesA1, contract(
@@ -406,7 +437,15 @@ class SaleContractThreeStageIntegrationTest extends FranchisePgIntegrationTest {
         String key = idem();
         var cmd = new SaleContractService.CollectCommand(25_000_000L, "bank", txn(), java.time.LocalDate.now());
 
+        assertThat(contracts.collectionRegistrationResult(finance,signStageId,key)).containsEntry("state","NOT_REGISTERED");
         var first = as(finance, () -> contracts.collect(finance, signStageId, cmd, key));
+        assertThat(contracts.collectionRegistrationResult(finance,signStageId,key))
+                .containsEntry("receiptId",String.valueOf(first.get("receiptId")));
+        assertThat(contracts.collectionRegistrationResult(finance,stageIdOf(created.getId(),"BASE_DONE"),key))
+                .containsEntry("state","NOT_REGISTERED");
+        var anotherPost=new PostSnapshot(finance.postId()+1,finance.userId(),finance.orgId(),finance.orgType(),finance.roleCode(),null,false,java.util.Set.of());
+        assertThat(contracts.collectionRegistrationResult(anotherPost,signStageId,key)).containsEntry("state","NOT_REGISTERED");
+        assertThatThrownBy(()->contracts.collectionRegistrationResult(salesA1,signStageId,key)).isInstanceOf(ServiceException.class);
         // 同键同内容重试：返回同一 receiptId（R1 P1：replay/record 规范化输入一致）
         var retry = as(finance, () -> contracts.collect(finance, signStageId, cmd, key));
         assertThat(retry.get("replayed")).isEqualTo(true);
