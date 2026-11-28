@@ -97,12 +97,6 @@ const publisherAccounts = {
   update: (id, body) => http.put('/franchise/content/publisher-accounts/' + encodeURIComponent(id), body)
 };
 
-const covers = {
-  list: query => http.get('/franchise/content/covers/templates', query),
-  /** Same key always reads the saved request; nonterminal results must keep their original key. */
-  generate: (body, key) => http.post('/franchise/content/covers', body, idem(key, 'cover'), { timeout: 120000 })
-};
-
 const publications = {
   /** 创建发布记录（direct-v1 五态；幂等 duplicate 返回既有） */
   create: (data, key) => http.post('/franchise/content/publications', data, idem(key, 'pub')),
@@ -133,9 +127,12 @@ const clones = {
   uploadTicket: (personaId, data) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clone-upload-tickets', data),
   completeUpload: id => http.post('/franchise/content/clone-uploads/' + encodeURIComponent(id) + '/complete', {}),
   quote: kind => http.get('/franchise/content/clones/quote', { kind }),
+  /** Each clone reports canRename, canDelete and canSetDefault for the active post. */
   list: personaId => http.get('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones'),
   create: (personaId, data, key) => http.post('/franchise/content/personas/' + encodeURIComponent(personaId) + '/clones', data, idem(key, 'clone')),
   refresh: id => http.post('/franchise/content/clones/' + encodeURIComponent(id) + '/refresh', {}),
-  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {})
+  setDefault: id => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/default', {}),
+  rename: (id, title) => http.put('/franchise/content/clones/' + encodeURIComponent(id) + '/title', { title }),
+  remove: id => http.del('/franchise/content/clones/' + encodeURIComponent(id))
 };
-module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publisherAccounts, covers, publications, growth };
+module.exports = { links, scripts, tasks, drafts, assets, materials, personas, clones, publisherAccounts, publications, growth };

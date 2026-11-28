@@ -100,5 +100,11 @@ Page({
   },
   back() { navigation.back(); },
   login() { navigation.open('/pages/account/index'); },
-  ledger() { if (this.alive()) navigation.open('/pages/admin/finance-desk/index?view=book&bookScope=' + encodeURIComponent('project:' + this.projectId)); }
+  ledger() {
+    if (!this.alive()) return;
+    const route = canWrite(auth.currentApiPost())
+      ? 'view=book&bookScope=' + encodeURIComponent('project:' + this.projectId)
+      : 'view=project&id=' + encodeURIComponent(this.projectId);
+    navigation.open('/pages/admin/finance-desk/index?' + route);
+  }
 });

@@ -225,7 +225,7 @@ test('invalid deep link never requests private data; modal confirmation during a
 test('legacy handover/receive deep links redirect EXTERNAL after authorized GET without invoking old command renderer', async () => {
   for (const view of ['handover', 'receive']) {
     let definition; const opened = [], read = [];
-    load('miniprogram/pages/workflow/commission/index.js', { '../../../utils/view-container': { makeFormHandlers: () => ({}) }, './payment-flow': () => ({}),
+    load('miniprogram/pages/workflow/commission/index.js', { '../../../utils/view-container': { makeFormHandlers: () => ({}) },
       '../../../utils/page-navigation': { open: (...args) => opened.push(args) }, '../../../api/franchise/commission': { commissions: { get: async id => { read.push(id); return { commission: { id, workflowMode: 'EXTERNAL' } }; } } },
       './presentation': { normalize: () => { throw Error('external must not render legacy action'); } } }, { Page: value => definition = value });
     const page = { ...definition, id: '91', view, data: {}, setData(value) { Object.assign(this.data, value); }, failState: value => { page.cleared = value; } };

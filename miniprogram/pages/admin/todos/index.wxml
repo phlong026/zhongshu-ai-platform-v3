@@ -4,11 +4,15 @@
  <block wx:else>
   <view class="tabs"><button wx:for="{{sources}}" wx:key="key" class="{{source===item.key?'active':''}}" data-source="{{item.key}}" bindtap="selectSource">{{item.label}}</button></view>
   <view class="filter"><text>仅看待决策</text><switch checked="{{decisionsOnly}}" color="#8b522b" bindchange="toggleDecisions" aria-label="仅看待决策"/></view>
-  <text wx:if="{{platformTodos.warning}}" class="hint">{{platformTodos.warning}}</text>
+  <view wx:if="{{platformTodos.warning}}" class="hint">
+   <text>{{platformTodos.warning}}</text>
+   <button wx:if="{{platformTodos.status==='partial'&&!platformTodos.refreshError}}" bindtap="refresh">重试</button>
+  </view>
   <text wx:if="{{platformTodos.status==='loading'}}" class="hint">正在加载待办…</text>
   <view wx:if="{{platformTodos.status==='degraded'||platformTodos.status==='partial-empty'||platformTodos.refreshError}}" class="hint">{{platformTodos.refreshError||platformTodos.message||'待办暂时无法完整加载'}} <button bindtap="refresh">重试</button></view>
   <block wx:if="{{platformTodos.status==='ready'||platformTodos.status==='partial'}}">
-   <text class="hint">{{rows.length}} 项待办</text>
+   <text class="hint" wx:if="{{platformTodos.status==='partial'}}">已加载 {{rows.length}} 项待办，结果不完整</text>
+   <text class="hint" wx:else>{{rows.length}} 项待办</text>
    <button wx:for="{{rows}}" wx:key="key" class="task" data-key="{{item.key}}" bindtap="open">
     <view class="copy"><text>{{item.title}}</text><text class="meta">{{item.ownerMeta}}</text></view><text class="action">去处理 ›</text>
    </button>

@@ -1,3 +1,4 @@
+<import src="./status-sheet.wxml" />
 <view class="customer-flow">
   <business-header title="客户跟进" />
   <view wx:if="{{!workflow}}" class="flow-empty">
@@ -7,9 +8,10 @@
   <view wx:else class="flow-body">
     <view class="journey-card">
       <view class="journey-client">
-        <view><text class="journey-person">{{workflow.customerName || '当前客户'}}</text><text class="journey-state">{{workflow.statusLabel}}</text></view>
+        <view><text class="journey-person">{{workflow.customerName || '当前客户'}}</text><button class="journey-state {{workflow.canChangeStatus?'journey-state-tappable':''}}" bindtap="journeyState" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-label="流程状态 {{workflow.statusLabel}}">{{workflow.statusLabel}}<text wx:if="{{workflow.canChangeStatus}}"> ›</text></button></view>
         <button class="journey-link" bindtap="openCustomer">客户资料 <text class="journey-chevron">›</text></button>
       </view>
+      <text wx:if="{{workflow.status==='LOST'||workflow.status==='PAUSED'}}" class="journey-note">{{workflow.status==='LOST'?(workflow.reconsulted?'客户已标记流失，之后又有新的咨询登记，可恢复跟进。':'客户已标记流失'+(workflow.statusReason?'：'+workflow.statusReason:'')+'，跟进记录全部保留。'):'已暂缓跟进，到约定的再联系日期自动回到待跟进。'}}</text>
       <view class="journey-divider"></view>
       <view class="journey-labels">
         <text class="journey-label">跟进进度</text>
@@ -25,10 +27,10 @@
         </block>
       </view>
       <view class="journey-bottom">
-        <view wx:if="{{nextStepLabel}}" class="journey-next"><text>下一步</text><text>{{nextStepLabel}}</text></view>
-        <view wx:else class="journey-next"><text>{{workflow.completedCount===8?'八步流程已完成':'当前为最后待办步骤'}}</text></view>
+        <view class="journey-next"><text>当前</text><text>{{workflow.currentStepName}}</text></view>
         <button class="journey-link" bindtap="showJourney" disabled="{{busy||uploading||uploadFailed||uncertain}}" aria-expanded="{{journeyOpen}}">全部步骤 <text class="journey-chevron">›</text></button>
       </view>
+      <text wx:if="{{workflow.engineeringHint}}" class="journey-note">{{workflow.engineeringHint}}</text>
       <text wx:if="{{refreshing||!workflow.canWrite}}" class="flow-muted">{{refreshing?'正在更新…':'只读查看'}}</text>
     </view>
     <view class="flow-section-heading journey-stage-heading"><text>{{step.number}} · {{step.name}}</text><button class="flow-link" bindtap="toggleHistory" disabled="{{busy}}">{{showHistory?'返回本步':'查看记录'}}</button></view>
@@ -84,7 +86,11 @@
           </view>
         </view>
         <view class="flow-card flow-form">
-          <view class="flow-field"><text class="flow-label">发生日期</text><picker mode="date" value="{{form.occurredOn}}" data-key="occurredOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.occurredOn?'placeholder':''}}">{{form.occurredOn || '选择日期'}}<text>⌄</text></view></picker></view>
+          <view class="flow-dates">
+            <view class="flow-field"><text class="flow-label">发生日期</text><picker mode="date" value="{{form.occurredOn}}" data-key="occurredOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.occurredOn?'placeholder':''}}">{{form.occurredOn || '选择日期'}}<text>⌄</text></view></picker></view>
+            <view class="flow-field"><text class="flow-label">下次跟进日期</text><picker mode="date" start="{{todayStr}}" value="{{form.nextFollowOn}}" data-key="nextFollowOn" bindchange="input" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}"><view class="flow-input flow-select {{!form.nextFollowOn?'placeholder':''}}">{{form.nextFollowOn || '选择日期'}}<text>⌄</text></view></picker></view>
+          </view>
+          <text wx:if="{{step.canWrite}}" class="flow-file-hint">完成本步须约定下次跟进日期；仅保存记录可不填</text>
           <view wx:for="{{fields}}" wx:key="key" class="flow-field {{item.type==='boolean'?'flow-switch-field':''}}">
             <text class="flow-label">{{item.label}}</text>
             <switch wx:if="{{item.type==='boolean'}}" color="#82522e" checked="{{item.value}}" data-key="{{item.key}}" bindchange="toggle" disabled="{{!step.canWrite||busy||uploading||uncertain||conflict}}" />
@@ -104,14 +110,28 @@
         <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">预算参考</text><text class="flow-muted">前期测算</text></view><button class="flow-secondary" bindtap="openBudget">快速预算</button></view>
         <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">工程付款约定</text><text class="flow-muted">随委托保存本版约定</text></view><button class="flow-secondary" bindtap="openPaymentDraft" disabled="{{busy||uploading||uncertain}}">付款草案</button></view>
         <view wx:if="{{step.code==='MEASUREMENT'||step.code==='QUOTATION'}}" class="flow-card flow-tool-row"><view><text class="flow-label">外部设计委托</text><text class="flow-muted">需求与成果登记</text></view><button class="flow-secondary" bindtap="openEntrust" disabled="{{busy||uploading||uncertain}}">查看 / 办理</button></view>
+        <view wx:if="{{step.code==='MEASUREMENT'}}" class="flow-card">
+          <view class="flow-section-heading"><text>设计合同</text><text class="flow-muted">选填</text></view>
+          <view wx:if="{{form.fields.designContractAssetId}}" class="flow-file"><button class="flow-file-name" data-id="{{form.fields.designContractAssetId}}" bindtap="previewFile">{{form.fields.designContractName||'设计合同'}}</button><button wx:if="{{step.canWrite}}" class="flow-link" data-slot="designContract" bindtap="removeSlotFile" disabled="{{busy||uploading||uncertain||conflict}}">移除</button></view>
+          <text wx:elif="{{!step.canWrite}}" class="flow-muted">未登记设计合同</text>
+          <view wx:else class="flow-inline-actions"><button class="flow-secondary" data-slot="designContract" bindtap="chooseSlotFile" disabled="{{busy||uploading||uncertain||conflict}}">上传文件</button><button class="flow-secondary" data-slot="designContract" bindtap="chooseSlotPhoto" disabled="{{busy||uploading||uncertain||conflict}}">拍照／相册</button></view>
+          <text wx:if="{{step.canWrite&&!form.fields.designContractAssetId}}" class="flow-file-hint">与客户签订的设计服务合同，PDF、JPG、PNG，单个不超过30MB</text>
+        </view>
+        <view wx:if="{{step.code==='QUOTATION'}}" class="flow-card">
+          <view class="flow-section-heading"><text>设计文件</text><text class="flow-muted">外部设计成果</text></view>
+          <view wx:if="{{form.fields.designFileAssetId}}" class="flow-file"><button class="flow-file-name" data-id="{{form.fields.designFileAssetId}}" bindtap="previewFile">{{form.fields.designFileName||'设计文件'}}</button><button wx:if="{{step.canWrite}}" class="flow-link" data-slot="designFile" bindtap="removeSlotFile" disabled="{{busy||uploading||uncertain||conflict}}">移除</button></view>
+          <text wx:elif="{{!step.canWrite}}" class="flow-muted">未登记设计文件</text>
+          <view wx:else class="flow-inline-actions"><button class="flow-secondary" data-slot="designFile" bindtap="chooseSlotFile" disabled="{{busy||uploading||uncertain||conflict}}">上传文件</button><button class="flow-secondary" data-slot="designFile" bindtap="chooseSlotPhoto" disabled="{{busy||uploading||uncertain||conflict}}">拍照／相册</button></view>
+          <text wx:if="{{step.canWrite&&!form.fields.designFileAssetId}}" class="flow-file-hint">外部设计软件导出的成果文件，PDF、JPG、PNG，单个不超过30MB</text>
+        </view>
         <view class="flow-card">
           <view class="flow-section-heading"><text>{{step.code==='QUOTATION'?(form.fields.quoteId?'本次报价沟通凭据':'外部正式报价文件'):step.code==='MEASUREMENT'?'测量资料':step.code==='HOUSE_SELECTION'?(form.fields.selectionMode==='EXTERNAL_CUSTOM'?'定制方向确认凭据':'外部方案资料'):'本次办理凭据'}}</text><text class="flow-muted">{{form.attachments.length}}/10</text></view>
           <view wx:for="{{form.attachments}}" wx:key="assetId" class="flow-file"><button class="flow-file-name" data-id="{{item.assetId}}" bindtap="previewFile">{{item.title}}</button><button wx:if="{{step.canWrite}}" class="flow-link" data-id="{{item.assetId}}" bindtap="removeFile" disabled="{{busy||uploading||uncertain||conflict}}">移除</button></view>
           <text wx:if="{{!form.attachments.length&&!step.canWrite}}" class="flow-muted">暂无资料</text>
           <view wx:if="{{step.canWrite&&form.attachments.length<10}}" class="flow-inline-actions"><button class="flow-secondary" bindtap="chooseFile" disabled="{{busy||uploading||uncertain||conflict}}">上传文件</button><button class="flow-secondary" bindtap="choosePhoto" disabled="{{busy||uploading||uncertain||conflict}}">拍照／相册</button></view>
           <text wx:if="{{step.canWrite}}" class="flow-file-hint">PDF、JPG、PNG，单个不超过30MB</text>
-          <view wx:if="{{uploading||uploadFailed}}" class="flow-upload-state"><text>{{uploading?'正在上传：':'上传未完成：'}}{{uploadName}}</text><view wx:if="{{uploadFailed}}" class="flow-inline-actions"><button wx:if="{{uploadRetryable}}" class="flow-link" bindtap="retryUpload">重试核对</button><button wx:if="{{uploadRestartAllowed}}" class="flow-link" bindtap="restartUpload">重新上传</button><button class="flow-link" bindtap="discardUpload">取消</button></view></view>
         </view>
+        <view wx:if="{{uploading||uploadFailed}}" class="flow-upload-state"><text>{{uploading?'正在上传：':'上传未完成：'}}{{uploadName}}</text><view wx:if="{{uploadFailed}}" class="flow-inline-actions"><button wx:if="{{uploadRetryable}}" class="flow-link" bindtap="retryUpload">重试核对</button><button wx:if="{{uploadRestartAllowed}}" class="flow-link" bindtap="restartUpload">重新上传</button><button class="flow-link" bindtap="discardUpload">取消</button></view></view>
         <view wx:if="{{step.completionErrors.length&&step.canWrite&&!dirty}}" class="flow-requirements"><text wx:for="{{step.completionErrors}}" wx:key="*this">{{item}}</text></view>
         <button wx:if="{{step.canReopen}}" class="flow-secondary flow-reopen" bindtap="reopen" disabled="{{busy||uncertain}}">更正／重新办理</button>
       </block>
@@ -133,4 +153,5 @@
     </view>
   </view>
   <view wx:if="{{activeRecord}}" class="flow-sheet-mask" catchtap="closeRecord"><view class="flow-sheet" catchtap="noop"><view class="flow-title-row"><text>{{activeRecord.stepName}} · {{activeRecord.actionLabel}}</text><button class="flow-link" bindtap="closeRecord">关闭</button></view><scroll-view scroll-y class="flow-sheet-content"><text class="flow-muted">{{activeRecord.createdText}} · {{activeRecord.actorName || '经办人'}}</text><view wx:if="{{activeRecord.occurredText}}" class="flow-fact"><text>发生日期</text><text>{{activeRecord.occurredText}}</text></view><view wx:for="{{activeRecord.details}}" wx:key="label" class="flow-fact"><text>{{item.label}}</text><text>{{item.value}}</text></view><button wx:if="{{activeRecord.stepCode==='QUOTATION'&&activeRecord.fields.quoteId}}" class="flow-link" bindtap="openLinkedQuote">查看本版报价原单</button><text wx:if="{{activeRecord.note}}" class="flow-record-note">{{activeRecord.note}}</text><button wx:for="{{activeRecord.attachments}}" wx:key="assetId" class="flow-file-name" data-id="{{item.assetId}}" bindtap="previewFile">{{item.title}}</button></scroll-view></view></view>
+  <template is="customer-status-sheet" data="{{sheet:statusSheet,reasons:lostReasons,todayStr:todayStr}}" />
 </view>

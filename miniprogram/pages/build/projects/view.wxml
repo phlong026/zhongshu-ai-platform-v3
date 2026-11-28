@@ -8,19 +8,18 @@
     <block wx:else>
       <view class="eng-project-toolbar">
         <text class="eng-project-title">{{selectedLabel?'选择项目':'我的项目'}}</text>
-        <button wx:if="{{mode!=='tasks'&&!creating&&canCreate&&!destination}}" class="eng-outline eng-create-entry" bindtap="openCreate">＋ 新增项目 / 增项</button>
+        <button wx:if="{{mode!=='tasks'&&!creating&&canCreate&&!destination}}" class="eng-outline eng-create-entry" bindtap="openCreate">＋ 按合同建档</button>
       </view>
       <view wx:if="{{creating&&!destination&&mode!=='tasks'}}" class="eng-section eng-create-form">
-        <view class="eng-heading"><text>新增项目 / 增项</text><button class="eng-link" bindtap="cancelCreate">取消</button></view>
-        <view class="record-field"><text>项目名称</text><input placeholder="填写项目或增项名称" value="{{createForm.name}}" data-key="name" bindinput="createInput"/></view>
+        <view class="eng-heading"><text>按已签合同建档</text><button class="eng-link" bindtap="cancelCreate">取消</button></view>
+        <view class="record-field"><text>项目名称</text><input placeholder="填写项目名称；已有档案沿用原名称" value="{{createForm.name}}" data-key="name" bindinput="createInput"/></view>
         <view class="record-field"><text>客户称呼</text><input placeholder="填写客户姓名" value="{{createForm.customer}}" data-key="customer" bindinput="createInput"/></view>
         <view class="record-field"><text>所在城市</text><input placeholder="填写所在城市" value="{{createForm.city}}" data-key="city" bindinput="createInput"/></view>
-        <view class="record-field"><text>客户手机号{{createForm.independent||createForm.parentIndex?'（选填）':''}}</text><input type="number" placeholder="已签约客户请填建档手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
-        <view wx:if="{{!createForm.parentIndex}}" class="record-field"><text>独立建档（无对应销售合同）</text><switch checked="{{createForm.independent}}" bindchange="toggleIndependent"/></view>
+        <view class="record-field"><text>客户手机号</text><input type="number" placeholder="已签约客户请填建档手机号" value="{{createForm.phone}}" data-key="phone" bindinput="createInput"/></view>
         <picker range="{{['1','2','3','4','5']}}" value="{{createForm.floors-1}}" bindchange="pickCreateFloors"><view class="record-field">建筑层数：{{createForm.floors}} 层</view></picker>
         <view class="record-field"><text>建筑面积㎡（选填）</text><input type="digit" placeholder="填写建筑面积" value="{{createForm.area}}" data-key="area" bindinput="createInput"/></view>
-        <picker range="{{parentOptions}}" range-key="name" value="{{createForm.parentIndex}}" bindchange="pickCreateParent"><view class="record-field">关联项目：{{parentOptions[createForm.parentIndex].name}}</view></picker>
-        <button class="eng-primary eng-submit" bindtap="submitCreate" loading="{{busy}}" disabled="{{busy}}">创建项目</button>
+        <text class="eng-muted">已有档案请沿用原名称及客户资料核对；未签正式施工合同请先由业务办理。增项在原工程继续办理，不单独建立收款项目。</text>
+        <button class="eng-primary eng-submit" bindtap="submitCreate" loading="{{busy}}" disabled="{{busy}}">核对合同并继续</button>
       </view>
       <block wx:else>
         <view class="eng-search"><image src="/pages/engineering/assets/search.png"/><input class="eng-search-input" placeholder="搜索项目、客户或地址" value="{{keyword}}" bindinput="search" aria-label="搜索授权项目"/><button class="eng-search-clear" wx:if="{{keyword}}" bindtap="clear">清空</button></view>

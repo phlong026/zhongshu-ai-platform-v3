@@ -257,6 +257,8 @@ test('游客直达我的显示登录引导，不触发资料请求', () => {
   settleNavigation();
   assert.equal(page.data.loggedIn, false);
   assert.equal(page.data.showStoreServices, true);
+  assert.equal(page.bar.data.tabs.find(tab => tab.index === 4).text, '我的');
+  assert.equal(page.bar.data.tabs.find(tab => tab.index === 4).url, '/pages/profile/index');
   assert.equal(navigation.length, 0);
   assert.equal(requests.length, 0);
 });
@@ -272,18 +274,18 @@ test('门店登录后加盟商服务的两个入口仍直达对应展示页', ()
   ]);
 });
 
-for (const role of ['hq-admin','hq-design-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
+for (const role of ['hq-admin','hq-operations','hq-operations-lead','finance','finance-lead','boss']) {
   test('总部 '+role+'：全品牌地图仅开放管理员与财务，查看入口不依赖编辑权限', () => {
-    reset('hq-design-admin');
+    reset(role);
     auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:role,permissions:[]}]);
     auth.switchPost(42);
     const page=show('/pages/profile/index');
     const allowed=['hq-admin','finance','finance-lead'].includes(role);
-    assert.equal(page.data.showStoreServices,true);assert.equal(page.data.showAdminMap,allowed);assert.equal(page.data.showStoreMap,allowed);
+    assert.equal(page.data.showStoreServices,!allowed);assert.equal(page.data.showAdminMap,allowed);assert.equal(page.data.showStoreMap,allowed);
     navigation=[];
     for(const action of ['services','selection','storeMap'])page.open({currentTarget:{dataset:{action}}});
     assert.deepEqual(navigation.map(row=>row.url),[
-      '/pages/account/index?view=services','/pages/account/index?view=selection',...(allowed?['/pages/account/store-map/index']:[])
+      ...(allowed?['/pages/account/store-map/index']:['/pages/account/index?view=services','/pages/account/index?view=selection'])
     ]);
   });
 }
@@ -314,7 +316,7 @@ for (const [role, expected] of [
   ['owner', { kind: 'reLaunch', url: '/pages/admin/home/index' }],
   ['finance', { kind: 'reLaunch', url: '/pages/admin/finance-desk/index' }],
   ['engineer', { kind: 'reLaunch', url: '/pages/build/home/index' }],
-  ['hq-design-admin', { kind: 'reLaunch', url: '/pages/workflow/commission/index?view=admin' }],
+  ['hq-design-admin', { kind: 'switchTab', url: '/pages/business/index' }],
   ['sales', { kind: 'switchTab', url: '/pages/business/index' }],
 ]) {
   test(role + ': home() 直达岗位首页，不经中转 tab 二次导航', () => {
@@ -409,8 +411,6 @@ test('灵感首页入口可用，销售工具冷启动返回首页，预算入�
   assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'budget' } }), '/pages/business/index');
   assert.equal(business.data.salesShortcuts.find(row => row.action === 'quickBudget').url, '/pages/workflow/explore/index?view=budget');
 
-  reset('hq-design-admin');
-  assert.equal(nav.parent({ route: 'pages/workflow/explore/index', data: { view: 'inspiration' } }), '/pages/design/index');
 });
 
 async function finishCreationAuthorization() {
@@ -447,10 +447,10 @@ test('客户统计入口在首次请求前应用筛选，只导航一次、只�
 
 test('旧客户外部直链仍可兼容：参数在正常 onShow 前生效且不手动重复生命周期', () => {
   reset('sales');
-  show('/pages/customers/index?focus=appointments&intent=commission');
+  show('/pages/customers/index?focus=appointments&intent=entrust');
   const customers = settleNavigation();
   assert.deepEqual(navigation, [{ kind: 'switchTab', url: '/pages/management/index' }]);
-  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customers.data.intent, 'entrust');
   assert.equal(customers.data.tab, 'appointments');
   assert.equal(customerRequests().length, 1);
   assert.equal(customerRequests()[0].data.followFilter, 'APPOINTMENTS');
@@ -460,11 +460,11 @@ test('已激活客户 Tab 仍能消费一次新入口参数，无重新导航且
   reset('sales');
   const customers = show('/pages/management/index');
   requests = [];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   settleNavigation();
   assert.deepEqual(navigation, []);
   assert.equal(customers.data.tab, 'due');
-  assert.equal(customers.data.intent, 'commission');
+  assert.equal(customers.data.intent, 'entrust');
   assert.equal(customerRequests().length, 1);
   requests = [];
   nav.open('/pages/customers/index?focus=all');
@@ -514,7 +514,7 @@ test('创作 editor 意图只消费一次，保留当前会话草稿且不通过
 test('待处理入口不能跨会话、跨岗位或失败导航泄漏', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ token: 'new-session', userId: 702, postId: '43' });
   const customers = settleNavigation();
@@ -524,7 +524,7 @@ test('待处理入口不能跨会话、跨岗位或失败导航泄漏', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
   failNavigation = true;
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   failNavigation = false;
   const retry = show('/pages/management/index');
   assert.equal(retry.data.tab, 'all');
@@ -538,13 +538,13 @@ test('已激活 Tab 换会话后重新初始化，再应用新会话意图', () 
   auth.savePosts([{ postId: 43, userId: 702, orgId: 8, roleCode: 'sales', orgType: 'store' }]);
   http.saveSession({ token: 'replacement-session', userId: 702, postId: '43' });
   requests = [];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   const current = settleNavigation();
   assert.notEqual(current, old);
   assert.deepEqual(navigation, [{ kind: 'reLaunch', url: '/pages/management/index' }]);
   assert.equal(current.data.keyword, '');
   assert.equal(current.data.tab, 'due');
-  assert.equal(current.data.intent, 'commission');
+  assert.equal(current.data.intent, 'entrust');
   assert.equal(customerRequests().length, 1);
   assert.equal(customerRequests()[0].header['X-Post-Id'], '43');
 });
@@ -620,7 +620,7 @@ test('创作首次授权503后，再次打开同Tab入口会重试并应用新�
 test('同岗位编号更新角色而会话代次未变时，不重放旧角色入口', () => {
   reset('sales');
   pages = [{ route: 'pages/business/index', options: {}, data: {} }];
-  nav.open('/pages/customers/index?focus=due&intent=commission');
+  nav.open('/pages/customers/index?focus=due&intent=entrust');
   const generation = http.sessionGeneration();
   auth.savePosts(auth.apiPosts().map(post => ({ ...post, roleCode: 'sales-lead' })));
   assert.equal(http.sessionGeneration(), generation);
@@ -641,4 +641,36 @@ test('老板客户与创作独立页保持原路由，不错误映射成业务�
   navigation = [];
   nav.open('/pages/creation/index?editor=1');
   assert.deepEqual(navigation, [{ kind: 'navigateTo', url: '/pages/creation/index?editor=1' }]);
+});
+
+test('管理入口按独立的管理台配置复制，未配置时不拼接口地址', () => {
+  reset('hq-admin');
+  auth.savePosts([{postId:42,userId:701,orgId:7,orgType:'headquarters',roleCode:'hq-admin'}]);
+  auth.switchPost(42);
+  const env=require('../miniprogram/config/env'), original=env.ADMIN_WEB_BASE;
+  const profile=require('../miniprogram/pages/profile/profile-page')(4);
+  const copies=[];
+  wx.showModal=options => options.success({confirm:true});
+  wx.setClipboardData=options => copies.push(options.data);
+  try {
+    for (const [base, expected] of [
+      ['https://same.example/admin/','https://same.example/admin'],
+      ['https://admin.example','https://admin.example']
+    ]) {
+      env.ADMIN_WEB_BASE=base;
+      for (const [label,suffix] of [['公告管理','/platform-announcements'],['加盟商名录','/platform-org/onboard']]) {
+        profile.open({currentTarget:{dataset:{admin:label}}});
+        assert.equal(copies.at(-1),expected+suffix);
+      }
+    }
+    assert.equal(copies.length,4);
+    env.ADMIN_WEB_BASE='';
+    profile.open({currentTarget:{dataset:{admin:'公告管理'}}});
+    assert.equal(copies.length,4);
+    assert.match(toasts.at(-1),/管理台地址未配置/);
+  } finally {
+    env.ADMIN_WEB_BASE=original;
+    delete wx.showModal;
+    delete wx.setClipboardData;
+  }
 });

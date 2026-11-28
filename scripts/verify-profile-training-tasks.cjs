@@ -213,7 +213,16 @@ for(const [role,expected] of Object.entries(franchiseCourses)) test(role+'从服
  assert.equal(profile.data.showStoreServices,true);assert.equal(profile.data.learningAvailable,true);
  assert.equal(profile.data.courseId,['boss','owner'].includes(role)?'management':expected[0]);
  const nodes=render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),profile.data);
- assert.ok(allText(nodes).includes('学习培训')&&allText(nodes).includes('加盟商服务'));
+ const sections=flatten(nodes);
+ const franchise=sections.find(node=>hasClass(node,'franchise-section'));
+ const training=sections.find(node=>hasClass(node,'academy-section'));
+ assert.ok(franchise&&training);
+ assert.deepEqual(flatten(franchise.children).filter(node=>node.tag==='button').map(node=>node.attrs['data-action']),
+   ['services','selection','storeMap','academy']);
+ assert.deepEqual(flatten(training.children).filter(node=>node.tag==='button').map(node=>node.attrs['data-action']),
+   ['learning','course','resources']);
+ const text=allText(nodes);
+ assert.ok(text.indexOf('学习培训')>=0&&text.indexOf('学习培训')<text.indexOf('帮助与反馈'));
  let page=await env.open('/pages/account/index?view=learning');
  assert.equal(page.route,'pages/account/training/index');assert.deepEqual(page.data.visibleCourses.map(c=>c.id),expected);
  assert.deepEqual(page.data.visibleResources.map(r=>r.courseId),Learning.resourcesFor(role).map(r=>r.courseId));
@@ -242,12 +251,15 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
   assert.equal(page.data.loggedIn,false);assert.equal(page.data.learningAvailable,true);
   assert.equal(page.data.courseId,'ai-video');assert.ok(page.data.courseImage);
   const text=allText(render(path.resolve(__dirname,'../miniprogram/pages/profile/index.wxml'),page.data));
-  assert.ok(text.includes('学习培训')&&text.includes('AI短视频获客实战')&&text.includes('登录学习'));
+  assert.ok(text.includes('学习培训')&&text.includes('AI短视频获客实战')&&text.includes('登录后学习'));
   assert.ok(!text.includes('已完成'));assert.equal(requests.length,0);
   wx.navigateTo=options=>{navigations.push(options.url);return {};};
   for(const [selector,target] of [
-    ['.academy-section [data-action="learning"]','/pages/account/index?view=learning'],
-    ['.academy-section .course-card','/pages/account/index?view=course&id=ai-video']
+    ['.academy-section .course-card','/pages/account/training/index'],
+    ['.franchise-section [data-action="academy"]','/pages/account/training/index?entry=academy'],
+    ['.franchise-section [data-action="services"]','/pages/account/index?view=services'],
+    ['.franchise-section [data-action="selection"]','/pages/account/index?view=selection'],
+    ['.franchise-section [data-action="storeMap"]','/pages/account/store-map/index']
   ]){
     await (await ui.$(selector)).tap();
     const url=new URL(navigations.at(-1),'http://local');
@@ -255,6 +267,18 @@ test('未登录的我的页展示培训课程，课程入口登录后再访问�
     assert.equal(url.searchParams.get('return'),target);
   }
   assert.equal(requests.length,0);
+});
+
+test('用户协议归入隐私政策，返回协议上一级仍是隐私政策',async()=>{
+  const runtime=await connect();
+  await runtime.callWxMethod('navigateTo',{url:'/pages/account/index?view=policy'});await flush();
+  const page=getCurrentPages().at(-1),ui=await runtime.currentPage();
+  const screen=allText(render(path.resolve(__dirname,'../miniprogram/pages/account/index.wxml'),page.data));
+  assert.match(screen,/生效日期.*2026-11-15.*用户协议.*我们收集的信息/s);
+  await (await ui.$('button[data-view="agreement"]')).tap();await flush();
+  const agreement=getCurrentPages().at(-1);
+  assert.equal(agreement.data.view,'agreement');
+  assert.equal(require('../miniprogram/utils/page-navigation').parent(agreement),'/pages/account/index?view=policy');
 });
 
 test('头像上传和资料保存全部成功才更新显示，保存失败保留原头像',async()=>{

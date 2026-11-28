@@ -218,19 +218,15 @@
       },
       {
         "type": "file",
-        "value": "pages/workflow/commission/assets/alipay.png"
-      },
-      {
-        "type": "file",
-        "value": "pages/workflow/commission/assets/wechat-pay.png"
-      },
-      {
-        "type": "file",
         "value": "pages/workflow/assets/biz-reference-plan.jpg"
       },
       {
         "type": "file",
         "value": "utils/performance-tasks.js"
+      },
+      {
+        "type": "file",
+        "value": "pages/engineering/assets/project-chen.jpg"
       }
     ],
     "include": []

@@ -16,7 +16,7 @@ function refreshHarness(count=2){
  const call=(kind,args)=>{const value=kind==='reconciliation'?{month:args[0],grossReceiptsCents:state.receipts.length*10000,netReceivedCents:state.receipts.length*10000}:kind==='receipts'&&!args[0]?structuredClone(state.receipts):[];
   const request={kind,args,value};requests.push(request);return state.hold?new Promise((resolve,reject)=>Object.assign(request,{resolve,reject})):Promise.resolve(value);};
  const api=Object.fromEntries(['receipts','payments','refunds','bankFlows','payables','reconciliation'].map(kind=>[kind,(...args)=>call(kind,args)]));
- const req=n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/api/finance')?api:n.endsWith('/api-scope')?scopeModule.exports:n.endsWith('/finance-workbench-view')?require('../miniprogram/utils/finance-workbench-view'):n.endsWith('/platform-finance')?PF:n.endsWith('/finance-desk')?{url:()=>'/finance'}:n.endsWith('/view-container')?{routeValue:v=>v||''}:n.endsWith('/platform-todos-page')?{init(){},refresh(){}}:n.endsWith('/profile/profile-page')?()=>({onHide(){},onUnload(){}}):n.endsWith('/finance-keyboard')?{start(){},stop(){}}:{};
+ const req=n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/api/finance')?api:n.endsWith('/api-scope')?scopeModule.exports:n.endsWith('/finance-workbench-view')?require('../miniprogram/utils/finance-workbench-view'):n.endsWith('/accounting/model')?require('../miniprogram/pages/admin/accounting/model'):n.endsWith('/finance-date')?require('../miniprogram/utils/finance-date'):n.endsWith('/account')?{localDate:()=> '2026-11-27'}:n.endsWith('/platform-finance')?PF:n.endsWith('/finance-desk')?{url:()=>'/finance'}:n.endsWith('/view-container')?{routeValue:v=>v||''}:n.endsWith('/platform-todos-page')?{init(){},refresh(){}}:n.endsWith('/profile/profile-page')?()=>({onHide(){},onUnload(){}}):n.endsWith('/finance-keyboard')?{start(){},stop(){}}:{};
  vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/index.js','utf8'),{Page:p=>spec=p,require:req,Date,Promise,console,wx:{pageScrollTo(){},showToast(){}}});
  const page={...spec,__designFinance:true,__platformActions:true,__workbench:true,__journey:true,data:structuredClone(spec.data),
   setData(patch,done){patches.push(structuredClone(patch));for(const[k,v]of Object.entries(patch)){const keys=k.replace(/\[(\d+)\]/g,'.$1').split('.');let d=this.data;for(const key of keys.slice(0,-1))d=d[key]||(d[key]={});d[keys.at(-1)]=v;}if(done)done();},
@@ -115,22 +115,53 @@ test('home keeps confirmed module order and a single month selector',()=>{
  assert.equal(PF.shortcuts(false)[2].label,'报销办理');
  assert.ok(s.includes('wx:if="{{!desk.hq}}" role="finance"'));assert.ok(s.includes('wx:if="{{desk.hq}}"'));assert.ok(s.includes('bind:monthchange="financeMonth"'));
 });
-test('manual entry retries reuse command and uploaded voucher without creating another fact',async()=>{
- const source=fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8'),module={exports:{}};
- let attempt=0,uploads=0;const calls=[],refreshes=[];
- const http={sessionGuard:()=>()=>true,post:async(url,body,headers)=>{calls.push({url,body,headers});if(++attempt===1)throw Error('network response lost');},requestGuard:()=>()=>true};
- vm.runInNewContext(source,{module,require:n=>n.endsWith('/api/http')?http:n.endsWith('/platform-finance')?PF:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},wx:{showToast(){}},Promise,Number,String});
- const page={data:{wbForm:{type:'expense',scope:'company',name:'现场运输',category:'运输',amount:'860',date:'2026-11-17',accountName:'公司银行',counterparty:'运输商',voucherPath:'/test/voucher.png'}},setData(patch){for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let d=this.data;while(parts.length>1){const k=parts.shift();d=d[k]||(d[k]={});}d[parts[0]]=v;}},options:{},loadPlatformFinance(force){refreshes.push(force);}};
- module.exports(page,{idemKey:()=> 'fixed-test-key',uploadVoucher:async()=>{uploads++;return '9007199254740999';}});page.wbKey='fixed-test-key';page.wbGeneration=1;
- page.loadWorkbench=()=>{};await page.submitWorkbench();assert.ok(page.data.wbForm);await page.submitWorkbench();
- assert.equal(uploads,1);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.equal(page.data.wbForm,null);assert.deepEqual(refreshes,[true],'a successful write bypasses any pre-write pending read');
+test('manual entries and contract receipts recover the frozen request after process reload',async()=>{
+ const source=fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8');
+ const recovery=fs.readFileSync('miniprogram/pages/admin/finance-desk/payment-recovery.js','utf8');
+ for(const type of ['receipt','expense','stage'])for(const committed of [false,true]){
+  let uploads=0,lookups=0,postId='original-post',roleCode='finance';const calls=[],refreshes=[],storage=new Map();
+  const result=type==='stage'?{receiptId:'9007199254742999'}:{id:'9007199254742999'};
+  const endpoint=type==='stage'?'/franchise/sales/stages/9007199254741999/collect':'/franchise/finance/workbench/entries';
+  const key='frozen-'+type+'-'+committed;
+  const wx={showToast(){},pageScrollTo(){},setStorageSync:(k,v)=>storage.set(k,structuredClone(v)),getStorageSync:k=>storage.get(k),removeStorageSync:k=>storage.delete(k)};
+  const auth={currentApiPost:()=>({orgId:'store',userId:'finance',postId,orgType:'store',roleCode})};
+  const http={sessionGuard:()=>()=>true,currentPostId:()=>postId,tenantId:()=> 'tenant',requestGuard:()=>()=>true,
+   post:async(url,body,headers)=>{calls.push(JSON.parse(JSON.stringify({url,body,headers})));if(calls.length===1)throw Error('network response lost');return result;},
+   get:async(url,args)=>{lookups++;assert.equal(url,endpoint+'/registration-result');assert.equal(args.key,key);return committed?result:{state:'NOT_REGISTERED'};}};
+  const api={idemKey:()=>key,uploadVoucher:async()=>{uploads++;return '9007199254740999';}};
+  const form={type:type==='expense'?'expense':'receipt',scope:type==='stage'?'contract:91':'company',name:'原收付事项',category:'其他',amount:'860',date:'2026-11-17',accountName:'公司银行',counterparty:'原往来方',voucherPath:'/test/voucher.png',...(type==='stage'?{stageId:'9007199254741999'}:{})};
+  function create(form){
+   const module={exports:{}};vm.runInNewContext(source,{module,require:n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/platform-finance')?PF:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:{},wx,Promise,Number,String});
+   const page={data:{view:'book',wbForm:form},setData(patch){for(const[k,v]of Object.entries(patch)){const parts=k.split('.');let d=this.data;while(parts.length>1){const k=parts.shift();d=d[k]||(d[k]={});}d[parts[0]]=v;}},options:{},loadPlatformFinance(force){refreshes.push(force);}};
+   module.exports(page,api);page.wbKey=key;page.wbGeneration=1;page.loadWorkbench=()=>{};
+   const moduleRecovery={exports:{}};vm.runInNewContext(recovery,{module:moduleRecovery,require});moduleRecovery.exports(page,api,http,auth,wx,PF);
+   return page;
+  }
+  const first=create({...form});
+  if(type==='stage'){roleCode='engineer';await first.submitWorkbench();assert.equal(calls.length,0);assert.equal(uploads,0);roleCode='finance';}
+  await first.submitWorkbench();
+  assert.equal(calls.length,1);assert.equal(first.data.paymentPending,true);assert.equal(storage.size,1);
+  first.wbInput({currentTarget:{dataset:{field:'amount'}},detail:{value:'999'}});
+  assert.equal(first.data.wbForm.amount,'860');await first.submitWorkbench();assert.equal(calls.length,1);
+  const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
+  const controls=flat(render(path.resolve('miniprogram/pages/admin/finance-desk/journey-forms.wxml'),first.data)).filter(n=>['input','picker'].includes(n.tag));
+  assert(controls.length>0);assert(controls.every(n=>n.attrs.disabled));
+  first.__disposed=true;
+  const reopened=create({...form,amount:'999',voucherPath:'/test/another.png'});
+  postId='another-post';await reopened.resumePayment();assert.equal(lookups,0);assert.equal(calls.length,1);
+  postId='original-post';await reopened.resumePayment();
+  if(!committed){assert.equal(reopened.data.paymentPending,true);await reopened.retryPendingPayment();assert.equal(calls.length,2);assert.deepEqual(calls[1],calls[0]);}
+  else assert.equal(calls.length,1);
+  assert.equal(calls[0].url,endpoint);assert.equal(calls[0].body.amountCents,86000);assert.equal(calls[0].body.voucherFileId,'9007199254740999');
+  assert(!Object.hasOwn(calls[0].body,'stageId'));assert.equal(uploads,1);assert.equal(storage.size,0);assert.equal(reopened.data.wbForm,null);assert.equal(reopened.data.paymentPending,false);assert.deepEqual(refreshes,[true]);
+ }
 });
 // Append to scripts/verify-finance-workbench-20261117.cjs for review reproduction.
 const reviewBooks=[{scope:'book:11',name:'旧岗位私有账本'}];
 const reviewBookResult={summary:{received_cents:12345,paid_cents:0,refunded_cents:0,expense_refunded_cents:0,committed_cents:0},entries:[{id:'private-entry',type:'RECEIPT',name:'旧岗位私有收款',amount_cents:12345,date:'2026-11-10',status:'已登记'}]};
 function attachReviewWorkbench(h){
  const module={exports:{}};
- vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8'),{module,require:h.req,Promise,console,wx:{showToast(){}}});
+ vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js','utf8'),{module,require:h.req,Promise,console,wx:{showToast(){},pageScrollTo(){}}});
  module.exports(h.page,h.api);
 }
 for(const method of ['loadFinanceProjects','loadBookLedger'])for(const transition of ['denial','hide']){
@@ -188,4 +219,111 @@ test('the book retry after an explicit denial performs a fresh authorized read o
  h.http.get=async url=>url.endsWith('/ledger')?structuredClone(reviewBookResult):structuredClone(reviewBooks);await h.page.loadBookLedger();
  h.state.hold=true;const start=h.requests.length,read=h.page.loadPlatformFinance();h.requests[start].reject({status:403});h.release(start+1);await read;assert.equal(h.page.data.bookResult,null);
  await h.page.loadBookLedger();assert.equal(h.page.data.bookName,'旧岗位私有账本');assert.equal(h.page.data.bookEntries.length,1);assert.equal(h.page.data.bookError,'');
+});
+
+const employeeFacts=[
+ {payable_id:'9007199254740999',origin_payment_id:'101',payer_name:'未报销员工',eligible_cents:10000,reimbursed_cents:0,recovered_cents:0},
+ {payable_id:'9007199254741000',origin_payment_id:'102',payer_name:'部分报销员工',eligible_cents:10000,reimbursed_cents:4000,recovered_cents:0},
+ {payable_id:'9007199254741001',origin_payment_id:'103',payer_name:'待归还员工',eligible_cents:2000,reimbursed_cents:4000,recovered_cents:500},
+ {payable_id:'9007199254741002',origin_payment_id:'104',payer_name:'已结清员工',eligible_cents:2000,reimbursed_cents:4000,recovered_cents:2000},
+ {payable_id:'9007199254741003',origin_payment_id:'105',payer_name:'另一项目员工',eligible_cents:8000,reimbursed_cents:0,recovered_cents:0}
+].map(r=>({...r,stage:'原交通垫付',pay_date:'2026-11-01'}));
+const employeeLedger=(scope,ids,entries=[])=>({scope,reimbursementIds:ids,entries,summary:{received_cents:0,paid_cents:0,refunded_cents:0,expense_refunded_cents:0,committed_cents:0,outstanding_cents:0}});
+for(const count of [501,1001])test(`${count} cash entries do not hide original employee balances or their actions`,async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.data.bookFlowTab='employee';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const ids=employeeFacts.slice(0,4).map(r=>r.payable_id),books=[{scope:'project:11',name:'原项目'}];
+ const entries=Array.from({length:count},(_,i)=>({id:String(2000+i),type:'RECEIPT',date:'2026-11-27',amount_cents:1,name:'较新流水',status:'已登记'})).slice(0,500);
+ h.http.get=async url=>url.endsWith('/ledger')?employeeLedger('project:11',ids,entries):url.endsWith('/books')?books:url.endsWith('/reimbursements')?structuredClone(employeeFacts):[];
+ if(count===501){await h.page.loadBookLedger();await h.page.loadWorkbench();}else{await h.page.loadWorkbench();await h.page.loadBookLedger();}
+ assert.equal(h.page.data.bookEntryRows.length,500);
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),ids);
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.remaining),[10000,6000,-1500,0]);
+ assert.equal(h.page.data.bookEmployeeRows[2].remainingText,'15.00');
+ const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]),nodes=flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
+ assert.equal(nodes.filter(n=>n.attrs?.class==='book-employee-row').length,4);
+ assert.equal(nodes.filter(n=>n.attrs?.bindtap==='reimburseEmployee').length,2);
+ assert.equal(nodes.filter(n=>n.attrs?.bindtap==='recoverEmployee').length,1);
+ h.page.openRegister=()=>h.page.setData({registerForm:{}});
+ h.page.reimburseEmployee({currentTarget:{dataset:{id:ids[1]}}});
+ assert.equal(h.page.data.registerForm.payableId,ids[1]);assert.equal(h.page.data.registerForm.amount,'60.00');
+ h.api.idemKey=()=> 'original-recovery';
+ h.page.recoverEmployee({currentTarget:{dataset:{id:ids[2]}}});
+ assert.equal(h.page.data.wbForm.payableId,ids[2]);assert.equal(h.page.data.wbForm.amount,'15.00');
+});
+
+for(const transition of ['book','company','post'])test(`employee balances cannot return from an older ${transition} request`,async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const first=employeeFacts[0],second=employeeFacts[4],books=[{scope:'project:11',name:'项目A'},{scope:'project:22',name:'项目B'}];
+ let facts=[first,second];
+ h.http.get=async url=>url.endsWith('/ledger')?employeeLedger('project:11',[first.payable_id]):url.endsWith('/books')?books:url.endsWith('/reimbursements')?structuredClone(facts):[];
+ await h.page.loadWorkbench();await h.page.loadBookLedger();
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[first.payable_id]);
+ const pending=[];
+ h.http.get=(url,args)=>url.endsWith('/ledger')?new Promise(resolve=>pending.push({scope:args.scope,resolve})):Promise.resolve(url.endsWith('/books')?books:url.endsWith('/reimbursements')?structuredClone(facts):[]);
+ const old=h.page.loadBookLedger();
+ h.page.options.bookScope='project:22';
+ if(transition==='company'){h.state.post.orgId='org-2';h.state.tenant='tenant-2';h.state.session++;}
+ if(transition==='post'){h.state.post.postId='post-2';h.state.post.roleCode='finance-lead';}
+ const next=h.page.loadBookLedger();assert.equal(h.page.data.bookEmployeeRows.length,0);
+ facts=[second];await h.page.loadWorkbench();pending[1].resolve(employeeLedger('project:22',[second.payable_id]));await next;
+ pending[0].resolve(employeeLedger('project:11',[first.payable_id]));await old;
+ assert.equal(h.page.data.bookScope,'project:22');
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[second.payable_id]);
+ assert.equal(h.page.data.bookEmployeeRows[0].remaining,8000);
+});
+
+test('employee balances fail closed when the backend omits complete scoped IDs',async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.data.bookFlowTab='employee';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const first=employeeFacts[0],books=[{scope:'project:11',name:'兼容账本'}];
+ const entry={id:first.origin_payment_id,type:'ADVANCE',date:'2026-11-27',amount_cents:10000,name:'原垫付',status:'已核实'};
+ let ledger=employeeLedger('project:11',undefined,[entry]);delete ledger.reimbursementIds;
+ h.http.get=async url=>url.endsWith('/ledger')?ledger:url.endsWith('/books')?books:url.endsWith('/reimbursements')?structuredClone(employeeFacts):[];
+ const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]);
+ const renderBook=()=>flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
+ const hasText=value=>renderBook().map(n=>n.text||'').join('').includes(value);
+ const findRetry=()=>renderBook().find(n=>n.tag==='button'&&n.attrs.bindtap==='loadBookLedger'&&n.children.some(child=>child.text==='重试'));
+ await h.page.loadWorkbench();await h.page.loadBookLedger();
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),[]);
+ assert.equal(h.page.data.bookResult.employeeScopeIncomplete,true);
+ assert(hasText('员工往来完整范围暂不可用，已隐藏不完整数据'),'old backend must never present a partial advance list as complete');
+ assert(!hasText('暂无可显示的近期员工往来')&&!hasText('暂无员工往来'),'an incomplete response must not look like a confirmed empty balance');
+ const retry=findRetry();assert(retry,'show a real retry button when the complete scope is unavailable');
+ ledger=employeeLedger('project:11',[],[entry]);
+ await h.page[retry.attrs.bindtap]();assert.equal(h.page.data.bookEmployeeRows.length,0);
+ assert.equal(h.page.data.bookResult.employeeScopeIncomplete,false);
+ assert(!hasText('员工往来完整范围暂不可用'));assert(!findRetry());
+ assert(hasText('暂无员工往来'));
+});
+
+for(const scenario of ['slow','failure','partial'])test(`project employee balances never report empty before scoped details are ready (${scenario})`, async()=>{
+ const h=refreshHarness();h.page.data.view='book';h.page.data.bookFlowTab='employee';h.page.options.bookScope='project:11';h.page.onShow();await tick();attachReviewWorkbench(h);
+ const facts=employeeFacts.slice(0,2), ids=facts.map(r=>r.payable_id),books=[{scope:'project:11',name:'项目A'}];
+ let resolveDetails, detailCalls=0, ledgerCalls=0;
+ h.http.get=async (url)=>{
+  if(url.endsWith('/ledger')){ledgerCalls++;return employeeLedger('project:11',ids);}
+  if(url.endsWith('/books'))return books;
+  if(!url.endsWith('/reimbursements'))return [];
+  if(++detailCalls>1)return structuredClone(facts);
+  if(scenario==='failure')throw Error('weak network');
+  if(scenario==='partial')return structuredClone(facts.slice(0,1));
+  return new Promise(resolve=>{resolveDetails=resolve;});
+ };
+ const loading=h.page.loadWorkbench();await h.page.loadBookLedger();
+ const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children)]), redraw=()=>flat(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),h.page.data));
+ const hasText=value=>redraw().map(n=>n.text||'').join('').includes(value);
+ assert(!hasText('暂无员工往来'),'a nonempty scope cannot be treated as no balances');
+ assert.equal(h.page.data.bookEmployeeRows.length,0,'do not present a partial list as complete');
+ if(scenario==='slow'){
+  assert(hasText('正在读取员工往来'));
+  assert(!redraw().some(n=>n.attrs?.bindtap==='retryBookEmployees'));
+  resolveDetails(structuredClone(facts));await loading;
+ }else{
+  await loading;
+  assert(hasText('员工往来明细暂未读全'));
+  const retry=redraw().find(n=>n.tag==='button'&&n.attrs.bindtap==='retryBookEmployees');assert(retry);
+  await h.page[retry.attrs.bindtap]();
+  assert.equal(detailCalls,2);assert.equal(ledgerCalls,2);
+ }
+ assert.deepEqual(Array.from(h.page.data.bookEmployeeRows,r=>r.id),ids);
+ assert(!hasText('暂无员工往来')&&!hasText('员工往来明细暂未读全'));
 });

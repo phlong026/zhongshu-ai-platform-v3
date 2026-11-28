@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
@@ -50,7 +51,7 @@ const initialGrowth = {
 store[keys.growth] = clone(initialGrowth);
 
 const Account = require('../miniprogram/utils/account');
-const OwnerPerformance = require('../miniprogram/pages/admin/owner-performance');
+const OwnerPerformance = require('./fixtures/legacy-admin/owner-performance');
 assert.equal(typeof OwnerPerformance.facts, 'function', '事实引擎应公开既有 facts 供任务化复用');
 const Tasks = require('../miniprogram/utils/performance-tasks').withFacts(OwnerPerformance.facts);
 
@@ -234,4 +235,4 @@ assert(!modelSource.includes("require('../pages/admin"), '根包领域模型不�
 assert(!['parseBonus', 'bonusSummary', 'payoutDraft', 'linkPayout', 'bonusAwarded', 'bonusTotal', 'payoutLinks'].some(name => modelSource.includes(name)), '任务模型不再暴露奖金或应付能力');
 assert.equal(JSON.stringify(state), originalState, '任务化不改写绩效事实、薪酬或历史账簿对象');
 
-console.log('PASS 绩效任务权限、自动事实、手动凭证、任务归档修订与幂等隔离');
+console.log('PASS 历史夹具（非当前线上验收）：绩效任务权限、自动事实、手动凭证、任务归档修订与幂等隔离');

@@ -50,7 +50,7 @@ function engineeringStatus(c) { const state=wx.getStorageSync(require('./storage
 const STAGES=['客户跟进','需求沟通','设计与预算','设计协同','设计完成','施工阶段','交付'];
 function stageIndex(c){
 const engineering=engineeringStatus(c);if(engineering==='已交付')return STAGES.length;if(engineering==='待交付'||engineering==='交付待独立核验')return 6;if(engineering||c.acceptance)return 5;
-const SF=require('./sales-flow');if(SF.is(c))return c.businessFlow?.completed&&c.businessFlow.feedbacks?.at(-1)?.status!=='pending'?4:3;
+const SF=require('./commission-history');if(SF.is(c))return c.businessFlow?.completed&&c.businessFlow.feedbacks?.at(-1)?.status!=='pending'?4:3;
 if(c.request||c.contract)return 3;if((c.plans||[]).length||(c.facades||[]).length||(c.budgets||[]).length||c.salesIntent?.ready)return 2;
 return (c.follows||[]).some(f=>f.kind!=='capture'&&!String(f.note||'').startsWith('登记客资'))?1:0;
 }
@@ -64,7 +64,7 @@ if(index>=3){const n=require('./design-coordination').next(c);return {title:n.st
 return {title:['待首次沟通','需求沟通中','方案预算已出'][index],owner:c.owner||'',next:index<2?'出方案与预算':'发起设计委托',latest:followLatest};
 }
 function stage(c) {
-if(require('./sales-flow').is(c))return require('./sales-flow').next(c).state;
+if(require('./commission-history').is(c))return require('./commission-history').next(c).state;
 const engineering=engineeringStatus(c);
 if((c.changes||[]).some(x=>!['returned','completed'].includes(x.status)))return engineering?'工程变更办理中 · 施工待协调':'变更办理中 · 开工待核查';
 if(engineering)return engineering==='已交付'?'工程已交付':engineering==='待交付'?'工程待交付':'工程施工中';

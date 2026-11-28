@@ -1,6 +1,7 @@
 const http = require('../../api/http');
 const api = require('../../api/franchise/engineering');
 const { day } = require('../../utils/finance-date');
+const { startPlanReady } = require('../../utils/platform-engineering');
 const id = value => typeof value === 'number' && !Number.isSafeInteger(value) ? '' : /^[1-9]\d{0,18}$/.test(String(value || '')) ? String(value) : '';
 const amount = value => value != null && Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 const money = value => amount(value) == null ? '—' : (Number(value) / 100).toFixed(2);
@@ -63,7 +64,7 @@ function apply(data, bundle, response, options = {}) {
     const matches = row => balances.find(b => String(b.stage) === row.key);
     const mixed = plan.rows.some(r => { const b = matches(r); return !b || b.planVersion != null && Number(b.planVersion) !== plan.version || b.expectedCents != null && Number(b.expectedCents) !== Number(r.amountCents); });
     const unpaid = early.find(r => amount(matches(r)?.confirmedCents) == null || Number(matches(r).confirmedCents) < Number(r.amountCents));
-    const ready = !!detail.preparedAt && !response.needsRefresh && !mixed && !unpaid && data.p.plan.nodes.length && data.p.plan.nodes.every(n => n.start && n.end);
+    const ready = !!detail.preparedAt && !response.needsRefresh && !mixed && !unpaid && startPlanReady(data.p.plan.nodes);
     data.paymentConflict = mixed;
     data.paymentNotice = mixed ? '付款约定与收款汇总正在更新，请重新加载。'
       : !data.p.actualStart && response.needsRefresh && detail.preparedAt ? '付款计划已有变更，请重新确认开工准备。'
@@ -86,7 +87,7 @@ function apply(data, bundle, response, options = {}) {
     }
     if (!data.p.actualStart && !data.p.archived) {
       data.next = !detail.preparedAt || response.needsRefresh || mixed ? { title: '确认合同付款计划与开工准备', url: base + 'prepare' }
-        : data.p.plan.nodes.some(n => !n.start || !n.end) ? { title: '补全施工计划日期', url: base + 'project' }
+        : !startPlanReady(data.p.plan.nodes) ? { title: '填写计划开工日期', url: base + 'project' }
         : unpaid ? { title: '跟进' + unpaid.label, url: base + 'collection&stage=' + encodeURIComponent(unpaid.key) }
         : { title: '记录实际开工', url: base + 'start' };
     }
@@ -119,8 +120,12 @@ function payload(page, action, form) {
   if (!plan || plan.contractChanged || page.data.paymentConflict || form.paymentPlanVersion !== plan.version) throw Error('付款计划已变化，请刷新后核对');
   const note = String(form.note || '').trim();
   if (!note || note.length > 1000) throw Error('请填写开工准备记录，不超过1000字');
-  const nodes = (form.nodes || []).map(n => ({ nodeIndex: Number(n.nodeIndex ?? n.index), name: String(n.name || '').trim(), startDate: day(n.start), endDate: day(n.end) }));
-  if (!nodes.length || nodes.some(n => !Number.isSafeInteger(n.nodeIndex) || n.nodeIndex < 1 || !n.name || !n.startDate || !n.endDate || n.endDate < n.startDate)) throw Error('请补全施工节点与起止日期');
+  const nodes = (form.nodes || []).map(n => ({ nodeIndex: Number(n.nodeIndex ?? n.index), name: String(n.name || '').trim(), startDate: day(n.start) || null, endDate: day(n.end) || null }));
+  if (!nodes.length || nodes.some((n, index) => !Number.isSafeInteger(n.nodeIndex) || n.nodeIndex < 0
+      || n.nodeIndex === 0 && form.nodes[index].milestone !== 'start' || !n.name
+      || form.nodes[index].start && !n.startDate || form.nodes[index].end && !n.endDate
+      || !!n.startDate !== !!n.endDate || n.startDate && n.endDate < n.startDate
+      || form.nodes[index].milestone === 'start' && n.startDate !== n.endDate)) throw Error('请保留原施工节点；起止日期须成对填写且结束不早于开始，计划开工只填同一天');
   if (plan.rows.some(r => r.trigger === 'NODE_COMPLETED' && !nodes.some(n => n.nodeIndex === r.nodeIndex))) throw Error('合同付款节点对应的施工节点不存在，请核对合同');
   return { paymentPlanVersion: plan.version, note, workers: String(form.workers || '').trim(), nodes };
 }

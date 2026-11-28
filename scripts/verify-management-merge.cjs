@@ -1,3 +1,4 @@
+// Legacy admin fixture checks preserve historical behavior; they do not prove the current online workflow.
 const assert = require('node:assert/strict');
 
 const storage = {
@@ -16,7 +17,7 @@ global.wx = {
   removeStorageSync(key) { delete storage[key]; }
 };
 
-const Home = require('../miniprogram/pages/admin/owner-home');
+const Home = require('./fixtures/legacy-admin/owner-home');
 const clone = value => JSON.parse(JSON.stringify(value));
 
 const customers = [
@@ -74,9 +75,9 @@ assert(Home.rows('stat', snapshot, 'new-leads').some(row => row.name === '未转
 assert(Home.rows('stat', snapshot, 'income')[0].status.includes('receipt-1'), '新版明细保留原单号');
 assert.equal(Home.rows('stat', snapshot, 'effective-customers').length, 4, '新版统计识别只有 at 的真实跟进');
 assert.equal(home.six.find(row => row.metric === 'effective-customers').value, '4');
-const performance = require('../miniprogram/pages/admin/owner-business').performance({...snapshot,goals:{}});
+const performance = require('./fixtures/legacy-admin/owner-business').performance({...snapshot,goals:{}});
 assert.equal(performance.targets.find(row => row.label === '有效客户').value, '4', '绩效与首页对仅含 at 的真实跟进口径一致');
-const performancePage = require('../miniprogram/pages/admin/owner-performance').build({...snapshot,staff:[],goals:{}});
+const performancePage = require('./fixtures/legacy-admin/owner-performance').build({...snapshot,staff:[],goals:{}});
 assert.equal(performancePage.targets.find(row => row.label === '有效客户').value, '4', '实际绩效页面也沿用相同有效客户口径');
 
 const oldSales = Home.rows('metric', snapshot, { metric:'sales' });
@@ -118,4 +119,4 @@ assert.equal(blankBankRows[0].key,'income:empty-bank-date');
 assert.equal(blankBankRows[0].amount,'¥ 1,234');
 assert(blankBankRows[0].status.includes('2026-10-18'));
 
-console.log('PASS 管理首页合并兼容：新版统计、旧入口、预约口径、线索与责任交接');
+console.log('PASS 历史夹具（非当前线上验收）：管理首页合并兼容：新版统计、旧入口、预约口径、线索与责任交接');

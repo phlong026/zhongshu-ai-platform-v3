@@ -168,12 +168,12 @@ test('省市无中心且零记录时，使用下属真实县中心定位视野�
 });
 
 const flush=async()=>{for(let i=0;i<12;i++)await new Promise(resolve=>setImmediate(resolve));};
-async function openMap({manual=false,source=fixture()}={}) {
+async function openMap({manual=false,source=fixture(),post={postId:'hq-map',userId:7,orgId:'hq',orgType:'headquarters',roleCode:'finance'}}={}) {
   const {connect}=require('./role-page-runtime.cjs');
   const runtime=await connect(),auth=require('../miniprogram/api/auth');
   auth.saveLogin({accessToken:'map-test-session',userId:7});
-  auth.savePosts([{postId:'hq-map',userId:7,orgId:'hq',orgType:'headquarters',roleCode:'finance'}]);
-  auth.switchPost('hq-map');
+  auth.savePosts([post]);
+  auth.switchPost(post.postId);
   const network=[],viewports=[],fits=[];
   wx.request=options=>{
     const url=new URL(options.url).pathname.replace('/admin-api','');
@@ -191,10 +191,37 @@ test('真实地图页面展示公开地址，Page 数据与搜索不保留原始
   Object.assign(source.records[0],{publicAddress:'公开门店大道 18 号',ownerName:'隐藏老板',phone:'13900139000',originalRegionText:'隐藏老板 13900139000'});
   const {page,runtime}=await openMap({source});
   const screen=await runtime.currentPage();
-  assert.match(await (await screen.$('.stores')).text(),/门店地址：公开门店大道 18 号/);
+  assert.match(await (await screen.$('.record-address')).text(),/公开门店大道 18 号/);
   assert(!JSON.stringify(page.data).includes('隐藏老板'));assert(!JSON.stringify(page.snapshot).includes('13900139000'));
   page.searchInput({detail:{value:'公开门店大道'}});page.searchName();assert.equal(page.data.rows.length,1);
   page.searchInput({detail:{value:'隐藏老板'}});page.searchName();assert.equal(page.data.rows.length,0);
+});
+
+test('加盟商与总部地图隐藏顶部范围横条，保留各自的统计、筛选和品牌图例',async()=>{
+  const source=fixture(), brand=source.brands[0];
+  const own={
+    ...source,scope:'brand',brandId:brand.id,brandName:brand.name,brands:[brand],
+    records:source.records.filter(row=>row.brandId===brand.id),
+    points:source.points.filter(point=>source.records.some(row=>row.id===point.recordId&&row.brandId===brand.id))
+  };
+  for(const admin of [false,true]){
+    const options=admin?{}:{source:own,post:{postId:'store-map',userId:7,orgId:'store',orgType:'store',roleCode:'boss',brandId:brand.id}};
+    const {runtime,page}=await openMap(options);
+    const screen=await runtime.currentPage();
+    assert.equal(page.data.admin,admin);
+    assert.equal(await screen.$('.scope'),null);
+    assert.match(await (await screen.$('.map-overview')).text(),admin?/加盟商总数/:/本品牌加盟商/);
+    assert.equal(!!await screen.$('.brand-filter'),admin);
+    assert.equal(!!await screen.$('.map-legend'),admin);
+    assert.equal(!!await screen.$('.brand-list'),admin);
+    const zoomIn=await screen.$('.zoom-actions [data-delta="1"]');
+    const zoomOut=await screen.$('.zoom-actions [data-delta="-1"]');
+    assert.ok(zoomIn&&zoomOut);
+    const before=page.data.scale;
+    await zoomIn.tap();
+    assert.notEqual(page.data.scale,before);
+    assert.equal(page.data.scale,10);
+  }
 });
 
 test('真实Page地区优先搜索和品牌切换保留区县；setData不包含全国目录；图钉名单可恢复',async()=>{
@@ -245,13 +272,15 @@ test('地图和地区目录加载失败可重试，隐藏/重开后迟到的旧�
   assert.match(page.data.error,/目录请求失败/);assert.equal(page.data.rows.length,0);
 });
 
-test('同县气泡渲染每个品牌名称与各自家/条数；点气泡保留全部品牌名单',async()=>{
+test('同县点位先显示家数，点击后展示品牌明细及该点名单',async()=>{
   const {page,runtime}=await openMap();
   page.applyRegion('420115');page.renderMap(true);
   const screen=await runtime.currentPage(),callout=await screen.$('.county-callout'),caption=await callout.text();
-  assert.match(caption,/测试甲/);assert.match(caption,/测试乙/);assert.match(caption,/1条覆盖记录/);
+  assert.equal(caption.trim(),'2');
   assert.equal(page.data.callouts[0].brands.length,2);
   await callout.tap();assert.equal(page.data.pinned,true);assert.equal(page.data.rows.length,3);
+  const detail=await (await screen.$('.callout-detail')).text();
+  assert.match(detail,/测试甲/);assert.match(detail,/测试乙/);assert.match(detail,/1条覆盖记录/);
   assert.match(await (await screen.$('.area-quick-status')).text(),/江夏区\s*已有加盟商/);
 });
 
@@ -262,11 +291,13 @@ test('名称搜索跨所选县找出全范围记录，点击跨县加盟商定�
   page.searchInput({detail:{value:'验收记录one'}});page.searchName();
   assert.deepEqual(page.data.rows.map(row=>row.id),['one']);
   assert.equal(page.data.markers.length,2);
-  assert.equal(page.data.markers.every(marker=>marker.customCallout.display==='BYCLICK'),true);
+  assert.ok(page.data.markers.every(marker=>marker.customCallout.display==='BYCLICK' && marker.width>1));
+  assert.ok(page.data.callouts.every(row=>!row.showCount));
   assert.equal(page.data.summary.status,'empty','行政区结论仍属于明确选中的新洲区');
   page.toggleRecord({currentTarget:{dataset:{id:'one'}}});
   await (await (await runtime.currentPage()).$('map')).trigger('updated',{});
   assert.equal(page.data.expandedId,'one');assert.equal(page.data.callouts.filter(row=>row.selected).length,2);
+  assert.ok(page.data.markers.every(marker=>marker.customCallout.display==='ALWAYS'));
   assert.equal(page.data.rows[0].districtCount,2);assert.match(page.data.focusNote,/2 个覆盖区县/);
   assert.deepEqual(fits.at(-1).points,[{longitude:114.313961,latitude:30.349045},{longitude:114.374025,latitude:30.874155}]);
   assert.equal(page.data.latitude,30.349045);
@@ -322,8 +353,9 @@ test('点县气泡后展开唯一门店，视野刷新时列表和已展开项�
   page.changeMode({currentTarget:{dataset:{mode:'viewport'}}});
   viewports[0].success(bounds);
   const screen=await runtime.currentPage();
-  await (await screen.$('.county-callout[data-marker-id="2"]')).tap();
+  await (await screen.$('map')).trigger('markertap',{markerId:2});
   assert.deepEqual(page.data.rows.map(row=>row.id),['only']);
+  assert.equal(page.data.markers.find(marker=>marker.id===2).customCallout.display,'ALWAYS');
   const scrolls=[]; wx.pageScrollTo=options=>scrolls.push(options);
   await (await screen.$('.store')).tap();
   assert.deepEqual(scrolls,[],'只移动地图镜头，页面不从展开的资料跳走');
@@ -381,4 +413,60 @@ test('视野总数和跨地区名称匹配数分别显示；清空查询后只�
   page.clearSearch();
   assert.equal(await screen.$('.query-note'),null);
   assert.equal(page.data.summary.franchiseCount,32);
+});
+
+test('省市覆盖资料只提示待确认，不扩成县点、视野统计或第二家门店',()=>{
+  const city={...record('city-cover','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL'};
+  const outside={...record('other-province','a',['110000'],'COVERAGE'),provinceCode:'110000',cityCode:'',matchStatus:'PARTIAL'};
+  const fixtureData=fixture([city,outside]);
+  // Same persisted directory ID twice must not double either count or marker.
+  fixtureData.records.push({...fixtureData.records[0]});
+  const snapshot=readSnapshot(fixtureData,hq),catalog=readRegions(regions);
+  const view=mapView(snapshot,county,catalog);
+  assert.equal(view.upperCoverageLabel,'武汉市 · 区县待确认 1 条');
+  assert.equal(view.summary.franchiseCount,2);
+  assert.equal(view.summary.coverageRecordCount,1);
+  assert.equal(view.rows.find(row=>row.id==='city-cover').upperCoverageLabel,'武汉市');
+  assert.equal(view.markers.length,1);
+  assert(!view.markers[0].storeIds.includes('city-cover'));
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:32}};
+  const viewport=mapView(snapshot,county,catalog,'viewport',bounds);
+  assert.equal(viewport.upperCoverageLabel,'');
+  assert.equal(viewport.summary.franchiseCount,2);
+  assert.equal(viewport.summary.coverageRecordCount,1);
+  assert.equal(mapView(snapshot,{...county,keyword:'武汉'},catalog).rows.find(row=>row.id==='city-cover').upperCoverageLabel,'武汉市');
+});
+
+test('经明确确认的全市覆盖可查到下辖县，一条统计且不产生县点',()=>{
+  const city={...record('verified-area','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL',wholeAreaCoverage:true};
+  const snapshot=readSnapshot(fixture([city]),hq),catalog=readRegions(regions);
+  const view=mapView(snapshot,county,catalog);
+  assert.equal(view.upperCoverageLabel,'武汉市 · 已确认全域覆盖 1 条');
+  assert.equal(view.summary.franchiseCount,2);
+  assert.equal(view.summary.coverageRecordCount,2);
+  assert.equal(view.summary.pendingCount,0);
+  assert.equal(view.rows.find(row=>row.id==='verified-area').wholeAreaCoverage,true);
+  assert.deepEqual(view.markers.flatMap(marker=>marker.storeIds).sort(),['coverage','one','two']);
+  const outside=mapView(snapshot,{province:'110000',district:'110101'},catalog);
+  assert(!outside.rows.some(row=>row.id==='verified-area'));
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:32}};
+  assert.equal(mapView(snapshot,county,catalog,'viewport',bounds).summary.coverageRecordCount,1);
+  assert.equal(mapView(snapshot,{},catalog).summary.coverageRecordCount,2);
+});
+
+test('同一筛选内省级和市级待确认资料都计入提示，仍各自标明原地区',()=>{
+  const province={...record('province-draft','a',['420000'],'COVERAGE'),cityCode:'',matchStatus:'PARTIAL'};
+  const city={...record('city-draft','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL'};
+  const whole={...record('confirmed-area','a',['420100'],'COVERAGE'),matchStatus:'PARTIAL',wholeAreaCoverage:true};
+  const snapshot=readSnapshot(fixture([province,city,city,whole]),hq),catalog=readRegions(regions);
+  for(const filters of [{province:county.province},{province:county.province,city:county.city},county]){
+    const view=mapView(snapshot,filters,catalog);
+    assert.equal(view.summary.pendingCount,2);
+    assert.match(view.upperCoverageLabel,/已确认全域覆盖 1 条；另有 2 条省市覆盖资料待确认区县/);
+    assert.deepEqual(view.rows.filter(row=>row.pending).map(row=>row.upperCoverageLabel).sort(),['武汉市','湖北省']);
+    assert.equal(view.summary.franchiseCount,2);
+    assert(!view.markers.flatMap(marker=>marker.storeIds).some(id=>['province-draft','city-draft','confirmed-area'].includes(id)));
+  }
+  const bounds={southwest:{longitude:114,latitude:30},northeast:{longitude:115,latitude:32}};
+  assert.equal(mapView(snapshot,county,catalog,'viewport',bounds).upperCoverageLabel,'');
 });

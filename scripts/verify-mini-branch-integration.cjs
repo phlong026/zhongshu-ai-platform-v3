@@ -19,26 +19,33 @@ test('老板入口保留当前在线客户与工程路由', async () => {
   assert.match(customers, /\['boss','owner'\]\.includes\(post\.roleCode\)/);
   assert.match(customers, /customers\.page\(pageNo,batchSize,keyword\|\|undefined,tab==='all'\?undefined:tab\.toUpperCase\(\),true,prefix\)/);
   assert.match(projects, /\['boss','owner'\]\.includes\(navCtx\.role\)/);
-  assert.match(projects, /P\.api\.projects\.page\(\)/);
   const runtime = await require('./role-page-runtime.cjs').connect();
   const auth = require('../miniprogram/api/auth');
   const post = { postId: 'boss-project-route', orgId: 'test-store', orgType: 'store', roleCode: 'boss' };
   auth.saveLogin({ accessToken: 'isolated-route-test' }); auth.savePosts([post]); auth.switchPost(post.postId);
-  wx.request = options => setImmediate(() => options.success({ statusCode: 200, data: { code: 0,
-    data: [{ id: '9007199254740993', name: '当前在线工程', status: 'IN_PROGRESS' }] } }));
+  const projectRequests=[];
+  wx.request = options => {
+    if(new URL(options.url).pathname.endsWith('/franchise/engineering/projects'))projectRequests.push(options);
+    setImmediate(() => options.success({ statusCode: 200, data: { code: 0,
+      data: [{ id: '9007199254740993', name: '当前在线工程', status: 'IN_PROGRESS' }] } }));
+  };
   await runtime.callWxMethod('reLaunch', { url: '/pages/build/projects/index' });
   for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve));
   const page = getCurrentPages().at(-1);
   assert.equal(page.data.readOnly, true);
   assert.equal(page.data.navigationIndex, 12);
   assert.equal(page.data.cards[0].id, '9007199254740993');
+  assert.equal(projectRequests.length,1);
+  assert.equal(projectRequests[0].method,'GET');
+  assert.equal(projectRequests[0].data.page,1);
+  assert.equal(projectRequests[0].data.pageSize,50);
 });
 
 test('上传链使用当前B资产协议并隔离切岗迟到响应', () => {
   const finance = read('miniprogram/api/finance.js');
   const engineering = read('miniprogram/api/franchise/engineering.js');
   const business = read('miniprogram/pages/business/index.js');
-  const explore = read('miniprogram/pages/workflow/explore/platform-bridge.js');
+  const migratedDesign = read('miniprogram/design-migration/utils/request.js');
 
   for (const source of [finance, engineering]) {
     assert.match(source, /b-asset-upload/);
@@ -46,13 +53,12 @@ test('上传链使用当前B资产协议并隔离切岗迟到响应', () => {
     assert.match(source, /BAsset\.putTicketBytes/);
   }
   assert.match(business, /sessionGeneration\(\)/);
-  assert.match(explore, /platSessionStale/);
+  assert.match(migratedDesign, /isSameSession\(expected\)/);
 });
 
 test('长文本布局由当前样式系统覆盖', () => {
   const tasks = read('miniprogram/pages/admin/tasks/index.wxss');
   const commission = read('miniprogram/pages/workflow/commission/index.wxss');
-  const journey = read('miniprogram/pages/workflow/commission/journey.wxss');
   const app = read('miniprogram/app.wxss');
 
   assert.match(tasks, /\.task-copy\{flex:1;min-width:0\}/);
@@ -60,8 +66,8 @@ test('长文本布局由当前样式系统覆盖', () => {
   assert.match(tasks, /\.archive-copy\{[^}]*overflow-wrap:anywhere/);
   assert.match(tasks, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(commission, /\.commission-value\{[^}]*word-break:break-all/);
-  assert.match(commission, /\.commission-field input,\.commission-field textarea,\.commission-input\{box-sizing:border-box;width:100%/);
-  assert.match(journey, /\.journey-project-name\{overflow-wrap:anywhere\}/);
+  assert.match(commission, /\.commission-field textarea,\.commission-input\{box-sizing:border-box;width:100%/);
+  assert.match(commission, /\.order-row>text:last-child\{[^}]*word-break:break-word;white-space:pre-wrap/);
   assert.match(app, /\.page-actions\.page-actions>button\{[^}]*white-space:normal;overflow-wrap:anywhere/);
 });
 
@@ -107,7 +113,7 @@ test('自动PR和push仍冻结各自提交，不接受手动前端版本覆盖',
 
 test('配对入口继续复用固定后端工作流与只读仓库权限', () => {
   const source = pairedWorkflow();
-  const executor = '6ac765aca82833dc22d5e82815b708a0928ec997';
+  const executor = 'b541e8721d704c977a7662fd5037aa92163b3ca8';
   assert.ok(source.includes('uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@' + executor));
   assert.ok(source.includes('executor_sha: ' + executor));
   assert.match(source, /permissions:\n  contents: read/);

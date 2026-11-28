@@ -17,7 +17,7 @@ Page({
  // M07-T02：在线 prepare 三期金额输入即校验（四项金额齐后 Σ≠总额即时报差额；无保存入口也保持口径提示可达——R2 P2）
  input(e){if(this.data.busy||(this.data.view==='start'&&this.data.startSaveState)||(this.data.view==='delay'&&Delay.held(this))||this.data.paymentUncertain||this.__expenseSave)return;baseHandlers.input.call(this,e);if(this.data.view==='prepare'&&this.data.platEng&&!this.data.paymentPlan&&['total','signAfter','baseDone','capDone'].every(k=>String(this.data.form[k]==null?'':this.data.form[k]).trim()!=='')){const err=P.threeStageSumError(this.data.form);if(err)this.setData({error:err.msg});}},
  data:{view:'overview',title:'工程项目',startSaveState:'',startCanRetry:false,p:null,form:{},fields:[],actions:[],pending:[],waiting:[],plans:[],error:'',busy:false,showPlan:false,expanded:{},inspectionHistoryId:'',planEditorId:'',samplePreview:null,expenseMode:'register',expenseSaveState:'',expenseSaveLabel:'',externalHandoverUrl:'',externalHandoverVersion:0},
- onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'start');this.setData({view:titles[o.view]?o.view:'overview'});this.refresh(true);},
+ onLoad(o){this.id=o.id;this.planId=o.planId||'';this.homeSupply=o.homeSupply||'';this.nodeId=o.nodeId||'';this.stage=String(o.stage||'');const view=titles[o.view]?o.view:'overview';this.setData({view:view==='collection'&&!this.stage?'payments':view});this.refresh(true);},
  onShow(){this.__disposed=false;this.__inactive=false;this.__previewClosed=false;const h=require('../../../api/http'),identity=String(h.currentPostId())+':'+h.sessionGeneration();if(this.__identity!==identity){this.__accessEpoch=(this.__accessEpoch||0)+1;this.__externalPreview=null;this.__identity=identity;this.initialized=false;this.__idemKeys={};ManagerTransfer.clear(this);this.__expenseSave=null;this.__paymentPending=null;this.__paymentRead=0;this.setData({playbackUrl:'',playingCameraId:'',cameras:[],cameraFormOpen:false,expanded:{},inspectionHistoryId:'',planEditorId:'',startSaveState:'',startCanRetry:false,p:null,form:{},fields:[],actions:[],canTransferManager:false,paymentPlan:null,paymentNotice:'',paymentUncertain:false,paymentConflict:false,expenseSaveState:'',expenseSaveLabel:'',docs:[],fileNames:{},samplePreview:null,externalHandoverUrl:'',externalHandoverVersion:0,busy:false,error:''});}if(this.id&&!this.showExpenseResult())this.refresh();
   },
  refresh(reset=false){if(P.online())return this.refreshOnline(reset);this.setData({p:null,error:'请先登录后端账号'});}, // 本地数据分支已下线：在线走 API，离线只留登录提示与空态
@@ -57,8 +57,21 @@ Page({
   }});
  },
  useSampleFile(e){try{const key=e.currentTarget.dataset.sampleKey||e.currentTarget.dataset.key||'file',p=this.data.p,form=this.data.form,node=this.data.node,plan=this.data.plan,purpose={termsFile:'实际采购凭据',nodeFile:'节点验收更正凭据',siteFile:'现场记录更正凭据'}[key]||({prepare:'双方已签工程合同',start:'实际开工凭据',collection:'实际收款凭据',material:'实际到货凭据',node:'现场及验收凭据',delivery:'业主签收凭据',settlement:'结算确认凭据'}[this.data.view]||titles[this.data.view]+'办理凭据'),details=['工程阶段：'+titles[this.data.view],node?'施工节点：'+node.name+'（'+node.id+'）':'',form.date?'记录日期：'+form.date:'',form.total?'合同总额：'+form.total+'元':'',form.first?'开工款：'+form.first+'元':'',form.amount?'本次金额：'+form.amount+'元':'',form.transaction?'流水编号：'+form.transaction:'',form.receiver?'实际收款方：'+form.receiver:'',form.recipient?'签收人：'+form.recipient:'',plan?'材料计划：'+plan.id+' · '+plan.lines.map(line=>line.name).join('、'):'',form.note?'记录说明：'+form.note:''].filter(Boolean),sourceParty=form.receiver||form.recipient||X.context().name,confirmationParty=this.data.view==='delivery'?form.recipient:'',flowVersion=p.recordFlow?.version||1,version=['prepare','start','collection'].includes(this.data.view)?'工程合同V'+(p.recordFlow?.contract?.version||flowVersion):plan?'材料计划 '+plan.id:node?'施工计划V'+(p.plan?.version||flowVersion)+' · 节点'+node.id:p.drawingVersion||'工程资料V'+flowVersion;this.setFile(key,Files.reference({scope:'project',name:purpose+'参考凭据.pdf',customer:p.customer,customerId:p.sourceCustomerId,project:p.name,projectId:p.projectId||p.id,version,sourceParty,confirmationParty,purpose,details}));}catch(error){this.fail(error.message);}},
- setFile(key,file){if(this.data.view==='start'&&this.data.startSaveState)return;this.setData({['form.'+key]:file,...(this.data.view==='node'&&key==='file'?{'form.files':[file]}:{}),['fileNames.'+key]:Files.displayFile(file).name});},
- setPhotos(key,files,multi){if(!files.length)return;this.setData({['form.'+key]:files[0],...(multi?{['form.files']:files}:{}),['fileNames.'+key]:files.length>1?'已选'+files.length+'张照片':Files.displayFile(files[0]).name});},
+ setFile(key,file){if(this.data.view==='start'&&this.data.startSaveState)return;if(this.data.view==='node'&&key==='file')return this.appendNodeEvidence([file]);this.setData({['form.'+key]:file,['fileNames.'+key]:Files.displayFile(file).name});},
+ setPhotos(key,files,multi){if(!files.length)return;if(multi)return this.appendNodeEvidence(files);this.setData({['form.'+key]:files[0],['fileNames.'+key]:Files.displayFile(files[0]).name});},
+ appendNodeEvidence(files){
+   if(this.data.view!=='node'||this.data.busy)return;
+   const next=[...(this.data.form.files||[])];
+   for(const file of files)if(!file.path||!next.some(existing=>existing.path===file.path))next.push(file);
+   if(next.length>9)return this.fail('最多可选9份验收凭据，请先移除不需要的文件');
+   this.setNodeEvidence(next);
+ },
+ setNodeEvidence(files){this.setData({'form.files':files,'form.file':files[0]||null,'fileNames.file':'',error:''});},
+ removeNodeEvidence(e){
+   if(this.data.view!=='node'||this.data.busy)return;
+   const index=Number(e.currentTarget.dataset.index),files=this.data.form.files||[];
+   if(Number.isInteger(index)&&index>=0&&index<files.length)this.setNodeEvidence(files.filter((_,i)=>i!==index));
+ },
  preview(e){const raw=e.currentTarget.dataset.file;if(raw&&raw.text&&!raw.assetId){this.setData({samplePreview:{name:raw.name||'项目资料',text:raw.text}});return;}if(raw&&raw.assetId)return this.previewAsset({currentTarget:{dataset:raw}});const f=Files.displayFile(raw);if(!f)return;if(f.path){if(/\.(png|jpe?g|webp|gif)$/i.test(f.name||''))return wx.previewImage({urls:[f.path]});wx.openDocument({filePath:f.path,showMenu:true,fail:()=>this.fail('文件暂时无法打开')});}else if(P.online())this.fail('资料尚未关联有效文件，请联系业务人员补充');else this.setData({samplePreview:f.previewKind?{...f,previewImage:({result:'/pages/build/assets/commission-result.jpg',drawing:'/pages/build/assets/commission-plan.jpg'})[f.previewKind]||'',projectName:this.data.p?.name||'',projectId:this.data.p?.projectId||''}:f});},
  zoomSampleImage(){const image=this.data.samplePreview?.previewImage;if(image)wx.previewImage({current:image,urls:[image]});},
  async previewAsset(e){
@@ -302,3 +315,4 @@ Page({
  home(){Nav.open('/pages/build/home/index');},back(){Nav.back();},
  fail(error){this.setData({error});wx.showToast({title:error,icon:'none'});}
 });
+

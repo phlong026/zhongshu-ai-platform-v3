@@ -29,8 +29,163 @@ function harness(){const dir=path.resolve('miniprogram/pages/admin/finance-desk'
  function attach(name){const file=path.join(dir,name+'.js'),real=createRequire(file),mod={exports:{}};vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:mod,require:n=>n.endsWith('/api/http')?http:n.endsWith('/api/auth')?auth:n.endsWith('/account')?{localDate:()=> '2026-11-17'}:real(n),wx,console});return mod.exports;}
  const api={revisions:async()=>[],idemKey:()=> 'sticky-key',registerPayment:async(body,key)=>{calls.push({body,key});return {paymentId:'p-new'}},uploadVoucher:async()=> 'voucher'};
  const page={data:{view:'book',title:'项目账本',flowTab:'ledger',journeyEnabled:true,bookScope:'project:9007199254740999',bookName:'张先生乡墅',bookFlowTab:'employee',workbenchBooks:books,financialStages:stages,collectionDeclarations:[],reimbursementRows:[{id:'reim',payable_id:'reim',project_id:'9007199254740999',payer_name:'业务甲',stage:'设计费报销',remaining:140000,eligible_cents:240000,reimbursed_cents:100000,pay_date:'2026-11-17'}],platformRegister:{payables:[],refundable:[],expenseRefundable:[]}},options:{view:'book',bookScope:'project:9007199254740999'},__financeFacts:facts,setData(patch){for(const[k,v]of Object.entries(patch)){let d=this.data;const bits=k.replace(/\[(\d+)\]/g,'.$1').split('.');for(const f of bits.slice(0,-1))d=d[f]||(d[f]={});d[bits.at(-1)]=v}},loadPlatformFinance(){},refresh(){},syncPlatformTasks(){},loadDesignFees(){},paySourceRow(){},openBookEntry(){}};
- attach('platform-actions')(page,api,PF);attach('workbench')(page,api);page.installWorkbenchActions();page.loadWorkbench=()=>{};attach('journey')(page,api);page.refreshJourney();return {page,calls,http,api,wx};}
+ attach('platform-actions')(page,api,PF);attach('workbench')(page,api);page.installWorkbenchActions();page.loadWorkbench=()=>{};attach('journey')(page,api);page.refreshJourney();return {page,calls,http,api,wx,auth};}
 const event=(type,extra={})=>({currentTarget:{dataset:{type,...extra}}});
+function correctionHarness(storage=new Map()) {
+ delete require.cache[require.resolve('../miniprogram/pages/admin/finance-desk/payment-recovery')];
+ const h=harness(),id='9007199254742999',first='9007199254743001',second='9007199254743002';
+ h.wx.getStorageSync=k=>storage.get(k);h.wx.setStorageSync=(k,v)=>storage.set(k,structuredClone(v));h.wx.removeStorageSync=k=>storage.delete(k);
+ h.page.__financeFacts={...facts,receipts:[{...facts.receipts[0],id,revisionVersion:1}]};h.page.refreshJourney();
+ h.api.contractReceiptCorrection=async()=>({receiptId:id,stageId:first,revisionVersion:1,amountCents:40000,receivedDate:'2026-11-16',
+  stages:[{stageId:first,label:'首期'},{stageId:second,label:'节点款'}],history:[]});
+ return {...h,id,first,second,storage,open:()=>h.page.openRevision(event('',{id:'r-'+id}))};
+}
+test('合同收款修订沿原单展示日期和原合同期次，保留长ID与更正历史',async()=>{
+ const h=correctionHarness();await h.open();const f=h.page.data.revisionForm;
+ assert.equal(f.contract,true);assert.equal(f.receiptId,h.id);assert.equal(f.stageId,h.first);assert.equal(f.amount,'400.00');
+ const {render}=require('./role-page-runtime.cjs'),flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);
+ const nodes=flat(render(path.resolve('miniprogram/pages/admin/finance-desk/journey-forms.wxml'),h.page.data));
+ assert.ok(nodes.some(n=>n.tag==='picker'&&n.attrs['data-field']==='receivedDate'&&n.attrs.bindchange==='revisionInput'));
+ assert.ok(nodes.some(n=>n.tag==='picker'&&n.attrs['data-field']==='stageId'&&n.attrs['range-key']==='label'));
+ h.page.revisionInput({currentTarget:{dataset:{field:'stageId'}},detail:{value:'1'}});assert.equal(f.stageId,h.second);
+ h.page.revisionInput({currentTarget:{dataset:{field:'receivedDate'}},detail:{value:'2026-11-15'}});assert.equal(f.receivedDate,'2026-11-15');
+ for(const role of ['boss','owner','sales'])assert.equal(J.cashRows(h.page.__financeFacts,books,stages,role)[0].canRevise,false);
+});
+test('合同原单未能读取或身份变化时不能提交更正，迟到数据不回填',async()=>{
+ const h=correctionHarness();let resolve;h.api.contractReceiptCorrection=()=>new Promise(r=>resolve=r);let alive=true;h.http.sessionGuard=()=>()=>alive;
+ const loading=h.open();assert.equal(h.page.data.revisionForm.loading,true);let writes=0;h.api.correctContractReceipt=async()=>{writes++;return {receiptId:h.id};};
+ await h.page.submitRevision();assert.equal(writes,0);alive=false;resolve({stageId:h.first,stages:[],history:[],revisionVersion:1,amountCents:30000});await loading;
+ assert.equal(h.page.data.revisionForm.loading,true);
+ const failed=correctionHarness();failed.api.contractReceiptCorrection=async()=>{throw Error('network');};await failed.open();
+ assert.equal(failed.page.data.revisionForm.failed,true);assert.equal(failed.page.data.revisionHistory.status,'failed');
+ await failed.page.submitRevision();assert.equal(failed.storage.size,0);
+});
+test('合同收款更正断网重开后查询同一原单并用冻结内容原键重试',async()=>{
+ const h=correctionHarness();await h.open();const requests=[];
+ h.page.data.revisionForm.amount='300';h.page.data.revisionForm.note='核对原回单';h.page.data.revisionForm.stageId=h.second;
+ h.api.correctContractReceipt=async(body,key)=>{requests.push(JSON.stringify({body,key}));throw {code:-1};};
+ await h.page.submitRevision();assert.equal(h.page.data.paymentPending,true);assert.equal(h.storage.size,1);
+ h.page.revisionInput({currentTarget:{dataset:{field:'amount'}},detail:{value:'999'}});assert.equal(h.page.data.revisionForm.amount,'300');
+ h.page.closeFinanceEntry();assert.equal(h.page.data.registerType,'revision');h.page.__disposed=true;
+ const reopened=correctionHarness(h.storage);
+ reopened.http.get=async(path,args)=>{assert.equal(path,'/franchise/sales/receipts/'+h.id+'/correction/registration-result');assert.equal(args.key,'sticky-key');return {state:'NOT_REGISTERED'};};
+ reopened.api.correctContractReceipt=async(body,key)=>{requests.push(JSON.stringify({body,key}));return {receiptId:h.id,revisionVersion:2};};
+ await reopened.page.resumePayment();assert.equal(reopened.page.data.paymentPending,true);
+ await reopened.page.retryPendingPayment();assert.equal(requests.length,2);assert.equal(requests[0],requests[1]);
+ assert.equal(reopened.page.data.paymentPending,false);assert.equal(h.storage.size,0);
+ const sent=JSON.parse(requests[1]);assert.equal(sent.body.receiptId,h.id);assert.equal(sent.body.stageId,h.second);assert.equal(sent.body.amountCents,30000);
+});
+test('合同更正回执丢失但已成功时只查询原单，不再发写请求',async()=>{
+ const h=correctionHarness();await h.open();h.page.data.revisionForm.note='核对回单';h.api.correctContractReceipt=async()=>{throw {code:-1};};
+ await h.page.submitRevision();h.page.__disposed=true;const next=correctionHarness(h.storage);let writes=0;
+ next.http.get=async()=>({receiptId:h.id,revisionVersion:2,replayed:true});next.api.correctContractReceipt=async()=>{writes++;};
+ await next.page.resumePayment();assert.equal(writes,0);assert.equal(next.page.data.paymentPending,false);assert.equal(h.storage.size,0);
+});
+function openDeclaration(h, overrides={}) {
+ const row={id:'9007199254741999',contract_id:'c',stage_id:'s',stage:'SIGN_AFTER',customer_name:'张先生',
+  amount_cents:15000,received_date:'2026-11-17',transaction_no:'actual-bank-reference',voucher_file_id:'9007199254742000',
+  method:'bank',account_name:null,status:'PENDING',requires_method_confirmation:false,...overrides};
+ h.page.data.collectionDeclarations=[row];h.page.refreshJourney();
+ const click=event('',{id:row.id});h.page.openJourneyDeclaration(click);return click;
+}
+test('原到账核实表单带入已有账户与方式，并只把实际补齐资料提交到原申报',async()=>{
+ const h=harness(),click=openDeclaration(h,{account_name:'已申报账户',method:'other'}),writes=[];
+ h.http.post=async(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));return {receiptId:'9007199254742999'};};
+ assert.deepEqual(JSON.parse(JSON.stringify(h.page.data.declarationForm)),{accountName:'已申报账户',method:'other'});
+ const {render}=require('./role-page-runtime.cjs'),flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
+ let nodes=flatten(render(path.resolve('miniprogram/pages/admin/finance-desk/journey.wxml'),h.page.data));
+ assert.ok(nodes.some(n=>n.tag==='input'&&n.attrs?.['data-field']==='accountName'&&n.attrs.bindinput==='declarationInput'));
+ assert.ok(nodes.some(n=>n.tag==='picker'&&n.attrs?.['data-field']==='method'&&n.attrs.bindchange==='declarationInput'));
+ h.page.declarationInput({currentTarget:{dataset:{field:'accountName'}},detail:{value:' '}});
+ await h.page.confirmCollectionDeclaration(click);assert.equal(writes.length,0);assert.match(h.page.data.workbenchError,/实际收款账户/);
+ h.page.declarationInput({currentTarget:{dataset:{field:'method'}},detail:{value:'1'}});
+ h.page.journeyPick({currentTarget:{dataset:{field:'account'}},detail:{value:String(h.page.data.journeyAccounts.indexOf('现金'))}});
+ await h.page.confirmCollectionDeclaration(click);
+ assert.deepEqual(writes,[['/franchise/sales/collection-declarations/9007199254741999/confirm',{accountName:'现金',method:'cash'},{'Idempotency-Key':'sticky-key'}]]);
+ assert.equal(h.page.data.journeyResult.id,'9007199254742999');assert.equal(h.page.data.journeyResult.amount,'150.00');
+ assert.equal(h.page.data.declarationPending,false);assert.equal(h.page.__declarationPending,null);
+});
+test('到账核实回执丢失后冻结原申报账户方式和键，只能原样重试',async()=>{
+ const h=harness(),click=openDeclaration(h,{account_name:'实际银行账户'}),writes=[];
+ h.http.post=async(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));if(writes.length===1)throw {code:-1};return {receiptId:'9007199254742999'};};
+ await h.page.confirmCollectionDeclaration(click);assert.equal(h.page.data.declarationPending,true);assert.equal(h.page.data.wbBusy,false);
+ const {render}=require('./role-page-runtime.cjs'),flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
+ const nodes=flatten(render(path.resolve('miniprogram/pages/admin/finance-desk/journey.wxml'),h.page.data));
+ assert.ok(nodes.filter(n=>['input','picker'].includes(n.tag)).every(n=>n.attrs.disabled));
+ assert.ok(nodes.find(n=>n.attrs?.bindtap==='returnCollectionDeclaration').attrs.disabled);
+ h.page.declarationInput({currentTarget:{dataset:{field:'accountName'}},detail:{value:'另一账户'}});
+ h.page.journeyPick({currentTarget:{dataset:{field:'account'}},detail:{value:'0'}});
+ h.page.closeFinanceEntry();h.page.openWorkbenchEntry(event('receipt'));
+ let definition;vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/index.js','utf8'),{Page:p=>definition=p,require:n=>n.endsWith('/api/auth')?h.auth:{},wx:h.wx});
+ const before={view:h.page.data.view,origin:h.page.__entryOrigin,options:h.page.options,entryOptions:h.page.__entryOptions,command:h.page.__declarationPending};
+ h.page.__platformActions=true;
+ for(const key of ['finance-home','finance-books','profile']){
+  assert.equal(definition.switchWorkspaceTab.call(h.page,{key}),true);
+  assert.equal(h.page.data.view,before.view);assert.equal(h.page.__entryOrigin,before.origin);
+  assert.equal(h.page.options,before.options);assert.equal(h.page.__entryOptions,before.entryOptions);
+  assert.equal(h.page.__declarationPending,before.command);
+ }
+ assert.equal(h.page.data.journeyDeclaration.id,'9007199254741999');assert.equal(h.page.data.declarationForm.accountName,'实际银行账户');
+ await h.page.confirmCollectionDeclaration(event('',{id:'9007199254741888'}));assert.equal(writes.length,1);
+ h.page.data.declarationForm={accountName:'绕过输入处理器的更改',method:'other'};
+ await h.page.confirmCollectionDeclaration(click);
+ assert.deepEqual(writes[1],writes[0]);assert.equal(h.page.data.journeyResult.id,'9007199254742999');assert.equal(h.page.data.declarationPending,false);
+});
+test('到账核实被明确拒绝后可修改；切岗清空冻结命令并拒绝旧回执',async()=>{
+ const h=harness(),click=openDeclaration(h,{account_name:'公司银行'}),writes=[];let sequence=0;
+ h.api.idemKey=()=> 'confirm-'+(++sequence);
+ h.http.post=async(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));if(writes.length===1)throw {code:409,message:'原申报待核对'};return {receiptId:'9007199254742999'};};
+ await h.page.confirmCollectionDeclaration(click);assert.equal(h.page.data.declarationPending,false);assert.equal(h.page.__declarationPending,null);
+ h.page.declarationInput({currentTarget:{dataset:{field:'accountName'}},detail:{value:'核对后的实际账户'}});
+ await h.page.confirmCollectionDeclaration(click);
+ assert.notEqual(writes[0][2]['Idempotency-Key'],writes[1][2]['Idempotency-Key']);assert.equal(writes[1][1].accountName,'核对后的实际账户');
+ const switched=harness();let generation=1,resolve;
+ switched.http.sessionGuard=()=>{const original=generation;return()=>generation===original;};
+ const old=openDeclaration(switched,{account_name:'旧岗位账户'});
+ switched.http.post=()=>new Promise(done=>{resolve=done;});
+ const pending=switched.page.confirmCollectionDeclaration(old);
+ assert.equal(switched.page.data.wbBusy,true);
+ let definition;vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/index.js','utf8'),{Page:p=>definition=p,require:()=>({})});
+ switched.page.clearFinanceSnapshot=definition.clearFinanceSnapshot;generation++;
+ definition.syncFinanceIdentity.call(switched.page,'another-finance-post');
+ assert.equal(switched.page.__declarationPending,null);assert.equal(switched.page.data.declarationForm,null);
+ assert.equal(switched.page.data.journeyDeclaration,null);assert.equal(switched.page.data.declarationPending,false);
+ resolve({receiptId:'9007199254742999'});await pending;
+ assert.equal(switched.page.data.journeyResult,null);assert.equal(switched.page.data.journeyDeclaration,null);assert.equal(switched.page.data.wbBusy,false);
+});
+test('旧待核实列表打开同一补齐表单，非财务和过期岗位不能确认',async()=>{
+ const h=harness(),click=openDeclaration(h,{account_name:'原账户'});let writes=0;
+ h.http.post=async()=>{writes++;return {receiptId:'9007199254742999'};};
+ h.auth.currentApiPost=()=>({roleCode:'engineer'});await h.page.confirmCollectionDeclaration(click);assert.equal(writes,0);
+ h.auth.currentApiPost=()=>({roleCode:'finance'});h.page.__declarationFormAlive=()=>false;
+ await h.page.confirmCollectionDeclaration(click);assert.equal(writes,0);
+ h.page.data.journeyEnabled=false;h.page.data.journeyDeclarations=[];h.page.data.journeyDeclaration=null;h.page.openJourneyDeclaration(click);
+ assert.equal(h.page.data.journeyDeclaration.id,'9007199254741999');assert.equal(h.page.data.declarationForm.accountName,'原账户');
+ const {render}=require('./role-page-runtime.cjs'),flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children||[])]);
+ let definition;vm.runInNewContext(fs.readFileSync('miniprogram/pages/admin/finance-desk/index.js','utf8'),{Page:p=>definition=p,require:()=>({})});
+ const data={...definition.data,...h.page.data,ready:true,view:'flows',platformApiMode:true,designReceiptForm:null,bookEntryDetail:null,projectLedgerReadOnly:false};
+ const nodes=flatten(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),data));
+ assert.equal(nodes.filter(n=>n.tag==='button'&&n.attrs?.bindtap==='confirmCollectionDeclaration').length,1);
+ assert.ok(nodes.some(n=>n.tag==='input'&&n.attrs?.bindinput==='declarationInput'));
+ const old=flatten(render(path.resolve('miniprogram/pages/admin/finance-desk/index.wxml'),{...data,journeyDeclaration:null}));
+ assert.ok(old.some(n=>n.attrs?.bindtap==='openJourneyDeclaration'));
+ assert.equal(old.filter(n=>n.attrs?.bindtap==='confirmCollectionDeclaration').length,0);
+});
+test('旧列表共享核实表单退回成功回原列表，迟到回执不关闭另一张原单',async()=>{
+ for(const openAnother of [false,true]){
+  const h=harness();h.page.data.journeyEnabled=false;h.page.data.view='reimbursements';h.page.options={view:'reimbursements'};
+  const click=openDeclaration(h);let respond,resolve,refreshes=0;const writes=[];
+  h.wx.showModal=options=>{respond=options.success;};h.page.loadWorkbench=()=>{refreshes++;};
+  h.http.post=(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));return new Promise(done=>{resolve=done;});};
+  h.page.returnCollectionDeclaration(click);const pending=respond({confirm:true,content:' 请补齐原到账凭据 '});
+  if(openAnother)openDeclaration(h,{id:'9007199254741888',account_name:'另一张原单账户'});
+  resolve(true);await pending;
+  assert.deepEqual(writes,[['/franchise/sales/collection-declarations/9007199254741999/return',{reason:'请补齐原到账凭据'},{'Idempotency-Key':'sticky-key'}]]);
+  assert.equal(refreshes,1);assert.equal(h.page.data.view,'reimbursements');assert.equal(h.page.options.view,'reimbursements');
+  if(openAnother){assert.equal(h.page.data.journeyDeclaration.id,'9007199254741888');assert.equal(h.page.data.declarationForm.accountName,'另一张原单账户');}
+  else{assert.equal(h.page.data.journeyDeclaration,null);assert.equal(h.page.data.declarationForm,null);assert.equal(h.page.__entryOrigin,null);}
+ }
+});
 test('task targets retain original records and display remaining payment instead of full agreement',()=>{const {page}=harness();page.data.journeyPayables=[{id:'123',canPay:true,projectName:'张先生乡墅',name:'设计费',remainingText:'600.00',paidCents:180000}];assert.equal(page.financeTaskTarget('fr-design-fin:123').row.id,'123');const card=page.presentFinanceTask({key:'fr-design-fin:123'});assert.equal(card.name,'张先生乡墅 · 设计费');assert.equal(card.amount,'¥600.00');assert.equal(card.status,'部分付款');assert.equal(page.financeTaskTarget('fr-design-fin:123:other'),null);});
 test('home task opens original payment and returns to home; completed task never opens an empty form',()=>{const {page}=harness();page.data.view='desk';page.data.journeyPayables=[{id:'123',canPay:true,remainingCents:60000,totalCents:240000,paidCents:180000,label:'设计费',scope:'company',projectName:'公司日常账'}];page.openFinanceTask(event('',{key:'fr-design-fin:123'}));assert.equal(page.data.registerForm.payableId,'123');assert.equal(page.data.journeyReturnLabel,'返回财务首页');page.closeFinanceEntry();assert.equal(page.data.view,'desk');page.data.journeyPayables[0].canPay=false;page.openFinanceTask(event('',{key:'fr-design-fin:123'}));assert.equal(page.data.registerType,'');assert.equal(page.data.view,'desk');});
 test('cash listing matches company totals and excludes employee advances and personal refunds',()=>{const rows=J.cashRows(facts,books,stages,'finance');assert.equal(rows.length,3);assert.equal(rows.reduce((n,r)=>n+(r.sign==='+'?1:-1)*r.amount_cents,0),85000);assert.equal(PF.metrics(facts.receipts,facts.payments,facts.refunds,'2026-11').net,'850.00');assert.equal(rows.find(r=>r.type==='PAYMENT').name,'材料采购');assert.equal(rows.find(r=>r.type==='RECEIPT').projectName,'张先生乡墅');});
@@ -46,21 +201,21 @@ test('payment submission retains source and saves a useful result without creati
 
 test('employee advance retains its original payment for a refund and returns to employee tab',async()=>{const {page}=harness();page.data.reimbursementRows[0].origin_payment_id='personal';page.data.platformRegister.expenseRefundable=[{id:'personal',amountCents:240000,refundableCents:230000,label:'设计费垫付'}];page.refreshJourney();await page.openEmployeeAdvance(event('',{id:'reim'}));assert.equal(page.data.bookEntryDetail.type,'ADVANCE');assert.equal(page.data.bookEntryDetail.canRefund,true);page.refundBookEntry();assert.equal(page.data.registerType,'expense-refund');assert.equal(page.data.registerForm.paymentId,'personal');assert.equal(page.data.journeyRefund.remainingText,'2,300.00');assert.equal(page.data.registerForm.refundFundingType,undefined);page.closeFinanceEntry();assert.equal(page.data.bookFlowTab,'employee');assert.equal(page.data.bookScope,'project:9007199254740999');});
 
-test('receipt revision opens from a book and keeps the original tab, with return blocked while saving',async()=>{const {page}=harness();page.openRevision(event('',{id:'r-r'}));await new Promise(r=>setImmediate(r));assert.equal(page.data.registerType,'revision');assert.equal(page.data.revisionHistory.status,'empty');const runtime=require('./role-page-runtime.cjs');const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);const nodes=flat(runtime.render(path.resolve('miniprogram/pages/admin/finance-desk/journey-forms.wxml'),{...page.data,wbForm:null}));assert.ok(nodes.some(n=>n.tag==='input'&&n.attrs?.['data-field']==='amount'));assert.ok(nodes.some(n=>n.tag==='button'&&n.attrs?.bindtap==='submitRevision'));page.data.revisionBusy=true;page.returnFinanceEntry();assert.equal(page.data.registerType,'revision');page.data.revisionBusy=false;page.returnFinanceEntry();assert.equal(page.data.view,'book');assert.equal(page.data.bookFlowTab,'employee');assert.equal(page.data.registerType,'');});
+test('receipt revision opens from a book and keeps the original tab, with return blocked while saving',async()=>{const {page}=harness();page.__financeFacts={...facts,receipts:facts.receipts.map(r=>({...r,sourceType:'manual'}))};page.refreshJourney();page.openRevision(event('',{id:'r-r'}));await new Promise(r=>setImmediate(r));assert.equal(page.data.registerType,'revision');assert.equal(page.data.revisionHistory.status,'empty');const runtime=require('./role-page-runtime.cjs');const flat=nodes=>nodes.flatMap(n=>[n,...flat(n.children||[])]);const nodes=flat(runtime.render(path.resolve('miniprogram/pages/admin/finance-desk/journey-forms.wxml'),{...page.data,wbForm:null}));assert.ok(nodes.some(n=>n.tag==='input'&&n.attrs?.['data-field']==='amount'));assert.ok(nodes.some(n=>n.tag==='button'&&n.attrs?.bindtap==='submitRevision'));page.data.revisionBusy=true;page.returnFinanceEntry();assert.equal(page.data.registerType,'revision');page.data.revisionBusy=false;page.returnFinanceEntry();assert.equal(page.data.view,'book');assert.equal(page.data.bookFlowTab,'employee');assert.equal(page.data.registerType,'');});
 
 test('refund review blocks commission payment both in list and a stale open form',async()=>{const {page,calls,http}=harness();page.__financeFacts={receipts:[],payments:[],refunds:[],payables:[{id:'123',projectId:'9007199254740999',sourceType:null,stage:'performance',agreementRef:'perf-commission:policy:v2',totalCents:15000,status:'进行中'}]};page.__commissionStages=[{payableId:'123',eligible:true,reviewDue:false}];page.refreshJourney();const q=page.data.journeyPayables[0];assert.equal(q.canPay,true);page.openRegister(event('payment'));page.selectJourneyPayable(q);page.data.registerForm.accountName='公司银行';http.get=async()=>[{stages:[{payableId:'123',eligible:false,reviewDue:true}]}];await page.submitJourneyRegister();assert.equal(calls.length,0);assert.match(page.data.registerError,/由老板核对/);page.__commissionStages=[{payableId:'123',eligible:false,reviewDue:true}];page.refreshJourney();assert.equal(page.data.journeyPayables[0].canPay,false);assert.equal(page.data.journeyPayables[0].commissionHold,true);});
 test('应付列表按原单权限显示操作，按钮保留单据长 ID',()=>{
  const {render}=require('./role-page-runtime.cjs');
  const resolve=require('node:path').resolve;
  const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children)]);
- const rows=[{id:'9007199254740993',name:'水泥',canPay:true,canAdjust:true},{id:'9007199254740995',name:'中砂',canPay:false,canAdjust:false,commissionHold:true}];
+ const rows=[{id:'9007199254740993',name:'水泥',canPay:true,canAdjust:true,canAssign:false},{id:'9007199254740995',name:'中砂',canPay:false,canAdjust:false,canAssign:true,commissionHold:true}];
   const data={ready:true,view:'flows',flowTab:'payables',journeyEnabled:false,registerType:'',wbForm:null,designReceiptForm:null,platformApiMode:true,platformFinance:{status:'ready'},rows};
   const nodes=flatten(render(resolve('miniprogram/pages/admin/finance-desk/index.wxml'),data));
   const cards=nodes.filter(n=>String(n.attrs?.class||'').split(' ').includes('fin-flow-row'));assert.equal(cards.length,2);
   for(let i=0;i<2;i++){
    const buttons=flatten(cards[i].children).filter(n=>n.tag==='button'&&n.attrs['data-id']);
    assert.deepEqual(buttons.map(n=>n.attrs['data-id']),Array(buttons.length).fill(rows[i].id));
-   assert.ok(buttons.some(n=>n.attrs.bindtap==='assignPayableBook'));
+   assert.equal(buttons.some(n=>n.attrs.bindtap==='assignPayableBook'),rows[i].canAssign);
    assert.equal(buttons.some(n=>n.attrs.bindtap==='openPayableAdjustment'),rows[i].canAdjust);
    assert.equal(buttons.some(n=>n.attrs.bindtap==='paySourceRow'),rows[i].canPay);
   }
@@ -246,3 +401,35 @@ for(const type of ['refund','expense-refund']) {
   assert.equal(page.data.paymentPending,false);assert.equal(page.data.registerBusy,false);assert.equal(storage.size,0);
  });
 }
+
+
+test('only unassigned manual expenses expose book assignment and the original handler refuses stale source rows',()=>{
+ const originals=[
+  {id:'9007199254740999',sourceType:'manual',status:'进行中',totalCents:100},
+  {id:'engineer',stage:'engineering',sourceType:null,status:'进行中',projectId:'91',totalCents:100},
+  {id:'linked',sourceType:'manual',status:'进行中',projectId:'91',totalCents:100},
+  {id:'book',sourceType:'manual',status:'进行中',bookId:'92',totalCents:100},
+  {id:'design',sourceType:'design',status:'进行中',totalCents:100},
+  {id:'void',sourceType:'manual',status:'已作废',totalCents:100}
+ ];
+ assert.deepEqual(J.payableRows({payables:originals},[],[]).map(q=>q.canAssign),[true,false,false,false,false,false]);
+ const page={__financeFacts:{payables:originals},data:{wbForm:null},setData(patch){Object.assign(this.data,patch);}};
+ require('../miniprogram/pages/admin/finance-desk/workbench')(page,{idemKey:()=> 'original-key'});
+ const tap=id=>({currentTarget:{dataset:{id}}});
+ for(const q of originals.slice(1)){page.assignPayableBook(tap(q.id));assert.equal(page.data.wbForm,null);}
+ page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm.payableId,originals[0].id);
+ page.data.wbForm=null;originals[0].projectId='91';page.assignPayableBook(tap(originals[0].id));assert.equal(page.data.wbForm,null);
+});
+
+
+test('工程申报和旧后台都不把占位银行当成财务选择',async()=>{
+ for(const marker of [true,undefined]){
+  const h=harness(),click=openDeclaration(h,{account_name:'门店现金',requires_method_confirmation:marker}),writes=[];
+  h.http.post=async(...args)=>{writes.push(JSON.parse(JSON.stringify(args)));return {receiptId:'9007199254742999'};};
+  assert.equal(h.page.data.declarationForm.method,'');
+  await h.page.confirmCollectionDeclaration(click);assert.equal(writes.length,0);
+  h.page.declarationInput({currentTarget:{dataset:{field:'method'}},detail:{value:'1'}});
+  await h.page.confirmCollectionDeclaration(click);
+  assert.equal(writes.length,1);assert.deepEqual(writes[0][1],{accountName:'门店现金',method:'cash'});
+ }
+});

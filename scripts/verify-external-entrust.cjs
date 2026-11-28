@@ -368,7 +368,7 @@ test('legacy business deep links route to new module without loading old prerequ
   assert.equal(redirect(page), true); assert.deepEqual(copy(opened[0]), ['/pages/external-entrust/index?customerId=900719925474099999', { replace: true }]);
   page.view = 'progress'; page.customerId = ''; page.id = '91'; assert.equal(redirect(page), true); assert.match(opened[1][0], /commissionId=91$/);
   page.historyOnly = true; assert.equal(redirect(page), false); page.historyOnly = false; page.view = 'receipt'; assert.equal(redirect(page), false);
-  let definition; load('miniprogram/pages/workflow/commission/index.js', { '../../../utils/view-container': { makeFormHandlers: () => ({}) }, './payment-flow': () => ({}), './external-entry': redirect }, { Page: value => definition = value });
+  let definition; load('miniprogram/pages/workflow/commission/index.js', { '../../../utils/view-container': { makeFormHandlers: () => ({}) }, './external-entry': redirect }, { Page: value => definition = value });
   let legacyRead = 0; const entry = { ...definition, ...page, view: 'submit', customerId: '42', historyOnly: false, refresh: () => legacyRead++ };
   entry.onShow(); assert.equal(legacyRead, 0); assert.equal(opened.at(-1)[0], '/pages/external-entrust/index?customerId=42');
   const historic = { ...definition, data: copy(definition.data), setData(patch) { Object.assign(this.data, patch); } }; historic.onLoad({ view: 'submit', commissionId: '91', history: '1' });

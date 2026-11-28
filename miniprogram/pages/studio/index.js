@@ -8,6 +8,16 @@ const contentApi=P.api;                                 // /franchise/content/**
 const crm=require('../../api/franchise/crm');            // 客资登记（发布链接回填时同页登记）
 const http=require('../../api/http');
 const workPath = '/franchise/content/drafts';
+const publicationDraftFields = ['title','publishText','tags','selectedAccount','publicationAccount','publisherAccountId',
+  'publishedUrlInput','leadOpen','leadName','leadPhone','leadNeed'];
+function publicationDraft(data) {
+  const fields = {};
+  for (const key of publicationDraftFields) if (data[key] !== undefined) fields[key] = data[key];
+  return fields;
+}
+function coverId(value) {
+  return value ? require('./publication-cover').assetId(value) : '';
+}
 const keyboard=require('../../utils/creation-keyboard');
 function makeTaskTitle({ kind, title, description, text, sourceTitle } = {}) {
   const labels={ai_video:'AI视频',ai:'AI视频',digital:'数字人口播',copy:'文案二创',remix:'文案二创',image:'AI图片'};
@@ -62,7 +72,6 @@ workTrash:false,workBusyId:'',
 digitalResourceError:'',
 publishText: '',
 tags: '', cover: '', coverAssetId:'',coverReady:false,coverUploading:false,coverLoading:false,coverError:'', workId: '', saved: false,
-coverTemplates:[],coverTemplatesLoaded:false,coverTemplatesLoading:false,coverTemplatesError:'',coverTemplatesPage:0,coverTemplatesHasMore:false,coverTemplateId:'',coverGenerationTitle:'',coverCanvasPreset:'9:16',coverGenerating:false,coverUsing:false,coverGenerationPending:false,coverGenerationTerminal:false,coverGenerationLocked:false,coverGenerationStatus:'',coverGenerationMessage:'',coverGenerationRequestTitle:'',coverGenerationError:'',coverGeneratedAssetId:'',coverGeneratedPreview:'',coverGeneratedPreviewLoading:false,coverGeneratedPreviewError:'',
 publisherAccounts:[],publisherAccountsAll:[],publisherAccountsLoaded:false,publisherAccountsLoading:false,publisherAccountsError:'',publisherAccountId:'',publisherAccountBusy:false,publisherAccountEditingId:'',publisherAccountNameInput:'',publisherAccountIdentifierInput:'',publisherAccountEditError:'',
 publicationPending:false,publicationPendingTitle:'',publicationPendingPlatform:'',publicationExistingId:'',publicationExistingStatus:'',
 actor: '', voice: '', avatarCloneId: '', voiceCloneId: '', digitalPersonaId: '', digitalPersonas: [], digitalPersonaIndex: 0, avatarOptions: [], voiceOptions: [], digitalLoading: false, filter: '', detail: null, activeTask: null, invalidMessage: '', recent: [], timeline: [], scriptLength: 0, estimatedSeconds: 0
@@ -84,7 +93,10 @@ return;
 }
 if (view === 'publish') {
 const draft = options.work && state.publishDrafts ? state.publishDrafts[options.work] : null; // 发布表单草稿（本地暂存，非演示集合）
-if (draft) this.setData(draft);
+if (draft && (draft.workId == null || String(draft.workId) === String(options.work))) {
+  const assetId = draft.workId == null ? '' : coverId(draft.coverAssetId);
+  this.setData({ ...publicationDraft(draft), coverAssetId: assetId, cover: !http.token() && !draft.coverAssetId ? draft.cover || '' : '' });
+}
 this.restorePublicationPending();
 this.__linkFlow = this.readLinkFlow(options.work || '');
 if (this.__linkFlow && this.__linkFlow.recordId) this.setData({linkRecordId:String(this.__linkFlow.recordId)});
@@ -95,8 +107,17 @@ if (view === 'remix') {
 if(options.persona)this.setData({selectedPersonaId:String(options.persona),rewriteMode:0});
 this.loadPersonas();
 }
-const sourceId=options.content||options.confirm;if(view==='publish'&&sourceId){const c=require('../../utils/growth').load().contents.find(c=>c.id===sourceId&&c.workId===options.work);if(c)this.setData({title:c.pack.title,publishText:c.pack.publishText,tags:c.pack.tags,cover:c.pack.cover,selectedAccount:Math.max(0,(studio.publicationPlatforms||[]).findIndex(a=>a.platform===c.pack.platform))});}
-if(view==='publish'){this.loadPublisherAccounts();}
+const sourceId = options.content || options.confirm;
+if (view === 'publish' && sourceId) {
+  const content = require('../../utils/growth').load().contents.find(row => row.id === sourceId && row.workId === options.work);
+  if (content) {
+    const pack = content.pack;
+    this.setData({ title: pack.title, publishText: pack.publishText, tags: pack.tags,
+      ...(!http.token() && !this.data.coverAssetId ? { cover: pack.cover || '' } : {}),
+      selectedAccount: Math.max(0, (studio.publicationPlatforms || []).findIndex(account => account.platform === pack.platform)) });
+  }
+}
+if(view==='publish'){this.loadPublisherAccounts();if(this.data.coverAssetId)this.restorePublicationCover();}
 this.refreshData();
 if(view==='receipt'){
 this.setData({publishedUrlInput:state.publicationLinkDrafts?.[this.data.recordId]||this.data.detail?.publishedUrl||''});
@@ -123,8 +144,8 @@ state.rewriteSettings = { rewriteMode, ipIndex, selectedPersonaId, customIp: cus
 }
 if (this.data.view === 'publish' && !this.data.invalidMessage && this.data.workId) {
 const state = studio.read();
-const { title, publishText, tags, selectedAccount, publicationAccount, publisherAccountId, coverAssetId, cover, publishedUrlInput, leadOpen, leadName, leadPhone, leadNeed, workId } = this.data;
-state.publishDrafts[workId] = { title, publishText, tags, selectedAccount, publicationAccount, publisherAccountId, coverAssetId, cover, publishedUrlInput, leadOpen, leadName, leadPhone, leadNeed, workId }; studio.write(state);
+const { workId, coverAssetId, cover } = this.data;
+state.publishDrafts[workId] = { ...publicationDraft(this.data), workId, coverAssetId, cover: !http.token() && !coverAssetId ? cover : '' }; studio.write(state);
 }
 },
 refreshData() {
@@ -293,7 +314,7 @@ if(!row||row.id==null||row.id==='')return null;
 const status=String(row.status||'publishing'),info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow',action:'查看详情'};
 const platform=String(row.platform||'douyin'),account=String(row.accountName||row.account||row.accountId||'账号未记录');
 const timeValue=status==='published'?(row.publishedAt||row.createTime):status==='scheduled'?(row.scheduledAt||row.createTime):row.createTime;
-return{id:String(row.id),apiRecord:true,workId:row.workId==null?'':String(row.workId),title:String(row.title||'未命名发布'),publishText:String(row.publishText||''),tags:String(row.tags||''),platform,account,status,publishedUrl:String(row.publishedUrl||''),failureReason:String(row.failureReason||''),signature:String(row.signature||''),cover:'',coverAssetId:String(row.coverAssetId||''),coverError:false,kindLabel:'数字人口播',time:studio.formatTime(timeValue),displayTime:studio.formatTime(timeValue),timeLabel:status==='published'?'发布时间':status==='scheduled'?'计划发布时间':'提交时间',identifier:String(row.signature||row.id),label:info.label,icon:info.icon,tone:info.tone,action:info.action||'查看详情',note:status==='failed'?String(row.failureReason||info.note||'发布失败'):String(info.note||'')};
+return{id:String(row.id),apiRecord:true,workId:row.workId==null?'':String(row.workId),title:String(row.title||'未命名发布'),publishText:String(row.publishText||''),tags:String(row.tags||''),platform,account,status,publishedUrl:String(row.publishedUrl||''),failureReason:String(row.failureReason||''),signature:String(row.signature||''),cover:'',coverAssetId:coverId(row.coverAssetId),coverError:false,kindLabel:'数字人口播',time:studio.formatTime(timeValue),displayTime:studio.formatTime(timeValue),timeLabel:status==='published'?'发布时间':status==='scheduled'?'计划发布时间':'提交时间',identifier:String(row.signature||row.id),label:info.label,icon:info.icon,tone:info.tone,action:info.action||'查看详情',note:status==='failed'?String(row.failureReason||info.note||'发布失败'):String(info.note||'')};
 },
 publicationTimeline(record) {
 const timeline=[{label:'已提交发布',time:record.time}];
@@ -841,19 +862,6 @@ else { state.script = task.script || ''; state.scriptEdited=true; state.title = 
 selectAccount(e) { return require('./publication-accounts').selectPlatform(this,this.publicationEnvironment(),e.currentTarget.dataset.index); },
 switchAccount() { this.setData({ sheet: 'accounts', sheetTitle: '更换账号' }); },
 changeCover() { if(!this.data.coverUploading)this.setData({ sheet: 'cover', sheetTitle: '更换封面' }); },
-restoreCoverGeneration(){return require('./publication-cover-templates').restore(this,this.publicationEnvironment());},
-openCoverTemplates(){return require('./publication-cover-templates').open(this,this.publicationEnvironment());},
-loadCoverTemplates(){return require('./publication-cover-templates').load(this,this.publicationEnvironment());},
-moreCoverTemplates(){return require('./publication-cover-templates').load(this,this.publicationEnvironment(),true);},
-selectCoverTemplate(e){return require('./publication-cover-templates').edit(this,'coverTemplateId',e.currentTarget.dataset.id);},
-inputCoverGenerationTitle(e){return require('./publication-cover-templates').edit(this,'coverGenerationTitle',e.detail.value);},
-selectCoverCanvas(e){return require('./publication-cover-templates').edit(this,'coverCanvasPreset',e.currentTarget.dataset.value);},
-generatePublicationCover(){return require('./publication-cover-templates').generate(this,this.publicationEnvironment());},
-resumeCoverGeneration(){return require('./publication-cover-templates').resume(this,this.publicationEnvironment());},
-useGeneratedCover(){return require('./publication-cover-templates').use(this,this.publicationEnvironment());},
-resetCoverGeneration(){return require('./publication-cover-templates').reset(this,this.publicationEnvironment());},
-reloadGeneratedCover(){return require('./publication-cover-templates').previewCandidate(this,this.publicationEnvironment());},
-generatedCoverPreviewError(){this.setData({coverGeneratedPreview:'',coverGeneratedPreviewError:'封面预览读取失败，请重试'});},
 uploadPublicationCover(){return require('./publication-cover').upload(this,this.publicationEnvironment());},
 restorePublicationCover(){return require('./publication-cover').restore(this,this.publicationEnvironment());},
 removePublicationCover(){return require('./publication-cover').clear(this);},
@@ -901,7 +909,10 @@ inputLeadName(e) { this.setData({ leadName: e.detail.value, operationError: '' }
 inputLeadPhone(e) { this.setData({ leadPhone: e.detail.value, operationError: '' }); },
 inputLeadNeed(e) { this.setData({ leadNeed: e.detail.value, operationError: '' }); },
 readLinkFlow(workId) {
-try{const flows=studio.read().linkFlows||{},flow=flows[String(workId||'')];return flow&&typeof flow==='object'?flow:null;}catch(_){return null;}
+try{
+const flow=(studio.read().linkFlows||{})[String(workId||'')];
+return flow && String(flow.workId)===String(workId) && (!flow.payload||String(flow.payload.workId)===String(workId)) ? flow : null;
+}catch(_){return null;}
 },
 saveLinkFlow(flow) {
 try{const state=studio.read();state.linkFlows=state.linkFlows||{};state.linkFlows[String(this.data.workId)]=flow;studio.write(state);}catch(_){/* 本地恢复失败不应阻断已提交的网络动作 */}
@@ -956,6 +967,7 @@ async submitLinkOnline({workId,url,platform,publisherAccountId,lead}) {
 if(this.__linkSubmitting)return;
 let flow=(this.__linkFlow&&String(this.__linkFlow.workId||'')===String(workId))?this.__linkFlow:(this.readLinkFlow(workId)||{});
 const oldRecord=flow.recordId||this.data.linkRecordId;
+if(!oldRecord&&!flow.payload&&this.data.coverUploading)return wx.showToast({title:'封面正在上传，请稍候',icon:'none'});
 if(!oldRecord&&!flow.payload&&this.data.workDetailLoading&&!String(this.data.publishText||'').trim())
  return wx.showToast({title:'正在读取作品正文，请稍候',icon:'none'});
 const sessionAlive=http.sessionGuard(),scope=this.actorScope;
@@ -984,7 +996,9 @@ if(!recordId){
 stage='create';
 const title=String(this.data.title||'').trim()||'未命名作品';
 const publishText=String(this.data.publishText||'').trim()||title;
-const payload=flow.payload||{workId:String(workId),title,publishText,tags:String(this.data.tags||'').trim(),publisherAccountId,platform};
+const assetId=coverId(this.data.coverAssetId);
+const payload=flow.payload||{workId:String(workId),title,publishText,tags:String(this.data.tags||'').trim(),publisherAccountId,platform,
+  ...(assetId ? {coverAssetId:assetId} : {})};
 flow.payload=payload;this.saveLinkFlow(flow);
 const res=await contentApi.publications.create(payload,flow.createKey);
 if(!alive())return;
@@ -1075,7 +1089,7 @@ if(!row)throw Error('发布记录加载失败，请返回重试');
 const status=String(row.status||'');
 const info=statusInfo[status]||{label:'状态待确认',icon:'warning',tone:'yellow'};
 const platform=String(row.platform||'douyin');
-const detail={ id:String(recordId), apiRecord:true, title:String(row.title||''), publishText:String(row.publishText||''), tags:String(row.tags||''), platform, account:String(row.accountName||row.account||row.accountId||'账号未记录'), authorName:String(row.authorName||''), workId:String(row.workId||''), kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')), cover:'',coverAssetId:String(row.coverAssetId||''),coverError:false, status, publishedUrl:String(row.publishedUrl||''), label:info.label, icon:info.icon, tone:info.tone };
+const detail={ id:String(recordId), apiRecord:true, title:String(row.title||''), publishText:String(row.publishText||''), tags:String(row.tags||''), platform, account:String(row.accountName||row.account||row.accountId||'账号未记录'), authorName:String(row.authorName||''), workId:String(row.workId||''), kindLabel:studio.kindLabel(row.kind==='ai_video'?'ai':(row.kind||'digital')), cover:'',coverAssetId:coverId(row.coverAssetId),coverError:false, status, publishedUrl:String(row.publishedUrl||''), label:info.label, icon:info.icon, tone:info.tone };
 this.setData({ detail, publishedUrlInput:detail.publishedUrl||this.data.publishedUrlInput, receiptLoading:false,invalidMessage:'' });
 this.hydratePublicationCovers();
 }).catch(error=>{

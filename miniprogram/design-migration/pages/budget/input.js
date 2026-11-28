@@ -3,6 +3,7 @@ const getDesignApp = require('../../utils/context').getApp;
 'use strict';
 const { protectedPage } = require('../../utils/access');
 const api = require('../../utils/api');
+const assertFreeBudget = require('../../utils/budget-free');
 const draftStore = require('../../utils/budget-draft');
 const selection = require('../../utils/budget-selection');
 
@@ -228,27 +229,13 @@ protectedPage({
     const scope = this._sessionScope;
     const generationId = this._generationId = (this._generationId || 0) + 1;
     this.setData({ draft: current, creating: true, generateError: '' });
-    const pendingBody = draftStore.requestBody(current);
-    const samePendingRequest = current.generationAttempt
-      && JSON.stringify(pendingBody) === current.generationAttempt.signature
-      && current.companyPrice && Number.isSafeInteger(Number(current.companyPrice.credits));
-    const quoteRequest = samePendingRequest
-      ? Promise.resolve({ companyPrice: current.companyPrice, pointCost: Number(current.companyPrice.credits) })
-      : api.getBudgetPointQuote().then(quote => {
-        if (!quote || !quote.companyPrice || quote.companyPrice.subject !== 'budget_estimate'
-          || !Number.isSafeInteger(Number(quote.pointCost)) || Number(quote.pointCost) < 1) throw Error('预算积分报价不可用');
-        return new Promise((resolve, reject) => wx.showModal({ title: '确认预算测算',
-          content: '本次成功测算将扣除 ' + quote.pointCost + ' 公司积分。',
-          success: result => result.confirm ? resolve(quote) : reject({ cancelled: true }), fail: reject }));
-      });
-    quoteRequest.then(quote => {
+    assertFreeBudget(api).then(() => {
       if (generationId !== this._generationId || scope !== draftStore.sessionScope()) throw { cancelled: true };
-      const body = draftStore.requestBody(current);
-      body.companyPrice = quote.companyPrice;
-      const draftWithQuote = Object.assign({}, current, { companyPrice: body.companyPrice });
-      const attempt = draftStore.prepareGeneration(draftWithQuote);
-      attempt.body.companyPrice = body.companyPrice;
-      attempt.draft.companyPrice = body.companyPrice;
+      // Keep the archived body of an interrupted paid attempt for receipt recovery.
+      // A genuinely new request must not carry a price from a previous calculation.
+      const samePending = current.generationAttempt
+        && JSON.stringify(draftStore.requestBody(current)) === current.generationAttempt.signature;
+      const attempt = draftStore.prepareGeneration(samePending ? current : Object.assign({}, current, { companyPrice: null }));
       draftStore.write(attempt.draft);
       this._activeAttempt = attempt;
       return api.createItemizedBudget(attempt.draft.projectId, attempt.body, attempt.key);
@@ -267,7 +254,7 @@ protectedPage({
           try {
             const saved = draftStore.read(attempt.draft.projectId, attempt.draft.resultVersionId);
             if (saved && saved.generationAttempt && saved.generationAttempt.key === attempt.key) {
-              draftStore.write(Object.assign({}, saved, { generationAttempt: null }));
+              draftStore.write(Object.assign({}, saved, { generationAttempt: null, companyPrice: null }));
             }
           } catch (error) { this.setData({ storageError: '测算已生成，但页面记录未更新，请重试' }); }
         },

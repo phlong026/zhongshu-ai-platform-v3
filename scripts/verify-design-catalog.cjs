@@ -1,7 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const PF=require('../miniprogram/utils/platform-design');
-const attach=require('../miniprogram/pages/workflow/explore/platform-bridge');
+const attach=require('./fixtures/legacy-explore-platform-bridge.cjs');
 const flush=async()=>{await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));};
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 function harness(cases={}){

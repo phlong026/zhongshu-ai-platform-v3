@@ -91,6 +91,34 @@ test('门店财务可确认，老板和业主只读，总部和业务岗位不�
   }
 });
 
+test('老板和业主从核算查看原账，进入同项目只读账本并只读取项目接口', async () => {
+  const ledger = '/franchise/finance/projects/' + project + '/ledger';
+  for (const role of ['boss', 'owner']) {
+    const env = await setup(role);
+    env.handler = route => route === ledger ? { projectName: '甲公司乡墅', summary: {}, entries: { list: [], total: 0 } } : undefined;
+    await env.open();
+    const start = env.requests.length, page = await env.runtime.currentPage();
+    await (await page.$('button[bindtap="ledger"]')).tap(); await flush();
+    const target = getCurrentPages().at(-1);
+    assert.equal(target.route, 'pages/admin/finance-desk/index');
+    assert.equal(target.id, project); assert.equal(target.data.view, 'project');
+    assert.equal(target.data.ready, true); assert.equal(target.data.projectLedgerReadOnly, true);
+    assert.equal(target.openRegister, undefined);
+    assert.deepEqual(env.requests.slice(start).map(row => row.route), [ledger]);
+  }
+});
+
+test('财务核算原账入口保持项目账本，切换身份后旧核算不能打开原账', async () => {
+  for (const role of ['finance', 'finance-lead']) {
+    const env = await setup(role), page = await env.open(), urls = [];
+    wx.navigateTo = request => { urls.push(request.url); request.success?.({}); request.complete?.({}); };
+    page.ledger();
+    assert.deepEqual(urls, ['/pages/admin/finance-desk/index?view=book&bookScope=' + encodeURIComponent('project:' + project)]);
+    auth.savePosts([env.post, { ...env.post, postId: '43', orgId: '32' }]); auth.switchPost('43');
+    page.ledger(); assert.equal(urls.length, 1);
+  }
+});
+
 test('费用完整确认和说明必填，只提交来源版本，不提交客户端计算金额', async () => {
   const env = await setup(), page = await env.open(); await page.submit(); assert.equal(env.posts().length, 0);
   env.fill(page); await page.submit(); await flush();

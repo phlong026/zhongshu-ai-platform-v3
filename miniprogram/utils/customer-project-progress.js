@@ -120,7 +120,7 @@ key:[row.source,row.kind,row.sortTime,index].join(':')
 function businessSummary(customer,business){
 const genuine=(customer.follows||[]).filter(row=>row.kind!=='capture'&&!String(row.note||'').startsWith('登记客资'));
 let journeyIndex=genuine.length?1:0;
-const SF=require('./sales-flow');
+const SF=require('./commission-history');
 if(customer.acceptance)journeyIndex=5;
 else if(SF.is(customer))journeyIndex=customer.businessFlow?.completed&&customer.businessFlow.feedbacks?.at(-1)?.status!=='pending'?4:3;
 else if(customer.request||customer.contract)journeyIndex=3;

@@ -32,11 +32,11 @@
 <view class="owner-card"><view class="owner-heading"><text>报价规则</text></view>
 <view class="owner-readonly-row"><text class="owner-muted">价目表内报价</text><text>自动通过，无需逐单审批</text></view>
 <view class="owner-readonly-row"><text class="owner-muted">价目表外报价</text><text>需老板确认</text></view>
-<button class="owner-link" bindtap="openDesignPolicy">标准设计费用<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
+<button class="owner-link" bindtap="openDesignPolicy">历史设计费用规则<image class="owner-arrow" src="/assets/creation-chevron.png"/></button>
 </view>
-<view class="owner-card"><view class="owner-heading"><text>资金闸门</text></view>
-<view class="owner-readonly-row"><text class="owner-muted">钱没到不开工</text><text>开启：开工款收齐才可登记开工</text></view>
-<view class="owner-readonly-row"><text class="owner-muted">封顶款与交付</text><text>开启：按约定收齐才可交付，例外由老板限期批准</text></view>
-<text class="owner-note">闸门是工程资金安全底线，不提供关闭入口；赶工期请在「合同应收与催收」办理例外放行。</text>
+<view class="owner-card"><view class="owner-heading"><text>合同付款约定</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">付款安排</text><text>以已签施工合同锁定的期次、金额和付款条件为准</text></view>
+<view class="owner-readonly-row"><text class="owner-muted">开工与交付</text><text>结合合同约定、实际到账及工程验收记录核对</text></view>
+<text class="owner-note">应收、实收和欠款沿原合同查询；实际收款和凭据沿原单登记，由财务核实。</text>
 </view>
 </template>

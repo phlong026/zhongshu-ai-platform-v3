@@ -10,6 +10,7 @@ const storage = Object.create(null);
 const files = Object.create(null);
 let nextAssetId = 7000;
 let ticketCalls = 0;
+const ticketBodies = [];
 
 global.wx = {
   getStorageSync(key) { return storage[key] === undefined ? '' : storage[key]; },
@@ -32,9 +33,10 @@ const http = require('../miniprogram/api/http');
 const auth = require('../miniprogram/api/auth');
 const engineering = require('../miniprogram/api/franchise/engineering');
 
-http.post = async path => {
+http.post = async (path, body) => {
   if (path.endsWith('/upload-tickets')) {
     ticketCalls += 1;
+    ticketBodies.push(body);
     const assetId = ++nextAssetId;
     return { assetId, uploadUrl: 'https://cos.example/' + assetId };
   }
@@ -109,4 +111,19 @@ test('engineering voucher cache key includes tenant, user, org, type, path and s
   const changedOrg = await engineering.uploadVoucher('/tmp/components.jpg', 'ENG_DRAWING');
   assert.notEqual(changedOrg, changedSha);
   assert.equal(ticketCalls, before + 7, '任一缓存键分量变化都必须重新签票');
+});
+
+test('node evidence selects existing types by actual bytes and ordinary site photos still reject PDF', async () => {
+  login({ postId:'node-evidence',userId:'engineer',orgId:'org-1',roleCode:'engineer' },'evidence-session');
+  files['/tmp/acceptance-without-extension'] = Buffer.from('%PDF-1.7\nTEST ONLY').toString('base64');
+  files['/tmp/photo-named.pdf'] = JPEG_A;
+  const before = ticketBodies.length;
+  const pdf = await engineering.uploadVoucher('/tmp/acceptance-without-extension','ENG_SITE_PHOTO',{nodeEvidence:true});
+  assert.equal(await engineering.uploadVoucher('/tmp/acceptance-without-extension','ENG_SITE_PHOTO',{nodeEvidence:true}),pdf);
+  await engineering.uploadVoucher('/tmp/photo-named.pdf','ENG_SITE_PHOTO',{nodeEvidence:true});
+  assert.deepEqual(ticketBodies.slice(before).map(r=>[r.assetType,r.mimeType]),[
+    ['ENG_DRAWING','application/pdf'],['ENG_SITE_PHOTO','image/jpeg']
+  ]);
+  await assert.rejects(engineering.uploadVoucher('/tmp/acceptance-without-extension','ENG_SITE_PHOTO'),e=>/JPG.*PNG/.test(e.msg));
+  assert.equal(ticketBodies.length,before+2,'ordinary photos cannot reuse the PDF evidence asset');
 });

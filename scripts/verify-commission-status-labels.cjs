@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 global.wx = { getStorageSync() { return {}; } };
 
 const Labels = require('../miniprogram/utils/status-labels').commission;
-const SalesFlow = require('../miniprogram/utils/sales-flow');
+const SalesFlow = require('../miniprogram/utils/commission-history');
 const DesignDesk = require('../miniprogram/utils/design-admin-workbench');
 const CommercialApproval = require('../miniprogram/utils/commercial-approval');
 const Intercompany = require('../miniprogram/utils/intercompany');

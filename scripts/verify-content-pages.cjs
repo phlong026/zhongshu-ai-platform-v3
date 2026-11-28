@@ -11,6 +11,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const pageSource = page => fs.readFileSync(path.join(root,'miniprogram',...(page==='creation'?['utils','sales-creation-page.js']:['pages',page,'index.js'])),'utf8');
 const api = require('../miniprogram/api/franchise/content');
+assert.equal(api.covers, undefined, '小程序不再提供封面生成接口');
 const P = require('../miniprogram/utils/platform-content');
 const vm = require('node:vm');
 const titleSource = fs.readFileSync(path.join(root, 'miniprogram/pages/studio/index.js'), 'utf8');
@@ -35,7 +36,6 @@ const API_FACE = {
   personas: ['page', 'create', 'update', 'remove'],
   clones: ['quote', 'list', 'create', 'refresh', 'setDefault'],
   publisherAccounts: ['list', 'create', 'update'],
-  covers: ['list', 'generate'],
   publications: ['create', 'page', 'verify', 'link', 'fail'],
   growth: ['summary']
 };
