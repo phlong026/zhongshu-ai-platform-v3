@@ -215,6 +215,47 @@ class CommissionIntegrationTest extends CommissionPgIntegrationTest {
             assertThat(entity.isAnnotationPresent(TenantIgnore.class)).as(entity.getSimpleName()).isTrue();
     }
 
+
+    @Test void readOnlyAuditKeepsMissingVersionsAndMarksTestPairs() throws java.io.IOException {
+        long id=historical(customerWithBudget(),submit(TOTAL,FIRST),"DESIGNING");
+        long hq=fixture.headquarters();
+        for(int version: List.of(1,2)) {
+            jdbc.update("""
+                INSERT INTO fr_commission_simulated_order(commission_id,submission_version,company_id,design_org_id,
+                    order_number,amount_cents,status,channel,paid_by_user_id,paid_at)
+                VALUES(?,?,?,?,?,68000000,'PAID','WECHAT',?,now())
+                """,id,version,store.orgId(),hq,"AUDIT-TEST-"+id+"-"+version,sales.userId());
+        }
+        var before=counts();
+        // Run the production SELECT in the isolated PostgreSQL fixture, with explicit test arguments.
+        java.nio.file.Path script=null;
+        for(var dir=java.nio.file.Path.of("").toAbsolutePath();dir!=null;dir=dir.getParent()){
+            var candidate=dir.resolve("script/platform/commission-historical-simulation-audit.sql");
+            if(java.nio.file.Files.isRegularFile(candidate)){script=candidate;break;}
+        }
+        assertThat(script).as("the checked-out read-only SQL script").isNotNull();
+        String full=java.nio.file.Files.readString(script);
+        assertThat(full).contains("\\set include_test_pairs true");
+        String select=full.substring(full.indexOf("WITH config AS"),full.lastIndexOf("COMMIT;"))
+                .trim().replaceFirst(";$","")
+                .replace(":'test_org_ids'","'{"+store.orgId()+","+hq+"}'");
+        var rows=jdbc.queryForList(select.replace(":'include_test_pairs'","'true'")).stream()
+                .filter(row->Long.valueOf(id).equals(row.get("commission_id"))).toList();
+        assertThat(rows).hasSize(3);
+        assertThat(rows).allMatch(row->Boolean.TRUE.equals(row.get("test_org_pair")));
+        assertThat(rows.stream().filter(row->Integer.valueOf(1).equals(row.get("submission_version"))).toList())
+                .extracting(row->row.get("settlement_stage")).containsExactly("FIRST","TAIL");
+        assertThat(rows.stream().filter(row->Integer.valueOf(2).equals(row.get("submission_version"))).toList())
+                .singleElement().satisfies(row->assertThat(row)
+                    .containsEntry("settlement_stage","UNCLASSIFIED")
+                    .containsEntry("reconciliation_state","缺提交版本，需人工核查")
+                    .containsEntry("expected_cents",null).containsEntry("formal_payable_id",null)
+                    .containsEntry("store_payment_count",null).containsEntry("no_actual_finance_records",null));
+        assertThat(jdbc.queryForList(select.replace(":'include_test_pairs'","'false'")))
+                .noneMatch(row->Long.valueOf(id).equals(row.get("commission_id")));
+        assertThat(counts()).isEqualTo(before);
+    }
+
     private long historical(long customer,SubmitCommand input,String status) {
         return LegacyCommissionFixtures.submission(jdbc,sales,customer,fixture.headquarters(),input,status);
     }
