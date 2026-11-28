@@ -18,7 +18,7 @@
   </view>
   <view wx:elif="{{paymentOrder.historicalSettlementPrepared}}" class="commission-field">
    <text class="commission-muted">历史费用已复核，实际收付款以原财务流水为准。</text>
-   <button wx:if="{{canViewHistoricalPayments}}" class="commission-secondary" bindtap="openHistoricalPayments">查看原设计费用</button>
   </view>
+   <button wx:if="{{canViewHistoricalPayments}}" class="commission-secondary" bindtap="openHistoricalPayments">查看原设计费用</button>
  </block>
 </view>
