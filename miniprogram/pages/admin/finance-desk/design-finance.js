@@ -14,11 +14,11 @@ function projectLedgerRow(row, index) {
   const originalExpenseId = row.type === 'CONFIRMED_ENGINEERING_COST' ? LedgerValue.id(row.originalExpenseId) : '';
   const id = LedgerValue.id(row.recordId || originalExpenseId || row.id), details = row.details || {};
   const label = ledgerLabels[row.type] || '账目记录', amount = LedgerValue.money(row.amountCents), date = financeDay(row.occurredOn);
-  const income = ['RECEIPT', 'EXPENSE_REFUND', 'EMPLOYEE_REFUND'].includes(row.type);
+  const income = ['RECEIPT', 'EXPENSE_REFUND'].includes(row.type);
   const sign = income ? '+' : ['PAYMENT', 'REFUND', 'ADVANCE'].includes(row.type) ? '−' : '';
   return { ...row, id, originalExpenseId, key: row.type + ':' + (id || 'unresolved-' + index), label, typeLabel: label,
     name: ledgerNames[details.name] || details.name || label, amount, amountText: amount, date, dateText: date,
-    tone: income ? 'income' : 'expense', sign, counterparty: details.counterparty || '',
+    tone: row.type === 'EMPLOYEE_REFUND' ? '' : income ? 'income' : 'expense', sign, counterparty: details.counterparty || '',
     account_name: details.accountName || '', transaction_no: details.transactionNo || '',
     voucher_file_id: LedgerValue.id(details.voucherFileId), note: details.note || '',
     sourceLabel: ({ LABOR: '人工', TRAVEL: '差旅', OTHER: '其他' })[details.category] || details.category || label,
