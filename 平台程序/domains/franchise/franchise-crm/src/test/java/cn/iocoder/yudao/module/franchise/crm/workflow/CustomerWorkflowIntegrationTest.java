@@ -62,7 +62,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     @Resource StoreServiceAccountPort accounts;
     @Resource SourceFacts facts;
     private Store store;
-    private PostSnapshot sales, colleague, teamLead, boss, otherSales;
+    private PostSnapshot sales, colleague, teamLead, boss, otherSales, otherTeamSales;
     private long tenant;
 
     @TestConfiguration
@@ -94,6 +94,7 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         colleague = fixture.post(store.orgId(), SALES, store.salesTeamA());
         teamLead = fixture.post(store.orgId(), SALES_LEAD, store.salesTeamA());
         boss = fixture.post(store.orgId(), BOSS, null);
+        otherTeamSales = fixture.post(store.orgId(), SALES, store.salesTeamB());
         var other = fixture.store();
         otherSales = fixture.post(other.orgId(), SALES, other.salesTeamA());
         tenant = store.orgId();
@@ -793,6 +794,46 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
+    void replayingSameLeadCaptureKeyDoesNotDuplicateConsultEvent() {
+        long customerId = customer();
+        String phone = jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?", String.class, customerId);
+        var command = new LeadService.CaptureCommand("陈先生", phone, "再次咨询的建房需求", "视频号咨询");
+
+        var first = as(sales, () -> leads.capture(sales, command, "biz-a34-capture-replay"));
+        assertThat(first.customerId()).isEqualTo(customerId);
+        assertThat(first.outcome()).isEqualTo(LeadService.CaptureOutcome.LINKED);
+        assertThat(consultEventCount(customerId)).isEqualTo(1);
+        long revision = workflowRevision(customerId);
+
+        var replay = as(sales, () -> leads.capture(sales, command, "biz-a34-capture-replay"));
+        assertThat(replay.leadId()).isEqualTo(first.leadId());
+        assertThat(replay.customerId()).isEqualTo(customerId);
+        assertThat(consultEventCount(customerId)).isEqualTo(1);
+        assertThat(workflowRevision(customerId)).isEqualTo(revision);
+    }
+
+    @Test
+    void replayingSameManagerLinkKeyDoesNotDuplicateConsultEvent() {
+        long customerId = customer();
+        String phone = jdbc.queryForObject("SELECT phone FROM fr_customer WHERE id=?", String.class, customerId);
+        var command = new LeadService.CaptureCommand("陈先生", phone, "负责人关联后的再次咨询", "视频号咨询");
+        var pending = as(otherTeamSales, () -> leads.capture(otherTeamSales, command, "biz-a34-pending-capture"));
+        assertThat(pending.outcome()).isEqualTo(LeadService.CaptureOutcome.LINK_REQUIRED);
+        assertThat(pending.customerId()).isNull();
+        assertThat(consultEventCount(customerId)).isZero();
+
+        var first = as(boss, () -> leads.link(boss, pending.leadId(), 1L, "biz-a34-manager-link"));
+        assertThat(first.getCustomerId()).isEqualTo(customerId);
+        assertThat(consultEventCount(customerId)).isEqualTo(1);
+        long revision = workflowRevision(customerId);
+
+        var replay = as(boss, () -> leads.link(boss, pending.leadId(), 1L, "biz-a34-manager-link"));
+        assertThat(replay.getCustomerId()).isEqualTo(customerId);
+        assertThat(consultEventCount(customerId)).isEqualTo(1);
+        assertThat(workflowRevision(customerId)).isEqualTo(revision);
+    }
+
+    @Test
     void recordedStepAndStatusRequestsReplayAfterMidnightWithoutChangingTheOriginalDates() {
         long id = customer();
         LocalDate firstDay = LocalDate.of(2026, 11, 26);
@@ -948,6 +989,16 @@ class CustomerWorkflowIntegrationTest extends FranchisePgIntegrationTest {
         jdbc.update("INSERT INTO system_dept(id,name,status,deleted,tenant_id) VALUES(?,'流程测试门店',0,0,?) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,status=0,deleted=0", company, tenant);
     }
     private long count(String table, long customer) { return jdbc.queryForObject("SELECT count(*) FROM " + table + " WHERE customer_id=?", Long.class, customer); }
+    private long consultEventCount(long customerId) {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM fr_customer_workflow_event e
+                JOIN fr_customer_workflow w ON w.id=e.workflow_id
+                WHERE w.customer_id=? AND e.action='CONSULT'
+                """, Long.class, customerId);
+    }
+    private long workflowRevision(long customerId) {
+        return jdbc.queryForObject("SELECT revision FROM fr_customer_workflow WHERE customer_id=?", Long.class, customerId);
+    }
     private static SaveCommand invitation(long revision) {
         return new SaveCommand(revision, today(), "已确认周末到店", Map.of("contactMethod", "微信", "invitationResult", "CONFIRMED",
                 "appointmentAt", today().plusDays(1) + "T10:00"), List.of());
