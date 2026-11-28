@@ -74,13 +74,15 @@ test('company point API uses the platform session and current post', async () =>
 });
 
 test('late company point response is rejected after a post switch', async () => {
+  const originalRequest = wx.request;
   let resolveRequest;
   wx.request = (options) => { resolveRequest = options.success; };
   http.saveSession({ token: 'platform-token', postId: 'post-a', tenantId: 'tenant-2' });
   const pending = points.summary();
   http.saveSession({ token: 'platform-token', postId: 'post-b', tenantId: 'tenant-2' });
   resolveRequest({ statusCode: 200, data: { code: 0, data: { balance: 99 } } });
-  await assert.rejects(pending, (error) => error && error.code === points.STALE);
+  try { await assert.rejects(pending, (error) => error && error.code === points.STALE); }
+  finally { wx.request = originalRequest; }
 });
 
 test('company point formatter preserves BIGINT values exactly and rejects unsafe numbers', () => {
@@ -210,7 +212,7 @@ test('关闭时隐藏新充值，保留已有订单，服务端重开后恢复�
  h.card.openRecharge();assert.deepEqual(h.navigation,[]);
  currentOrder={id:'opened-order'};await refresh();
  assert.equal(h.card.data.hasRechargeOrder,true);assert.equal(h.card.data.purchaseAvailable,false);
- h.card.openRecharge();assert.deepEqual(h.navigation,['/pages/wallet/company-recharge/index']);
+ h.card.openRecharge();assert.deepEqual(h.navigation,['/pages/wallet/company-recharge/index?history=1']);
  currentOrder=null;enabled=true;await refresh();assert.equal(h.card.data.purchaseAvailable,true);
  enabled=false;await refresh();assert.equal(h.card.data.purchaseAvailable,false);
  h.card.openRecharge();assert.equal(h.navigation.length,1);
@@ -337,15 +339,15 @@ test('switching from a rechargeable identity to salesperson and back keeps only 
   h.card.refresh(); // Leave an old identity's core reads pending while the user switches.
   switchIdentity('sales');h.card.refresh();
   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
-  h.respond(4,'950','12');await tick();packages[1].reject({code:403});await tick();
+  h.respond(4,'950','12');await tick();packages[2].reject({code:403});await tick();
   assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
-  h.requests[2].reject({code:403});h.requests[3].resolve({used:'999'});await tick();
+  h.requests[2].reject({code:403});h.requests[3].resolve({used:'999'});packages[1].reject({code:403});await tick();
   assert.equal(h.card.data.balanceText,'950');assert.equal(h.card.data.usedText,'12');assert.equal(h.card.data.errorMessage,'');
   h.card.refresh();h.respond(6,'930','15');await tick(); // Leave salesperson's optional package read pending.
   switchIdentity('owner');h.card.refresh();
   assert.equal(h.card.data.balanceText,'--');assert.equal(h.card.data.usedText,'--');assert.equal(h.card.data.purchaseAvailable,false);
-  h.respond(8,'920','17');await tick();packages[3].resolve([{id:'owner-plan'}]);await tick();
-  packages[2].reject({code:403});await tick();
+  h.respond(8,'920','17');await tick();packages[4].resolve([{id:'owner-plan'}]);await tick();
+  packages[3].reject({code:403});await tick();
   assert.equal(h.card.data.balanceText,'920');assert.equal(h.card.data.usedText,'17');assert.equal(h.card.data.purchaseAvailable,true);
   assert.equal(h.card.data.state,'ready');assert.equal(h.card.data.errorMessage,'');
  }
@@ -390,4 +392,94 @@ test('revised company quote keeps the original unconfirmed order visible until a
   assert.equal(page.data.order, null);
   page.choose({ currentTarget: { dataset: { id: 'plan' } } });
   assert.equal(page.data.selected.amountCents, 200);
+});
+
+test('existing company recharge stays separate from unavailable balance and revocation stops navigation',async()=>{
+ const oldOrder={id:'refund-older',status:'REFUNDED'};
+ for (const response of [null,{code:504}]){
+  let calls=0;
+  const h=pointCard({catalog:async()=>{calls++;return {enabled:false,plans:[],currentOrder:oldOrder};}});
+  const ready=h.card.refresh();
+  assert.equal(calls,1,'catalog does not wait for balance');
+  const metric=h.requests.find(r=>r.url.endsWith('/summary'));
+  if(response===null)metric.resolve(null);else metric.reject(response);
+  h.requests.find(r=>r.url.includes('my-usage')).resolve({used:'3'});
+  await ready;
+  assert.equal(h.card.data.hasRechargeOrder,true);
+  assert.equal(h.card.data.purchaseAvailable,false);
+  h.card.openRecharge();
+  assert.deepEqual(h.navigation,['/pages/wallet/company-recharge/index?history=1']);
+  h.session.postId='new-post';h.session.post.postId='new-post';
+  h.card.openRecharge();
+  assert.equal(h.navigation.length,1);
+ }
+});
+
+test('catalog timeout offers a retry without opening recharge and cannot restore an invalid or old identity',async()=>{
+ let read=async()=>({enabled:false,plans:[],currentOrder:{id:'confirmed-order'}});
+ const h=pointCard({catalog:()=>read()});
+ const refresh=async()=>{const n=h.requests.length;const done=h.card.refresh();h.respond(n);await done;};
+ await refresh();
+ read=async()=>{throw {code:504};};
+ await refresh();
+ assert.equal(h.card.data.hasRechargeOrder,true);
+ assert.equal(h.card.data.purchaseAvailable,false);
+ assert.match(h.card.data.rechargeOrderError,/充值订单加载失败，重试/);
+ read=async()=>{throw {code:403};};
+ await refresh();
+ assert.equal(h.card.data.hasRechargeOrder,false);
+ assert.equal(h.card.data.rechargeOrderError,'');
+ let finishOld;
+ read=()=>new Promise(resolve=>{finishOld=resolve;});
+ const old=h.card.refresh();h.respond(h.requests.length-2);
+ h.session.postId='next-post';h.session.post={...h.session.post,postId:'next-post',orgId:'next-company'};
+ read=async()=>({enabled:false,plans:[],currentOrder:null});
+ await refresh();
+ finishOld({enabled:true,plans:[{id:'old-plan'}],currentOrder:{id:'old-order'}});await old;
+ assert.equal(h.card.data.hasRechargeOrder,false);
+ assert.equal(h.card.data.purchaseAvailable,false);
+ read=async()=>{throw {code:401};};
+ await refresh();
+ assert.equal(h.card.data.state,'error');
+ assert.equal(h.card.data.hasRechargeOrder,false);
+});
+
+test('legacy recharge catalog 404 says original orders are unavailable and never enables payment',async()=>{
+ const root=path.resolve(__dirname,'../miniprogram/pages/wallet/company-recharge');
+ const gets=[];
+ let oldBackend=true;
+ const http={get:async url=>{gets.push(url);if(url.endsWith('/catalog')){
+  if(oldBackend)throw {code:404};
+  return {enabled:true,plans:[{id:'p',version:'1',name:'可购套餐',amountCents:100,credits:'3'}],currentOrder:{id:'o',status:'CREATED',amountCents:100,credits:'3'}};
+ }
+  return [{id:'p',name:'只读旧套餐',priceFen:100,basePoints:2,bonusPoints:1}];},
+  post:()=>assert.fail('read-only fallback made a write')};
+ let def;
+ vm.runInNewContext(fs.readFileSync(path.join(root,'index.js'),'utf8'),{Page:v=>def=v,require(name){
+  if(name.endsWith('/http'))return http;
+  if(name.endsWith('/company-points'))return {fingerprint:()=> 'current',formatCredits:String};
+  if(name.endsWith('/auth'))return {currentApiPost:()=>({orgName:'示例门店'})};
+  if(name.endsWith('/wallet-view'))return {formatYuan:String};
+  throw Error(name);
+ }});
+ const page={...def,actor:'current',foreground:true,data:structuredClone(def.data),setData(p){Object.assign(this.data,p);}};
+ assert.equal(await page.refresh(),true);
+ assert.equal(page.data.orderUnavailable,true);
+ assert.equal(page.data.order,null);
+ assert.equal(page.data.enabled,false);
+ assert.equal(page.data.browseOnly,true);
+ const tree=render(path.join(root,'index.wxml'),page.data);
+ const text=nodes=>nodes.map(n=>(n.text||'')+text(n.children)).join('');
+ assert.match(text(tree),/当前无法查看充值订单/);
+ assert.doesNotMatch(text(tree),/确认充值|继续支付/);
+ await page.checkout();
+ assert.deepEqual(gets,['/franchise/company-points/recharge/catalog','/platform/wallet/recharge-plans']);
+ oldBackend=false;
+ page.onLoad({history:'1'});
+ assert.equal(await page.refresh(),true);
+ assert.equal(page.data.order.id,'o');
+ assert.equal(page.data.enabled,false);
+ assert.equal(page.data.hasPlans,false);
+ await page.checkout();
+ assert.equal(gets.length,3);
 });

@@ -8,7 +8,7 @@ const refreshMs = 10000;
 const statusText = { CREATED: '待支付', PROCESSING: '支付确认中', PAID: '额度到账中',
   CREDITED: '额度已到账', CLOSED: '订单已关闭', FAILED: '支付失败', REFUNDING:'退款核对中', REFUNDED:'已退款', REFUND_REVIEW:'退款已完成，额度待核对' };
 const initial = () => ({ loading: true, error: '', note: '', company: '', enabled: false, reason: '',
-  plans: [], hasPlans: false, selected: null, busy: false, order: null, browseOnly: false });
+  plans: [], hasPlans: false, selected: null, busy: false, order: null, browseOnly: false, orderUnavailable: false });
 
 async function readCatalog(actor) {
   try {
@@ -16,10 +16,16 @@ async function readCatalog(actor) {
   } catch (err) {
     if (Number(err.code) !== 404 || actor !== points.fingerprint()) throw err;
     // The existing platform endpoint already returns the administrator's active offers in display order.
-    const offers = await http.get('/platform/wallet/recharge-plans');
+    let offers;
+    try {
+      offers = await http.get('/platform/wallet/recharge-plans');
+    } catch (fallbackError) {
+      if (fallbackError?.postInvalid || [401, 403].includes(Number(fallbackError?.code))) throw fallbackError;
+      throw Error('当前无法查看充值订单，请重试');
+    }
     const post = auth.currentApiPost();
     if (!Array.isArray(offers)) throw Error('套餐数据异常，请重新加载');
-    return { companyName: post && post.orgName, enabled: false, browseOnly: true,
+    return { companyName: post && post.orgName, enabled: false, browseOnly: true, orderUnavailable: true,
       reason: '公司积分支付暂未开放', plans: offers.map(plan => ({
         id: plan.id, version: '', name: plan.name, amountCents: Number(plan.priceFen),
         credits: Number(plan.basePoints) + Number(plan.bonusPoints)
@@ -50,6 +56,7 @@ function orderView(order) {
 
 Page({
   data: initial(),
+  onLoad(options) { this.historyOnly = options?.history === '1'; },
   onShow() {
     this.foreground = true;
     if (this.actor !== points.fingerprint()) {
@@ -60,7 +67,7 @@ Page({
       this.setData(initial());
     }
     if (!http.token()) {
-      wx.redirectTo({ url: '/pages/account/index?view=login&return=' + encodeURIComponent(route) });
+      wx.redirectTo({ url: '/pages/account/index?view=login&return=' + encodeURIComponent(route + (this.historyOnly ? '?history=1' : '')) });
       return;
     }
     if (!http.currentPostId()) {
@@ -83,7 +90,7 @@ Page({
       const catalog = await readCatalog(actor);
       if (!this.current(actor) || sequence !== this.sequence) return false;
       if (!catalog || !Array.isArray(catalog.plans)) throw Error('套餐数据异常，请重新加载');
-      const enabled = catalog.enabled === true, browseOnly = catalog.browseOnly === true;
+      const enabled = !this.historyOnly && catalog.enabled === true, browseOnly = !this.historyOnly && catalog.browseOnly === true;
       const plans = enabled || browseOnly ? catalog.plans.map(planView) : [];
       const old = this.data.selected, selected = old && plans.find(plan => samePlan(plan, old)) || null;
       const currentOrder = orderView(catalog.currentOrder);
@@ -95,8 +102,8 @@ Page({
       else if (changed) note = plans.some(plan => plan.id === old.id)
         ? '套餐已调整，请按最新价格重新选择。' : '原套餐已下架，请选择其他套餐。';
       this.setData({ loading: false, error: '', company: catalog.companyName, enabled, browseOnly, plans,
-        hasPlans: plans.length > 0, selected, order,
-        reason: catalog.reason || '当前公司暂未开放充值', note });
+        hasPlans: plans.length > 0, selected, order, orderUnavailable: catalog.orderUnavailable === true,
+        reason: this.historyOnly ? (currentOrder ? '' : '当前暂无可查看的充值订单') : catalog.reason || '当前公司暂未开放充值', note });
       return true;
     } catch (err) {
       if (this.current(actor) && sequence === this.sequence) this.setData({ loading: false, error:
@@ -116,7 +123,7 @@ Page({
     }
   },
   async checkout() {
-    if (this.operation || this.data.error || !this.current(this.actor)) return;
+    if (this.historyOnly || this.operation || this.data.error || !this.current(this.actor)) return;
     const selected = this.data.selected, previousOrder = this.data.order, actor = this.actor;
     if (!selected && !previousOrder?.canPay) return;
     const operation = this.operation = {};

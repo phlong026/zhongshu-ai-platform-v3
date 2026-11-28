@@ -1,5 +1,6 @@
 <view wx:if="{{visible}}" class="asset-card">
   <view class="asset-head"><text class="asset-label">公司积分</text><text class="asset-status" bindtap="retry">{{refreshing?'更新中':errorMessage?'更新失败，重试':''}}</text><button wx:if="{{purchaseAvailable||hasRechargeOrder}}" class="asset-recharge" bindtap="openRecharge">{{purchaseAvailable?'充值':'查看充值订单'}}</button></view>
+  <text wx:if="{{rechargeOrderError}}" class="asset-status" bindtap="retry">{{rechargeOrderError}}</text>
   <view class="asset-metrics">
     <view class="asset-metric">
       <text class="asset-num">{{balanceText}}</text>

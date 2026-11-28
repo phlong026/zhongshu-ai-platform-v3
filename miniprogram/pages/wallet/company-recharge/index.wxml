@@ -1,9 +1,10 @@
 <brand-header title="{{enabled?'公司额度充值':'公司充值订单'}}" back="{{true}}"/>
 <view class="recharge">
   <view wx:if="{{company}}" class="company"><text>公司积分池</text><text class="company-name">{{company}}</text></view>
-  <view wx:if="{{loading}}" class="panel message">正在读取充值套餐…</view>
+  <view wx:if="{{loading}}" class="panel message">正在读取充值信息…</view>
   <view wx:elif="{{error}}" class="panel message"><text>{{error}}</text><button class="retry" bindtap="retry">重新加载</button></view>
   <block wx:else>
+    <view wx:if="{{orderUnavailable}}" class="panel message"><text>当前无法查看充值订单。</text><button class="retry" bindtap="retry">重新查订单</button></view>
     <view wx:if="{{order}}" class="panel">
       <text class="heading">{{order.label}}</text><text class="summary">{{order.amount}} · {{order.credits}} 额度</text>
       <text class="minor">订单号 {{order.id}}</text>
@@ -13,8 +14,8 @@
       <text wx:if="{{!enabled && reason}}" class="minor">{{reason}}</text>
       <button wx:if="{{order.status==='PROCESSING'||order.status==='PAID'||order.status==='REFUNDING'}}" class="retry" bindtap="retry">刷新订单状态</button>
     </view>
-    <view wx:elif="{{!hasPlans}}" class="panel message"><text>{{enabled||browseOnly?'暂无可购买的充值套餐':reason}}</text><button class="retry" bindtap="retry">刷新套餐</button></view>
-    <view wx:else class="panel">
+    <view wx:elif="{{!hasPlans&&!orderUnavailable}}" class="panel message"><text>{{enabled||browseOnly?'暂无可购买的充值套餐':reason}}</text><button class="retry" bindtap="retry">刷新套餐</button></view>
+    <view wx:elif="{{hasPlans}}" class="panel">
       <text class="heading">{{browseOnly?'充值套餐':'选择充值套餐'}}</text>
       <view class="plans"><button wx:for="{{plans}}" wx:key="id" class="plan {{selected.id===item.id?'selected':''}}" data-id="{{item.id}}" bindtap="choose" disabled="{{busy||browseOnly}}">
         <text class="plan-name">{{item.name}}</text><text class="price">{{item.amount}}</text><text class="minor">到账 {{item.credits}} 额度</text>
