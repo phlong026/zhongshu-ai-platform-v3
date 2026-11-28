@@ -8,7 +8,9 @@
 
 ### 删除的生产代码
 - `miniprogram/utils/design-checkout.js`：旧本地演示计价、订单创建、模拟支付、支付成功判定。其写入口 `create()` / `pay()` 已永久抛出停用异常，`savePricing()` 仍写本地管理存储，属于旧流程残留。
-- 当前工作流入口 `miniprogram/pages/workflow/commission/index.js`、`external-entry.js`、`presentation.js`、`design-brief.js` 未导入该工具；新设计委托使用 API 与服务端结算适配器。
+- 当前工作流入口 `miniprogram/pages/workflow/commission/index.js`、`external-entry.js`、`presentation.js`、`design-brief.js` 未导入原写入型工具；新设计委托使用 API 与服务端结算适配器。
+- 复核发现 6 个历史读模型仍需读取旧本地模拟订单（委托历史、旧设计工作台/通知、旧财务账本）。因此没有粗暴删除其兼容能力，而是将其替换为 `utils/design-checkout-history.js`，仅保留 `is/order/pricing/authorized/paid` 只读接口。
+- 新适配器不导出 `savePricing/quote/create/pay`，不能再写本地价格、创建模拟订单或推进模拟付款。
 - 当前 `simulated-payment.wxml` 仍展示服务端历史回执，不依赖本地 checkout 工具，继续保留。
 
 ### 删除的退役测试和命令
@@ -26,8 +28,8 @@
 
 ## 验收标准
 
-1. 当前生产页面不存在对 `utils/design-checkout.js` 的 require/import。
-2. 当前 package scripts 不再暴露退役的 checkout/journey 检查命令。
+1. 当前生产页面不再引用原写入型 `utils/design-checkout.js`；历史读模型统一引用只读 `design-checkout-history.js`。
+2. 当前 package scripts 不再暴露退役的 checkout/journey 检查命令，read-only adapter regression 已进入 check:business-repair。
 3. 当前主检查 `npm run check`、`npm run check:finance-workbench`、`npm run check:design-ui` 通过。
 4. 服务端历史模拟回执和正式财务流水页面仍可查询；不得因删除旧本地工具删除数据库记录。
 5. 不修改任何生产历史数据，不自动把模拟订单转换成真实收付款。
