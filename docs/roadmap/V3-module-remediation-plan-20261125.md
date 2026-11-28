@@ -1269,3 +1269,36 @@ PR #195 已合并。专项回归脚本已接入标准检查链，Frontend CI、B
 **接手组的验收范围。** 按负责人已安排的开发工作复核三处交接：工作台、列表和档案的日常办理及回访；成片外发、历史发布和迟到咨询；签后移交、退回补交及客户侧回看。验收沿用作品 → 发布 → 客资 → 客户以及客户 → 委托/成果版本 → 施工合同及锁定期次 → 移交包 → 工程的既有编号关系，记录所属门店和办理岗。一件作品可有多笔咨询，同一旧客可保留多条来源。
 
 联测从业务首页开始，用一位脱敏客户分岗位连续操作。覆盖隔天补咨询、重复咨询关联旧档、普通沟通后补齐到店讲解、报价换版重新确认、仅签设计合同、工程退回重交、接收后尚未开工、实际开工、部分收款及财务核实。每次返回客户页核同一原单、版本和金额，核对重复提交、无权查看和切换客户。外部平台真实发片及真机复验待渠道账号、设备和公网环境就绪。生产部署与三家门店试点由项目负责人安排。
+
+---
+
+# V1.3 财务整改状态更新（2026-11-28）
+
+本节覆盖 2026-11-25 原 M07 FIN-01～FIN-07 的后续整改。历史任务表保留当时基线，本节作为当前状态覆盖；PR 已合并只代表代码进入目标主线，不代表已部署或生产数据验收。
+
+| 子任务/批次 | 实际修改 | 已合并 PR | 当前结论 |
+|---|---|---|---|
+| F01 定金抵扣与前期账本候选 | 抵扣候选必须匹配原合同/项目范围；已用于其他合同的前期账本不再重复出现。 | [#390](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/390)、[#407](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/407)、[#408](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/408) | 代码与前后端专项验证通过；生产历史合同数据仍需财务抽样核对。 |
+| F02 合同收款原单纠错 | 按原收款记录更正，保留原 ID、凭证、退款及审计；工程视图读取更正后的权威财务事实。 | [#394](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/394)、[#395](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/395)、[#396](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/396) | 代码与配对测试通过；真实收款/退款凭证仍需业务验收。 |
+| F03-H 工程来源应付保护 | 工程采购/工程费用应付不得脱离原工程来源归属。 | [#353](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/353)、[#354](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/354) | 已合并；与 ENG-E04 同一修复，编号只作历史追溯。 |
+| F03-M 手工费用错归属更正 | 无上游来源的手工应付可补充/更正归属；同步原付款、员工垫付和归还收据；前端显示原归属并要求更正依据；后端拒绝过期归属覆盖。 | [#411](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/411)、[#412](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/412)、[#415](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/415)、[#416](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/416)、[#417](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/417) | 前后端代码与配对 CI 通过；真实财务原单更正仍须凭合同/付款凭证核对。 |
+| F04 前期设计费用接续项目账本 | 以客户、项目和合同来源校验前期账本，防止重复归属或错误接续。 | [#403](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/403)、[#404](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/404) | 前后端代码与配对 CI 通过；生产存量需逐笔核对。 |
+| FIN-03A / R01 弱网更正恢复 | 退款/支出退回作废成功但回执丢失后可沿原单继续；手工费用、合同收款可恢复冻结请求并核验原单。 | [#171](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/171)、[#400](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/400)、[#401](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/401) | 已合并；不得重复登记真实收付款。 |
+| F05 凭证与老板原账方向 | 统一退款/支出退回凭证核验；老板账本区分退给员工与公司实际入账。 | [#391](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/391)、[#402](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/402) | 已合并；待财务真实凭证抽样。 |
+| L02 历史模拟设计费转正式分期结算 | 历史财务审核按冻结版本创建 FULL 或 FIRST/TAIL 正式应付；实际付款和总部核收仍由财务线下登记；只读审计覆盖未分类订单、缺失提交、退款净额和核收来源。 | [#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 代码和 PostgreSQL 回归通过；生产历史盘点尚未执行。 |
+| L02 原委托设计费精确只读查询 | 直接按原委托及提交版本读取 FULL/FIRST/TAIL，保留长编号；不依赖首屏列表、不按同额猜测、不产生财务写入，无记录不显示零金额。 | [#422](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/422)、[#423](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/423) | 前后端已合并、专项与CI/配对通过；生产原单抽样仍归 R02。 |
+| L04 旧本地设计费模拟收银清理 | 删除本地计价/订单/模拟支付写路径及退役测试命令；保留服务端历史回执的只读兼容适配器。 | [#414](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/414) | 前端 CI 与配对发布验证通过；未修改历史数据库记录。 |
+
+## M07 当前结论与剩余门槛
+
+1. 代码层的 F01/F02/F03-H/F03-M/F04/FIN-03A/F05/L02/L04 已分别合并；原 M07 不能再按“全部待开发”执行。
+2. R02 历史模拟设计费审计 SQL 已具备 FULL/FIRST/TAIL 和未分类订单盘点能力，但尚未连接生产只读数据库。执行前需确认测试组织 ID、只读账号和受控执行窗口；结果需逐笔核对合同、付款、核收、退款及凭证。
+3. 不得自动将模拟订单改成已付款，不得自动补造收款或付款流水；缺应付可按历史财务审核流程建立正式应付，但必须保持实际资金事实由财务登记。
+4. #419 的当前文档 head 配对后端 `63b78fe24076f3425e5c2302c65aa8aaa2bb7419`，产品前端基线为 `2b36e7723d7928acca177ac472c17be1545a6a53`；准确head的CI、配对和合并后双主线回执登记在 [#419](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/419) 的专项评审及合并记录，不以旧head或取消的运行替代。
+5. 真实部署版本、生产数据库迁移、历史存量抽样、财务岗位真机验收均未由本轮 GitHub CI 代替。
+
+## 四模块顺序与编号边界
+
+后续仍按工程→业务→财务→老板推进；最新逐项状态、BIZ-T09已确认矩阵、BIZ-A34/A35/A61回归及剩余环境验收集中维护在[业务与工程总表第8.6—8.7节](V3-business-engineering-remediation-20261127.md#closeout-20261128)，不重复开发已合并能力。BIZ-T09由#409/#410/#424完成，BIZ-A61由#421补齐。
+
+财务/老板审计中的“老板B02”是原账类型与只读凭据，已由#388/#389/#402合并；本路线图的B02是正式薪酬公式、计提与退款规则，两者含义不同。原B02、B04公共费用分摊仍按既有决定暂缓，B06生产部署、三店账号与真机排期仍由用户安排，不能因原账追溯完成而一起关闭。
