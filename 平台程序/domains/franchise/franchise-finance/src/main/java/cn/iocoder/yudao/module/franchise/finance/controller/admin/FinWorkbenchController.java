@@ -15,8 +15,10 @@ public class FinWorkbenchController {
     public CommonResult<?> books(@RequestParam(required=false) String keyword){return success(service.books(current.require().orgId(),keyword));}
     @PostMapping("/books") @PreAuthorize("@post.has('franchise:fin:register')")
     public CommonResult<?> create(@RequestHeader("Idempotency-Key") String key,@RequestBody FinWorkbenchService.BookCommand cmd){return success(Map.of("id",String.valueOf(service.createBook(current.require(),key,cmd))));}
+    @GetMapping("/book-sources") @PreAuthorize("@post.has('franchise:fin:register')")
+    public CommonResult<?> sources(@RequestParam(required=false) String keyword,@RequestParam(required=false) Long customerId){return success(service.bookSources(current.require().orgId(),keyword,customerId));}
     @PostMapping("/books/{id}/project/{project}") @PreAuthorize("@post.has('franchise:fin:register')")
-    public CommonResult<?> link(@PathVariable long id,@PathVariable long project,@RequestHeader("Idempotency-Key") String key){service.linkProject(current.require(),id,project,key);return success(true);}
+    public CommonResult<?> link(@PathVariable long id,@PathVariable long project,@RequestHeader("Idempotency-Key") String key,@RequestBody(required=false) FinWorkbenchService.BookSource source){service.linkProject(current.require(),id,project,key,source);return success(true);}
     @GetMapping("/ledger") @PreAuthorize("@post.has('franchise:fin:query')")
     public CommonResult<?> ledger(@RequestParam String scope){return success(service.ledger(current.require().orgId(),scope));}
     @GetMapping("/reimbursements") @PreAuthorize("@post.has('franchise:fin:query')")
