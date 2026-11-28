@@ -31,3 +31,33 @@ test('finance UI labels an existing attribution as correction and displays the o
   assert.match(workbench, /originalScopeLabel/);
   assert.match(workbench, /currentScope/);
 });
+
+test('changing the target keeps the original project and book captured at open time', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync('miniprogram/pages/admin/finance-desk/workbench.js', 'utf8');
+  const requests = [];
+  const http = { sessionGuard: () => () => true, post: async (endpoint, body, headers) => {
+    requests.push([endpoint, body, headers]);
+    throw { code: 1099000001 };
+  }};
+  const deps = { '../../../api/http': http, '../../../utils/platform-finance': PF };
+  const mod = { exports: {} };
+  vm.runInNewContext(source, { module: mod, require: name => deps[name] || {} });
+  const page = { data: { workbenchBooks: [] }, __financeFacts: { payables: [
+    { id: '1', sourceType: 'manual', projectId: '9007199254740993', bookId: '9007199254740995' },
+    { id: '2', source_type: 'manual', project_id: null, book_id: null }
+  ]}, setData(patch) { Object.assign(this.data, patch); } };
+  mod.exports(page, { idemKey: () => 'same-operation-key' });
+  for (const [id, original] of [['1', '9007199254740993:9007199254740995'], ['2', ':']]) {
+    page.assignPayableBook({ currentTarget: { dataset: { id } } });
+    page.data.wbForm.scope = 'project:321';
+    page.data.wbForm.reason = '核对原单';
+    await page.submitWorkbench();
+    const [endpoint, body, headers] = requests.pop();
+    assert.equal(endpoint, '/franchise/finance/workbench/payables/' + id + '/assign');
+    assert.equal(body.expectedScope, original);
+    assert.equal(body.scope, 'project:321');
+    assert.equal(headers['Idempotency-Key'], 'same-operation-key');
+    assert.match(page.data.wbError, /归属已变化.*刷新/);
+  }
+});
