@@ -318,10 +318,11 @@ public class CustomerService {
         return schemeMapper.selectLatest(customerId, kind);
     }
 
-    /** 当前岗位可办理、待首次跟进的客户；已流失的不再提醒 */
+    /** 当前岗位可办理、待首次跟进且未暂缓/流失的新客户。 */
     public List<CustomerDO> listAwaitingFirstFollow(PostSnapshot post) {
         return customerMapper.selectVisible(CustomerAccess.writableBy(post).andThen(
-                q -> q.eq(CustomerDO::getStatus, CustomerDO.STATUS_REGISTERED).apply("NOT " + CustomerMapper.LOST)));
+                q -> q.eq(CustomerDO::getStatus, CustomerDO.STATUS_REGISTERED)
+                        .apply("NOT " + CustomerMapper.LOST + " AND NOT " + CustomerMapper.PAUSED)));
     }
 
     /** 当前岗位可办理、下次跟进日期已到（含今天）的正常客户；暂缓和流失客户不进入到期提醒 */
