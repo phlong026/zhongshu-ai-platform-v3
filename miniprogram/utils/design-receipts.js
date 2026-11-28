@@ -36,7 +36,7 @@ function current(customer) {
 
 function transfers(companyId) {
   return ((wx.getStorageSync(require('./storage-keys').business) || {}).customers || [])
-    .filter(customer => customer.designOrganizationId === companyId && (customer.companyId || 'quanzhou') !== companyId && current(customer) && !require('./design-checkout').is(customer))
+    .filter(customer => customer.designOrganizationId === companyId && (customer.companyId || 'quanzhou') !== companyId && current(customer) && !require('./design-checkout-history').is(customer))
     .flatMap(customer => ['first', 'tail'].flatMap(stage => sources(customer, stage, customer.serviceOrders.at(-1))));
 }
 
@@ -114,7 +114,7 @@ function condition(customer, stage, book = X.rawBook(customer.designOrganization
 }
 
 function release(customer, book = X.rawBook(customer.designOrganizationId)) {
-  const Checkout = require('./design-checkout');
+  const Checkout = require('./design-checkout-history');
   if (Checkout.is(customer)) {
     const payment = Checkout.order(customer), ready = Checkout.paid(customer);
     return { ready, confirmationVersion: payment ? payment.id + ':' + payment.status : 'missing-order', confirmedAt: payment?.paidAt || '', text: ready ? '设计费已一次性模拟支付' : '待业务完成设计费模拟支付' };

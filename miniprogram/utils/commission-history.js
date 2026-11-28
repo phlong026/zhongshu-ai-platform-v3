@@ -1,6 +1,6 @@
 // Historical commission reads shared by receipts, finance, messages and engineering archives.
 // Current commands use the API; this module never creates or changes a commission.
-const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout'),Status=require('./status-labels').commission;
+const X=require('./access'),Job=require('./organization'),Checkout=require('./design-checkout-history'),Status=require('./status-labels').commission;
 const TYPE='sales-offline-v1',KEY=require('./storage-keys').business,copy=require('./clone'),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const is=c=>c?.businessFlow?.type===TYPE;
 // Old records remain operable; new customers can only start the simplified protocol.

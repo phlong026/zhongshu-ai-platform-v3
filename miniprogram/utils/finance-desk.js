@@ -1,5 +1,5 @@
 // Read models only. All money actions continue through the original finance commands.
-const X=require('./access'),O=require('./organization'),A=require('./account'),Checkout=require('./design-checkout');
+const X=require('./access'),O=require('./organization'),A=require('./account'),Checkout=require('./design-checkout-history');
 const F=require('./finance-source'),Ops=require('./operations'),T=require('./intercompany');
 const Order=require('./task-order');
 const ROOT='/pages/admin/finance-desk/index';

@@ -1,4 +1,4 @@
-const X=require('./access'),clone=require('./clone'),Order=require('./task-order'),keys={business:require('./storage-keys').business,engineering:require('./storage-keys').engineering,management:require('./storage-keys').management},Checkout=require('./design-checkout');
+const X=require('./access'),clone=require('./clone'),Order=require('./task-order'),keys={business:require('./storage-keys').business,engineering:require('./storage-keys').engineering,management:require('./storage-keys').management},Checkout=require('./design-checkout-history');
 function book(companyId){return X.rawBook(companyId);}
 function period(s){return s.period||(/^\d{4}-\d{2}/.test(s.snapshot||'')?s.snapshot.slice(0,7):new Date().toISOString().slice(0,7));}
 function cashDate(r){return r.bankDate||r.date||'';}

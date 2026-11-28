@@ -8,7 +8,7 @@ const paidDate = value => {
 };
 
 function checkoutRecords(state, options = {}) {
-  const checkout = options.checkout || require('./design-checkout');
+  const checkout = options.checkout || require('./design-checkout-history');
   const customers = options.customers || businessCustomers();
   const rows = customers.filter(customer => checkout.is(customer));
   if (!rows.length) return state;
