@@ -77,7 +77,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
     }
 
     @Test
-    void aLegacyFollowAddsHistoryWithoutErasingAPausedCustomersScheduledReminder() {
+    void aLegacyFollowKeepsThePausedRecontactDateWithoutAddingDueReminders() {
         long id = capture(salesA1, phone()).customerId();
         long tenant = salesA1.orgId(); // This CRM fixture uses a synthetic shop without setting a request tenant.
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")), resumeOn = today.plusDays(5);
@@ -95,7 +95,7 @@ class CrmIntegrationTest extends FranchisePgIntegrationTest {
         assertThat(detail.follows()).extracting(CustomerFollowDO::getNote)
                 .containsExactlyInAnyOrder("旧版来电补记", "旧版取消回访");
         assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn.minusDays(1)))).isEmpty();
-        assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn))).extracting(CustomerDO::getId).containsExactly(id);
+        assertThat(as(salesA1, () -> customers.listDueVisits(salesA1, resumeOn))).isEmpty();
 
         jdbc.update("UPDATE fr_customer_workflow SET status='ACTIVE' WHERE id=?", id);
         as(salesA1, () -> customers.follow(salesA1, id, new FollowCommand("旧版取消回访", null), "mixed-active-clear"));
