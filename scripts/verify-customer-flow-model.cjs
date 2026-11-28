@@ -60,7 +60,7 @@ test('实际开工是业务日期，不把日期字段显示成虚构的北京�
   assert.equal(facts.find(f => f.label === '实际开工').value, '2026-11-25');
 });
 
-const { customerRow, tabFilter } = require('../miniprogram/utils/platform-crm');
+const { customerRow, tabFilter, homeSummary } = require('../miniprogram/utils/platform-crm');
 test('客户列表的预约跟进与八步邀约日期分开，筛选和卡片使用同一日期', () => {
   const today='2026-11-26';
   const common={id:'1',name:'测试客户',lastFollowAt:'2026-11-25',workflow:{nextContactOn:'2026-11-25',currentStepName:'邀约确认'}};
@@ -77,6 +77,41 @@ test('客户列表的预约跟进与八步邀约日期分开，筛选和卡片�
   const due=customerRow({...common,workflow:{nextContactOn:'2026-12-02'},nextVisitDate:[2026,11,25]},{today});
   assert.equal(due.cue,'逾期 1 天');
   assert.deepEqual(tabFilter([due],'due',{today}),[due]);
+});
+
+
+test('暂停客户保留原再联系日期，不进入到期催办或逾期统计', () => {
+  const today = '2026-11-28';
+  const base = { id: 'paused', name: '暂缓客户', lastFollowAt: '2026-11-20',
+    workflow: { status: 'PAUSED', statusReason: '等待批复' } };
+  const cases = [
+    { date: [2026,11,27], expected: '2026-11-27' },
+    { date: [2026,11,28], expected: '2026-11-28' },
+    { date: [2026,12,2], expected: '2026-12-02' },
+    { date: null, expected: '' }
+  ];
+  const rows = cases.map((item, index) => customerRow({ ...base, id: String(index + 1), nextVisitDate: item.date }, { today, canWrite: true }));
+  rows.forEach((row, index) => {
+    assert.equal(row.appointment, cases[index].expected);
+    assert.equal(row.cue, '暂缓');
+    assert.equal(row.stageName, '暂缓');
+    assert.match(row.detail, /暂缓/);
+    assert.deepEqual(tabFilter([row], 'due', { today }), []);
+    assert.deepEqual(tabFilter([row], 'appointments', { today }), index === 2 ? [row] : []);
+  });
+  const summary = homeSummary(cases.map((item, index) => ({
+    ...base, id: String(index + 1), nextVisitDate: item.date
+  })), [], { roleCode: 'sales' }, today);
+  assert.equal(summary.due.length, 0);
+  assert.equal(summary.overdue.length, 0);
+  assert.equal(summary.upcoming.length, 1);
+
+  const activeOverdue = customerRow({ ...base, id: 'active', nextVisitDate: [2026,11,27],
+    workflow: { status: 'ACTIVE' } }, { today, canWrite: true });
+  assert.match(activeOverdue.cue, /逾期/);
+  assert.deepEqual(tabFilter([activeOverdue], 'due', { today }), [activeOverdue]);
+  assert.equal(homeSummary([{ ...base, id: 'active', nextVisitDate: [2026,11,27],
+    workflow: { status: 'ACTIVE' } }], [], { roleCode: 'sales' }, today).overdue.length, 1);
 });
 
 
