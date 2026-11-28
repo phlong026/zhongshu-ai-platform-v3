@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Isolation;
 import java.time.LocalDate;
 import java.util.*;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.ZhongshuErrorCodeConstants.STATE_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.franchise.finance.enums.FranchiseFinErrorCodes.*;
 
 /** 账本归属及组合登记。沿用原收付命令、流水身份、凭证和审计，不维护第二套现金余额。 */
@@ -235,11 +236,16 @@ public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.ap
         long revision=jdbc.queryForObject("SELECT COALESCE(max(revision),0)+1 FROM pf_command_event WHERE domain='franchise' AND aggregate_type='fin-payable' AND aggregate_id=?",Long.class,id);
         commands.record(post,"fin-payable",id,revision,"fin-payable-adjust",input,key);
     }
-    public record Assignment(String scope,String reason) {}
+    public record Assignment(String scope,String reason,String expectedScope) {
+        public Assignment(String scope,String reason){this(scope,reason,null);}
+    }
+    private record LegacyAssignment(String scope,String reason) {}
     @Transactional
     public void assignPayable(PostSnapshot post,long id,String key,Assignment cmd){
         key=commands.requireIdempotencyKey(key);lock(post,key);
-        var input=Map.of("payableId",id,"assignment",cmd);
+        // Keep the exact historical fingerprint for old-client retries already recorded before this check.
+        Object assignment=cmd.expectedScope()==null ? new LegacyAssignment(cmd.scope(),cmd.reason()) : cmd;
+        var input=Map.of("payableId",id,"assignment",assignment);
         if(commands.replayed(post,key,input).isPresent())return;
         Scope s=writeScope(post.orgId(),cmd.scope());
         var rows=jdbc.queryForList("SELECT * FROM fr_fin_payable WHERE id=? AND company_id=? AND NOT deleted FOR UPDATE",id,post.orgId());
@@ -256,6 +262,10 @@ public class FinWorkbenchService implements cn.iocoder.yudao.module.franchise.ap
         if(engineering || !"manual".equals(source.get("source_type"))
                 || sourceRef!=null && !String.valueOf(sourceRef).isBlank()
                 || "已作废".equals(source.get("status")))throw exception(FIN_SOURCE_FORBIDDEN);
+        // Verify exactly what was displayed when the form opened, while the original payable is locked.
+        String actualScope=Objects.toString(source.get("project_id"),"")+":"+Objects.toString(source.get("book_id"),"");
+        // Older clients can still assign a genuinely unassigned expense, but cannot overwrite an existing scope.
+        if(!actualScope.equals(Objects.toString(cmd.expectedScope(),":")))throw exception(STATE_VERSION_CONFLICT);
         jdbc.update("UPDATE fr_fin_payable SET book_id=?,project_id=? WHERE company_id=? AND (id=? OR (source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.bookId(),s.projectId(),post.orgId(),id,id,post.orgId());
         jdbc.update("UPDATE fr_fin_payment SET project_id=? WHERE company_id=? AND payable_id IN(SELECT id FROM fr_fin_payable WHERE id=? OR (company_id=? AND source_type='reimbursement' AND source_ref IN(SELECT id::text FROM fr_fin_payment WHERE payable_id=? AND company_id=?)))",s.projectId(),post.orgId(),id,post.orgId(),id,post.orgId());
         // Carry the original employee recovery only if it still belongs to the expense's old scope.
