@@ -196,6 +196,9 @@ public class CommissionService implements DesignFeeProgressApi {
         String action = CommissionSimulatedPayments.HISTORICAL_REVIEW_COMMAND;
         if (replayed(actor, key, input, commissionId, action)) return;
         settlement.ensureInitialPayable(commissionId, command.submissionVersion(), actor);
+        // Historical legacy-split orders must enter the same two-stage ledger as live fees.
+        // The adapter is a no-op for AREA_FULL and creates FIRST/TAIL atomically for LEGACY_SPLIT.
+        settlement.ensureTailPayable(commissionId, command.submissionVersion(), actor);
         // The payable's stage lock also serializes the review event for this version.
         if (!simulatedPayments.reviewedForSettlement(commission)) {
             commands.record(actor,CommissionSimulatedPayments.HISTORICAL_REVIEW_AGGREGATE,commissionId,
