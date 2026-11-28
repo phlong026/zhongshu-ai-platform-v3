@@ -460,7 +460,8 @@ Page({
    if(announcement)return wx.reLaunch({url:announcement,fail:()=>wx.showToast({title:'公告打开失败，请重试',icon:'none'})});
    const allowedService = post.orgType==='store' && ['/pages/account/index?view=services','/pages/account/index?view=selection',trainingRoot+'?entry=academy'].includes(destination);
    const allowedMap = destination===storeMap && (post.orgType==='store'||require('../../utils/store-map-access').canViewAllStores(post));
-   if (allowedService || allowedMap || destination===trainingRoot) return wx.reLaunch({url:destination,fail:()=>openApiHome(post)});
+   const allowedEngineering = post.orgType==='store' && /^\/pages\/build\/(?:projects|record)\/index(?:\?[^#\s]*)?$/.test(destination);
+   if (allowedService || allowedMap || allowedEngineering || destination===trainingRoot) return wx.reLaunch({url:destination,fail:()=>openApiHome(post)});
   }
   return openApiHome(post);
  },
