@@ -113,7 +113,7 @@ test('自动PR和push仍冻结各自提交，不接受手动前端版本覆盖',
 
 test('配对入口继续复用固定后端工作流与只读仓库权限', () => {
   const source = pairedWorkflow();
-  const executor = '6ac765aca82833dc22d5e82815b708a0928ec997';
+  const executor = 'b541e8721d704c977a7662fd5037aa92163b3ca8';
   assert.ok(source.includes('uses: phlong026/zhongshu-ai-platform-v3/.github/workflows/paired-release.yml@' + executor));
   assert.ok(source.includes('executor_sha: ' + executor));
   assert.match(source, /permissions:\n  contents: read/);
