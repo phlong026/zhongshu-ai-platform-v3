@@ -92,6 +92,16 @@ function candidates(input) {
     if (bookId) booksById.set(bookId, row);
   });
 
+  // A preliminary book that already supplied another contract is not a source for this contract.
+  // Match the stored allocation reference; an unallocated receipt cannot carry that reference.
+  const booksUsedByAnotherContract = new Set();
+  receipts.forEach(receipt => {
+    const bookId = id(field(receipt, 'bookId', 'book_id'));
+    const sourceRef = String(field(receipt, 'sourceRef', 'source_ref') || '');
+    const allocation = /^sale-allocation:([0-9]+):[0-9]+:[0-9]+$/.exec(sourceRef);
+    if (bookId && allocation && allocation[1] !== contractId) booksUsedByAnotherContract.add(bookId);
+  });
+
   const items = [];
   receipts.forEach(receipt => {
     const receiptId = id(field(receipt, 'id', 'id'));
@@ -120,6 +130,7 @@ function candidates(input) {
 
     let sourceBook = null;
     if (bookId) {
+      if (booksUsedByAnotherContract.has(bookId)) return;
       sourceBook = booksById.get(bookId);
       if (!sourceBook || (!isProject(sourceBook) && !isBook(sourceBook))) return;
       const bookCustomerId = id(field(sourceBook, 'customerId', 'customer_id'));
