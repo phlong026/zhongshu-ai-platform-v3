@@ -115,13 +115,13 @@
 | 编号与级别 | 问题现状 | 类别及当前状态 | 任务 | 依据 |
 | --- | --- | --- | --- | --- |
 | BIZ-I01 · P1 | 流失 暂缓 恢复无法提交。状态弹层调用不存在的 API 方法，在发出HTTP前报错，业务员无法完成三类操作。 | 已确认功能缺陷；已复现 待整改 | BIZ-T01、BIZ-T18 | [BIZ-SRC01](#biz-src01)、[BIZ-SRC02](#biz-src02)、[BIZ-SRC34](#biz-src34)；真实模块复现TypeError，networkCalls=[]。 |
-| BIZ-I02 · P1 | 旧接口仍可新建LEGACY委托。当前主线旧提交端点仍可创建LEGACY委托及旧审批/应付。#317最新head已恢复旧Controller端点，当前净改动只收敛LEGACY待办并调整测试，服务端封新仍未完成。后续停写需核对不可转换旧单、历史结算及allowedActions，不能以待办消失结项。 | 已确认退役缺口；待整改；延续#317，不重复立项 | BIZ-T13、BIZ-T12、BIZ-T18 | [BIZ-SRC06](#biz-src06)、[BIZ-SRC07](#biz-src07)、[BIZ-SRC45](#biz-src45)、[BIZ-SRC46](#biz-src46)、[BIZ-SRC50](#biz-src50) |
+| BIZ-I02 · P1 | 旧 LEGACY 委托新增写入曾开放。#342 已将旧提交、费用审批、设计完成/下发、修改反馈和模拟收款命令收敛为原幂等键精确回读或拒绝新写；历史原单、历史结算及受限移交继续保留。#413/#418 补齐历史分期应付与只读盘点。 | 新 LEGACY 写入代码缺口已修复；生产历史存量逐笔核对与目标环境验收待执行 | BIZ-T13、BIZ-T12、BIZ-T18 | [#342](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/342)、[#343](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/343)、[#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) |
 | BIZ-I03 · P1 | 外部委托漏入首页统计和待移交数。老板委托数与业务待移交提醒不完整；同一原单在待办与首页口径冲突。 | 已确认跨模块缺陷；源码确认 待整改 | BIZ-T03、BIZ-T18 | [BIZ-SRC04](#biz-src04)、[BIZ-SRC05](#biz-src05)；旧commissions只读submission v1，handover遗漏EXTERNAL_READY。 |
 | BIZ-I04 · P2 | 项目员工往来遗漏早期未结垫付。项目员工往来与办理入口漏项；原单、全局报销与账本汇总没有被证明丢失或算错。 | 已确认功能缺陷；已复现 待整改 | BIZ-T04、BIZ-T18 | [BIZ-SRC08](#biz-src08)、[BIZ-SRC09](#biz-src09)；真实updateBookEmployees复现全局1笔10000分、项目0笔。 |
 | BIZ-I05 · P2 | 同名同团队转交可能选错员工。选择第二个候选人却提交第一个人的userId，客户归属与用户选择不一致。 | 已确认功能缺陷；已复现 待整改 | BIZ-T02、BIZ-T18 | [BIZ-SRC03](#biz-src03)；真实handler及transferPayload复现期望202、实际101。 |
 | BIZ-I06 · P2 | 查看预算资料打开新建报价表单。预算source_id和版本丢失；参考预算与正式销售报价入口混淆。 | 已确认原单路由缺陷；源码确认 待整改 | BIZ-T05、BIZ-T18 | [BIZ-SRC10](#biz-src10)、[BIZ-SRC11](#biz-src11)、[BIZ-SRC12](#biz-src12)、[BIZ-SRC35](#biz-src35)；路由只有customerId，落点为报价创建表单，提交时才执行quotes.create；点击资料本身不新增报价。 |
 | BIZ-I07 · P2 | 空讲解草稿会被列为已到店。客户列表把尚无实际接待日期的草稿视为已到店，与首页实际接待条件不一致。 | 已确认业务口径缺陷；源码确认 待整改 | BIZ-T06、BIZ-T18 | [BIZ-SRC13](#biz-src13)、[BIZ-SRC14](#biz-src14)、[BIZ-SRC04](#biz-src04)；列表仅检查行存在，首页要求实际发生日期。 |
-| BIZ-I08 · P2 | 旧方案保存同键重试误报冲突。旧写接口首次成功后同键同请求被误判键复用；新内部预算链不因此失效。 | 已确认兼容接口缺陷；源码确认 待整改 | BIZ-T07、BIZ-T15 | [BIZ-SRC12](#biz-src12)、[BIZ-SRC16](#biz-src16)；校验完整command，记录仅kind/version；当前新UI无此写调用。 |
+| BIZ-I08 · P2 | 旧手工方案保存同键重试曾误报键复用。#361 已将旧 HTTP 写入口改为只读恢复完全匹配的原命令回执；#362 删除当前小程序无消费者的旧 saveScheme 写封装，保留免费预算、灵感引用和历史读取。 | 代码缺陷已修复；旧客户端零调用与支持截止仍由 BIZ-T15 管理 | BIZ-T07、BIZ-T15 | [#361](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/361)、[#362](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/362) |
 | BIZ-I09 · P2 | 工程计划重试缺项目归属校验。A项目成功键可让B相同计划请求假成功但未保存B；正常端随机键降低触发率。 | 已确认幂等契约缺陷；源码确认 待整改 | BIZ-T08、BIZ-T18 | [BIZ-SRC15](#biz-src15)、[BIZ-SRC16](#biz-src16)；计划载荷仅nodes，重放直接返回B视图。实际开工已校验项目。 |
 | BIZ-I10 · P2 | 再次咨询日期规则与实现冲突。代码把未来预约改今天、保留逾期日期；局部注释描述相反，最终业务口径需明确。 | 规则冲突；待统一规则 | BIZ-T09、BIZ-T16 | [BIZ-SRC14](#biz-src14):292–329；现有集成测试只覆盖空日期。 |
 | BIZ-I11 · P2 | 第七步显示名未按用户指定统一。用户指定合同签约，当前前后端与11月26日路线图显示施工签约。 | 需求版本差异；待统一显示口径 | BIZ-T10、BIZ-T16 | [BIZ-SRC17](#biz-src17)、[BIZ-SRC21](#biz-src21)；原用户报告与本次确认采用合同签约。 |
@@ -129,7 +129,7 @@
 | BIZ-I13 · P2 | 设计岗位退役代码已合并，存量与发布收尾未闭环。#314/#315已合并，三岗目录、继承及迁移已有实现；还需核对在途单承接、旧会话失权、迁移与恢复。不能重复开发已经合并的退役功能。 | 岗位退役遗留；代码部分已合并；剩余待整改和环境验收 | BIZ-T12、BIZ-T13 | [BIZ-SRC20](#biz-src20)、[BIZ-SRC41](#biz-src41)、[BIZ-SRC42](#biz-src42)、[BIZ-SRC45](#biz-src45) |
 | BIZ-I14 · P2 | 不可达旧页面 死方法 兼容写口缺退出清单。旧AI/demo模板、旧模型共享函数、旧催办及跟进兼容仍混在活跃代码中。 | 代码清理遗留；待分批清理 | BIZ-T14、BIZ-T15 | [BIZ-SRC03](#biz-src03)、[BIZ-SRC12](#biz-src12)、[BIZ-SRC15](#biz-src15)、[BIZ-SRC20](#biz-src20)、[BIZ-SRC32](#biz-src32)；listWritableWithBudget、stageConfirmed无生产调用。 |
 | BIZ-I15 · P3 | 现行文档仍描述AI设计和预算扣点。开发和验收可能继续按已取消能力或旧计费规则判断。 | 文档技术债；待更新 | BIZ-T16 | [BIZ-SRC21](#biz-src21)、[BIZ-SRC22](#biz-src22)–[BIZ-SRC26](#biz-src26)；新预算budget-free-v1已免积分，内容克隆仍使用积分。 |
-| BIZ-R01 · P2待验证 | 两类附件分批锁定可能反序死锁。双客户同时反向绑定未归属资产A/B时可能形成锁环；尚未运行PG复现。 | 并发风险；待并发验证 | BIZ-T17 | [BIZ-SRC14](#biz-src14):123–125、[BIZ-SRC30](#biz-src30):69–123。 |
+| BIZ-R01 · P2 | 普通附件与专用设计槽位分批加锁曾在真实 PostgreSQL 复现反向锁死。#392 已把同次保存的全部资产 ID 合并、去重、统一升序加锁，并用显式 advisory lock 阻塞/排队测试复现与验证修复。 | 死锁代码风险已修复；A60/A62 已由 #392 覆盖；A61 同客户复用与同键并发回归由 #421 补齐中 | BIZ-T17 | [#392](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/392)、[#421](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/421) |
 | BIZ-R02 · P1恢复门槛 | 原退役岗位恢复脚本曾以固定角色种子恢复，存在跨租户/主键冲突风险；已由 #331 改为从已核验退役前备份恢复原 ID、tenant_id、菜单与用户绑定，缺备份或身份冲突整组拒绝。未发现生产回滚故障证据。 | 代码风险已修复；隔离 PostgreSQL 恢复矩阵通过；真实目标环境备份与恢复仍待验 | BIZ-T12 | 历史风险见 [BIZ-SRC33](#biz-src33)；修复与测试见 [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) |
 | BIZ-R03 · 验收门槛 | 生产版本映射和全岗位真机验收未形成证据。已确认精确配对CI通过，但不能替代目标环境发布回执、真实岗位和存量数据验收。 | 环境证据缺口；待补验收证据 | BIZ-T18 | 前端CI45934075775、后端CI45936429760、配对45936429711日志绑定两个冻结SHA。 |
 | BIZ-I16 · P2 | 仅剩开工待办时误显示全部完成。真实工作区handler收到currentStepCode=START、nextStepCode=null、completedCount=7时，显示7/8却提示“下一步 全部完成”。客户列表已有当前步骤和x/8，但移交子状态散落在下钻页。 | 已复现显示缺陷及投影不一致；已复现；待最小修复 | BIZ-T19、BIZ-T18 | [BIZ-SRC47](#biz-src47)、[BIZ-SRC48](#biz-src48)、[BIZ-SRC29](#biz-src29) |
@@ -232,7 +232,7 @@
 <a id="biz-t07"></a>
 #### BIZ-T07 旧方案写入口幂等修复与退出
 
-- **现状与范围：** BIZ-I08；CRM schemes控制器服务和前端无引用包装。状态：待核对支持范围后最小整改。
+- **现状与范围：** BIZ-I08；#361/#362 已关闭旧方案新写并删除无消费者的前端写封装。剩余只核对旧客户端支持截止与零调用窗口，不重复开发方案写入链。
 - **整改方案：** 先按实际旧端版本和调用证据判断是否仍需支持。支持期内在原接口统一operation/customerId/fullrequest及历史重放；已满足退出条件则直接关闭旧写口、保留历史读取，不为已退出入口另补一套写实现。
 - **最小改动边界：** 先判断旧写口是否仍在支持期；需要支持才修复重放，否则按已有退出方式停写，避免同时维护两套写模型。
 - **完成标准：** 仍需支持时：同对象同键只一个版本，跨对象或异体复用键拒绝；可退出时：旧请求不产生新写，原结果通过授权历史入口可查。两种路径均保证saveSchemeInternal和免费预算正常，并记录选择依据。
@@ -292,11 +292,11 @@
 <a id="biz-t13"></a>
 #### BIZ-T13 关闭新LEGACY并处置在途单
 
-- **现状与范围：** BIZ-I02、BIZ-I13；旧Commission提交 外部转换 财务与工程交接。状态：待整改；既有PR进行中。
-- **整改方案：** #317当前只删LEGACY待办，旧写端点已恢复，继续在该任务内补服务端禁止新LEGACY。停写前核对旧单状态、原动作、历史结算复核和转换前置。convert-legacy不接收HANDOVER_SUBMITTED/ACCEPTED，不能把“全部转换”当退出方案；需接收的单保留受限原单承接，已接收单保留原工程/历史。后续退出端点须保持历史结算前置可办，并同步allowedActions和入口。
-- **最小改动边界：** 继续评审#317，只封旧新增、衔接存量及收敛旧动作；不引入新的委托模式。
-- **完成标准：** 旧端不能新增LEGACY及由新LEGACY衍生的审批/应付；外部注册正常。存量真实费用和必要历史结算沿既有授权收尾；待处理旧单有实际可执行路径，已接收不重建工程。历史结算前置有办理或已核实完成证据；收付、退款、附件、审计完整，无无人可办待办。
-- **关联与顺序：** 无。已有工作：#317进行中；当前只收敛旧待办，须补服务端封新和存量承接。
+- **现状与范围：** BIZ-I02、BIZ-I13；#342/#343 已关闭新 LEGACY 写入并保留历史原单承接；#413/#418 补齐历史结算分期应付和只读盘点。状态：代码已完成，生产存量与目标环境验收待执行。
+- **整改方案：** #342/#343 已关闭旧 LEGACY 新写；旧 Controller 仅为历史成功命令提供精确幂等回读，不能创建新委托、审批、设计推进或模拟支付。#413 在历史财务审核时按冻结提交版本创建正式 FULL 或 FIRST/TAIL 应付，#418 的只读审计覆盖未分类历史订单。convert-legacy 不接收 HANDOVER_SUBMITTED/ACCEPTED；不可转换单保留受限原单承接，已接收单保留原工程/历史。
+- **最小改动边界：** 不再重复封新写或新增委托模式；只处理经生产盘点确认的历史存量、结算复核和在途承接。
+- **完成标准：** 服务端禁止任何新 LEGACY 委托和衍生审批/应付；原幂等键只能回读既有成功结果。历史正式结算按原提交版本和 FULL/FIRST/TAIL 核算，真实付款/核收仍由财务线下登记；历史移交退回/接收保留原工程、凭证与审计。生产历史存量逐笔核对后，无缺应付、重复入账、悬空待办或未经复核的自动迁移。
+- **关联与顺序：** 代码 PR 已完成：#342/#343/#413/#418；剩余为生产数据审计、真实历史合同凭证核对及目标环境业务验收。
 - **验收清单：** BIZ-A46、BIZ-A47、BIZ-A48、BIZ-A49。
 
 <a id="biz-t14"></a>
@@ -332,10 +332,10 @@
 <a id="biz-t17"></a>
 #### BIZ-T17 验证附件锁顺序并按证据修复
 
-- **现状与范围：** BIZ-R01；Workflow资产绑定与专用槽位。状态：待验证；确认风险后再修复。
-- **整改方案：** 用真实PG双事务复现A/B交叉绑定；若确认锁环，统一收集所有ID排序加锁再做分类验证；若不能触发记录反证不盲改。
-- **最小改动边界：** 先用已有PG测试基座证明锁风险，确认后才做统一锁顺序的局部修复。
-- **完成标准：** 反序并发不产生500/死锁；最多一个客户占有资产，另一个明确业务冲突；同客户合法重试与已授权历史下载正常；保留测试日志。
+- **现状与范围：** BIZ-R01；Workflow 资产绑定与专用槽位。#392 已完成真实 PostgreSQL 死锁复现和统一锁序修复；A61 的同客户同键重试/跨步骤重复引用专项由 #421 补测。
+- **整改方案：** 复用 #392 已合并的统一资产 ID 排序加锁，不重复修改锁逻辑；用 #421 补齐同一客户跨步骤复用、同一原键并发重试和单次写入证据。
+- **最小改动边界：** 不再重写 #392 的资产锁策略；只补 BIZ-A61 缺少的业务级并发回归。
+- **完成标准：** A60 反序附件/槽位锁定与 A62 历史下载/撤权由 #392 的真实 PostgreSQL 用例通过；A61 同客户同键重试只写一条 SAVE 事件，同一资产跨步骤复用成功，跨客户仍明确拒绝；不得产生死锁或部分写入。
 - **关联与顺序：** 无。已有工作：无。
 - **验收清单：** BIZ-A60、BIZ-A61、BIZ-A62。
 
@@ -702,9 +702,9 @@
 
 | 编号及任务 | 场景与操作 | 验收通过标准 | 必要证据 | 结果 |
 | --- | --- | --- | --- | --- |
-| BIZ-A60 / BIZ-T17 | 双客户反序绑定：真实PG双事务分别普通A+槽位B和普通B+槽位A。 | 无死锁500；资产最终只归合法客户，另一请求明确业务冲突。 | 并发测试源码、PG日志、资产归属和事务结果 | □ 未执行 |
-| BIZ-A61 / BIZ-T17 | 同客户重试与重复引用：同客户多处引用同一资产，并发原key重试。 | 合法重复引用不误拒；只一次业务写；锁集合稳定。 | 请求响应、原单/事件数量及页面结果 | □ 未执行 |
-| BIZ-A62 / BIZ-T17 | 历史附件和失权：授权读取历史DESIGN_REFERENCE后撤权再下载。 | 历史合法可读；撤权后重新校验并拒绝越权。 | 请求响应、原单/事件数量及页面结果 | □ 未执行 |
+| BIZ-A60 / BIZ-T17 | 双客户反序绑定：真实 PG 双事务分别普通 A+槽位 B 和普通 B+槽位 A。 | #392 使用显式 advisory lock 阻塞两个反序请求，释放后恰好一个成功、一个业务拒绝，无死锁。 | CustomerWorkflowAssetPgIntegrationTest：reversedAttachmentAndDesignSlotAcquireOneOrderAndRejectTheOtherCustomer | ☑ #392 通过 |
+| BIZ-A61 / BIZ-T17 | 同客户重试与重复引用：同客户多处引用同一资产，并发原 key 重试。 | 合法重复引用不误拒；同键并发返回同一原结果；仅一条步骤和一条 SAVE 事件。 | PR #421 PostgreSQL 集成测试 | ⏳ PR #421 CI/专项评审中 |
+| BIZ-A62 / BIZ-T17 | 历史附件和失权：授权读取历史 DESIGN_REFERENCE 后撤权再下载。 | 原客户合法读取；转交客户后旧 token/下载链接拒绝；对象读取过程中发生转交仍二次校验。 | CustomerWorkflowAssetPgIntegrationTest：replacingAttachmentRetainsHistoricalDownloadAndCustomerOwnership、customerTransferRevokesPreviouslyIssuedTicketAndTheOriginalUploader、transferDuringObjectReadIsCheckedAgainBeforeReturningPrivateBytes | ☑ #392 通过 |
 
 #### 跨岗位整体交付
 
@@ -951,7 +951,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | BIZ-Txx / ENG-Exx | 待分配 | 待整改 | 按实际填写 | 按实际填写 | 评审人及结论 | 结果、执行人、环境/时间及链接 | 无 / 具体缺口 |
 | BIZ-T12既有实现 | 沿用既有PR | 岗位退役与恢复代码已合并；目标环境收尾待验 | [#315](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/315) / 2c76fe2284ff6e4746baa4e473799ade861efec0 | [#314](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/314) / 7fd7fdec669916a671aca05bd65e18b81361dc69；恢复修复 [#331](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/331) / abc0b15612d1b5ec24c427824513e313f6072267 | DesignPostRetirementPgIntegrationTest 覆盖两种迁移入口、多租户真实 ID、绑定、重复恢复及冲突拒绝；隔离 PG 通过 | 退役前备份与目标环境恢复、旧会话失权、在途单承接仍待环境验收 |
-| BIZ-T13既有工作 | 沿用既有PR | 进行中；目前仅旧待办收敛 | 按需要配对 | [#317](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/317) / 96a5980cc3c50474f00ab1c45a6d6cb9634a8794（核查head） | 服务端封新、存量不可转换状态及历史结算前置待收口 | BIZ-A46—A49未执行 | 旧写端点保留；尚未合并，不能记已修复 |
+| BIZ-T13既有工作 | 沿用既有PR | 新 LEGACY 写入与历史结算代码已合并；生产存量待盘点 | 按需要配对 | [#342](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/342)、[#343](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/343)、[#413](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/413)、[#418](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/418) | 新写已关闭；历史 FIRST/TAIL 应付和只读审计已实现 | 隔离 PG 回归通过；BIZ-A48/A49生产状态清册仍待真实数据/环境证据 | 不再新增 LEGACY；生产历史逐笔核对未完成 |
 | BIZ-T16 | 文档任务分支 | 本地修订；待专项评审与合并 | 本提交，最终PR/SHA按合并回执补充 | 无实现代码修改 | 待独立评审 | BIZ-A58/A59：见8.5节；原93项验收状态不代勾 | 全轮最终SHA、CI、配对/目标环境与真机证据由BIZ-T18追加 |
 
 ### 8.4 本次文档交付边界
@@ -1037,7 +1037,7 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 | BIZ-T14 | 不可达旧前端与生产包清理 | 已合并 | [#369](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/369)、[#397](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/397) | 已清理不可达模板、旧工作台及历史 demo 启动路径；本轮 L04 已将仍被历史脚本使用的旧本地写模块移到测试夹具。 |
 | BIZ-T15 | 后端死方法及兼容接口退出 | 死方法已合并，兼容退役未关闭 | [#393](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/393) | 删除无生产调用的 listWritableWithBudget、selectCustomerIdsWithBudget、stageConfirmed；47 项 PG 通过。保留的兼容接口尚未取得旧端退出、支持截止版本和实际零调用证据。 |
 | BIZ-T16 | 现行文档口径与本轮台账 | 现行口径已合并，本次文档修订及回执见对应PR | [#366](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/366)、[#286](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/286) | 免费新预算、内容积分、历史付费恢复和八步/工程边界沿既有规则；本次在原 PR286 更新实际状态。 |
-| BIZ-T17 | 普通附件与设计槽位锁顺序 | 已合并 | [#392](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/392) | 真实 PG 已复现两客户反向绑定 A/B 的死锁；所有资产 ID 合并排序后锁定，4 项 PG 通过、0 跳过。 |
+| BIZ-T17 | 普通附件与设计槽位锁顺序 | 锁序修复已合并；A61补充回归进行中 | [#392](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/392)、[#421](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/421) | #392 真实 PG 已复现并修复反向锁环，A60/A62 已覆盖；#421 补同客户同键重试与跨步骤复用。 |
 | BIZ-T18 | 联合验证与目标环境 | 自动化门槛已合并，最终组合与环境分别登记 | [#398](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/398)、[#399](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/399) | 既有双主线 CI 与配对检查已通过；本轮进一步把原生工程申报→财务确认用例纳入固定配对执行。真实历史数据、部署回执和真机仍另验。 |
 | BIZ-T19 | 客户当前步骤与工程事实 | 已合并 | [#332](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/332)、[#333](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/333)、[#346](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/346)、[#379](https://github.com/phlong026/zhongshu-ai-platform-v3/pull/379) | 同一主工程和移交状态可回看；仅剩 START 时显示待开工，不再把 7/8 误写成全部完成。 |
 
@@ -1110,6 +1110,12 @@ ENG-R01以一份实际存在的固定日期交付后保留款合同核对，结�
 
 本轮未执行生产部署、生产数据库迁移或真实资金操作；既有历史版本的验收记录也不替代当前目标环境验收。ENG-E08/E11 按第1.1节继续排除，不列作本轮代码整改阻断。
 **BIZ-R02 关闭代码风险的专项证据（#331）。** 原始 BIZ-SRC33 是固定到 #314 初始版本的历史快照，不代表当前 undo。#331 已合并 DesignPostRetirementCompatibility、1211 兼容迁移及两份基于临时备份表的 undo；DesignPostRetirementPgIntegrationTest 使用真实 PostgreSQL 17，覆盖单租户/多租户、真实自定义 ID、固定旧 ID 被其他岗位占用、重复恢复、缺失备份、跨租户绑定、角色/菜单冲突、回滚原子性及已撤任职不复活。PR #331 的 Backend CI 和配对发布验证均通过。目标环境真实备份和恢复仍未执行，因此只关闭代码风险，不关闭 BIZ-T12 环境验收。
+**BIZ-T15 当前兼容写口清单（静态代码核查，2026-11-28）。**
+- POST /franchise/customers/{id}/follows 仍由 CustomerService.follow 写入旧跟进记录；当前小程序 crm.js 明确不再调用旧 /follows，客户跟进改走八步 workflow，但不能据此推断所有已安装旧客户端均已退出。
+- POST /franchise/design-policies 仍允许门店老板创建新的设计费政策版本；当前小程序只封装 current 读取，没有 save 写包装。
+- POST /franchise/design-pricing-policies 仍保留写入口，服务端限制总部旧 design-admin 身份；当前小程序只封装 current 读取，没有 save 写包装。
+- /franchise/customers/{id}/schemes 已由 #361 改为精确原回执只读恢复；旧小程序写封装由 #362 删除。旧 Commission 写命令由 #342 变为精确回读/拒绝新写。
+- 因旧客户端退出窗口和网关零调用日志尚未取得，暂不删除 /follows、design-policies POST、design-pricing-policies POST。BIZ-T15 先保留兼容写口，需确认旧版本支持截止和观测窗口；同时由业务确认门店是否仍需维护设计费政策。
 #### 8.7.6 2026-11-28 财务后续合并与当前执行边界
 
 本节更新至 2026-11-28 当前两条主线：小程序 main=9ad1229285d6d5d016c1cc8b52a297c5709909d2，后端 backend-main=0eb974b96a82936be99030bc5a8b78b004da98a1。两条主线独立推进，不能将其中一条的 CI 结果替代另一条。
