@@ -165,7 +165,7 @@ module.exports = function (page, api) {
     const currentBook=(this.data.workbenchBooks||[]).find(row=>row.scope===currentScope);
     this.wbKey=api.idemKey('assign-book');
     this.setData({wbForm:{type:'assignbook',payableId:id,name:currentScope?'更正手工费用归属':'补充手工费用归属',
-      scope:currentScope,scopeLabel:currentBook?.name||'',isCorrection:!!currentScope,originalScopeLabel:currentBook?.name||'未关联项目'},wbError:''});
+      scope:currentScope,scopeLabel:currentBook?.name||'',isCorrection:!!currentScope,originalScopeLabel:currentBook?.name||'未关联项目',expectedScope:projectId+':'+bookId},wbError:''});
   };
   page.openContractChange=function(e){
     if(this.data.wbBusy||this.data.busy||this.__disposed)return;
@@ -254,7 +254,7 @@ module.exports = function (page, api) {
           const amount=Money.toCents(f.amount);if(!amount||!f.accountName||!f.date)throw Error('请填写归还金额、账户及实际日期');
           body={amountCents:amount,date:f.date,accountName:f.accountName,transactionNo:f.transactionNo||undefined};endpoint=base+'/reimbursements/'+encodeURIComponent(f.payableId)+'/recover';
         }else if(f.type==='assignbook'){
-          if(!f.scope||!f.reason)throw Error('请选择账本并填写依据');body={scope:f.scope,reason:f.reason};endpoint=base+'/payables/'+encodeURIComponent(f.payableId)+'/assign';
+          if(!f.scope||!f.reason)throw Error('请选择账本并填写依据');body={scope:f.scope,reason:f.reason,expectedScope:f.expectedScope};endpoint=base+'/payables/'+encodeURIComponent(f.payableId)+'/assign';
         }else{
           if(!(f.scope||'').startsWith('project:'))throw Error('请选择已有工程项目');
           body={customerId:f.customerId,commissionId:f.commissionId||undefined};endpoint=base+'/books/'+encodeURIComponent(f.bookId)+'/project/'+encodeURIComponent(f.scope.slice(8));
@@ -291,7 +291,10 @@ module.exports = function (page, api) {
       this.setData({ wbForm: null }); this.loadWorkbench(); this.loadPlatformFinance(true);
       if (this.data.view === 'book') this.loadBookLedger();if(this.data.view==='projects')this.loadFinanceProjects();
       wx.showToast({ title: ['payment','expense'].includes(f.type) ? '付款登记完成' : '已登记' });wx.pageScrollTo({scrollTop:0,duration:0});if(this.refreshFinanceTasks)this.refreshFinanceTasks();
-    } catch (e) { if (alive()) this.setData({ wbError: e.message || e.msg || '登记失败，请重试' }); }
+    } catch (e) {
+      if (alive()) this.setData({ wbError: f.type==='assignbook'&&Number(e.code)===1099000001
+        ? '这笔费用的归属已变化，请关闭表单，刷新后核对原单再修改' : e.message || e.msg || '登记失败，请重试' });
+    }
     finally { if (alive()) this.setData({ wbBusy: false }); }
   };
   page.reimburseEmployee = function (e) {
